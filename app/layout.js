@@ -23,7 +23,7 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
+      <body className="bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100 antialiased">
         <ThemeProvider>
           {children}
         </ThemeProvider>

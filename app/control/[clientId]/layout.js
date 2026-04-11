@@ -47,7 +47,7 @@ export default function ClientLayout({ children }) {
     <div className="flex min-h-screen">
 
       {/* Sidebar */}
-      <aside className="w-60 bg-gray-900 dark:bg-gray-950 flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800">
+      <aside className="w-60 bg-gray-900 dark:bg-[#161b27] flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800 dark:border-gray-700/50">
 
         {/* Logo */}
         <div className="px-5 py-5 border-b border-gray-800">
@@ -118,7 +118,7 @@ export default function ClientLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-60 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <main className="flex-1 ml-60 bg-gray-50 dark:bg-[#0f1117] min-h-screen">
         {children}
       </main>
     </div>

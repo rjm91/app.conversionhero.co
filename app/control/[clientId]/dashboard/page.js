@@ -48,7 +48,7 @@ export default function DashboardPage() {
           <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">{client?.name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/50 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
             <span className="text-gray-400 dark:text-gray-500 text-xs">From</span>
             <input
               type="date"
@@ -57,7 +57,7 @@ export default function DashboardPage() {
               className="text-gray-700 dark:bg-gray-800 dark:text-gray-100 outline-none text-sm"
             />
           </div>
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/50 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
             <span className="text-gray-400 dark:text-gray-500 text-xs">To</span>
             <input
               type="date"
@@ -80,7 +80,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Bar Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-6">
+      <div className="bg-white dark:bg-gray-800/80 rounded-xl border border-gray-100 dark:border-gray-700/50 shadow-sm dark:shadow-none p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-white">Leads Over Time</h2>
