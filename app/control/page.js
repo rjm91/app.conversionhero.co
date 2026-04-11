@@ -3,17 +3,22 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { clients } from '../lib/mockData'
+import { supabase } from '../../lib/supabase'
 
 const industryEmoji = {
   HVAC: '❄️',
   Roofing: '🏠',
   Solar: '☀️',
+  Funeral: '🕊️',
+  Restaurant: '🍽️',
+  Other: '📊',
 }
 
 export default function ControlPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
@@ -24,12 +29,30 @@ export default function ControlPage() {
     setUser(JSON.parse(stored))
   }, [router])
 
+  useEffect(() => {
+    async function fetchClients() {
+      const { data, error } = await supabase
+        .from('client')
+        .select('*')
+        .eq('status', 'Active')
+        .order('client_name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching clients:', error)
+      } else {
+        setClients(data)
+      }
+      setLoading(false)
+    }
+    fetchClients()
+  }, [])
+
   function handleLogout() {
     localStorage.removeItem('ca_user')
     router.push('/login')
   }
 
-  const totalBudget = clients.reduce((sum, c) => sum + c.monthlyBudget, 0)
+  const industries = [...new Set(clients.map(c => c.industry))].length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,49 +100,59 @@ export default function ControlPage() {
             <p className="text-3xl font-bold text-gray-900">{clients.length}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Total Monthly Budget</p>
-            <p className="text-3xl font-bold text-gray-900">${totalBudget.toLocaleString()}</p>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Industries</p>
+            <p className="text-3xl font-bold text-gray-900">{industries}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Industries</p>
-            <p className="text-3xl font-bold text-gray-900">
-              {[...new Set(clients.map(c => c.industry))].length}
-            </p>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Status</p>
+            <p className="text-3xl font-bold text-green-600">Live</p>
           </div>
         </div>
 
         {/* Client Grid */}
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Your Clients</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {clients.map(client => (
-            <Link
-              key={client.id}
-              href={`/control/${client.id}/dashboard`}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md hover:border-blue-200 transition-all group"
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-xl">
-                  {industryEmoji[client.industry] || '📊'}
-                </div>
-                <span className="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
-                  ● Active
-                </span>
-              </div>
-              <h3 className="font-semibold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
-                {client.name}
-              </h3>
-              <p className="text-sm text-gray-400 mt-0.5">{client.industry} · {client.location}</p>
-              <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
-                <span className="text-xs text-gray-400">
-                  ${client.monthlyBudget.toLocaleString()} / mo
-                </span>
-                <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform inline-block">
-                  View Dashboard →
-                </span>
-              </div>
-            </Link>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Your Clients</p>
+          <Link
+            href="/control/clients"
+            className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition"
+          >
+            Manage All Clients →
+          </Link>
         </div>
+
+        {loading ? (
+          <p className="text-gray-400 text-sm">Loading clients...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {clients.map(client => (
+              <Link
+                key={client.client_id}
+                href={`/control/${client.client_id}/dashboard`}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md hover:border-blue-200 transition-all group"
+              >
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-xl">
+                    {industryEmoji[client.industry] || '📊'}
+                  </div>
+                  <span className="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+                    ● {client.status}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
+                  {client.client_name}
+                </h3>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  {client.industry} · {client.city}, {client.state}
+                </p>
+                <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-end">
+                  <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform inline-block">
+                    View Dashboard →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
