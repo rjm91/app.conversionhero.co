@@ -94,7 +94,13 @@ export default function YouTubeAdsPage() {
       const res = await fetch(
         `/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`
       )
-      const json = await res.json()
+      const text = await res.text()
+      let json
+      try {
+        json = JSON.parse(text)
+      } catch {
+        throw new Error(`Route returned HTTP ${res.status} — not JSON. Check Vercel Function logs. Response: ${text.slice(0, 200)}`)
+      }
       if (!json.success) throw new Error(json.error || 'Sync failed')
       await fetchCampaigns(appliedStart, appliedEnd)
     } catch (e) {
