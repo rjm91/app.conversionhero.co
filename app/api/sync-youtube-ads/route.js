@@ -57,7 +57,7 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
     ORDER BY campaign.name
   `
 
-  const versions = ['v19', 'v18', 'v17', 'v20', 'v21', 'v22', 'v16']
+  const versions = ['v20', 'v21', 'v22', 'v19']
   let lastError = ''
 
   for (const version of versions) {
