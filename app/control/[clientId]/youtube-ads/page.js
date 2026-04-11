@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../../../lib/supabase'
 
@@ -28,21 +28,35 @@ const STATUS_OPTIONS = ['All', 'ENABLED', 'PAUSED']
 
 export default function YouTubeAdsPage() {
   const { clientId } = useParams()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
   const defaults = defaultDates()
-  const [startDate,    setStartDate]    = useState(defaults.start)
-  const [endDate,      setEndDate]      = useState(defaults.end)
-  const [appliedStart, setAppliedStart] = useState(defaults.start)
-  const [appliedEnd,   setAppliedEnd]   = useState(defaults.end)
+
+  // Read initial values from URL params, fall back to defaults
+  const initStart  = searchParams.get('start')  || defaults.start
+  const initEnd    = searchParams.get('end')    || defaults.end
+  const initStatus = searchParams.get('status') || 'All'
+
+  const [startDate,    setStartDate]    = useState(initStart)
+  const [endDate,      setEndDate]      = useState(initEnd)
+  const [appliedStart, setAppliedStart] = useState(initStart)
+  const [appliedEnd,   setAppliedEnd]   = useState(initEnd)
 
   const [campaigns,      setCampaigns]      = useState([])
-  const [chAttribution,  setChAttribution]  = useState({}) // utm_campaign_value → lead count
+  const [chAttribution,  setChAttribution]  = useState({})
   const [clientName,     setClientName]     = useState('')
-  const [statusFilter,   setStatusFilter]   = useState('All')
+  const [statusFilter,   setStatusFilter]   = useState(initStatus)
   const [loading,        setLoading]        = useState(true)
   const [syncing,        setSyncing]        = useState(false)
   const [syncedAt,       setSyncedAt]       = useState(null)
   const [error,          setError]          = useState(null)
+
+  // Sync current filter state to URL so it persists on refresh/navigation
+  function updateURL(start, end, status) {
+    const params = new URLSearchParams({ start, end, status })
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   // Fetch client name
   useEffect(() => {
@@ -109,6 +123,12 @@ export default function YouTubeAdsPage() {
   function handleApply() {
     setAppliedStart(startDate)
     setAppliedEnd(endDate)
+    updateURL(startDate, endDate, statusFilter)
+  }
+
+  function handleStatusChange(val) {
+    setStatusFilter(val)
+    updateURL(appliedStart, appliedEnd, val)
   }
 
   async function handleRefresh() {
@@ -217,7 +237,7 @@ export default function YouTubeAdsPage() {
             </button>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              <select value={statusFilter} onChange={e => handleStatusChange(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                 {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
