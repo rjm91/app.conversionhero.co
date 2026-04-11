@@ -37,6 +37,7 @@ async function getAccessToken() {
 }
 
 // Step 2: Query Google Ads API for YouTube campaigns
+// Tries versions from newest to oldest until one works
 async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate) {
   const query = `
     SELECT
@@ -55,25 +56,40 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
     ORDER BY campaign.name
   `
 
-  const res = await fetch(
-    `https://googleads.googleapis.com/v19/customers/${customerId}/googleAds:search`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization':     `Bearer ${accessToken}`,
-        'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-        'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
-        'Content-Type':      'application/json',
-      },
-      body: JSON.stringify({ query }),
-    }
-  )
+  const versions = ['v19', 'v18', 'v17', 'v20', 'v21', 'v22', 'v16']
+  let lastError = ''
 
-  const { ok, status, data, rawText } = await safeJson(res)
-  if (!ok) {
-    throw new Error(`[Step 2 - Google Ads API] HTTP ${status}: ${rawText}`)
+  for (const version of versions) {
+    const res = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization':     `Bearer ${accessToken}`,
+          'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
+          'Content-Type':      'application/json',
+        },
+        body: JSON.stringify({ query }),
+      }
+    )
+
+    const { ok, status, data, rawText } = await safeJson(res)
+
+    if (ok) {
+      console.log(`Google Ads API: using ${version}`)
+      return data.results || []
+    }
+
+    // 404 = version not found, try next. Any other error = real problem, stop.
+    if (status !== 404) {
+      throw new Error(`[Step 2 - Google Ads API ${version}] HTTP ${status}: ${rawText}`)
+    }
+
+    lastError = `HTTP ${status} on ${version}`
   }
-  return data.results || []
+
+  throw new Error(`[Step 2 - Google Ads API] All versions returned 404. Last: ${lastError}. Check developers.google.com/google-ads/api/docs/release-notes for current version.`)
 }
 
 // Step 3: Save campaigns to Supabase
