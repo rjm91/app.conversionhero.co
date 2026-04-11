@@ -146,27 +146,24 @@ export async function GET(request) {
       return Response.json({ success: false, error: 'Missing env vars: ' + missing.join(', ') }, { status: 500 })
     }
 
-    const { data: clients, error: clientError } = await supabase
-      .from('client')
-      .select('client_id')
-      .eq('status', 'Active')
+    // Load active Google Ads accounts from master table (replaces hardcoded map)
+    const { data: adsAccounts, error: adsError } = await supabase
+      .from('client_google_ads_account')
+      .select('client_id, client_name, customer_id, login_customer_id')
+      .eq('is_active', true)
 
-    if (clientError) throw new Error('Failed to fetch clients: ' + JSON.stringify(clientError))
-
-    const customerMap = {
-      'ch013': '7756372893', // Synergy Home
+    if (adsError) throw new Error('Failed to fetch Google Ads accounts: ' + JSON.stringify(adsError))
+    if (!adsAccounts?.length) {
+      return Response.json({ success: true, synced: [], message: 'No active Google Ads accounts found in client_google_ads_account table.' })
     }
 
     const accessToken = await getAccessToken()
     const results = []
 
-    for (const client of clients) {
-      const customerId = customerMap[client.client_id]
-      if (!customerId) continue
-
-      const campaigns = await fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate)
-      await saveCampaigns(client.client_id, customerId, campaigns, startDate, endDate)
-      results.push({ client_id: client.client_id, campaigns: campaigns.length })
+    for (const account of adsAccounts) {
+      const campaigns = await fetchYouTubeCampaigns(accessToken, account.customer_id, startDate, endDate)
+      await saveCampaigns(account.client_id, account.customer_id, campaigns, startDate, endDate)
+      results.push({ client_id: account.client_id, client_name: account.client_name, campaigns: campaigns.length })
     }
 
     return Response.json({
