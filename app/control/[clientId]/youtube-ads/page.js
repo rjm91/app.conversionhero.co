@@ -56,33 +56,20 @@ export default function YouTubeAdsPage() {
 
   // Fetch CH attribution: leads grouped by utm_campaign within date range
   const fetchAttribution = useCallback(async (start, end) => {
-    // Step 1: get lead IDs for this client in date range
+    // utm_campaign is a direct column on client_lead
     const { data: leads } = await supabase
       .from('client_lead')
-      .select('lead_id')
+      .select('utm_campaign')
       .eq('client_id', clientId)
       .gte('created_at', start)
       .lte('created_at', end + 'T23:59:59')
+      .not('utm_campaign', 'is', null)
 
-    if (!leads?.length) {
-      setChAttribution({})
-      return
-    }
-
-    const leadIds = leads.map(l => l.lead_id)
-
-    // Step 2: get utm_campaign meta values for those leads
-    const { data: meta } = await supabase
-      .from('client_lead_meta')
-      .select('lead_id, value')
-      .in('lead_id', leadIds)
-      .eq('key', 'utm_campaign')
-
-    // Step 3: build map of utm_campaign_value → count
+    // Build map of utm_campaign_value → count
     const map = {}
-    if (meta?.length) {
-      for (const row of meta) {
-        const v = (row.value || '').trim()
+    if (leads?.length) {
+      for (const row of leads) {
+        const v = (row.utm_campaign || '').trim()
         if (v) map[v] = (map[v] || 0) + 1
       }
     }
