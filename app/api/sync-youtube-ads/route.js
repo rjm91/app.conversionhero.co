@@ -1,0 +1,145 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
+// Step 1: Get fresh access token using refresh token
+async function getAccessToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.GOOGLE_ADS_CLIENT_ID,
+      client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET,
+      refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN,
+      grant_type:    'refresh_token',
+    }),
+  })
+  const data = await res.json()
+  if (!data.access_token) throw new Error('Failed to get access token: ' + JSON.stringify(data))
+  return data.access_token
+}
+
+// Step 2: Query Google Ads API for YouTube campaigns
+async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate) {
+  const query = `
+    SELECT
+      campaign.id,
+      campaign.name,
+      campaign.status,
+      campaign_budget.amount_micros,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.average_cpc,
+      metrics.conversions,
+      metrics.cost_per_conversion
+    FROM campaign
+    WHERE campaign.advertising_channel_type = 'VIDEO'
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY campaign.name
+  `
+
+  const res = await fetch(
+    `https://googleads.googleapis.com/v16/customers/${customerId}/googleAds:search`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization':           `Bearer ${accessToken}`,
+        'developer-token':         process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+        'login-customer-id':       process.env.GOOGLE_ADS_MANAGER_ID,
+        'Content-Type':            'application/json',
+      },
+      body: JSON.stringify({ query }),
+    }
+  )
+
+  const data = await res.json()
+  if (!res.ok) throw new Error('Google Ads API error: ' + JSON.stringify(data))
+  return data.results || []
+}
+
+// Step 3: Save campaigns to Supabase
+async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate) {
+  // Remove old data for this client + date range first
+  await supabase
+    .from('client_yt_campaigns')
+    .delete()
+    .eq('client_id', clientId)
+    .eq('date_range_start', startDate)
+    .eq('date_range_end', endDate)
+
+  if (campaigns.length === 0) return
+
+  const rows = campaigns.map(row => ({
+    client_id:           clientId,
+    customer_id:         customerId,
+    campaign_id:         row.campaign?.id?.toString() || '',
+    campaign_name:       row.campaign?.name || '',
+    status:              row.campaign?.status || '',
+    budget:              (row.campaignBudget?.amountMicros || 0) / 1_000_000,
+    cost:                (row.metrics?.costMicros || 0) / 1_000_000,
+    clicks:              row.metrics?.clicks || 0,
+    cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
+    conversions:         row.metrics?.conversions || 0,
+    cost_per_conversion: row.metrics?.costPerConversion || 0,
+    date_range_start:    startDate,
+    date_range_end:      endDate,
+    synced_at:           new Date().toISOString(),
+  }))
+
+  const { error } = await supabase.from('client_yt_campaigns').insert(rows)
+  if (error) throw new Error('Supabase insert error: ' + JSON.stringify(error))
+}
+
+// Main handler
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+
+    // Date range — default to last 30 days
+    const endDate   = searchParams.get('end')   || new Date().toISOString().split('T')[0]
+    const startDate = searchParams.get('start') || (() => {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      return d.toISOString().split('T')[0]
+    })()
+
+    // Get all active Google Ads clients from Supabase client table
+    const { data: clients, error: clientError } = await supabase
+      .from('client')
+      .select('client_id')
+      .eq('status', 'Active')
+
+    if (clientError) throw new Error('Failed to fetch clients: ' + JSON.stringify(clientError))
+
+    // For now, map client_id to Google Ads customer_id
+    // This uses the hardcoded mapping — we'll make this dynamic later
+    const customerMap = {
+      'ch013': '7756372893', // Synergy Home
+    }
+
+    const accessToken = await getAccessToken()
+    const results = []
+
+    for (const client of clients) {
+      const customerId = customerMap[client.client_id]
+      if (!customerId) continue // skip clients without Google Ads account
+
+      const campaigns = await fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate)
+      await saveCampaigns(client.client_id, customerId, campaigns, startDate, endDate)
+      results.push({ client_id: client.client_id, campaigns: campaigns.length })
+    }
+
+    return Response.json({
+      success: true,
+      synced: results,
+      date_range: { startDate, endDate }
+    })
+
+  } catch (err) {
+    console.error('Sync error:', err)
+    return Response.json({ success: false, error: err.message }, { status: 500 })
+  }
+}

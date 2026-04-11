@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync-youtube-ads",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

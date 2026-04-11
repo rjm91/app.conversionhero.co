@@ -1,51 +1,130 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useState, useMemo } from 'react'
-import { youtubeData, clients } from '../../../lib/mockData'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { supabase } from '../../../../lib/supabase'
 
 function fmt$(n) {
   if (!n || n === 0) return '$0.00'
-  return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtBudget(n) {
-  return '$' + n.toLocaleString()
+  if (!n || n === 0) return '$0'
+  return '$' + Math.round(Number(n)).toLocaleString()
 }
 
-const STATUS_OPTIONS = ['All', 'Enabled', 'Paused']
+function defaultDates() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 30)
+  return {
+    start: start.toISOString().split('T')[0],
+    end:   end.toISOString().split('T')[0],
+  }
+}
+
+const STATUS_OPTIONS = ['All', 'ENABLED', 'PAUSED']
 
 export default function YouTubeAdsPage() {
   const { clientId } = useParams()
-  const client = clients.find(c => c.id === clientId)
-  const data = youtubeData[clientId] || youtubeData['client001']
 
-  const [startDate, setStartDate] = useState('2026-03-01')
-  const [endDate, setEndDate] = useState('2026-04-04')
-  const [statusFilter, setStatusFilter] = useState('Enabled')
-  const [refreshed, setRefreshed] = useState('just now')
+  const defaults = defaultDates()
+  const [startDate,    setStartDate]    = useState(defaults.start)
+  const [endDate,      setEndDate]      = useState(defaults.end)
+  const [appliedStart, setAppliedStart] = useState(defaults.start)
+  const [appliedEnd,   setAppliedEnd]   = useState(defaults.end)
 
-  function handleRefresh() {
-    setRefreshed('just now')
+  const [campaigns,    setCampaigns]    = useState([])
+  const [clientName,   setClientName]   = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const [loading,      setLoading]      = useState(true)
+  const [syncing,      setSyncing]      = useState(false)
+  const [syncedAt,     setSyncedAt]     = useState(null)
+  const [error,        setError]        = useState(null)
+
+  // Fetch client name
+  useEffect(() => {
+    supabase
+      .from('client')
+      .select('client_name')
+      .eq('client_id', clientId)
+      .single()
+      .then(({ data }) => { if (data) setClientName(data.client_name) })
+  }, [clientId])
+
+  // Fetch campaigns from Supabase
+  const fetchCampaigns = useCallback(async (start, end) => {
+    setLoading(true)
+    setError(null)
+    const { data, error: err } = await supabase
+      .from('client_yt_campaigns')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('date_range_start', start)
+      .eq('date_range_end', end)
+      .order('campaign_name', { ascending: true })
+
+    if (err) {
+      setError('Failed to load campaigns.')
+    } else {
+      setCampaigns(data || [])
+      if (data?.length > 0) {
+        setSyncedAt(data[0].synced_at)
+      }
+    }
+    setLoading(false)
+  }, [clientId])
+
+  useEffect(() => {
+    fetchCampaigns(appliedStart, appliedEnd)
+  }, [fetchCampaigns, appliedStart, appliedEnd])
+
+  // Apply date range
+  function handleApply() {
+    setAppliedStart(startDate)
+    setAppliedEnd(endDate)
   }
 
-  const filtered = useMemo(() => {
-    if (statusFilter === 'All') return data.campaigns
-    return data.campaigns.filter(c => c.status === statusFilter.toLowerCase())
-  }, [data, statusFilter])
+  // Refresh: call sync API then re-fetch
+  async function handleRefresh() {
+    setSyncing(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`
+      )
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error || 'Sync failed')
+      await fetchCampaigns(appliedStart, appliedEnd)
+    } catch (e) {
+      setError('Sync failed: ' + e.message)
+    }
+    setSyncing(false)
+  }
 
-  // Totals row
+  // Filter by status
+  const filtered = useMemo(() => {
+    if (statusFilter === 'All') return campaigns
+    return campaigns.filter(c => c.status === statusFilter)
+  }, [campaigns, statusFilter])
+
+  // Totals
   const totals = useMemo(() => filtered.reduce((acc, row) => ({
-    budget:       acc.budget       + row.budget,
-    cost:         acc.cost         + row.cost,
-    clicks:       acc.clicks       + row.clicks,
-    conv:         acc.conv         + row.conv,
-    chConv:       acc.chConv       + row.chConv,
-  }), { budget: 0, cost: 0, clicks: 0, conv: 0, chConv: 0 }), [filtered])
+    budget:  acc.budget  + (Number(row.budget)  || 0),
+    cost:    acc.cost    + (Number(row.cost)    || 0),
+    clicks:  acc.clicks  + (Number(row.clicks)  || 0),
+    conv:    acc.conv    + (Number(row.conversions) || 0),
+  }), { budget: 0, cost: 0, clicks: 0, conv: 0 }), [filtered])
 
   const totalCpc         = totals.clicks > 0 ? totals.cost / totals.clicks : 0
   const totalCostPerConv = totals.conv   > 0 ? totals.cost / totals.conv   : 0
-  const totalChCost      = totals.chConv > 0 ? totals.cost / totals.chConv : 0
+
+  const syncedLabel = syncing
+    ? 'Syncing…'
+    : syncedAt
+      ? 'Last synced ' + new Date(syncedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : 'Not yet synced'
 
   return (
     <div className="p-8">
@@ -54,9 +133,16 @@ export default function YouTubeAdsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">YouTube Ads</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{client?.name}</p>
+          <p className="text-gray-400 text-sm mt-0.5">{clientName}</p>
         </div>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
       {/* Table Card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -64,21 +150,22 @@ export default function YouTubeAdsPage() {
         {/* Table Controls */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-wrap gap-4">
 
-          {/* Refresh */}
+          {/* Sync status + Refresh */}
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">Refreshed {refreshed}</span>
+            <span className="text-sm text-gray-400">{syncedLabel}</span>
             <button
               onClick={handleRefresh}
-              className="text-sm font-medium border border-gray-200 px-4 py-1.5 rounded-lg hover:bg-gray-50 transition text-gray-600"
+              disabled={syncing}
+              className="text-sm font-medium border border-gray-200 px-4 py-1.5 rounded-lg hover:bg-gray-50 transition text-gray-600 disabled:opacity-50"
             >
-              Refresh
+              {syncing ? 'Syncing…' : 'Sync Now'}
             </button>
           </div>
 
           {/* Filters */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start Date</label>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start</label>
               <input
                 type="date"
                 value={startDate}
@@ -87,7 +174,7 @@ export default function YouTubeAdsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End Date</label>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End</label>
               <input
                 type="date"
                 value={endDate}
@@ -95,109 +182,115 @@ export default function YouTubeAdsPage() {
                 className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <button
+              onClick={handleApply}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm"
+            >
+              Apply
+            </button>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Campaign Status</label>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s}>{s}</option>
-                ))}
+                {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[280px]">
-                  Campaign
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  Budget
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  Cost
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  Clicks
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  CPC
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  Conv.
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  Cost / Conv.
-                </th>
-                {/* CH Attribution columns */}
-                <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 border-l border-blue-100">
-                  Conv. (CH Reported)
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50">
-                  Cost / Conv. (CH Reported)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2.5">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        row.status === 'enabled' ? 'bg-green-500' : 'bg-gray-300'
-                      }`} />
-                      <span className="text-gray-800 font-medium">{row.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right text-gray-600">{fmtBudget(row.budget)}</td>
-                  <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cost)}</td>
-                  <td className="px-4 py-4 text-right text-gray-600">{row.clicks.toLocaleString()}</td>
-                  <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cpc)}</td>
-                  <td className="px-4 py-4 text-right text-gray-600">{row.conv}</td>
-                  <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.costPerConv)}</td>
-                  {/* CH columns */}
-                  <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 border-l border-blue-100">
-                    {row.chConv}
-                  </td>
-                  <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50">
-                    {row.chCostPerConv > 0 ? fmt$(row.chCostPerConv) : '$0.00'}
-                  </td>
+        {loading ? (
+          <div className="text-center py-16 text-gray-400 text-sm">Loading campaigns…</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[280px]">
+                    Campaign
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    Budget / Day
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    Cost
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    Clicks
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    CPC
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    Conv.
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    Cost / Conv.
+                  </th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((row, i) => {
+                  const costPerConv = row.conversions > 0
+                    ? Number(row.cost) / Number(row.conversions)
+                    : 0
+                  return (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'
+                          }`} />
+                          <span className="text-gray-800 font-medium">{row.campaign_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right text-gray-600">{fmtBudget(row.budget)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cost)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600">
+                        {Number(row.clicks || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cpc)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600">
+                        {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                      </td>
+                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(costPerConv)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
 
-            {/* Totals Row */}
-            <tfoot className="border-t-2 border-gray-200 bg-gray-50">
-              <tr>
-                <td className="px-6 py-4 text-sm font-bold text-gray-900">Totals</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{fmtBudget(totals.budget)}</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totals.cost)}</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{totals.clicks.toLocaleString()}</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCpc)}</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{totals.conv}</td>
-                <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCostPerConv)}</td>
-                <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 border-l border-blue-100">
-                  {totals.chConv}
-                </td>
-                <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50">
-                  {fmt$(totalChCost)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              {/* Totals Row */}
+              {filtered.length > 0 && (
+                <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+                  <tr>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">Totals</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmtBudget(totals.budget)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totals.cost)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">{totals.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCpc)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">
+                      {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                    </td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCostPerConv)}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
 
         {/* Empty state */}
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="text-center py-16 text-gray-400">
-            <p className="text-sm">No campaigns match the selected status filter.</p>
+            <svg className="w-10 h-10 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p className="text-sm font-medium text-gray-400">No campaign data for this date range.</p>
+            <p className="text-xs text-gray-300 mt-1">Click <strong>Sync Now</strong> to pull data from Google Ads.</p>
           </div>
         )}
       </div>
