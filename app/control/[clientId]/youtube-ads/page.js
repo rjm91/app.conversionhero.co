@@ -195,50 +195,50 @@ export default function YouTubeAdsPage() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">YouTube Ads</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{clientName}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">YouTube Ads</h1>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">{clientName}</p>
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none overflow-hidden">
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-wrap gap-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">{syncedLabel}</span>
+            <span className="text-sm text-gray-400 dark:text-gray-500">{syncedLabel}</span>
             <button
               onClick={handleRefresh}
               disabled={syncing}
-              className="text-sm font-medium border border-gray-200 px-4 py-1.5 rounded-lg hover:bg-gray-50 transition text-gray-600 disabled:opacity-50"
+              className="text-sm font-medium border border-gray-200 dark:border-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-300 disabled:opacity-50"
             >
               {syncing ? 'Syncing…' : 'Sync Now'}
             </button>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Start</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500" />
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">End</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500" />
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <button onClick={handleApply}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm">
               Apply
             </button>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</label>
               <select value={statusFilter} onChange={e => handleStatusChange(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700">
                 {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
@@ -247,54 +247,54 @@ export default function YouTubeAdsPage() {
 
         {/* Table */}
         {loading ? (
-          <div className="text-center py-16 text-gray-400 text-sm">Loading campaigns…</div>
+          <div className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">Loading campaigns…</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[260px]">Campaign</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Budget / Day</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cost</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Clicks</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CPC</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Conv.</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px]">Campaign</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Budget / Day</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Clicks</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
                   {/* CH Attribution */}
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 border-l border-blue-100">
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">
                     Conv. (CH Reported)
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50">
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 dark:bg-blue-900/20">
                     Cost / Conv. (CH Reported)
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {filtered.map((row, i) => {
                   const costPerConv = row.conversions > 0 ? Number(row.cost) / Number(row.conversions) : 0
                   const chLeads     = getChLeads(row)
                   const chCost      = chLeads > 0 ? Number(row.cost) / chLeads : 0
                   return (
-                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2.5">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <span className="text-gray-800 font-medium">{row.campaign_name}</span>
+                          <span className="text-gray-800 dark:text-gray-100 font-medium">{row.campaign_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-right text-gray-600">{fmtBudget(row.budget)}</td>
-                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cost)}</td>
-                      <td className="px-4 py-4 text-right text-gray-600">{Number(row.clicks || 0).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(row.cpc)}</td>
-                      <td className="px-4 py-4 text-right text-gray-600">
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmtBudget(row.budget)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(row.cost)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{Number(row.clicks || 0).toLocaleString()}</td>
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(row.cpc)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
-                      <td className="px-4 py-4 text-right text-gray-600">{fmt$(costPerConv)}</td>
+                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
                       {/* CH columns */}
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 border-l border-blue-100">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -303,19 +303,19 @@ export default function YouTubeAdsPage() {
               </tbody>
 
               {filtered.length > 0 && (
-                <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+                <tfoot className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">Totals</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmtBudget(totals.budget)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totals.cost)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">{totals.clicks.toLocaleString()}</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCpc)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmtBudget(totals.budget)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totals.cost)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{totals.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 border-l border-blue-100">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50">
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/20">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
@@ -326,13 +326,13 @@ export default function YouTubeAdsPage() {
         )}
 
         {!loading && filtered.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
-            <svg className="w-10 h-10 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+            <svg className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <p className="text-sm font-medium text-gray-400">No campaign data for this date range.</p>
-            <p className="text-xs text-gray-300 mt-1">Click <strong>Sync Now</strong> to pull data from Google Ads.</p>
+            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No campaign data for this date range.</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click <strong>Sync Now</strong> to pull data from Google Ads.</p>
           </div>
         )}
       </div>

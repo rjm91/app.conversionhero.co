@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState('2026-04-01')
   const [endDate, setEndDate] = useState('2026-04-09')
 
-  if (!data) return <div className="p-8 text-gray-400">No data found for this client.</div>
+  if (!data) return <div className="p-8 text-gray-400 dark:text-gray-500">No data found for this client.</div>
 
   const costPerSet = data.appointmentsSet ? fmt$(data.adSpend / data.appointmentsSet) : '$0'
   const costPerAppt = data.appointmentsCompleted ? fmt$(data.adSpend / data.appointmentsCompleted) : '$0'
@@ -44,26 +44,26 @@ export default function DashboardPage() {
       {/* Page Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{client?.name}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">{client?.name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm">
-            <span className="text-gray-400 text-xs">From</span>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
+            <span className="text-gray-400 dark:text-gray-500 text-xs">From</span>
             <input
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="text-gray-700 outline-none text-sm"
+              className="text-gray-700 dark:bg-gray-800 dark:text-gray-100 outline-none text-sm"
             />
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm">
-            <span className="text-gray-400 text-xs">To</span>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm shadow-sm dark:shadow-none">
+            <span className="text-gray-400 dark:text-gray-500 text-xs">To</span>
             <input
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="text-gray-700 outline-none text-sm"
+              className="text-gray-700 dark:bg-gray-800 dark:text-gray-100 outline-none text-sm"
             />
           </div>
           <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow-sm">
@@ -80,11 +80,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Bar Chart */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Leads Over Time</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Last 7 months</p>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Leads Over Time</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 7 months</p>
           </div>
         </div>
         <div className="flex items-end gap-3" style={{ height: '140px' }}>
@@ -92,12 +92,12 @@ export default function DashboardPage() {
             const pct = Math.round((data.chartLeads[i] / maxLeads) * 100)
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                <span className="text-xs font-semibold text-gray-500">{data.chartLeads[i]}</span>
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{data.chartLeads[i]}</span>
                 <div
                   className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-600"
                   style={{ height: `${pct}%` }}
                 />
-                <span className="text-xs text-gray-400">{label}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
               </div>
             )
           })}

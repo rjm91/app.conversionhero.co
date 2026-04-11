@@ -55,15 +55,15 @@ export default function ControlPage() {
   const industries = [...new Set(clients.map(c => c.industry))].length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 
       {/* Top Nav */}
-      <nav className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xs">CA</span>
           </div>
-          <span className="font-bold text-gray-900 text-lg tracking-tight">ConversionAgent</span>
+          <span className="font-bold text-gray-900 dark:text-white text-lg tracking-tight">ConversionAgent</span>
         </div>
         <div className="flex items-center gap-4">
           {user && (
@@ -73,12 +73,12 @@ export default function ControlPage() {
                   {user.name?.split(' ').map(w => w[0]).join('')}
                 </span>
               </div>
-              <span className="text-sm text-gray-600 font-medium">{user.name}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">{user.name}</span>
             </div>
           )}
           <button
             onClick={handleLogout}
-            className="text-sm text-gray-400 hover:text-gray-700 transition px-3 py-1.5 rounded-lg hover:bg-gray-100"
+            className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             Sign out
           </button>
@@ -89,29 +89,29 @@ export default function ControlPage() {
 
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Agency Control Center</h1>
-          <p className="text-gray-400 text-sm mt-1">Select a client to view their performance dashboard.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agency Control Center</h1>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Select a client to view their performance dashboard.</p>
         </div>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-4 mb-10">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Active Clients</p>
-            <p className="text-3xl font-bold text-gray-900">{clients.length}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Active Clients</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{clients.length}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Industries</p>
-            <p className="text-3xl font-bold text-gray-900">{industries}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Industries</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{industries}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Status</p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Status</p>
             <p className="text-3xl font-bold text-green-600">Live</p>
           </div>
         </div>
 
         {/* Client Grid */}
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Your Clients</p>
+          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Your Clients</p>
           <Link
             href="/control/clients"
             className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition"
@@ -121,30 +121,30 @@ export default function ControlPage() {
         </div>
 
         {loading ? (
-          <p className="text-gray-400 text-sm">Loading clients...</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">Loading clients...</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {clients.map(client => (
               <Link
                 key={client.client_id}
                 href={`/control/${client.client_id}/dashboard`}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md hover:border-blue-200 transition-all group"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-none p-6 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-700 transition-all group"
               >
                 <div className="flex items-start justify-between mb-5">
-                  <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-xl">
+                  <div className="w-11 h-11 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-xl">
                     {industryEmoji[client.industry] || '📊'}
                   </div>
                   <span className="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
                     ● {client.status}
                   </span>
                 </div>
-                <h3 className="font-semibold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-lg group-hover:text-blue-600 transition-colors">
                   {client.client_name}
                 </h3>
-                <p className="text-sm text-gray-400 mt-0.5">
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
                   {client.industry} · {client.city}, {client.state}
                 </p>
-                <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-end">
+                <div className="mt-5 pt-4 border-t border-gray-50 dark:border-gray-700 flex items-center justify-end">
                   <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform inline-block">
                     View Dashboard →
                   </span>
