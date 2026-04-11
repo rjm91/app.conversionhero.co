@@ -44,6 +44,7 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       campaign.id,
       campaign.name,
       campaign.status,
+      campaign.advertising_channel_type,
       campaign_budget.amount_micros,
       metrics.cost_micros,
       metrics.clicks,
@@ -51,7 +52,7 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       metrics.conversions,
       metrics.cost_per_conversion
     FROM campaign
-    WHERE campaign.advertising_channel_type = 'VIDEO'
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX')
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY campaign.name
   `
@@ -110,6 +111,7 @@ async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate
     campaign_id:         row.campaign?.id?.toString() || '',
     campaign_name:       row.campaign?.name || '',
     status:              row.campaign?.status || '',
+    channel_type:        row.campaign?.advertisingChannelType || '',
     budget:              (row.campaignBudget?.amountMicros || 0) / 1_000_000,
     cost:                (row.metrics?.costMicros || 0) / 1_000_000,
     clicks:              row.metrics?.clicks || 0,
