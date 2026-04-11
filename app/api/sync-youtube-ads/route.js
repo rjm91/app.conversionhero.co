@@ -5,6 +5,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+// Safe JSON parser — returns { ok, data, rawText } so we never throw on HTML responses
+async function safeJson(res) {
+  const text = await res.text()
+  try {
+    return { ok: res.ok, status: res.status, data: JSON.parse(text), rawText: text }
+  } catch {
+    return { ok: false, status: res.status, data: null, rawText: text.slice(0, 500) }
+  }
+}
+
 // Step 1: Get fresh access token using refresh token
 async function getAccessToken() {
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -17,8 +27,10 @@ async function getAccessToken() {
       grant_type:    'refresh_token',
     }),
   })
-  const data = await res.json()
-  if (!data.access_token) throw new Error('Failed to get access token: ' + JSON.stringify(data))
+  const { ok, status, data, rawText } = await safeJson(res)
+  if (!data?.access_token) {
+    throw new Error(`[Step 1 - OAuth] HTTP ${status}: ${rawText}`)
+  }
   return data.access_token
 }
 
@@ -46,17 +58,19 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
     {
       method: 'POST',
       headers: {
-        'Authorization':           `Bearer ${accessToken}`,
-        'developer-token':         process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-        'login-customer-id':       process.env.GOOGLE_ADS_MANAGER_ID,
-        'Content-Type':            'application/json',
+        'Authorization':     `Bearer ${accessToken}`,
+        'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+        'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
+        'Content-Type':      'application/json',
       },
       body: JSON.stringify({ query }),
     }
   )
 
-  const data = await res.json()
-  if (!res.ok) throw new Error('Google Ads API error: ' + JSON.stringify(data))
+  const { ok, status, data, rawText } = await safeJson(res)
+  if (!ok) {
+    throw new Error(`[Step 2 - Google Ads API] HTTP ${status}: ${rawText}`)
+  }
   return data.results || []
 }
 
@@ -90,7 +104,7 @@ async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate
   }))
 
   const { error } = await supabase.from('client_yt_campaigns').insert(rows)
-  if (error) throw new Error('Supabase insert error: ' + JSON.stringify(error))
+  if (error) throw new Error('[Step 3 - Supabase] Insert error: ' + JSON.stringify(error))
 }
 
 // Main handler
@@ -98,7 +112,6 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
 
-    // Date range — default to last 30 days
     const endDate   = searchParams.get('end')   || new Date().toISOString().split('T')[0]
     const startDate = searchParams.get('start') || (() => {
       const d = new Date()
@@ -106,7 +119,13 @@ export async function GET(request) {
       return d.toISOString().split('T')[0]
     })()
 
-    // Get all active Google Ads clients from Supabase client table
+    // Env var check — catch missing vars early
+    const missing = ['GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN','GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_MANAGER_ID']
+      .filter(k => !process.env[k])
+    if (missing.length > 0) {
+      return Response.json({ success: false, error: 'Missing env vars: ' + missing.join(', ') }, { status: 500 })
+    }
+
     const { data: clients, error: clientError } = await supabase
       .from('client')
       .select('client_id')
@@ -114,8 +133,6 @@ export async function GET(request) {
 
     if (clientError) throw new Error('Failed to fetch clients: ' + JSON.stringify(clientError))
 
-    // For now, map client_id to Google Ads customer_id
-    // This uses the hardcoded mapping — we'll make this dynamic later
     const customerMap = {
       'ch013': '7756372893', // Synergy Home
     }
@@ -125,7 +142,7 @@ export async function GET(request) {
 
     for (const client of clients) {
       const customerId = customerMap[client.client_id]
-      if (!customerId) continue // skip clients without Google Ads account
+      if (!customerId) continue
 
       const campaigns = await fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate)
       await saveCampaigns(client.client_id, customerId, campaigns, startDate, endDate)
