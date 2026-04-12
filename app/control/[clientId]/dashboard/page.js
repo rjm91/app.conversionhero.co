@@ -65,13 +65,13 @@ export default function DashboardPage() {
       .gte('created_at', start)
       .lte('created_at', end + 'T23:59:59')
 
-    // Ad spend: sum cost from YT campaigns matching this exact date range
+    // Ad spend: sum daily cost rows within date range
     const { data: campaigns } = await supabase
       .from('client_yt_campaigns')
       .select('cost')
       .eq('client_id', clientId)
-      .eq('date_range_start', start)
-      .eq('date_range_end', end)
+      .gte('date', start)
+      .lte('date', end)
 
     const adSpend      = (campaigns || []).reduce((sum, c) => sum + (Number(c.cost) || 0), 0)
     const totalLeads   = leads?.length || 0
