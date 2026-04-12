@@ -261,10 +261,10 @@ export default function YouTubeAdsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
                   {/* CH Attribution */}
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">
                     Conv. (CH Reported)
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap bg-blue-50 dark:bg-blue-900/20">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
                     Cost / Conv. (CH Reported)
                   </th>
                 </tr>
@@ -291,10 +291,10 @@ export default function YouTubeAdsPage() {
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
                       {/* CH columns */}
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -314,8 +314,8 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/20 border-l border-blue-100">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
