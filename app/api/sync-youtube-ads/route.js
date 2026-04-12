@@ -36,8 +36,7 @@ async function getAccessToken() {
   return data.access_token
 }
 
-// Step 2: Query Google Ads API for YouTube campaigns
-// Tries versions from newest to oldest until one works
+// Step 2: Query Google Ads API — daily rows per campaign (segments.date)
 async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate) {
   const query = `
     SELECT
@@ -50,11 +49,12 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       metrics.clicks,
       metrics.average_cpc,
       metrics.conversions,
-      metrics.cost_per_conversion
+      metrics.cost_per_conversion,
+      segments.date
     FROM campaign
     WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX')
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
-    ORDER BY campaign.name
+    ORDER BY campaign.name, segments.date
   `
 
   const versions = ['v20', 'v21', 'v22', 'v19']
@@ -82,7 +82,6 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       return data.results || []
     }
 
-    // 404 = version not found, try next. Any other error = real problem, stop.
     if (status !== 404) {
       throw new Error(`[Step 2 - Google Ads API ${version}] HTTP ${status}: ${rawText}`)
     }
@@ -90,12 +89,20 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
     lastError = `HTTP ${status} on ${version}`
   }
 
-  throw new Error(`[Step 2 - Google Ads API] All versions returned 404. Last: ${lastError}. Check developers.google.com/google-ads/api/docs/release-notes for current version.`)
+  throw new Error(`[Step 2 - Google Ads API] All versions returned 404. Last: ${lastError}.`)
 }
 
-// Step 3: Save campaigns to Supabase
+// Step 3: Save daily campaign rows to Supabase
 async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate) {
-  // Remove old data for this client + date range first
+  // Delete existing daily rows for this client + date range
+  await supabase
+    .from('client_yt_campaigns')
+    .delete()
+    .eq('client_id', clientId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+
+  // Also clean up any old range-based rows for backward compat
   await supabase
     .from('client_yt_campaigns')
     .delete()
@@ -118,6 +125,8 @@ async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate
     cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
     conversions:         row.metrics?.conversions || 0,
     cost_per_conversion: row.metrics?.costPerConversion || 0,
+    date:                row.segments?.date || startDate,
+    // Keep range fields populated so existing NOT NULL constraints aren't violated
     date_range_start:    startDate,
     date_range_end:      endDate,
     synced_at:           new Date().toISOString(),
@@ -139,14 +148,12 @@ export async function GET(request) {
       return d.toISOString().split('T')[0]
     })()
 
-    // Env var check — catch missing vars early
     const missing = ['GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN','GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_MANAGER_ID']
       .filter(k => !process.env[k])
     if (missing.length > 0) {
       return Response.json({ success: false, error: 'Missing env vars: ' + missing.join(', ') }, { status: 500 })
     }
 
-    // Load active Google Ads accounts from master table (replaces hardcoded map)
     const { data: adsAccounts, error: adsError } = await supabase
       .from('client_google_ads_account')
       .select('client_id, client_name, customer_id, login_customer_id')
@@ -154,7 +161,7 @@ export async function GET(request) {
 
     if (adsError) throw new Error('Failed to fetch Google Ads accounts: ' + JSON.stringify(adsError))
     if (!adsAccounts?.length) {
-      return Response.json({ success: true, synced: [], message: 'No active Google Ads accounts found in client_google_ads_account table.' })
+      return Response.json({ success: true, synced: [], message: 'No active Google Ads accounts found.' })
     }
 
     const accessToken = await getAccessToken()

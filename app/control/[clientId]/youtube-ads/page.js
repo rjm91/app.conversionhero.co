@@ -93,7 +93,7 @@ export default function YouTubeAdsPage() {
     setChAttribution(map)
   }, [clientId])
 
-  // Fetch campaigns from Supabase
+  // Fetch campaigns from Supabase — query by date range, aggregate per campaign
   const fetchCampaigns = useCallback(async (start, end) => {
     setLoading(true)
     setError(null)
@@ -103,18 +103,54 @@ export default function YouTubeAdsPage() {
         .from('client_yt_campaigns')
         .select('*')
         .eq('client_id', clientId)
-        .eq('date_range_start', start)
-        .eq('date_range_end', end)
+        .gte('date', start)
+        .lte('date', end)
         .order('campaign_name', { ascending: true }),
       fetchAttribution(start, end),
     ])
 
     if (err) {
       setError('Failed to load campaigns.')
-    } else {
-      setCampaigns(data || [])
-      if (data?.length > 0) setSyncedAt(data[0].synced_at)
+      setLoading(false)
+      return
     }
+
+    // Aggregate daily rows into one row per campaign
+    const map = {}
+    for (const row of (data || [])) {
+      const id = row.campaign_id
+      if (!map[id]) {
+        map[id] = {
+          campaign_id:   row.campaign_id,
+          campaign_name: row.campaign_name,
+          status:        row.status,
+          channel_type:  row.channel_type,
+          budget:        row.budget,
+          cost:          0,
+          clicks:        0,
+          conversions:   0,
+          synced_at:     row.synced_at,
+        }
+      }
+      map[id].cost        += Number(row.cost)        || 0
+      map[id].clicks      += Number(row.clicks)      || 0
+      map[id].conversions += Number(row.conversions) || 0
+      // Keep the most recent budget, status, and synced_at
+      if (row.synced_at > map[id].synced_at) {
+        map[id].budget    = row.budget
+        map[id].status    = row.status
+        map[id].synced_at = row.synced_at
+      }
+    }
+
+    const aggregated = Object.values(map).map(c => ({
+      ...c,
+      cpc:                 c.clicks > 0      ? c.cost / c.clicks      : 0,
+      cost_per_conversion: c.conversions > 0 ? c.cost / c.conversions : 0,
+    }))
+
+    setCampaigns(aggregated)
+    if (aggregated.length > 0) setSyncedAt(aggregated[0].synced_at)
     setLoading(false)
   }, [clientId, fetchAttribution])
 
