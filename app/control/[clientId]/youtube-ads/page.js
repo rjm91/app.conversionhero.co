@@ -33,10 +33,11 @@ export default function YouTubeAdsPage() {
 
   const defaults = defaultDates()
 
-  // Read initial values from URL params, fall back to defaults
-  const initStart  = searchParams.get('start')  || defaults.start
-  const initEnd    = searchParams.get('end')    || defaults.end
-  const initStatus = searchParams.get('status') || 'All'
+  // Read initial values from URL params → localStorage → defaults
+  const saved      = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(`ytads_${clientId}`) || '{}') : {}
+  const initStart  = searchParams.get('start')  || saved.start  || defaults.start
+  const initEnd    = searchParams.get('end')    || saved.end    || defaults.end
+  const initStatus = searchParams.get('status') || saved.status || 'All'
 
   const [startDate,    setStartDate]    = useState(initStart)
   const [endDate,      setEndDate]      = useState(initEnd)
@@ -52,10 +53,11 @@ export default function YouTubeAdsPage() {
   const [syncedAt,       setSyncedAt]       = useState(null)
   const [error,          setError]          = useState(null)
 
-  // Sync current filter state to URL so it persists on refresh/navigation
+  // Sync current filter state to URL and localStorage so it persists on refresh/navigation
   function updateURL(start, end, status) {
     const params = new URLSearchParams({ start, end, status })
     router.replace(`?${params.toString()}`, { scroll: false })
+    localStorage.setItem(`ytads_${clientId}`, JSON.stringify({ start, end, status }))
   }
 
   // Fetch client name
@@ -261,10 +263,10 @@ export default function YouTubeAdsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
                   {/* CH Attribution */}
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                     Conv. (CH Reported)
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
                     Cost / Conv. (CH Reported)
                   </th>
                 </tr>
@@ -291,10 +293,10 @@ export default function YouTubeAdsPage() {
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
                       {/* CH columns */}
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -314,8 +316,8 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38] border-l border-blue-100 dark:border-[#4ad87d]/20">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-[#1b2c38]">
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
