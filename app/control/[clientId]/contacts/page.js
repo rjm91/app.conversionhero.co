@@ -5,27 +5,35 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 
 const statusColors = {
-  New:         'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-  Contacted:   'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
-  Qualified:   'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
-  Booked:      'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
-  Completed:   'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
-  Lost:        'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-  Working:     'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+  New:       'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+  Contacted: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+  Qualified: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  Booked:    'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
+  Completed: 'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
+  Lost:      'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  Working:   'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+}
+
+async function deleteLeads(leadIds) {
+  // Delete child rows first, then parent
+  await supabase.from('client_lead_meta').delete().in('lead_id', leadIds)
+  const { error } = await supabase.from('client_lead').delete().in('lead_id', leadIds)
+  if (error) throw error
 }
 
 export default function ContactsPage() {
   const { clientId } = useParams()
-  const [leads, setLeads] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const [leads,       setLeads]       = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [search,      setSearch]      = useState('')
+  const [selected,    setSelected]    = useState(null)
+  const [saving,      setSaving]      = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [checked,     setChecked]     = useState(new Set())   // multi-select
+  const [deleting,    setDeleting]    = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)   // confirm in panel
 
-  useEffect(() => {
-    fetchLeads()
-  }, [clientId])
+  useEffect(() => { fetchLeads() }, [clientId])
 
   async function fetchLeads() {
     const { data, error } = await supabase
@@ -33,7 +41,6 @@ export default function ContactsPage() {
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
-
     if (error) console.error('Error fetching leads:', error)
     else setLeads(data || [])
     setLoading(false)
@@ -44,20 +51,20 @@ export default function ContactsPage() {
     const { error } = await supabase
       .from('client_lead')
       .update({
-        first_name:   selected.first_name,
-        last_name:    selected.last_name,
-        email:        selected.email,
-        phone:        selected.phone,
-        address:      selected.address,
-        city:         selected.city,
-        state:        selected.state,
-        zip_code:     selected.zip_code,
-        lead_status:  selected.lead_status,
-        appt_status:  selected.appt_status,
-        sale_status:  selected.sale_status,
-        appt_date:    selected.appt_date,
-        appt_time:    selected.appt_time,
-        ch_notes:     selected.ch_notes,
+        first_name:  selected.first_name,
+        last_name:   selected.last_name,
+        email:       selected.email,
+        phone:       selected.phone,
+        address:     selected.address,
+        city:        selected.city,
+        state:       selected.state,
+        zip_code:    selected.zip_code,
+        lead_status: selected.lead_status,
+        appt_status: selected.appt_status,
+        sale_status: selected.sale_status,
+        appt_date:   selected.appt_date,
+        appt_time:   selected.appt_time,
+        ch_notes:    selected.ch_notes,
       })
       .eq('lead_id', selected.lead_id)
 
@@ -67,6 +74,51 @@ export default function ContactsPage() {
       setTimeout(() => setSaveSuccess(false), 2000)
     }
     setSaving(false)
+  }
+
+  // Delete single lead from panel
+  async function handleDeleteOne() {
+    setDeleting(true)
+    try {
+      await deleteLeads([selected.lead_id])
+      setLeads(prev => prev.filter(l => l.lead_id !== selected.lead_id))
+      setSelected(null)
+      setConfirmDelete(false)
+    } catch (e) {
+      console.error('Delete failed:', e)
+    }
+    setDeleting(false)
+  }
+
+  // Delete all checked leads
+  async function handleDeleteChecked() {
+    setDeleting(true)
+    const ids = [...checked]
+    try {
+      await deleteLeads(ids)
+      setLeads(prev => prev.filter(l => !ids.includes(l.lead_id)))
+      setChecked(new Set())
+    } catch (e) {
+      console.error('Delete failed:', e)
+    }
+    setDeleting(false)
+  }
+
+  function toggleCheck(leadId, e) {
+    e.stopPropagation()
+    setChecked(prev => {
+      const next = new Set(prev)
+      next.has(leadId) ? next.delete(leadId) : next.add(leadId)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (checked.size === filtered.length) {
+      setChecked(new Set())
+    } else {
+      setChecked(new Set(filtered.map(l => l.lead_id)))
+    }
   }
 
   const filtered = leads.filter(l => {
@@ -80,6 +132,9 @@ export default function ContactsPage() {
     )
   })
 
+  const allChecked = filtered.length > 0 && checked.size === filtered.length
+  const someChecked = checked.size > 0
+
   return (
     <div className="p-8 relative">
 
@@ -89,13 +144,27 @@ export default function ContactsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contacts</h1>
           <p className="text-gray-400 text-sm mt-0.5">{leads.length} total leads</p>
         </div>
-        <input
-          type="text"
-          placeholder="Search by name, email, phone, city..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
-        />
+        <div className="flex items-center gap-3">
+          {someChecked && (
+            <button
+              onClick={handleDeleteChecked}
+              disabled={deleting}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {deleting ? 'Deleting…' : `Delete ${checked.size} lead${checked.size > 1 ? 's' : ''}`}
+            </button>
+          )}
+          <input
+            type="text"
+            placeholder="Search by name, email, phone, city..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -108,25 +177,42 @@ export default function ContactsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5">
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Name</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Email</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Phone</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Location</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Lead Status</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Appt Status</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-6 py-3">Date</th>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleAll}
+                    className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Name</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Email</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Phone</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Location</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Lead Status</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Appt Status</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((lead, i) => (
                 <tr
                   key={lead.lead_id}
-                  onClick={() => setSelected({ ...lead })}
+                  onClick={() => { setSelected({ ...lead }); setConfirmDelete(false) }}
                   className={`border-b border-gray-50 dark:border-white/5 hover:bg-blue-50 dark:hover:bg-white/5 cursor-pointer transition ${
+                    checked.has(lead.lead_id) ? 'bg-red-50/40 dark:bg-red-500/5' :
                     selected?.lead_id === lead.lead_id ? 'bg-blue-50 dark:bg-white/5' : ''
                   } ${i === filtered.length - 1 ? 'border-0' : ''}`}
                 >
-                  <td className="px-6 py-3.5">
+                  <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={checked.has(lead.lead_id)}
+                      onChange={e => toggleCheck(lead.lead_id, e)}
+                      className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
                         <span className="text-blue-700 dark:text-blue-400 text-xs font-semibold">
@@ -138,26 +224,26 @@ export default function ContactsPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.email || '—'}</td>
-                  <td className="px-6 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.phone || '—'}</td>
-                  <td className="px-6 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.email || '—'}</td>
+                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.phone || '—'}</td>
+                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
                     {lead.city && lead.state ? `${lead.city}, ${lead.state}` : '—'}
                   </td>
-                  <td className="px-6 py-3.5">
+                  <td className="px-4 py-3.5">
                     {lead.lead_status ? (
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.lead_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.lead_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
                   </td>
-                  <td className="px-6 py-3.5">
+                  <td className="px-4 py-3.5">
                     {lead.appt_status ? (
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.appt_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
                   </td>
-                  <td className="px-6 py-3.5 text-sm text-gray-400 dark:text-gray-500">
+                  <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
                     {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                   </td>
                 </tr>
@@ -167,13 +253,10 @@ export default function ContactsPage() {
         )}
       </div>
 
-      {/* Slide-out Panel Overlay */}
+      {/* Slide-out Panel */}
       {selected && (
         <>
-          <div
-            className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30"
-            onClick={() => setSelected(null)}
-          />
+          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30" onClick={() => setSelected(null)} />
           <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-transparent dark:border-white/5">
 
             {/* Panel Header */}
@@ -202,173 +285,115 @@ export default function ContactsPage() {
             {/* Panel Body */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-              {/* Contact Info */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Contact Info</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">First Name</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.first_name || ''}
-                      onChange={e => setSelected(p => ({ ...p, first_name: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.first_name || ''} onChange={e => setSelected(p => ({ ...p, first_name: e.target.value }))} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Last Name</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.last_name || ''}
-                      onChange={e => setSelected(p => ({ ...p, last_name: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.last_name || ''} onChange={e => setSelected(p => ({ ...p, last_name: e.target.value }))} />
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Email</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.email || ''}
-                      onChange={e => setSelected(p => ({ ...p, email: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.email || ''} onChange={e => setSelected(p => ({ ...p, email: e.target.value }))} />
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Phone</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.phone || ''}
-                      onChange={e => setSelected(p => ({ ...p, phone: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.phone || ''} onChange={e => setSelected(p => ({ ...p, phone: e.target.value }))} />
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Address</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.address || ''}
-                      onChange={e => setSelected(p => ({ ...p, address: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.address || ''} onChange={e => setSelected(p => ({ ...p, address: e.target.value }))} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">City</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.city || ''}
-                      onChange={e => setSelected(p => ({ ...p, city: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.city || ''} onChange={e => setSelected(p => ({ ...p, city: e.target.value }))} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">State</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.state || ''}
-                      onChange={e => setSelected(p => ({ ...p, state: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.state || ''} onChange={e => setSelected(p => ({ ...p, state: e.target.value }))} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Zip Code</label>
-                    <input
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.zip_code || ''}
-                      onChange={e => setSelected(p => ({ ...p, zip_code: e.target.value }))}
-                    />
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.zip_code || ''} onChange={e => setSelected(p => ({ ...p, zip_code: e.target.value }))} />
                   </div>
                 </div>
               </div>
 
-              {/* Status */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Status</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Lead Status</label>
-                    <select
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
-                      value={selected.lead_status || ''}
-                      onChange={e => setSelected(p => ({ ...p, lead_status: e.target.value }))}
-                    >
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
+                      value={selected.lead_status || ''} onChange={e => setSelected(p => ({ ...p, lead_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>New</option>
-                      <option>Contacted</option>
-                      <option>Qualified</option>
-                      <option>Lost</option>
+                      <option>New</option><option>Contacted</option><option>Qualified</option><option>Lost</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appt Status</label>
-                    <select
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
-                      value={selected.appt_status || ''}
-                      onChange={e => setSelected(p => ({ ...p, appt_status: e.target.value }))}
-                    >
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
+                      value={selected.appt_status || ''} onChange={e => setSelected(p => ({ ...p, appt_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>Booked</option>
-                      <option>Completed</option>
-                      <option>No Show</option>
-                      <option>Cancelled</option>
+                      <option>Booked</option><option>Completed</option><option>No Show</option><option>Cancelled</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Sale Status</label>
-                    <select
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
-                      value={selected.sale_status || ''}
-                      onChange={e => setSelected(p => ({ ...p, sale_status: e.target.value }))}
-                    >
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
+                      value={selected.sale_status || ''} onChange={e => setSelected(p => ({ ...p, sale_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>Sold</option>
-                      <option>Not Sold</option>
-                      <option>Pending</option>
+                      <option>Sold</option><option>Not Sold</option><option>Pending</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* Appointment */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appt Date</label>
-                    <input
-                      type="date"
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.appt_date || ''}
-                      onChange={e => setSelected(p => ({ ...p, appt_date: e.target.value }))}
-                    />
+                    <input type="date" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.appt_date || ''} onChange={e => setSelected(p => ({ ...p, appt_date: e.target.value }))} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appt Time</label>
-                    <input
-                      type="time"
-                      className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
-                      value={selected.appt_time || ''}
-                      onChange={e => setSelected(p => ({ ...p, appt_time: e.target.value }))}
-                    />
+                    <input type="time" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                      value={selected.appt_time || ''} onChange={e => setSelected(p => ({ ...p, appt_time: e.target.value }))} />
                   </div>
                 </div>
               </div>
 
-              {/* Notes */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Notes</p>
-                <textarea
-                  rows={4}
-                  className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
+                <textarea rows={4} className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
                   placeholder="Add notes about this contact..."
-                  value={selected.ch_notes || ''}
-                  onChange={e => setSelected(p => ({ ...p, ch_notes: e.target.value }))}
-                />
+                  value={selected.ch_notes || ''} onChange={e => setSelected(p => ({ ...p, ch_notes: e.target.value }))} />
               </div>
 
-              {/* Source Info (read-only) */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Source</p>
                 <div className="bg-gray-50 dark:bg-white/5 rounded-lg p-3 space-y-2 text-xs text-gray-500">
                   {[
-                    ['UTM Source', selected.utm_source],
-                    ['UTM Medium', selected.utm_medium],
+                    ['UTM Source',   selected.utm_source],
+                    ['UTM Medium',   selected.utm_medium],
                     ['UTM Campaign', selected.utm_campaign],
                     ['UTM Ad Group', selected.utm_adgroup],
-                    ['Device', selected.device],
-                    ['LP URL', selected.lp_url],
+                    ['Device',       selected.device],
+                    ['LP URL',       selected.lp_url],
                   ].map(([label, val]) => val ? (
                     <div key={label} className="flex justify-between gap-2">
                       <span className="text-gray-400">{label}</span>
@@ -378,14 +403,43 @@ export default function ContactsPage() {
                 </div>
               </div>
 
+              {/* Danger zone */}
+              <div className="border border-red-100 dark:border-red-500/20 rounded-xl p-4">
+                <p className="text-xs font-semibold text-red-500 uppercase tracking-widest mb-2">Danger Zone</p>
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-sm text-red-500 hover:text-red-700 dark:hover:text-red-400 transition font-medium"
+                  >
+                    Delete this lead…
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-600 dark:text-red-400">This will permanently delete the lead and all related data. Are you sure?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleDeleteOne}
+                        disabled={deleting}
+                        className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition disabled:opacity-50"
+                      >
+                        {deleting ? 'Deleting…' : 'Yes, delete'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-3 py-1.5 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
 
             {/* Panel Footer */}
             <div className="px-6 py-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
-              <button
-                onClick={() => setSelected(null)}
-                className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
-              >
+              <button onClick={() => setSelected(null)} className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
                 Cancel
               </button>
               <button
