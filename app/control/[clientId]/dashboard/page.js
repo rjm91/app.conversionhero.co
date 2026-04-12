@@ -22,18 +22,18 @@ export default function DashboardPage() {
   const costPerAppt = data.appointmentsCompleted ? fmt$(data.adSpend / data.appointmentsCompleted) : '$0'
 
   const metrics = [
-    { label: 'Ad Spend',       value: fmt$(data.adSpend),                                     color: 'text-blue-600' },
-    { label: 'Leads',          value: data.leads,                                              color: 'text-orange-500' },
-    { label: 'Cost / Lead',    value: fmt$(data.costPerLead),                                  color: 'text-orange-500' },
-    { label: 'Appt Set',       value: data.appointmentsSet,                                    color: 'text-purple-600' },
-    { label: 'Cost / Set',     value: costPerSet,                                              color: 'text-purple-600' },
-    { label: 'Appt Set Rate',  value: fmtPct(data.apptSetRate),                                color: 'text-purple-600' },
-    { label: 'Appointments',   value: data.appointmentsCompleted,                              color: 'text-indigo-500' },
-    { label: 'Cost / Appt',    value: costPerAppt,                                             color: 'text-teal-500' },
-    { label: 'Appt Run Rate',  value: fmtPct(data.apptCompletedRate),                          color: 'text-teal-500' },
-    { label: 'Customers',      value: data.sales,                                              color: 'text-green-600' },
-    { label: 'CAC',            value: fmt$(data.costPerSale),                                  color: 'text-green-600' },
-    { label: 'Close Rate',     value: fmtPct(data.closeRate),                                  color: 'text-green-600' },
+    { label: 'Ad Spend',       value: fmt$(data.adSpend),               color: 'text-blue-600',   darkColor: 'dark:text-[#5b97e6]'  },
+    { label: 'Leads',          value: data.leads,                        color: 'text-orange-500', darkColor: 'dark:text-[#FFD024]'  },
+    { label: 'Cost / Lead',    value: fmt$(data.costPerLead),            color: 'text-orange-500', darkColor: 'dark:text-[#FFD024]'  },
+    { label: 'Appt Set',       value: data.appointmentsSet,              color: 'text-purple-600', darkColor: 'dark:text-[#846CC5]'  },
+    { label: 'Cost / Set',     value: costPerSet,                        color: 'text-purple-600', darkColor: 'dark:text-[#846CC5]'  },
+    { label: 'Appt Set Rate',  value: fmtPct(data.apptSetRate),          color: 'text-purple-600', darkColor: 'dark:text-[#846CC5]'  },
+    { label: 'Appointments',   value: data.appointmentsCompleted,        color: 'text-indigo-500', darkColor: 'dark:text-[#22CBE3]'  },
+    { label: 'Cost / Appt',    value: costPerAppt,                       color: 'text-teal-500',   darkColor: 'dark:text-[#22CBE3]'  },
+    { label: 'Appt Run Rate',  value: fmtPct(data.apptCompletedRate),    color: 'text-teal-500',   darkColor: 'dark:text-[#22CBE3]'  },
+    { label: 'Customers',      value: data.sales,                        color: 'text-green-600',  darkColor: 'dark:text-[#34CC93]'  },
+    { label: 'CAC',            value: fmt$(data.costPerSale),            color: 'text-green-600',  darkColor: 'dark:text-[#34CC93]'  },
+    { label: 'Close Rate',     value: fmtPct(data.closeRate),            color: 'text-green-600',  darkColor: 'dark:text-[#34CC93]'  },
   ]
 
   const maxLeads = Math.max(...data.chartLeads)
@@ -75,12 +75,12 @@ export default function DashboardPage() {
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         {metrics.map((m, i) => (
-          <MetricCard key={i} label={m.label} value={m.value} color={m.color} />
+          <MetricCard key={i} label={m.label} value={m.value} color={m.color} darkColor={m.darkColor} />
         ))}
       </div>
 
       {/* Bar Chart */}
-      <div className="bg-white dark:bg-gray-800/80 rounded-xl border border-gray-100 dark:border-gray-700/50 shadow-sm dark:shadow-none p-6">
+      <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-white">Leads Over Time</h2>

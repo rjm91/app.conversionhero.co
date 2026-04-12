@@ -206,7 +206,7 @@ export default function YouTubeAdsPage() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800/80 rounded-xl border border-gray-100 dark:border-gray-700/50 shadow-sm dark:shadow-none overflow-hidden">
+      <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
 
         {/* Controls */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-wrap gap-4">
