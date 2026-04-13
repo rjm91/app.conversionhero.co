@@ -14,10 +14,18 @@ const industryEmoji = {
   Other: '📊',
 }
 
+function fmt(n) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
 export default function ControlPage() {
   const router = useRouter()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
+  const [cashCollected, setCashCollected] = useState(null)
+  const [mrr, setMrr] = useState(null)
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
@@ -25,20 +33,73 @@ export default function ControlPage() {
   }, [router])
 
   useEffect(() => {
-    async function fetchClients() {
-      const { data, error } = await supabase
+    async function fetchAll() {
+      // Active clients
+      const { data: clientData } = await supabase
         .from('client')
         .select('*')
         .eq('status', 'Active')
         .order('client_name', { ascending: true })
+      if (clientData) setClients(clientData)
 
-      if (!error) setClients(data)
+      // Cash collected — sum all client_payments
+      const { data: payments } = await supabase
+        .from('client_payments')
+        .select('amount')
+      if (payments) {
+        const total = payments.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
+        setCashCollected(total)
+      } else {
+        setCashCollected(0)
+      }
+
+      // MRR — sum monthly_budget from active client_billing records
+      const { data: billing } = await supabase
+        .from('client_billing')
+        .select('monthly_budget, client_id')
+      if (billing && clientData) {
+        const activeIds = new Set(clientData.map(c => c.client_id))
+        const total = billing
+          .filter(b => activeIds.has(b.client_id))
+          .reduce((sum, b) => sum + (parseFloat(b.monthly_budget) || 0), 0)
+        setMrr(total)
+      } else {
+        setMrr(0)
+      }
+
       setLoading(false)
     }
-    fetchClients()
+    fetchAll()
   }, [])
 
-  const industries = [...new Set(clients.map(c => c.industry))].length
+  const arr = mrr ? mrr * 12 : 0
+
+  const statCards = [
+    {
+      label: 'Active Clients',
+      value: loading ? '—' : clients.length,
+      color: 'text-white',
+      prefix: false,
+    },
+    {
+      label: 'Cash Collected',
+      value: cashCollected === null ? '—' : fmt(cashCollected),
+      color: 'text-[#22cbe3]',
+      prefix: false,
+    },
+    {
+      label: 'MRR',
+      value: mrr === null ? '—' : fmt(mrr),
+      color: 'text-[#34CC93]',
+      prefix: false,
+    },
+    {
+      label: 'ARR',
+      value: arr === 0 ? '$0' : fmt(arr),
+      color: arr === 0 ? 'text-gray-500' : 'text-[#846CC5]',
+      prefix: false,
+    },
+  ]
 
   return (
     <div className="p-8">
@@ -50,19 +111,13 @@ export default function ControlPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-10">
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Active Clients</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{clients.length}</p>
-        </div>
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Industries</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{industries}</p>
-        </div>
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Status</p>
-          <p className="text-3xl font-bold text-[#34CC93]">Live</p>
-        </div>
+      <div className="grid grid-cols-4 gap-4 mb-10">
+        {statCards.map(card => (
+          <div key={card.label} className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">{card.label}</p>
+            <p className={`text-3xl font-bold ${card.color}`}>{card.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Client Grid */}
