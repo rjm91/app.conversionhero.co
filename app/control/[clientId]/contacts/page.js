@@ -5,22 +5,22 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 
 const statusColors = {
-  // Lead Status
-  'New / Not Yet Contacted': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
-  'Contacted / Working':     'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-  'Appt Set':                'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  // Lead Status — yellow = leads, purple = appt set
+  'New / Not Yet Contacted': 'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  'Contacted / Working':     'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  'Appt Set':                'bg-[#846CC5]/10 text-[#6b52b0] dark:bg-[#846CC5]/10 dark:text-[#846CC5]',
   'Lost':                    'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
   'Disqualified':            'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  'Out of Area':             'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
-  // Appt Status
+  'Out of Area':             'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+  // Appt Status — purple = confirmed, teal = complete
   'NA':                      'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
-  'Appt Confirmed':          'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
-  'Appt Complete':           'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  'Appt Confirmed':          'bg-[#846CC5]/10 text-[#6b52b0] dark:bg-[#846CC5]/10 dark:text-[#846CC5]',
+  'Appt Complete':           'bg-[#22cbe3]/10 text-[#0f9aad] dark:bg-[#22cbe3]/10 dark:text-[#22cbe3]',
   'Appt Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
   'Appt Disqualified':       'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  // Sale Status
-  'Proposal Sent':           'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-  'Sold':                    'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  // Sale Status — green = sold
+  'Proposal Sent':           'bg-[#5b97e6]/10 text-[#3a72c4] dark:bg-[#5b97e6]/10 dark:text-[#5b97e6]',
+  'Sold':                    'bg-[#34CC93]/10 text-[#1a9e6e] dark:bg-[#34CC93]/10 dark:text-[#34CC93]',
   'Sale Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
