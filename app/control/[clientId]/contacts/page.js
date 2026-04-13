@@ -5,13 +5,16 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 
 const statusColors = {
-  New:       'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-  Contacted: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
-  Qualified: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
-  Booked:    'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
-  Completed: 'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
-  Lost:      'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-  Working:   'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+  New:        'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+  Contacted:  'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+  Qualified:  'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  Booked:     'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
+  Completed:  'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
+  Lost:       'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  Working:    'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
+  Sold:       'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  'Not Sold': 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  Pending:    'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
 async function deleteLeads(leadIds) {
@@ -192,6 +195,7 @@ export default function ContactsPage() {
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Location</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Lead Status</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Appt Status</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Sale Status</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
               </tr>
             </thead>
@@ -241,6 +245,13 @@ export default function ContactsPage() {
                     {lead.appt_status ? (
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.appt_status}
+                      </span>
+                    ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {lead.sale_status ? (
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.sale_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                        {lead.sale_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
                   </td>
