@@ -268,8 +268,8 @@ export default function ContactsPage() {
       {/* Slide-out Panel */}
       {selected && (
         <>
-          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30" onClick={() => setSelected(null)} />
-          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-transparent dark:border-white/5">
+          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30 animate-[fadeIn_0.2s_ease]" onClick={() => setSelected(null)} />
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-transparent dark:border-white/5 animate-[slideIn_0.25s_ease]">
 
             {/* Panel Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/5">
