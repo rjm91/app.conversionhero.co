@@ -59,12 +59,13 @@ export default function ContactsPage() {
         city:        selected.city,
         state:       selected.state,
         zip_code:    selected.zip_code,
-        lead_status: selected.lead_status,
-        appt_status: selected.appt_status,
-        sale_status: selected.sale_status,
-        appt_date:   selected.appt_date,
-        appt_time:   selected.appt_time,
-        ch_notes:    selected.ch_notes,
+        lead_status:  selected.lead_status,
+        appt_status:  selected.appt_status,
+        sale_status:  selected.sale_status,
+        sale_amount:  selected.sale_amount,
+        appt_date:    selected.appt_date,
+        appt_time:    selected.appt_time,
+        ch_notes:     selected.ch_notes,
       })
       .eq('lead_id', selected.lead_id)
 
@@ -357,6 +358,21 @@ export default function ContactsPage() {
                       <option value="">—</option>
                       <option>Sold</option><option>Not Sold</option><option>Pending</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Sale Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg pl-6 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                        value={selected.sale_amount ?? ''}
+                        onChange={e => setSelected(p => ({ ...p, sale_amount: e.target.value === '' ? null : Number(e.target.value) }))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
