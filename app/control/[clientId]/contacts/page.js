@@ -5,16 +5,23 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 
 const statusColors = {
-  New:        'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-  Contacted:  'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
-  Qualified:  'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
-  Booked:     'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400',
-  Completed:  'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
-  Lost:       'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-  Working:    'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400',
-  Sold:       'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  'Not Sold': 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-  Pending:    'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
+  // Lead Status
+  'New / Not Yet Contacted': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
+  'Contacted / Working':     'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+  'Appt Set':                'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  'Lost':                    'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
+  'Disqualified':            'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  'Out of Area':             'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+  // Appt Status
+  'NA':                      'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+  'Appt Confirmed':          'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
+  'Appt Complete':           'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
+  'Appt Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
+  'Appt Disqualified':       'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  // Sale Status
+  'Proposal Sent':           'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+  'Sold':                    'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  'Sale Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
 async function deleteLeads(leadIds) {
@@ -351,7 +358,12 @@ export default function ContactsPage() {
                     <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
                       value={selected.lead_status || ''} onChange={e => setSelected(p => ({ ...p, lead_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>New</option><option>Contacted</option><option>Qualified</option><option>Lost</option>
+                      <option>New / Not Yet Contacted</option>
+                      <option>Contacted / Working</option>
+                      <option>Appt Set</option>
+                      <option>Lost</option>
+                      <option>Disqualified</option>
+                      <option>Out of Area</option>
                     </select>
                   </div>
                   <div>
@@ -359,7 +371,11 @@ export default function ContactsPage() {
                     <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
                       value={selected.appt_status || ''} onChange={e => setSelected(p => ({ ...p, appt_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>Booked</option><option>Completed</option><option>No Show</option><option>Cancelled</option>
+                      <option>NA</option>
+                      <option>Appt Confirmed</option>
+                      <option>Appt Complete</option>
+                      <option>Appt Lost</option>
+                      <option>Appt Disqualified</option>
                     </select>
                   </div>
                   <div>
@@ -367,7 +383,10 @@ export default function ContactsPage() {
                     <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
                       value={selected.sale_status || ''} onChange={e => setSelected(p => ({ ...p, sale_status: e.target.value }))}>
                       <option value="">—</option>
-                      <option>Sold</option><option>Not Sold</option><option>Pending</option>
+                      <option>NA</option>
+                      <option>Proposal Sent</option>
+                      <option>Sold</option>
+                      <option>Sale Lost</option>
                     </select>
                   </div>
                   <div>

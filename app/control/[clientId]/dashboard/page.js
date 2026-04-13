@@ -75,10 +75,10 @@ export default function DashboardPage() {
 
     const adSpend      = (campaigns || []).reduce((sum, c) => sum + (Number(c.cost) || 0), 0)
     const totalLeads   = leads?.length || 0
-    // Appt Set = any lead with an appt_status value (Booked, Completed, No Show, Cancelled)
-    const apptSet      = leads?.filter(l => l.appt_status).length || 0
-    // Appointments run = Completed appointments
-    const appointments = leads?.filter(l => l.appt_status === 'Completed').length || 0
+    // Appt Set = lead_status is 'Appt Set' OR appt_status is set (not null/NA)
+    const apptSet      = leads?.filter(l => l.lead_status === 'Appt Set' || (l.appt_status && l.appt_status !== 'NA')).length || 0
+    // Appointments run = Appt Complete
+    const appointments = leads?.filter(l => l.appt_status === 'Appt Complete').length || 0
     const customers    = leads?.filter(l => l.sale_status === 'Sold').length || 0
 
     setMetrics({
