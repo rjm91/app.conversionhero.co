@@ -381,7 +381,17 @@ export default function ContactsPage() {
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Sale Status</label>
                     <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
-                      value={selected.sale_status || ''} onChange={e => setSelected(p => ({ ...p, sale_status: e.target.value }))}>
+                      value={selected.sale_status || ''} onChange={e => {
+                        const val = e.target.value
+                        setSelected(p => ({
+                          ...p,
+                          sale_status:  val,
+                          ...(val === 'Sold' && {
+                            lead_status: 'Appt Set',
+                            appt_status: 'Appt Complete',
+                          }),
+                        }))
+                      }}>
                       <option value="">—</option>
                       <option>NA</option>
                       <option>Proposal Sent</option>
