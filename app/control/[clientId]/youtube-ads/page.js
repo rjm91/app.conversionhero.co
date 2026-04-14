@@ -319,7 +319,7 @@ export default function YouTubeAdsPage() {
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <div>
                             <span className="text-gray-800 dark:text-gray-100 font-medium">{row.campaign_name}</span>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">ID: {row.campaign_id}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">ID: {row.campaign_id}</p>
                           </div>
                         </div>
                       </td>
