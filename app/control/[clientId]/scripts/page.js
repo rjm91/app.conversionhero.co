@@ -287,16 +287,22 @@ export default function ScriptsPage() {
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Classification</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Type</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="text-xs text-gray-500 dark:text-gray-400">Type</label>
+                      <div className="relative group">
+                        <button type="button" className="w-4 h-4 rounded-full bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-[10px] font-bold flex items-center justify-center hover:bg-blue-500 hover:text-white transition">?</button>
+                        <div className="absolute left-0 bottom-6 w-64 bg-gray-900 dark:bg-[#0f1117] border border-white/10 rounded-xl p-3.5 text-xs text-gray-300 shadow-xl z-50 hidden group-hover:block">
+                          <p className="font-semibold text-white mb-2.5">Script Types</p>
+                          <p className="mb-2.5"><span className="text-blue-400 font-semibold">Short Form</span> — 60 seconds or less, typically 15–30 seconds. Designed for quick hooks, high-frequency ad placements, and YouTube Shorts.</p>
+                          <p><span className="text-[#34CC93] font-semibold">Long Form</span> — 3 minutes or longer, typically 10 minutes to 1 hour+. Best for in-depth storytelling, educational content, and brand awareness campaigns.</p>
+                        </div>
+                      </div>
+                    </div>
                     <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
                       value={selected.vscript_type || ''} onChange={e => setSelected(p => ({ ...p, vscript_type: e.target.value }))}>
                       <option value="">—</option>
-                      <option>In-Stream</option>
-                      <option>In-Feed</option>
-                      <option>Bumper</option>
-                      <option>Shorts</option>
-                      <option>Performance Max</option>
-                      <option>Demand Gen</option>
+                      <option>Short Form</option>
+                      <option>Long Form</option>
                     </select>
                   </div>
                   <div>
