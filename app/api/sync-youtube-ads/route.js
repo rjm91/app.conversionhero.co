@@ -31,6 +31,10 @@ async function getAccessToken() {
   })
   const { ok, status, data, rawText } = await safeJson(res)
   if (!data?.access_token) {
+    const isExpired = rawText?.includes('invalid_grant') || rawText?.includes('Token has been expired or revoked')
+    if (isExpired) {
+      throw new Error('[Step 1 - OAuth] Refresh token expired or revoked. Run: node scripts/get-google-refresh-token.js to generate a new one, then update .env.local and Vercel.')
+    }
     throw new Error(`[Step 1 - OAuth] HTTP ${status}: ${rawText}`)
   }
   return data.access_token
