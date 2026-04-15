@@ -64,6 +64,8 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
   const versions = ['v20', 'v21', 'v22', 'v19']
   let lastError = ''
 
+  console.log(`[Sync] Querying customer: ${customerId}, manager: ${process.env.GOOGLE_ADS_MANAGER_ID}, date: ${startDate} → ${endDate}`)
+
   for (const version of versions) {
     const res = await fetch(
       `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
@@ -82,7 +84,6 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
     const { ok, status, data, rawText } = await safeJson(res)
 
     if (ok) {
-      console.log(`Google Ads API: using ${version}`)
       return data.results || []
     }
 
@@ -158,10 +159,11 @@ export async function GET(request) {
       return Response.json({ success: false, error: 'Missing env vars: ' + missing.join(', ') }, { status: 500 })
     }
 
-    const { data: adsAccounts, error: adsError } = await supabase
+    const { data: allAccounts, error: adsError } = await supabase
       .from('client_google_ads_account')
-      .select('client_id, client_name, customer_id, login_customer_id')
-      .eq('is_active', true)
+      .select('client_id, client_name, customer_id, login_customer_id, is_active')
+
+    const adsAccounts = (allAccounts || []).filter(a => a.is_active === true || String(a.is_active).toLowerCase() === 'true')
 
     if (adsError) throw new Error('Failed to fetch Google Ads accounts: ' + JSON.stringify(adsError))
     if (!adsAccounts?.length) {

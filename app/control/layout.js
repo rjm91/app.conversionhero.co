@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { createClient } from '../../lib/supabase-browser'
 import ThemeToggle from '../../components/ThemeToggle'
 
 const navItems = [
@@ -36,10 +36,13 @@ function AdminUserMenu() {
   const ref = useRef(null)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('ca_user')
-      if (stored) setUser(JSON.parse(stored))
-    } catch {}
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('profiles').select('*').eq('id', user.id).single()
+      setUser({ name: profile?.full_name || user.email, email: user.email })
+    })
   }, [])
 
   useEffect(() => {
@@ -50,9 +53,9 @@ function AdminUserMenu() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function handleSignOut() {
-    localStorage.removeItem('ca_user')
-    supabase.auth.signOut()
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
     router.push('/login')
   }
 

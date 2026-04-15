@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm /Users/ryanmaynard/Desktop/app.conversionhero.co/.git/index.lock)",
+      "Bash(git -C /Users/ryanmaynard/Desktop/app.conversionhero.co add app/control/\\\\[clientId\\\\]/dashboard/page.js)",
+      "Bash(git -C /Users/ryanmaynard/Desktop/app.conversionhero.co commit -m ':*)",
+      "Bash(git -C /Users/ryanmaynard/Desktop/app.conversionhero.co push origin main)",
+      "Bash(git -C /Users/ryanmaynard/Desktop/app.conversionhero.co show a73d09a --stat)",
+      "Bash(xargs ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(find /Users/ryanmaynard/Desktop/app.conversionhero.co/app/control/[clientId] -type f -name \"page.js\")",
+      "Bash(ls -la /Users/ryanmaynard/Desktop/app.conversionhero.co/app/control/[clientId]/)"
+    ]
+  }
+}
