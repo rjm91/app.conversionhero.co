@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
 export async function POST(request) {
   try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+
+    console.log('[create-user] URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    console.log('[create-user] Key set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+
     const { email, password, full_name, role, client_id } = await request.json()
 
     if (!email || !password || !role || !client_id) {
@@ -23,6 +26,7 @@ export async function POST(request) {
     })
 
     if (authError) {
+      console.error('[create-user] Auth error:', authError)
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
@@ -45,6 +49,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, user: authData.user })
   } catch (err) {
+    console.error('[create-user] Exception:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

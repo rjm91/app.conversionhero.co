@@ -174,6 +174,7 @@ export default function ClientLayout({ children }) {
   const { clientId } = useParams()
   const pathname = usePathname()
   const [clientName, setClientName] = useState('')
+  const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
   const items = navItems(clientId)
 
   useEffect(() => {
@@ -184,6 +185,10 @@ export default function ClientLayout({ children }) {
       .eq('client_id', clientId)
       .single()
       .then(({ data }) => { if (data) setClientName(data.client_name) })
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
+    })
   }, [clientId])
 
   return (
@@ -246,15 +251,17 @@ export default function ClientLayout({ children }) {
             <span className="text-xs text-gray-500">Dark mode</span>
             <ThemeToggle />
           </div>
-          <Link
-            href="/control"
-            className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-400 hover:text-white transition-all rounded-lg hover:bg-gray-800"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            All Clients
-          </Link>
+          {isAgencyAdmin && (
+            <Link
+              href="/control"
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-400 hover:text-white transition-all rounded-lg hover:bg-gray-800"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              All Clients
+            </Link>
+          )}
         </div>
       </aside>
 
