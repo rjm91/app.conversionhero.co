@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force visible text in password inputs (overrides browser autofill) */
+input[type="password"] {
+  -webkit-text-fill-color: #111827 !important;
+  color: #111827 !important;
+}
+input[type="password"]::placeholder {
+  -webkit-text-fill-color: #d1d5db !important;
+}
+
 @keyframes slideIn {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
