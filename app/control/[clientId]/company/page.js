@@ -83,12 +83,13 @@ function EditUserModal({ user, onClose, onSuccess }) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const supabase = createClient()
-    const { error: err } = await supabase
-      .from('profiles')
-      .update({ full_name: form.full_name || null, role: form.role })
-      .eq('id', user.id)
-    if (err) { setError(err.message); setLoading(false); return }
+    const res  = await fetch('/api/update-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, full_name: form.full_name, role: form.role }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || 'Failed to update user.'); setLoading(false); return }
     onSuccess()
   }
 
@@ -229,14 +230,15 @@ export default function CompanyPage() {
 
   async function loadData() {
     const supabase = createClient()
-    const [{ data: clientData }, { data: usersData }, { data: { user } }] = await Promise.all([
+    const { data: { user } } = await supabase.auth.getUser()
+    const [{ data: clientData }, { data: usersData }, { data: profileData }] = await Promise.all([
       supabase.from('client').select('*').eq('client_id', clientId).single(),
       supabase.from('profiles').select('*').eq('client_id', clientId),
-      supabase.auth.getUser(),
+      supabase.from('profiles').select('role').eq('id', user?.id).single(),
     ])
     if (clientData) setClient(clientData)
     setUsers(usersData || [])
-    setCurrentRole(user?.user_metadata?.role)
+    setCurrentRole(profileData?.role || user?.user_metadata?.role)
     setLoading(false)
   }
 

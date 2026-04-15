@@ -15,7 +15,8 @@
       "Bash(git commit -m 'Fix password input text invisible on login page:*)",
       "Bash(git commit -m 'Force password input text color via global CSS:*)",
       "Bash(git commit -m 'Hide All Clients link from non-agency users; fix create-user API:*)",
-      "Bash(git commit -m 'Add edit/delete user functionality with role-based permissions:*)"
+      "Bash(git commit -m 'Add edit/delete user functionality with role-based permissions:*)",
+      "Bash(git commit -m 'Fix role sync on edit and read currentRole from profiles table:*)"
     ]
   }
 }
