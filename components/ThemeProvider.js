@@ -2,28 +2,34 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
-const ThemeContext = createContext({ theme: 'light', toggle: () => {} })
+const ThemeContext = createContext({ theme: 'dark', setTheme: () => {} })
+
+const THEMES = ['system', 'dark', 'light']
+
+function applyTheme(theme) {
+  const root = document.documentElement
+  root.classList.remove('dark', 'system')
+  if (theme === 'dark') root.classList.add('dark')
+  else if (theme === 'system') root.classList.add('system')
+}
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('light')
+  const [theme, setThemeState] = useState('dark')
 
-  // On mount, read saved preference (or system preference)
   useEffect(() => {
-    const saved = localStorage.getItem('ca_theme')
-    const preferred = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    setTheme(preferred)
-    document.documentElement.classList.toggle('dark', preferred === 'dark')
+    const saved = localStorage.getItem('ca_theme') || 'dark'
+    setThemeState(saved)
+    applyTheme(saved)
   }, [])
 
-  function toggle() {
-    const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
+  function setTheme(next) {
+    setThemeState(next)
     localStorage.setItem('ca_theme', next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
+    applyTheme(next)
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, setTheme, themes: THEMES }}>
       {children}
     </ThemeContext.Provider>
   )

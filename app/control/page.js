@@ -78,25 +78,25 @@ export default function ControlPage() {
     {
       label: 'Active Clients',
       value: loading ? '—' : clients.length,
-      color: 'text-white',
+      color: 'text-gray-900 dark:text-white',
       prefix: false,
     },
     {
       label: 'Cash Collected',
       value: cashCollected === null ? '—' : fmt(cashCollected),
-      color: 'text-[#22cbe3]',
+      color: 'text-[#0ea5c8] dark:text-[#22cbe3]',
       prefix: false,
     },
     {
       label: 'MRR',
       value: mrr === null ? '—' : fmt(mrr),
-      color: 'text-[#34CC93]',
+      color: 'text-[#1a9e6c] dark:text-[#34CC93]',
       prefix: false,
     },
     {
       label: 'ARR',
       value: arr === 0 ? '$0' : fmt(arr),
-      color: arr === 0 ? 'text-gray-500' : 'text-[#846CC5]',
+      color: arr === 0 ? 'text-gray-500' : 'text-[#6b4fa8] dark:text-[#846CC5]',
       prefix: false,
     },
   ]

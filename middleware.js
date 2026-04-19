@@ -41,6 +41,14 @@ export async function middleware(request) {
 
   // client_admin / client_standard — can only access their own client routes
   if (role === 'client_admin' || role === 'client_standard') {
+    // Defensive: a client user with no client_id is a misconfigured account.
+    // Sign them out instead of looping redirects to /control/null/dashboard.
+    if (!clientId) {
+      const url = new URL('/login', request.url)
+      url.searchParams.set('error', 'no_client')
+      return NextResponse.redirect(url)
+    }
+
     // Block billing for client_standard
     if (role === 'client_standard' && pathname.includes('/billing')) {
       return NextResponse.redirect(new URL(`/control/${clientId}/dashboard`, request.url))

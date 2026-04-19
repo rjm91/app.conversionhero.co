@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase-browser'
-import ThemeToggle from '../../components/ThemeToggle'
+import ThemeSelector from '../../components/ThemeSelector'
 
 const navItems = [
   {
@@ -29,21 +29,16 @@ const navItems = [
   },
 ]
 
-function AdminUserMenu() {
+function getInitials(name, email) {
+  const parts = (name || email || '').trim().split(' ').filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (parts[0]?.[0] || '?').toUpperCase()
+}
+
+function AdminUserMenu({ profile }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [user, setUser] = useState(null)
   const ref = useRef(null)
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
-      const { data: profile } = await supabase
-        .from('profiles').select('*').eq('id', user.id).single()
-      setUser({ name: profile?.full_name || user.email, email: user.email })
-    })
-  }, [])
 
   useEffect(() => {
     function handleClick(e) {
@@ -59,12 +54,7 @@ function AdminUserMenu() {
     router.push('/login')
   }
 
-  if (!user) return null
-
-  const nameParts = (user.name || user.email || '').trim().split(' ').filter(Boolean)
-  const initials = nameParts.length >= 2
-    ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
-    : (nameParts[0]?.[0] || '?').toUpperCase()
+  const initials = getInitials(profile.name, profile.email)
 
   return (
     <div className="relative" ref={ref}>
@@ -78,9 +68,25 @@ function AdminUserMenu() {
       {open && (
         <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
           <div className="px-4 py-3.5 border-b border-gray-100 dark:border-white/10">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || user.email}</p>
-            {user.name && <p className="text-xs text-gray-400 truncate mt-0.5">{user.email}</p>}
+            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{profile.name || profile.email}</p>
+            {profile.name && <p className="text-xs text-gray-400 truncate mt-0.5">{profile.email}</p>}
           </div>
+          <div className="py-1.5">
+            <Link href="/control/profile" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </Link>
+            <Link href="/control/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </Link>
+          </div>
+          <ThemeSelector />
           <div className="border-t border-gray-100 dark:border-white/10 py-1.5">
             <button
               onClick={handleSignOut}
@@ -100,11 +106,21 @@ function AdminUserMenu() {
 
 export default function AdminLayout({ children }) {
   const pathname = usePathname()
+  const [profile, setProfile] = useState({ name: '', email: '' })
 
-  // Don't apply sidebar layout to client sub-routes (they have their own layout)
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.error) setProfile({ name: data.full_name || '', email: data.email || '' })
+      })
+  }, [])
+
   if (pathname.match(/^\/control\/[^/]+\//)) {
     return <>{children}</>
   }
+
+  const initials = getInitials(profile.name, profile.email)
 
   return (
     <div className="flex min-h-screen">
@@ -122,7 +138,7 @@ export default function AdminLayout({ children }) {
           </div>
         </div>
 
-        {/* Admin Badge */}
+        {/* User Badge */}
         <div className="px-4 py-4 border-b border-gray-800">
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-2.5">Workspace</p>
           <div className="flex items-center gap-2.5">
@@ -158,12 +174,7 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* Bottom */}
-        <div className="px-3 py-4 border-t border-gray-800 space-y-2">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-xs text-gray-500">Dark mode</span>
-            <ThemeToggle />
-          </div>
-        </div>
+        <div className="px-3 py-4 border-t border-gray-800" />
       </aside>
 
       {/* Main area */}
@@ -171,7 +182,7 @@ export default function AdminLayout({ children }) {
 
         {/* Top header */}
         <header className="sticky top-0 z-10 h-14 bg-white dark:bg-[#0f1117] border-b border-gray-100 dark:border-white/5 flex items-center justify-end px-6">
-          <AdminUserMenu />
+          <AdminUserMenu profile={profile} />
         </header>
 
         {/* Page content */}

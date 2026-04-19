@@ -4,7 +4,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
-import ThemeToggle from '../../../components/ThemeToggle'
+import ThemeSelector from '../../../components/ThemeSelector'
 
 const navItems = (clientId) => [
   {
@@ -153,6 +153,7 @@ function UserMenu() {
             </Link>
           </div>
 
+          <ThemeSelector />
           <div className="border-t border-gray-100 dark:border-white/10 py-1.5">
             <button
               onClick={handleSignOut}
@@ -197,32 +198,21 @@ export default function ClientLayout({ children }) {
       {/* Sidebar */}
       <aside className="w-60 bg-gray-900 dark:bg-[#0f1117] flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800 dark:border-white/5">
 
-        {/* Logo */}
+        {/* Client Logo */}
         <div className="px-5 py-5 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">CA</span>
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-xs">
+                {clientName
+                  ? clientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                  : 'CA'}
+              </span>
             </div>
-            <span className="text-white font-bold text-sm tracking-tight">ConversionAgent</span>
+            <span className="text-white font-bold text-sm tracking-tight truncate">
+              {clientName || 'ConversionAgent'}
+            </span>
           </div>
         </div>
-
-        {/* Client Badge */}
-        {clientName && (
-          <div className="px-4 py-4 border-b border-gray-800">
-            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2.5">Client</p>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold text-xs">
-                  {clientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-white text-sm font-semibold truncate">{clientName}</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -247,10 +237,6 @@ export default function ClientLayout({ children }) {
 
         {/* Bottom */}
         <div className="px-3 py-4 border-t border-gray-800 space-y-2">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-xs text-gray-500">Dark mode</span>
-            <ThemeToggle />
-          </div>
           {isAgencyAdmin && (
             <Link
               href="/control"
