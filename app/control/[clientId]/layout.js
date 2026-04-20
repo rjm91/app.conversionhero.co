@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
 import ThemeSelector from '../../../components/ThemeSelector'
+import AgentPanel from '../../../components/AgentPanel'
 
-const navItems = (clientId) => [
+const navItems = (clientId, isAgency = false) => [
   {
     label: 'Company',
     href: `/control/${clientId}/company`,
@@ -28,7 +29,7 @@ const navItems = (clientId) => [
     ),
   },
   {
-    label: 'Contacts',
+    label: 'Leads',
     href: `/control/${clientId}/contacts`,
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,7 +39,7 @@ const navItems = (clientId) => [
     ),
   },
   {
-    label: 'YouTube Ads',
+    label: 'Ads',
     href: `/control/${clientId}/youtube-ads`,
     icon: (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -47,15 +48,26 @@ const navItems = (clientId) => [
     ),
   },
   {
-    label: 'Scripts',
-    href: `/control/${clientId}/scripts`,
+    label: 'Videos',
+    href: `/control/${clientId}/videos/scripts`,
+    matchPrefix: `/control/${clientId}/videos`,
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
       </svg>
     ),
   },
+  ...(isAgency ? [{
+    label: 'Billing',
+    href: `/control/${clientId}/billing`,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  }] : []),
 ]
 
 function UserMenu() {
@@ -176,7 +188,7 @@ export default function ClientLayout({ children }) {
   const pathname = usePathname()
   const [clientName, setClientName] = useState('')
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
-  const items = navItems(clientId)
+  const items = navItems(clientId, isAgencyAdmin)
 
   useEffect(() => {
     const supabase = createClient()
@@ -199,8 +211,8 @@ export default function ClientLayout({ children }) {
       <aside className="w-60 bg-gray-900 dark:bg-[#0f1117] flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800 dark:border-white/5">
 
         {/* Client Logo */}
-        <div className="px-5 py-5 border-b border-gray-800">
-          <div className="flex items-center gap-2.5">
+        <div className="h-14 px-5 border-b border-gray-800 flex items-center">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-xs">
                 {clientName
@@ -217,7 +229,7 @@ export default function ClientLayout({ children }) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {items.map(item => {
-            const active = pathname === item.href
+            const active = item.matchPrefix ? pathname.startsWith(item.matchPrefix) : pathname === item.href
             return (
               <Link
                 key={item.href}
@@ -252,7 +264,7 @@ export default function ClientLayout({ children }) {
       </aside>
 
       {/* Main area */}
-      <div className="flex-1 ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 ml-60 flex flex-col min-h-screen">
 
         {/* Top header */}
         <header className="sticky top-0 z-10 h-14 bg-white dark:bg-[#0f1117] border-b border-gray-100 dark:border-white/5 flex items-center justify-end px-6">
@@ -264,6 +276,8 @@ export default function ClientLayout({ children }) {
           {children}
         </main>
       </div>
+
+      <AgentPanel />
     </div>
   )
 }

@@ -129,7 +129,7 @@ export default function AdminLayout({ children }) {
       <aside className="w-60 bg-gray-900 dark:bg-[#0f1117] flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800 dark:border-white/5">
 
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-gray-800">
+        <div className="h-14 px-5 border-b border-gray-800 flex items-center">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-xs">CA</span>
@@ -178,7 +178,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main area */}
-      <div className="flex-1 ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 ml-60 flex flex-col min-h-screen">
 
         {/* Top header */}
         <header className="sticky top-0 z-10 h-14 bg-white dark:bg-[#0f1117] border-b border-gray-100 dark:border-white/5 flex items-center justify-end px-6">

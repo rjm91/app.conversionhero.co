@@ -22,6 +22,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [role, setRole] = useState(null)
 
   // Form state
   const [billingType, setBillingType] = useState('retainer')
@@ -29,6 +30,10 @@ export default function BillingPage() {
   const [adSpendPercent, setAdSpendPercent] = useState('')
   const [effectiveDate, setEffectiveDate] = useState('')
   const [notes, setNotes] = useState('')
+
+  useEffect(() => {
+    fetch('/api/profile').then(r => r.json()).then(d => setRole(d.role || null))
+  }, [])
 
   useEffect(() => {
     async function fetchData() {
@@ -65,23 +70,31 @@ export default function BillingPage() {
 
   async function handleSave() {
     setSaving(true)
+    const retainerVal = ['retainer', 'retainer_plus_percent'].includes(billingType) ? parseFloat(retainerAmount) || null : null
     const payload = {
       client_id: clientId,
       billing_type: billingType,
-      retainer_amount: ['retainer', 'retainer_plus_percent'].includes(billingType) ? parseFloat(retainerAmount) || null : null,
+      retainer_amount: retainerVal,
       ad_spend_percent: ['retainer_plus_percent', 'percent_only'].includes(billingType) ? parseFloat(adSpendPercent) || null : null,
+      monthly_budget: retainerVal || 0,
       effective_date: effectiveDate || null,
       notes: notes || null,
     }
 
+    let result
     if (billing?.id) {
-      await supabase.from('client_billing').update(payload).eq('id', billing.id)
+      result = await supabase.from('client_billing').update(payload).eq('id', billing.id).select().single()
     } else {
-      const { data } = await supabase.from('client_billing').insert(payload).select().single()
-      if (data) setBilling(data)
+      result = await supabase.from('client_billing').insert(payload).select().single()
     }
 
     setSaving(false)
+    if (result.error) {
+      console.error('Billing save failed:', result.error)
+      alert(`Save failed: ${result.error.message}`)
+      return
+    }
+    if (result.data) setBilling(result.data)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
@@ -100,6 +113,33 @@ export default function BillingPage() {
   }
 
   const totalCollected = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+  const isAgency = role === 'agency_admin' || role === 'agency_standard'
+  const lastPayment = payments[0]
+
+  // Client-view: estimate next payment date as 1 month after most recent payment
+  function getNextPaymentDate() {
+    if (!lastPayment?.date_created) return null
+    const d = new Date(lastPayment.date_created)
+    d.setMonth(d.getMonth() + 1)
+    return d
+  }
+  const nextPaymentDate = getNextPaymentDate()
+
+  function getPlanLabel() {
+    if (billingType === 'retainer') return retainerAmount ? `${fmt(retainerAmount)}/mo` : '—'
+    if (billingType === 'percent_only') return adSpendPercent ? `${adSpendPercent}% of ad spend` : '—'
+    if (billingType === 'retainer_plus_percent') {
+      const parts = []
+      if (retainerAmount) parts.push(`${fmt(retainerAmount)}/mo`)
+      if (adSpendPercent) parts.push(`${adSpendPercent}% ad spend`)
+      return parts.length ? parts.join(' + ') : '—'
+    }
+    return '—'
+  }
+
+  function getPlanTypeLabel() {
+    return BILLING_TYPES.find(t => t.value === billingType)?.label || 'Monthly Retainer'
+  }
 
   return (
     <div className="p-8 max-w-4xl">
@@ -107,26 +147,59 @@ export default function BillingPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Billing</h1>
-        <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Configure this client's pricing model and view payment history.</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+          {isAgency
+            ? "Configure this client's pricing model and view payment history."
+            : 'View your plan, upcoming payment, and invoice history.'}
+        </p>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Total Collected</p>
-          <p className="text-2xl font-bold text-[#22cbe3]">{fmt(totalCollected)}</p>
+      {isAgency ? (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Total Collected</p>
+            <p className="text-2xl font-bold text-[#22cbe3]">{fmt(totalCollected)}</p>
+          </div>
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Invoices</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{payments.length}</p>
+          </div>
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Current MRR</p>
+            <p className="text-2xl font-bold text-[#34CC93]">{getMRRLabel()}</p>
+          </div>
         </div>
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Invoices</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{payments.length}</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Current Plan</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{getPlanLabel()}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{getPlanTypeLabel()}</p>
+          </div>
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Next Payment</p>
+            <p className="text-2xl font-bold text-[#22cbe3]">
+              {nextPaymentDate ? nextPaymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              {lastPayment ? `Est. ${fmt(lastPayment.amount)}` : 'No scheduled payment'}
+            </p>
+          </div>
+          <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Payment Method</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              {lastPayment?.merchant === 'STRIPE' ? 'Card' : lastPayment?.merchant === 'QBO' ? 'ACH / Check' : '—'}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              via {lastPayment?.merchant === 'QBO' ? 'QuickBooks' : lastPayment?.merchant === 'STRIPE' ? 'Stripe' : lastPayment?.merchant || '—'}
+            </p>
+          </div>
         </div>
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Current MRR</p>
-          <p className="text-2xl font-bold text-[#34CC93]">{getMRRLabel()}</p>
-        </div>
-      </div>
+      )}
 
-      {/* Pricing Model */}
+      {/* Pricing Model — agency only */}
+      {isAgency && (
       <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-6 mb-6">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-5">Pricing Model</h2>
 
@@ -212,6 +285,7 @@ export default function BillingPage() {
           {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Billing Config'}
         </button>
       </div>
+      )}
 
       {/* Payment History */}
       <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">

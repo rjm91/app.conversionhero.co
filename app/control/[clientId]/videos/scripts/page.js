@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../../../../lib/supabase'
+import { supabase } from '../../../../../lib/supabase'
 
 const STATUS_COLORS = {
   draft:     'bg-[#FFD024]/10 text-[#b89600] dark:text-[#FFD024]',

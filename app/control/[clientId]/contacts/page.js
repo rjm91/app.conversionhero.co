@@ -179,7 +179,7 @@ export default function ContactsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm overflow-x-auto">
         {loading ? (
           <p className="text-gray-400 text-sm p-8">Loading contacts...</p>
         ) : filtered.length === 0 ? (
@@ -206,7 +206,7 @@ export default function ContactsPage() {
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="whitespace-nowrap">
               {filtered.map((lead, i) => (
                 <tr
                   key={lead.lead_id}
@@ -237,27 +237,27 @@ export default function ContactsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.email || '—'}</td>
-                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.phone || '—'}</td>
+                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{lead.phone || '—'}</td>
                   <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
                     {lead.city && lead.state ? `${lead.city}, ${lead.state}` : '—'}
                   </td>
                   <td className="px-4 py-3.5">
                     {lead.lead_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.lead_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.lead_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.lead_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
                   </td>
                   <td className="px-4 py-3.5">
                     {lead.appt_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.appt_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
                   </td>
                   <td className="px-4 py-3.5">
                     {lead.sale_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.sale_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.sale_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
                         {lead.sale_status}
                       </span>
                     ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
