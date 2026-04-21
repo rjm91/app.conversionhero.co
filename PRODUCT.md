@@ -57,7 +57,22 @@ The agent will generate AI UGC (User Generated Content) videos:
 - Rendered videos automatically uploaded to Google Ads as new creatives
 - Agent can A/B test creatives and iterate based on performance data
 
-### 4. Full Autonomous Loop
+### 4. Onboarding Automation (North-Star Milestone)
+
+Today onboarding takes ~2 weeks of manual work per client (folder copying on HostGator, DNS setup, ad campaign build, script writing). The goal is a **5-minute form** that spins up a fully-configured client.
+
+**One-click onboarding produces, in ~5 minutes:**
+- New `client` + `profiles` rows
+- Funnel row with chosen template merged with client's logo, colors, offer, service area
+- Custom domain registered via Vercel Domains API — DNS + SSL auto-provisioned
+- Landing page live at `synergyhome.co` (or `go.synergyhome.co`) with tracking pixel embedded
+- `calendar_events` seeded with the month's video drops based on chosen plan tier (8 / 13 / 21 / 34 / 55)
+- *(Phase 2, post-Standard Access)* First YouTube ad campaign launched against the new landing page — AI writes copy, picks targeting, sets budget
+- *(Phase 3, post-Creator plan + Digital Twin)* First month's avatar videos queued for render
+
+This collapses the biggest operational bottleneck in the agency into data entry.
+
+### 5. Full Autonomous Loop
 ```
 Market Research → Script Writing → Video Production (HeyGen) 
 → Campaign Launch (Google Ads) → Performance Monitoring 
@@ -141,6 +156,8 @@ client_standard
 - **Content Calendar sequencing**: build calendar first with unified `calendar_events` table (option A), then build `ad_campaigns` table separately when Standard Access lands. Ad campaigns will write a `calendar_events` row alongside the campaign record so the calendar auto-reflects what AI is doing.
 - **Calendar location**: top-level `/control/calendar` (agency-wide, shows all clients color-coded) + per-client `/control/[clientId]/calendar` (filtered). Sidebar item in both layouts.
 - **HeyGen plan**: needs upgrade from trial to Creator tier to unlock Avatar V + kill the 8/day limit.
+- **Funnel tracking pixel**: build standalone before the funnel builder. Standalone `/pixel.js` + `/api/funnels/track` + `funnel_events` table means existing (non-in-app) landing pages can start collecting data immediately. When the builder ships, it auto-embeds the same pixel — no refactor.
+- **Custom domains / white-label hosting for funnels**: agency purchases client domains as part of onboarding (not client-managed DNS). Standardize on **Vercel Domains as the registrar** so buying, DNS, SSL, and routing all happen via one API in one place. Onboarding flow: call Vercel Domains API → domain auto-attaches to project → `funnels.custom_domain` row created → Next.js middleware reads `Host` header and rewrites to internal `/_funnels/{id}` route. Reference implementation: [Vercel Platforms Starter Kit](https://vercel.com/templates/next.js/platforms-starter-kit). Push clients toward subdomains (`go.synergyhome.co`) over apex for DNS reliability.
 
 ---
 

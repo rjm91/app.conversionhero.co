@@ -72,13 +72,17 @@ export default function FunnelsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-white/5">
               {funnels.map(f => {
                 const convRate = f.visitors ? f.leads / f.visitors : null
+                const liveUrl = f.custom_domain
+                  ? `https://${f.custom_domain}/${f.slug}`
+                  : f.slug ? `/f/${f.slug}` : f.url
+                const displayUrl = liveUrl?.startsWith('http') ? liveUrl.replace(/^https?:\/\//, '') : liveUrl
                 return (
                   <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{f.name}</td>
                     <td className="px-5 py-3">
-                      {f.url ? (
-                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs truncate">
-                          {f.url.replace(/^https?:\/\//, '')}
+                      {liveUrl ? (
+                        <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs truncate">
+                          {displayUrl}
                         </a>
                       ) : <span className="text-gray-400">—</span>}
                     </td>
