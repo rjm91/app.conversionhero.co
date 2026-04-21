@@ -114,14 +114,51 @@ client_standard
 
 - ✅ Multi-tenant portal live at `app-conversionhero-co.vercel.app`
 - ✅ Real Supabase Auth with role-based access and middleware protection
-- ✅ Google Ads API sync working (YouTube campaign data)
+- ✅ Google Ads API sync working (YouTube campaign data, read-only)
 - ✅ Company page with team member management (create, edit, delete users)
 - ✅ Video scripts module
 - ✅ Contacts/leads module
-- ⏳ Google Ads Standard Access (pending Google approval)
-- ⏳ AI agent chat/voice interface
-- ⏳ HeyGen video generation pipeline
+- ✅ AI Agent panel (floating chat UI) with tool-calling: `getLeads`, `getPipeline`, `getAdSpend`
+- ✅ HeyGen integration — Avatar Studio with avatar/voice pickers, script editor, advanced controls (speed, emotion, aspect ratio, bg color), preview-clip render, generation + status polling, Supabase persistence via `client_avatar_videos`, history view with resume-poll
+- ✅ Videos tab restructure: **Videos** (finished, default) | **Scripts** | **Avatar** (AI generation) | **Media**
+- ✅ Funnels tab + `client_funnels` table (list view with conversion rate; builder deferred)
+- ⏳ Content Calendar (agency-wide + per-client) — mockup approved at `/control/[clientId]/videos/calendar-preview`, building next
+- ⏳ `ad_campaigns` table + "Push to Google" flow — deferred until Google Ads Standard Access lands
+- ⏳ Google Ads Standard Access (pending Google approval) — unlocks write API
+- ⏳ Avatar V (HeyGen Digital Twin) — API-accessible on Creator plan; current HeyGen account on free tier (8 API renders/day limit)
+- ⏳ Voice/full-chat AI agent interface (current panel is text-only)
 - ⏳ Autonomous campaign management
+
+---
+
+## Recent Decisions Log
+
+- **Videos tab default** = finished videos (not scripts). Scripts moved to sub-tab.
+- **Avatar Studio** = white-label HeyGen clone inside the app. Clients never see HeyGen branding.
+- **Only Avatar V** will be used in production — stock HeyGen avatars are hidden (pending filter logic once user trains a Digital Twin).
+- **Preview button** in Avatar Studio renders a first-sentence test clip so user hears Advanced settings (speed/emotion) applied before full render.
+- **Funnels tab** added between Ads and Videos. v1 = read-only list with live conv. stats. In-app funnel builder = future work.
+- **Content Calendar sequencing**: build calendar first with unified `calendar_events` table (option A), then build `ad_campaigns` table separately when Standard Access lands. Ad campaigns will write a `calendar_events` row alongside the campaign record so the calendar auto-reflects what AI is doing.
+- **Calendar location**: top-level `/control/calendar` (agency-wide, shows all clients color-coded) + per-client `/control/[clientId]/calendar` (filtered). Sidebar item in both layouts.
+- **HeyGen plan**: needs upgrade from trial to Creator tier to unlock Avatar V + kill the 8/day limit.
+
+---
+
+## Productized Service Offer ("Local Video Authority")
+
+Tiers sold to HVAC/home-services clients:
+
+| Plan | Videos/mo | Filming | Price |
+|---|---|---|---|
+| Pilot | 8 (2/wk) | Synergy Team / DWY | $1,000/mo |
+| Starter | 13 (3–4/wk) | Synergy Team / DWY | $1,550/mo · 4-mo min |
+| Growth ⭐ | 21 (4–6/wk) | Synergy Team / DWY | $2,450/mo · 4-mo min |
+| Pro | 34 (7–9/wk) | Done-For-You | $3,750/mo · 4-mo min |
+| Synergy Hero | 55 (2/day) | Done-For-You | Custom |
+
+All tiers include: dedicated creative consultant, scripting, editing, YouTube Ads management ($1,650/mo value). Short-form vertical (≤60s).
+
+The content calendar exists to prove delivery on these per-month video counts.
 
 ---
 

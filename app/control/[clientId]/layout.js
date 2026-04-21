@@ -48,8 +48,28 @@ const navItems = (clientId, isAgency = false) => [
     ),
   },
   {
+    label: 'Calendar',
+    href: `/control/${clientId}/calendar`,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Funnels',
+    href: `/control/${clientId}/funnels`,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M3 4h18M6 8h12M9 12h6M11 16h2" />
+      </svg>
+    ),
+  },
+  {
     label: 'Videos',
-    href: `/control/${clientId}/videos/scripts`,
+    href: `/control/${clientId}/videos`,
     matchPrefix: `/control/${clientId}/videos`,
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
