@@ -40,14 +40,18 @@ export default function FunnelDetailPage() {
   useEffect(() => { if (id) load() }, [id])
   useEffect(() => { if (clientId) loadDomains() }, [clientId])
 
-  async function saveDomain() {
+  async function saveDomain(overrideDomain) {
+    const val = (overrideDomain !== undefined ? overrideDomain : domain) || null
     setSavingDomain(true)
-    const supabase = createClient()
-    await supabase.from('client_funnels').update({ custom_domain: domain || null }).eq('id', id)
+    await fetch(`/api/funnels/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ custom_domain: val }),
+    })
     setSavingDomain(false)
     setDomainSaved(true)
     setTimeout(() => setDomainSaved(false), 2000)
-    setFunnel(f => ({ ...f, custom_domain: domain || null }))
+    setFunnel(f => ({ ...f, custom_domain: val }))
   }
 
   async function registerDomain() {
@@ -61,13 +65,8 @@ export default function FunnelDetailPage() {
     setNewDomain('')
     setAddingDomain(false)
     await loadDomains()
-    // Immediately save the new domain to this funnel
-    const supabase = createClient()
-    await supabase.from('client_funnels').update({ custom_domain: cleaned }).eq('id', id)
     setDomain(cleaned)
-    setFunnel(f => ({ ...f, custom_domain: cleaned }))
-    setDomainSaved(true)
-    setTimeout(() => setDomainSaved(false), 2000)
+    await saveDomain(cleaned)
   }
 
   async function saveStep(stepId, config) {
