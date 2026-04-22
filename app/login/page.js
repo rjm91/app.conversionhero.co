@@ -114,10 +114,13 @@ export default function LoginPage() {
       return
     }
 
-    const user     = signInData.user
-    const meta     = user.user_metadata || {}
-    const role     = meta.role
-    const clientId = meta.client_id
+    const user = signInData.user
+
+    const { data: profile } = await supabase
+      .from('profiles').select('role, client_id').eq('id', user.id).single()
+
+    const role     = profile?.role
+    const clientId = profile?.client_id
 
     localStorage.setItem('ca_user', JSON.stringify({ id: user.id, email: user.email, role, clientId }))
 
