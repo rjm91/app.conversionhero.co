@@ -24,10 +24,11 @@ export async function middleware(request) {
       { cookies: { getAll() { return [] }, setAll() {} } }
     )
 
+    const lookupHostname = hostname.startsWith('www.') ? hostname.slice(4) : hostname
     const { data: funnel } = await supabase
       .from('client_funnels')
       .select('slug')
-      .eq('custom_domain', hostname)
+      .eq('custom_domain', lookupHostname)
       .eq('status', 'live')
       .single()
 
