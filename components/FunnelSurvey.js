@@ -22,18 +22,15 @@ function captureMeta() {
   }
 }
 
-export default function FunnelSurvey({ funnelId, clientId, config }) {
-  const steps = config?.steps || []
-  const branding = config?.branding || {}
-  const headline = config?.headline || {}
-  const footer = config?.footer || {}
-  const gtagId = config?.tracking?.gtagId
-  const lastStep = steps[steps.length - 1]
+export default function FunnelSurvey({ funnelId, funnelSlug, clientId, branding = {}, tracking = {}, stepConfig = {} }) {
+  const steps = stepConfig.steps || []
+  const headline = stepConfig.headline || {}
+  const footer = stepConfig.footer || {}
+  const gtagId = tracking.gtagId
   const thankYouUrl = branding.thankYouUrl
 
   const [currentStep, setCurrentStep] = useState(0)
   const [selections, setSelections] = useState({})
-  const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
 
@@ -164,28 +161,14 @@ export default function FunnelSurvey({ funnelId, clientId, config }) {
     if (thankYouUrl) {
       window.location.href = thankYouUrl
     } else {
-      setSubmitted(true)
+      const onCustomDomain = !window.location.pathname.startsWith('/f/')
+      window.location.href = onCustomDomain ? '/thanks' : `/f/${funnelSlug}/thanks`
     }
     inFlightRef.current = false
   }
 
   const pct = Math.round((currentStep / steps.length) * 100)
   const step = steps[currentStep]
-
-  if (submitted) {
-    const ty = lastStep?.thankYou || {}
-    return (
-      <div className={s.shell} style={rootStyle}>
-        <Header branding={branding} headline={headline} />
-        <div className={s.thankyou}>
-          <div className={s.thankyouIcon}>✅</div>
-          <div className={s.thankyouTitle}>{ty.title || "We've Got Your Info!"}</div>
-          <div className={s.thankyouMsg} dangerouslySetInnerHTML={{ __html: (ty.message || 'Thanks — we will be in touch shortly.').replace(/\n/g, '<br/>') }} />
-        </div>
-        <Footer footer={footer} branding={branding} />
-      </div>
-    )
-  }
 
   return (
     <div className={s.shell} style={rootStyle}>

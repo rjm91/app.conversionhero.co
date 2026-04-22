@@ -1,8 +1,55 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
+const APP_HOSTS = ['app.conversionhero.co', 'localhost']
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl
+  const hostname = (request.headers.get('host') || '').split(':')[0]
+
+  const isAppDomain =
+    APP_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`)) ||
+    hostname.endsWith('.vercel.app')
+
+  // ── Custom client domain ──────────────────────────────────────────────────
+  if (!isAppDomain) {
+    // Let Next.js internals and API routes pass through unchanged
+    if (pathname.startsWith('/_next') || pathname.startsWith('/api/')) {
+      return NextResponse.next()
+    }
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { cookies: { getAll() { return [] }, setAll() {} } }
+    )
+
+    const { data: funnel } = await supabase
+      .from('client_funnels')
+      .select('slug')
+      .eq('custom_domain', hostname)
+      .eq('status', 'live')
+      .single()
+
+    if (!funnel) {
+      return new NextResponse(
+        '<html><body style="font-family:sans-serif;text-align:center;padding:80px"><h2>Page not found</h2></body></html>',
+        { status: 404, headers: { 'content-type': 'text/html' } }
+      )
+    }
+
+    const rewritePath = pathname === '/'
+      ? `/f/${funnel.slug}`
+      : `/f/${funnel.slug}${pathname}`
+
+    return NextResponse.rewrite(new URL(rewritePath, request.url))
+  }
+
+  // ── App domain — auth guard for /control ─────────────────────────────────
+  if (!pathname.startsWith('/control')) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -24,43 +71,35 @@ export async function middleware(request) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Not logged in — redirect to login
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Get profile for role + client_id
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, client_id')
     .eq('id', user.id)
     .single()
 
-  const role = profile?.role
+  const role     = profile?.role
   const clientId = profile?.client_id
 
-  // client_admin / client_standard — can only access their own client routes
   if (role === 'client_admin' || role === 'client_standard') {
-    // Defensive: a client user with no client_id is a misconfigured account.
-    // Sign them out instead of looping redirects to /control/null/dashboard.
     if (!clientId) {
       const url = new URL('/login', request.url)
       url.searchParams.set('error', 'no_client')
       return NextResponse.redirect(url)
     }
 
-    // Block billing for client_standard
     if (role === 'client_standard' && pathname.includes('/billing')) {
       return NextResponse.redirect(new URL(`/control/${clientId}/dashboard`, request.url))
     }
 
-    // Block access to any other client's routes
     const clientRouteMatch = pathname.match(/^\/control\/([^/]+)/)
     if (clientRouteMatch && clientRouteMatch[1] !== clientId) {
       return NextResponse.redirect(new URL(`/control/${clientId}/dashboard`, request.url))
     }
 
-    // Block access to top-level admin pages (/control, /control/clients)
     if (pathname === '/control' || pathname === '/control/clients') {
       return NextResponse.redirect(new URL(`/control/${clientId}/dashboard`, request.url))
     }
@@ -70,5 +109,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/control/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
 }
