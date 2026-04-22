@@ -13,8 +13,11 @@ export default function FunnelDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [domain, setDomain] = useState('')
+  const [domains, setDomains] = useState([])
   const [savingDomain, setSavingDomain] = useState(false)
   const [domainSaved, setDomainSaved] = useState(false)
+  const [addingDomain, setAddingDomain] = useState(false)
+  const [newDomain, setNewDomain] = useState('')
 
   async function load() {
     const supabase = createClient()
@@ -28,7 +31,14 @@ export default function FunnelDetailPage() {
     setLoading(false)
   }
 
+  async function loadDomains() {
+    const res = await fetch(`/api/client-domains?clientId=${clientId}`)
+    const data = await res.json()
+    setDomains(data.domains || [])
+  }
+
   useEffect(() => { if (id) load() }, [id])
+  useEffect(() => { if (clientId) loadDomains() }, [clientId])
 
   async function saveDomain() {
     setSavingDomain(true)
@@ -38,6 +48,20 @@ export default function FunnelDetailPage() {
     setDomainSaved(true)
     setTimeout(() => setDomainSaved(false), 2000)
     setFunnel(f => ({ ...f, custom_domain: domain || null }))
+  }
+
+  async function registerDomain() {
+    if (!newDomain.trim()) return
+    const cleaned = newDomain.toLowerCase().trim()
+    await fetch('/api/client-domains', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, domain: cleaned }),
+    })
+    setNewDomain('')
+    setAddingDomain(false)
+    await loadDomains()
+    setDomain(cleaned)
   }
 
   async function saveStep(stepId, config) {
@@ -74,16 +98,44 @@ export default function FunnelDetailPage() {
 
       {/* Custom Domain */}
       <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 px-5 py-4 mb-4">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Custom Domain</h3>
-        <p className="text-xs text-gray-400 mb-3">Point the client's domain to this funnel. Add it to Vercel first, then enter it here.</p>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Custom Domain</h3>
+          <button
+            onClick={() => setAddingDomain(v => !v)}
+            className="text-xs text-blue-500 hover:text-blue-600 transition"
+          >
+            + Register domain
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-3">Select the client's domain to point to this funnel.</p>
+
+        {addingDomain && (
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={newDomain}
+              onChange={e => setNewDomain(e.target.value.toLowerCase().trim())}
+              placeholder="synergyhome.co"
+              className="flex-1 text-sm px-3 py-2 border border-blue-400 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={e => { if (e.key === 'Enter') registerDomain() }}
+              autoFocus
+            />
+            <button onClick={registerDomain} className="px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">Add</button>
+            <button onClick={() => setAddingDomain(false)} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition">Cancel</button>
+          </div>
+        )}
+
         <div className="flex gap-2">
-          <input
-            type="text"
+          <select
             value={domain}
-            onChange={e => setDomain(e.target.value.toLowerCase().trim())}
-            placeholder="synergyhome.co"
-            className="flex-1 text-sm px-3 py-2 border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            onChange={e => setDomain(e.target.value)}
+            className="flex-1 text-sm px-3 py-2 border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— No custom domain —</option>
+            {domains.map(d => (
+              <option key={d.id} value={d.domain}>{d.domain}</option>
+            ))}
+          </select>
           <button
             onClick={saveDomain}
             disabled={savingDomain}
