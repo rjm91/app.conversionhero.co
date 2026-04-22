@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase-browser'
 import ThemeSelector from '../../components/ThemeSelector'
+import AgentPanel from '../../components/AgentPanel'
 
 const navItems = [
   {
@@ -210,6 +211,8 @@ export default function AdminLayout({ children }) {
           {children}
         </main>
       </div>
+
+      <AgentPanel mode="agency" />
     </div>
   )
 }

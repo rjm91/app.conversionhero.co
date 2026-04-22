@@ -10,6 +10,13 @@ const SUGGESTIONS = [
   'How many assets are uploaded?',
 ]
 
+const AGENCY_SUGGESTIONS = [
+  'Which client has the most leads?',
+  'What is our total ad spend?',
+  'Summarize all active clients',
+  'Which client has the best close rate?',
+]
+
 const MIN_W = 320
 const MIN_H = 400
 const STORAGE_KEY = 'agentPanelRect'
@@ -32,12 +39,15 @@ function clampRect(r) {
   return { x, y, w, h }
 }
 
-export default function AgentPanel() {
+export default function AgentPanel({ mode = 'client' }) {
+  const isAgency = mode === 'agency'
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState(defaultRect)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { role: 'agent', text: "Hey — ask me anything about this client. I can pull live data from leads, scripts, and assets." },
+    { role: 'agent', text: isAgency
+        ? "Hey — ask me anything about your clients, payments, ad spend, or leads across the agency."
+        : "Hey — ask me anything about this client. I can pull live data from leads, scripts, and assets." },
   ])
   const [sending, setSending] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(true)
@@ -328,7 +338,7 @@ export default function AgentPanel() {
                 </svg>
               </button>
               <div className="flex flex-wrap gap-1.5 pr-6">
-                {SUGGESTIONS.map(s => (
+                {(isAgency ? AGENCY_SUGGESTIONS : SUGGESTIONS).map(s => (
                   <button
                     key={s}
                     onClick={() => setInput(s)}
