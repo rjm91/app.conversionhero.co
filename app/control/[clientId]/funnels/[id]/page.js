@@ -149,7 +149,7 @@ export default function FunnelDetailPage() {
             ))}
           </select>
           <button
-            onClick={saveDomain}
+            onClick={() => saveDomain()}
             disabled={savingDomain}
             className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition"
           >
