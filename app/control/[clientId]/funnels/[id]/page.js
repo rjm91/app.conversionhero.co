@@ -43,15 +43,22 @@ export default function FunnelDetailPage() {
   async function saveDomain(overrideDomain) {
     const val = (overrideDomain !== undefined ? overrideDomain : domain) || null
     setSavingDomain(true)
-    await fetch(`/api/funnels/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ custom_domain: val }),
-    })
-    setSavingDomain(false)
-    setDomainSaved(true)
-    setTimeout(() => setDomainSaved(false), 2000)
-    setFunnel(f => ({ ...f, custom_domain: val }))
+    try {
+      const res = await fetch(`/api/funnels/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custom_domain: val }),
+      })
+      if (res.ok) {
+        setFunnel(f => ({ ...f, custom_domain: val }))
+        setDomainSaved(true)
+        setTimeout(() => setDomainSaved(false), 2000)
+      }
+    } catch (e) {
+      console.error('saveDomain failed:', e)
+    } finally {
+      setSavingDomain(false)
+    }
   }
 
   async function registerDomain() {
