@@ -119,6 +119,8 @@ export default function LoginPage() {
     const role     = meta.role
     const clientId = meta.client_id
 
+    localStorage.setItem('ca_user', JSON.stringify({ id: user.id, email: user.email, role, clientId }))
+
     if (role === 'agency_admin') {
       router.push('/control')
     } else if (clientId) {
