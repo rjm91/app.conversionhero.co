@@ -91,6 +91,18 @@ function ThankYouEditor({ config, update }) {
       <Field label="CTA button URL (optional)" hint="Use tel:+15555551234 for click-to-call.">
         <input className={inputCls} value={config.cta?.href || ''} onChange={e => update(['cta', 'href'], e.target.value)} placeholder="https://…" />
       </Field>
+      <Field
+        label="Conversion Pixel Code (optional)"
+        hint="Fires on thank-you page load. Paste the Google Ads / Meta event snippet."
+      >
+        <textarea
+          className={`${inputCls} font-mono text-xs h-40 resize-y`}
+          spellCheck={false}
+          value={config.conversionPixel || ''}
+          onChange={e => update(['conversionPixel'], e.target.value)}
+          placeholder={`<!-- Event snippet for Lead conversion page -->\n<script>\n  gtag('event', 'conversion', {'send_to': 'AW-XXXXXXX/XXXXXX'});\n</script>`}
+        />
+      </Field>
     </>
   )
 }

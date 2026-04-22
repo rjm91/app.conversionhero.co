@@ -9,6 +9,7 @@ export default function FunnelThankYou({ funnelId, clientId, branding = {}, trac
   const title = stepConfig.title || "We've Got Your Info!"
   const message = stepConfig.message || 'Thanks — we will be in touch shortly.'
   const cta = stepConfig.cta || {}
+  const conversionPixel = stepConfig.conversionPixel
 
   useEffect(() => {
     const sid = (() => {
@@ -29,6 +30,9 @@ export default function FunnelThankYou({ funnelId, clientId, branding = {}, trac
 
   return (
     <div className={s.shell} style={rootStyle}>
+      {conversionPixel && (
+        <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: conversionPixel }} />
+      )}
       {gtagId && (
         <>
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${gtagId}`} strategy="afterInteractive" />
