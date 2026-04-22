@@ -61,7 +61,13 @@ export default function FunnelDetailPage() {
     setNewDomain('')
     setAddingDomain(false)
     await loadDomains()
+    // Immediately save the new domain to this funnel
+    const supabase = createClient()
+    await supabase.from('client_funnels').update({ custom_domain: cleaned }).eq('id', id)
     setDomain(cleaned)
+    setFunnel(f => ({ ...f, custom_domain: cleaned }))
+    setDomainSaved(true)
+    setTimeout(() => setDomainSaved(false), 2000)
   }
 
   async function saveStep(stepId, config) {
