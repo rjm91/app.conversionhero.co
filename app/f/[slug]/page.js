@@ -1,38 +1,22 @@
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import FunnelSurvey from '../../../components/FunnelSurvey'
+import { loadFunnel, renderStep } from '../../../lib/funnel-loader'
 
 export const dynamic = 'force-dynamic'
 
-function admin() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-}
-
 export async function generateMetadata({ params }) {
-  const { data } = await admin()
-    .from('client_funnels')
-    .select('name, config')
-    .eq('slug', params.slug)
-    .single()
-  if (!data) return { title: 'Not found' }
-  return { title: data.name, description: data.config?.headline?.title || '' }
+  const loaded = await loadFunnel(params.slug)
+  if (!loaded) return { title: 'Not found' }
+  const entry = loaded.steps.find(s => s.step_order === 1)
+  return {
+    title: loaded.funnel.name,
+    description: entry?.config?.headline?.title || '',
+  }
 }
 
-export default async function FunnelPage({ params }) {
-  const { data: funnel, error } = await admin()
-    .from('client_funnels')
-    .select('id, client_id, name, status, config')
-    .eq('slug', params.slug)
-    .single()
-
-  if (error || !funnel) notFound()
-  if (funnel.status !== 'live') notFound()
-
-  return (
-    <FunnelSurvey
-      funnelId={funnel.id}
-      clientId={funnel.client_id}
-      config={funnel.config}
-    />
-  )
+export default async function FunnelEntryPage({ params }) {
+  const loaded = await loadFunnel(params.slug)
+  if (!loaded) notFound()
+  const entry = loaded.steps.find(s => s.step_order === 1)
+  if (!entry) notFound()
+  return renderStep({ funnel: loaded.funnel, step: entry })
 }
