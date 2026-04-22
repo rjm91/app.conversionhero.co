@@ -39,6 +39,10 @@ export async function middleware(request) {
       )
     }
 
+    if (pathname.startsWith('/f/')) {
+      return NextResponse.next()
+    }
+
     const rewritePath = pathname === '/'
       ? `/f/${funnel.slug}`
       : `/f/${funnel.slug}${pathname}`

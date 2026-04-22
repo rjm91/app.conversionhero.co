@@ -35,7 +35,7 @@ create index if not exists funnel_events_funnel_idx on funnel_events(funnel_id, 
 insert into client_funnels (client_id, slug, name, service, status, is_template, config)
 values (
   'ch014',                                                  -- Synergy Home
-  'synergy-hvac-quote',
+  'hvac-quote',
   'Synergy Home — HVAC Second Opinion',
   'hvac',
   'live',

@@ -182,14 +182,20 @@ export default function FunnelDetailPage() {
                     {step.step_type}
                   </span>
                 </div>
-                <a
-                  href={step.slug ? `/f/${funnel.slug}/${step.slug}` : `/f/${funnel.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-blue-500 hover:underline mt-0.5 inline-block truncate"
-                >
-                  {step.slug ? `/f/${funnel.slug}/${step.slug}` : `/f/${funnel.slug}`} ↗
-                </a>
+                {(() => {
+                  const path = step.slug ? `/f/${funnel.slug}/${step.slug}` : `/f/${funnel.slug}`
+                  const url = funnel.custom_domain ? `https://${funnel.custom_domain}${path}` : path
+                  return (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-500 hover:underline mt-0.5 inline-block truncate"
+                    >
+                      {url} ↗
+                    </a>
+                  )
+                })()}
               </div>
               <button
                 onClick={() => setEditing(step)}
