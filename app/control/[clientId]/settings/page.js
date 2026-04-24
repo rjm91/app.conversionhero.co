@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import ThemeToggle from '../../../../components/ThemeToggle'
 
 export default function SettingsPage() {
   const [email,     setEmail]    = useState('')
@@ -37,20 +36,6 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
         <p className="text-sm text-gray-400 mt-1">Manage your account preferences</p>
       </div>
-
-      {/* Appearance */}
-      <section className="mb-8">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appearance</h2>
-        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Dark mode</p>
-              <p className="text-xs text-gray-400 mt-0.5">Switch between light and dark theme</p>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </section>
 
       {/* Account */}
       <section className="mb-8">
