@@ -70,6 +70,7 @@ export default function DashboardPage() {
       .from('client_yt_campaigns')
       .select('cost')
       .eq('client_id', clientId)
+      .ilike('campaign_name', `%${clientId}%`)
       .gte('date', start)
       .lte('date', end)
 
