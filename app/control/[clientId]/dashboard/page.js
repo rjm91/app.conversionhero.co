@@ -7,6 +7,7 @@ import MetricCard from '../../../components/MetricCard'
 
 function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
 function fmtPct(n) { return (Math.round((n || 0) * 10) / 10) + '%' }
+function fmtViews(n) { return n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0) }
 
 function defaultDates() {
   const end = new Date()
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const [recentScripts,  setRecentScripts]  = useState([])
   const [funnels,        setFunnels]        = useState([])
   const [campaignRows,   setCampaignRows]   = useState([])
+  const [recentVideos,   setRecentVideos]   = useState([])
 
   function updateURL(start, end) {
     const params = new URLSearchParams({ start, end })
@@ -188,6 +190,13 @@ export default function DashboardPage() {
     setRecentLeads(recentLeadsRaw || [])
     setRecentScripts(scripts || [])
     setFunnels(funnelRows || [])
+
+    // Fetch latest 5 YouTube videos (non-blocking)
+    fetch(`/api/youtube-videos?clientId=${clientId}`)
+      .then(r => r.json())
+      .then(d => { if (d.videos) setRecentVideos(d.videos.slice(0, 5)) })
+      .catch(() => {})
+
     setLoading(false)
   }, [clientId])
 
@@ -357,31 +366,41 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Bottom row — chart + scripts */}
+          {/* Bottom row — latest videos | scripts | chart */}
           <div className="grid grid-cols-3 gap-3">
 
-            {/* Leads Over Time — 2/3 width */}
-            <div className="col-span-2 bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Leads Over Time</h2>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 7 months</p>
+            {/* Latest Videos */}
+            <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/5">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">Latest Videos</span>
+                <a href={`/control/${clientId}/videos`} className="text-xs text-blue-500 hover:text-blue-400">See all →</a>
               </div>
-              <div className="flex items-end gap-3" style={{ height: '120px' }}>
-                {chartData.labels.map((label, i) => {
-                  const pct = Math.round((chartData.leads[i] / maxLeads) * 100)
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{chartData.leads[i]}</span>
-                      <div className="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
-                        style={{ height: `${Math.max(pct, 2)}%` }} />
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
+              {recentVideos.length === 0 ? (
+                <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No videos yet</p>
+              ) : recentVideos.map(v => (
+                <a key={v.videoId} href={v.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-white/[0.03] last:border-0 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition group">
+                  <div className="relative flex-shrink-0 w-20 aspect-video bg-gray-100 dark:bg-white/5 rounded overflow-hidden">
+                    {v.thumbnail && <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />}
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-none">
+                      {v.duration}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition line-clamp-2 leading-snug">
+                      {v.title}
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{fmtDate(v.publishedAt)}</div>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">{fmtViews(v.views)}</div>
+                    <div className="text-[10px] text-gray-400 uppercase">Views</div>
+                  </div>
+                </a>
+              ))}
             </div>
 
-            {/* Video Scripts — 1/3 width */}
+            {/* Video Scripts */}
             <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/5">
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">Video Scripts</span>
@@ -401,6 +420,28 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+
+            {/* Leads Over Time */}
+            <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 p-5">
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Leads Over Time</h2>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 7 months</p>
+              </div>
+              <div className="flex items-end gap-3" style={{ height: '120px' }}>
+                {chartData.labels.map((label, i) => {
+                  const pct = Math.round((chartData.leads[i] / maxLeads) * 100)
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{chartData.leads[i]}</span>
+                      <div className="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+                        style={{ height: `${Math.max(pct, 2)}%` }} />
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
           </div>
 
         </div>
