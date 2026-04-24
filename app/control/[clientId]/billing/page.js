@@ -23,9 +23,6 @@ export default function BillingPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [role, setRole] = useState(null)
-  const [qbConnected, setQbConnected] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [syncMsg, setSyncMsg] = useState('')
 
   // Form state
   const [billingType, setBillingType] = useState('retainer')
@@ -33,11 +30,9 @@ export default function BillingPage() {
   const [adSpendPercent, setAdSpendPercent] = useState('')
   const [effectiveDate, setEffectiveDate] = useState('')
   const [notes, setNotes] = useState('')
-  const [qbCustomerId, setQbCustomerId] = useState('')
 
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then(d => setRole(d.role || null))
-    fetch('/api/quickbooks/status').then(r => r.json()).then(d => setQbConnected(d.connected))
   }, [])
 
   useEffect(() => {
@@ -58,7 +53,6 @@ export default function BillingPage() {
         setAdSpendPercent(billingData.ad_spend_percent || '')
         setEffectiveDate(billingData.effective_date || '')
         setNotes(billingData.notes || '')
-        setQbCustomerId(billingData.qb_customer_id || '')
       }
 
       // Fetch payment history for this client
@@ -85,7 +79,6 @@ export default function BillingPage() {
       monthly_budget: retainerVal || 0,
       effective_date: effectiveDate || null,
       notes: notes || null,
-      qb_customer_id: qbCustomerId || null,
     }
 
     let result
@@ -104,26 +97,6 @@ export default function BillingPage() {
     if (result.data) setBilling(result.data)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
-  }
-
-  async function handleQBSync() {
-    if (!qbCustomerId) { setSyncMsg('Set a QB Customer ID first.'); return }
-    setSyncing(true)
-    setSyncMsg('')
-    const res = await fetch('/api/quickbooks/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, qbCustomerId }),
-    })
-    const data = await res.json()
-    setSyncing(false)
-    if (data.error) { setSyncMsg('Error: ' + data.error); return }
-    setSyncMsg(`Synced ${data.synced} invoices from QuickBooks`)
-    // Reload payments
-    const { data: paymentData } = await supabase
-      .from('client_payments').select('*').eq('client_id', clientId)
-      .order('date_created', { ascending: false })
-    if (paymentData) setPayments(paymentData)
   }
 
   // Calculate MRR estimate
@@ -304,60 +277,13 @@ export default function BillingPage() {
           />
         </div>
 
-        {/* QB Customer ID */}
-        <div className="mb-5 pt-4 border-t border-gray-100 dark:border-white/5">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-            QuickBooks Customer ID
-            <span className="ml-2 text-gray-400 font-normal">(find in QB URL when viewing the customer)</span>
-          </label>
-          <input
-            type="text"
-            value={qbCustomerId}
-            onChange={e => setQbCustomerId(e.target.value)}
-            placeholder="e.g. 123"
-            className="w-64 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Billing Config'}
-          </button>
-
-          {/* QB Connect / Sync */}
-          {qbConnected ? (
-            <button
-              onClick={handleQBSync}
-              disabled={syncing}
-              className="px-5 py-2.5 bg-[#2CA01C] hover:bg-[#228016] text-white text-sm font-medium rounded-lg transition disabled:opacity-50 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-              </svg>
-              {syncing ? 'Syncing…' : 'Sync from QuickBooks'}
-            </button>
-          ) : (
-            <a
-              href="/api/quickbooks/connect"
-              className="px-5 py-2.5 bg-[#2CA01C] hover:bg-[#228016] text-white text-sm font-medium rounded-lg transition flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
-              </svg>
-              Connect QuickBooks
-            </a>
-          )}
-
-          {syncMsg && (
-            <span className={`text-xs ${syncMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
-              {syncMsg}
-            </span>
-          )}
-        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Billing Config'}
+        </button>
       </div>
       )}
 
