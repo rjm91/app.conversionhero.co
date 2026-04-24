@@ -305,7 +305,6 @@ export default function BillingPage() {
                 <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
                   <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Date</th>
                   <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Description</th>
-                  <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Source</th>
                   <th className="text-right text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Amount</th>
                   <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Invoice</th>
                 </tr>
@@ -317,15 +316,6 @@ export default function BillingPage() {
                       {p.date_created ? new Date(p.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                     </td>
                     <td className="px-6 py-3.5 text-sm text-gray-900 dark:text-white max-w-xs truncate">{p.description || '—'}</td>
-                    <td className="px-6 py-3.5">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        p.merchant === 'STRIPE' ? 'text-purple-500 bg-purple-500/10' :
-                        p.merchant === 'QBO' ? 'text-blue-500 bg-blue-500/10' :
-                        'text-orange-500 bg-orange-500/10'
-                      }`}>
-                        {p.merchant === 'QBO' ? 'QuickBooks' : p.merchant === 'WAVE' ? 'Wave' : p.merchant || '—'}
-                      </span>
-                    </td>
                     <td className="px-6 py-3.5 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">
                       {fmt(p.amount)}
                     </td>
