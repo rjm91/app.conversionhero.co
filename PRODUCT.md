@@ -136,7 +136,14 @@ client_standard
 - ✅ AI Agent panel (floating chat UI) with tool-calling: `getLeads`, `getPipeline`, `getAdSpend`
 - ✅ HeyGen integration — Avatar Studio with avatar/voice pickers, script editor, advanced controls (speed, emotion, aspect ratio, bg color), preview-clip render, generation + status polling, Supabase persistence via `client_avatar_videos`, history view with resume-poll
 - ✅ Videos tab restructure: **Videos** (finished, default) | **Scripts** | **Avatar** (AI generation) | **Media**
-- ✅ Funnels tab + `client_funnels` table (list view with conversion rate; builder deferred)
+- ✅ Funnels tab + `client_funnels` table (list view with conversion rate)
+- ✅ Funnel detail page with **Steps** + **Settings** tabs
+  - Steps: per-step rows showing full live URL (`https://synergyhome.co/f/hvac-quote/...`) with edit drawer
+  - Settings: Custom Domain card (dropdown + inline "Register domain") and Head Tracking Code textarea (gtag.js / Meta Pixel — injected on every funnel page)
+- ✅ `client_domains` table — per-client domain registry; funnel domain selector pulls from this list
+- ✅ Thank-you step has **Conversion Pixel Code** field (Google Ads / Meta event snippet, fires on page load)
+- ✅ Custom domain routing: middleware reads `Host` header → looks up `client_funnels.custom_domain` → rewrites to `/f/{slug}` (with pass-through for already-`/f/*` paths)
+- ✅ Funnel PATCH API on `nodejs` runtime, uses service-role to bypass RLS for agency edits
 - ⏳ Content Calendar (agency-wide + per-client) — mockup approved at `/control/[clientId]/videos/calendar-preview`, building next
 - ⏳ `ad_campaigns` table + "Push to Google" flow — deferred until Google Ads Standard Access lands
 - ⏳ Google Ads Standard Access (pending Google approval) — unlocks write API
@@ -158,6 +165,9 @@ client_standard
 - **HeyGen plan**: needs upgrade from trial to Creator tier to unlock Avatar V + kill the 8/day limit.
 - **Funnel tracking pixel**: build standalone before the funnel builder. Standalone `/pixel.js` + `/api/funnels/track` + `funnel_events` table means existing (non-in-app) landing pages can start collecting data immediately. When the builder ships, it auto-embeds the same pixel — no refactor.
 - **Custom domains / white-label hosting for funnels**: agency purchases client domains as part of onboarding (not client-managed DNS). Standardize on **Vercel Domains as the registrar** so buying, DNS, SSL, and routing all happen via one API in one place. Onboarding flow: call Vercel Domains API → domain auto-attaches to project → `funnels.custom_domain` row created → Next.js middleware reads `Host` header and rewrites to internal `/_funnels/{id}` route. Reference implementation: [Vercel Platforms Starter Kit](https://vercel.com/templates/next.js/platforms-starter-kit). Push clients toward subdomains (`go.synergyhome.co`) over apex for DNS reliability.
+- **Funnel slug = offer, not client**: slugs like `hvac-quote` (not `synergy-hvac-quote`). Client identity comes from the custom domain (`synergyhome.co`), so the slug stays generic and reusable across clients running the same offer template.
+- **Tracking storage = `client_funnels.tracking` jsonb**: global head code stored at `tracking.headCode`, conversion pixels stored at `client_funnel_steps.config.conversionPixel` per step. Both injected via `dangerouslySetInnerHTML` + `suppressHydrationWarning`. Survey "Continue" navigates with `window.location.href` (full reload), so injected `<script>` tags execute properly on the thank-you page.
+- **Funnel admin edits bypass RLS**: `/api/funnels/[id]` PATCH route uses service-role client (forced `nodejs` runtime). RLS on `client_funnels` is locked down to public-read of `live` rows only; all writes go through the API.
 
 ---
 
