@@ -15,10 +15,22 @@ function defaultDates() {
   return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
 }
 
-const APPT_STATUS_COLORS = {
-  'Appt Set':      'bg-green-500/10 text-green-400 border border-green-500/20',
-  'Appt Complete': 'bg-teal-500/10 text-teal-400 border border-teal-500/20',
-  'Sold':          'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+const STATUS_COLORS = {
+  'New / Not Yet Contacted': 'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  'Contacted / Working':     'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  'New Lead':                'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  'Appt Set':                'bg-[#846CC5]/10 text-[#6b52b0] dark:bg-[#846CC5]/10 dark:text-[#846CC5]',
+  'Lost':                    'bg-orange-500/10 text-orange-400',
+  'Disqualified':            'bg-red-500/10 text-red-400',
+  'Out of Area':             'bg-white/10 text-gray-400',
+  'NA':                      'bg-white/10 text-gray-400',
+  'Appt Confirmed':          'bg-[#846CC5]/10 text-[#6b52b0] dark:bg-[#846CC5]/10 dark:text-[#846CC5]',
+  'Appt Complete':           'bg-[#22cbe3]/10 text-[#0f9aad] dark:bg-[#22cbe3]/10 dark:text-[#22cbe3]',
+  'Appt Lost':               'bg-orange-500/10 text-orange-400',
+  'Appt Disqualified':       'bg-red-500/10 text-red-400',
+  'Proposal Sent':           'bg-[#5b97e6]/10 text-[#3a72c4] dark:bg-[#5b97e6]/10 dark:text-[#5b97e6]',
+  'Sold':                    'bg-[#34CC93]/10 text-[#1a9e6e] dark:bg-[#34CC93]/10 dark:text-[#34CC93]',
+  'Sale Lost':               'bg-orange-500/10 text-orange-400',
 }
 const SCRIPT_STATUS_COLORS = {
   approved: 'bg-green-500/10 text-green-400 border border-green-500/20',
@@ -97,7 +109,7 @@ export default function DashboardPage() {
 
       // Panel: 5 most recent leads
       supabase.from('client_lead')
-        .select('lead_id, first_name, last_name, created_at, appt_status, sale_status, city, zip_code')
+        .select('lead_id, first_name, last_name, created_at, lead_status, appt_status, sale_status, city, zip_code')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .limit(5),
@@ -200,11 +212,13 @@ export default function DashboardPage() {
 
   const maxLeads = Math.max(...chartData.leads, 1)
 
-  function leadBadge(lead) {
-    if (lead.sale_status === 'Sold') return { label: 'Customer', cls: APPT_STATUS_COLORS['Sold'] }
-    if (lead.appt_status === 'Appt Complete') return { label: 'Appt Done', cls: APPT_STATUS_COLORS['Appt Complete'] }
-    if (lead.appt_status && lead.appt_status !== 'NA') return { label: 'Appt Set', cls: APPT_STATUS_COLORS['Appt Set'] }
-    return { label: 'New', cls: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' }
+  function statusBadge(value) {
+    if (!value || value === 'NA' || value === 'in_progress') return null
+    return (
+      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLORS[value] || 'bg-white/10 text-gray-400'}`}>
+        {value}
+      </span>
+    )
   }
 
   function fmtDate(d) {
@@ -261,22 +275,23 @@ export default function DashboardPage() {
               </div>
               {recentLeads.length === 0 ? (
                 <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No leads yet</p>
-              ) : recentLeads.map(lead => {
-                const badge = leadBadge(lead)
-                return (
-                  <div key={lead.lead_id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 dark:border-white/[0.03] last:border-0">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {lead.first_name} {lead.last_name}
-                      </div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {lead.city || lead.zip_code || '—'} · {fmtDate(lead.created_at)}
-                      </div>
+              ) : recentLeads.map(lead => (
+                <div key={lead.lead_id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 dark:border-white/[0.03] last:border-0 gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {lead.first_name} {lead.last_name}
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                      {lead.city || lead.zip_code || '—'} · {fmtDate(lead.created_at)}
+                    </div>
                   </div>
-                )
-              })}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {statusBadge(lead.lead_status)}
+                    {statusBadge(lead.appt_status)}
+                    {statusBadge(lead.sale_status)}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Active Campaigns */}
