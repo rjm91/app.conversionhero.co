@@ -97,7 +97,7 @@ export default function DashboardPage() {
 
       // Panel: 5 most recent leads
       supabase.from('client_lead')
-        .select('lead_id, first_name, last_name, created_at, appt_status, sale_status, service, zip_code')
+        .select('lead_id, first_name, last_name, created_at, appt_status, sale_status, city, zip_code')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .limit(5),
@@ -171,7 +171,7 @@ export default function DashboardPage() {
       cmap[row.campaign_id].cost        += Number(row.cost)        || 0
       cmap[row.campaign_id].conversions += Number(row.conversions) || 0
     }
-    setCampaignRows(Object.values(cmap).sort((a, b) => b.cost - a.cost))
+    setCampaignRows(Object.values(cmap).filter(c => c.status === 'ENABLED').sort((a, b) => b.cost - a.cost))
 
     setRecentLeads(recentLeadsRaw || [])
     setRecentScripts(scripts || [])
@@ -270,7 +270,7 @@ export default function DashboardPage() {
                         {lead.first_name} {lead.last_name}
                       </div>
                       <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {lead.service || 'HVAC'} · {fmtDate(lead.created_at)}{lead.zip_code ? ` · ${lead.zip_code}` : ''}
+                        {lead.city || lead.zip_code || '—'} · {fmtDate(lead.created_at)}
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                 <a href={`/control/${clientId}/youtube-ads`} className="text-xs text-blue-500 hover:text-blue-400">See all →</a>
               </div>
               {campaignRows.length === 0 ? (
-                <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No campaign data for this period</p>
+                <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No active campaigns — ads may be paused</p>
               ) : (
                 <table className="w-full">
                   <thead>
