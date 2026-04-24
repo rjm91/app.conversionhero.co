@@ -145,6 +145,11 @@ function UserMenu() {
           {/* User info */}
           <div className="px-4 py-3.5 border-b border-gray-100 dark:border-white/10">
             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || user.email}</p>
+            {user.role && (
+              <p className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5 truncate">
+                {user.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+              </p>
+            )}
             {user.name && <p className="text-xs text-gray-400 truncate mt-0.5">{user.email}</p>}
           </div>
 
