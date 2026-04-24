@@ -285,10 +285,8 @@ export default function DashboardPage() {
                       {lead.city || lead.zip_code || '—'} · {fmtDate(lead.created_at)}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {statusBadge(lead.lead_status)}
-                    {statusBadge(lead.appt_status)}
-                    {statusBadge(lead.sale_status)}
+                  <div className="flex-shrink-0">
+                    {statusBadge(lead.sale_status) || statusBadge(lead.appt_status) || statusBadge(lead.lead_status)}
                   </div>
                 </div>
               ))}
