@@ -287,7 +287,7 @@ export default function ClientLayout({ children }) {
       <div className="flex-1 min-w-0 ml-60 flex flex-col min-h-screen">
 
         {/* Top header */}
-        <header className="sticky top-0 z-10 h-14 bg-white dark:bg-[#0f1117] border-b border-gray-100 dark:border-white/5 flex items-center justify-end px-6">
+        <header className="sticky top-0 z-10 h-14 bg-gray-900 dark:bg-[#0f1117] border-b border-gray-800 dark:border-white/5 flex items-center justify-end px-6">
           <UserMenu />
         </header>
 
