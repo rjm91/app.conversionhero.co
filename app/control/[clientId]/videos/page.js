@@ -64,9 +64,9 @@ export default function VideosPage() {
   )
 
   return (
-    <div className="p-8">
+    <div className="p-6">
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{channelName}</h2>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{videos.length} videos</p>
@@ -78,43 +78,70 @@ export default function VideosPage() {
           <p className="text-sm text-gray-400">No videos on this channel yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {videos.map(v => (
-            <a
-              key={v.videoId}
-              href={v.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden hover:shadow-md dark:hover:brightness-110 transition-all group"
-            >
-              {/* Thumbnail */}
-              <div className="relative aspect-video bg-gray-100 dark:bg-white/5">
-                {v.thumbnail && (
-                  <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
-                )}
-                <span className="absolute bottom-1.5 right-1.5 bg-black/80 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
-                  {v.duration}
-                </span>
-              </div>
+        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3 w-1/2">Video</th>
+                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Visibility</th>
+                <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Views</th>
+                <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Comments</th>
+                <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Likes</th>
+                <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-white/[0.03]">
+              {videos.map(v => (
+                <tr key={v.videoId} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition group">
 
-              {/* Info */}
-              <div className="p-3">
-                <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition leading-snug mb-2">
-                  {v.title}
-                </p>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                    <span>{fmtViews(v.views)} views</span>
-                    <span>·</span>
-                    <span>{fmtDate(v.publishedAt)}</span>
-                  </div>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize flex-shrink-0 ${VISIBILITY[v.visibility] || VISIBILITY.private}`}>
-                    {v.visibility}
-                  </span>
-                </div>
-              </div>
-            </a>
-          ))}
+                  {/* Thumbnail + title */}
+                  <td className="px-4 py-3">
+                    <a href={v.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0 w-28 aspect-video bg-gray-100 dark:bg-white/5 rounded overflow-hidden">
+                        {v.thumbnail && (
+                          <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
+                        )}
+                        <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-semibold px-1 py-0.5 rounded">
+                          {v.duration}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition line-clamp-2 leading-snug">
+                        {v.title}
+                      </p>
+                    </a>
+                  </td>
+
+                  {/* Visibility */}
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded capitalize ${VISIBILITY[v.visibility] || VISIBILITY.private}`}>
+                      {v.visibility}
+                    </span>
+                  </td>
+
+                  {/* Views */}
+                  <td className="px-4 py-3 text-sm text-right text-gray-700 dark:text-gray-300 tabular-nums">
+                    {fmtViews(v.views)}
+                  </td>
+
+                  {/* Comments */}
+                  <td className="px-4 py-3 text-sm text-right text-gray-500 dark:text-gray-400 tabular-nums">
+                    {v.comments}
+                  </td>
+
+                  {/* Likes */}
+                  <td className="px-4 py-3 text-sm text-right text-gray-500 dark:text-gray-400 tabular-nums">
+                    {v.likes > 0 ? fmtViews(v.likes) : '—'}
+                  </td>
+
+                  {/* Date */}
+                  <td className="px-4 py-3 text-sm text-right text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {fmtDate(v.publishedAt)}
+                  </td>
+
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
