@@ -18,7 +18,9 @@ function fmtDate(d) {
 export default function PaymentsPage() {
   const [payments, setPayments]   = useState([])
   const [clients,  setClients]    = useState([])
-  const [loading,  setLoading]    = useState(true)
+  const [loading,     setLoading]     = useState(true)
+  const [qbConnected, setQbConnected] = useState(null)
+
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
   const [merchantFilter, setMerchantFilter] = useState('all')
@@ -37,7 +39,10 @@ export default function PaymentsPage() {
     })
   }
 
-  useEffect(() => { loadPayments() }, [])
+  useEffect(() => {
+    loadPayments()
+    fetch('/api/quickbooks/status').then(r => r.json()).then(d => setQbConnected(d.connected))
+  }, [])
 
 
   const merchants = useMemo(() => [...new Set(payments.map(p => p.merchant).filter(Boolean))].sort(), [payments])
@@ -69,9 +74,19 @@ export default function PaymentsPage() {
   return (
     <div className="p-8">
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-        <p className="text-sm text-gray-400 mt-1">All client payment records</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
+          <p className="text-sm text-gray-400 mt-1">All client payment records</p>
+        </div>
+        {qbConnected === false && (
+          <a
+            href="/api/quickbooks/connect"
+            className="flex items-center gap-2 px-4 py-2 bg-[#2CA01C] hover:bg-[#228016] text-white text-sm font-medium rounded-lg transition"
+          >
+            Connect QuickBooks
+          </a>
+        )}
       </div>
 
       {/* Summary */}
