@@ -19,9 +19,6 @@ export default function PaymentsPage() {
   const [payments, setPayments]   = useState([])
   const [clients,  setClients]    = useState([])
   const [loading,  setLoading]    = useState(true)
-  const [syncing,  setSyncing]    = useState(false)
-  const [syncMsg,  setSyncMsg]    = useState('')
-
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
   const [merchantFilter, setMerchantFilter] = useState('all')
@@ -42,21 +39,6 @@ export default function PaymentsPage() {
 
   useEffect(() => { loadPayments() }, [])
 
-  async function handleSyncAll() {
-    setSyncing(true)
-    setSyncMsg('')
-    try {
-      const res = await fetch('/api/quickbooks/sync-all', { method: 'POST' })
-      const data = await res.json()
-      if (data.error) { setSyncMsg('Error: ' + data.error); return }
-      setSyncMsg(`Synced ${data.synced} invoices (${data.skipped} unmatched)`)
-      await loadPayments()
-    } catch (e) {
-      setSyncMsg('Sync failed: ' + e.message)
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   const merchants = useMemo(() => [...new Set(payments.map(p => p.merchant).filter(Boolean))].sort(), [payments])
 
@@ -87,28 +69,9 @@ export default function PaymentsPage() {
   return (
     <div className="p-8">
 
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-          <p className="text-sm text-gray-400 mt-1">All client payment records</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {syncMsg && (
-            <span className={`text-xs ${syncMsg.startsWith('Error') || syncMsg.startsWith('Sync failed') ? 'text-red-400' : 'text-green-400'}`}>
-              {syncMsg}
-            </span>
-          )}
-          <button
-            onClick={handleSyncAll}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-[#2CA01C] hover:bg-[#228016] disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
-          >
-            <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {syncing ? 'Syncing…' : 'Sync from QuickBooks'}
-          </button>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
+        <p className="text-sm text-gray-400 mt-1">All client payment records</p>
       </div>
 
       {/* Summary */}
