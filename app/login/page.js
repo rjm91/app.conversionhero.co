@@ -154,15 +154,24 @@ export default function LoginPage() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [isForgot,   setIsForgot]   = useState(false)
 
-  // Detect password-recovery flow from the URL hash
+  // Detect password-recovery flow (PKCE: ?code= in query; legacy: #type=recovery in hash)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const hash   = window.location.hash
-    const params = new URLSearchParams(hash.replace('#', ''))
-    if (params.get('type') === 'recovery') {
+    const supabase = createClient()
+
+    // PKCE flow — Supabase sends ?code=... in the query string
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (!error) setIsRecovery(true)
+      })
+      return
+    }
+
+    // Legacy implicit flow — #type=recovery in hash
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''))
+    if (hashParams.get('type') === 'recovery') {
       setIsRecovery(true)
-      // Let Supabase exchange the token from the hash
-      const supabase = createClient()
       supabase.auth.getSession()
     }
   }, [])
