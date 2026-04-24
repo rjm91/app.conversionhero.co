@@ -103,7 +103,7 @@ function UserMenu() {
       if (!user) return
       const { data: profile } = await supabase
         .from('profiles').select('*').eq('id', user.id).single()
-      setUser({ name: profile?.full_name || user.email, email: user.email, role: profile?.role })
+      setUser({ name: profile?.full_name || user.email, email: user.email, role: profile?.role, avatar: profile?.avatar_url || null })
     })
   }, [])
 
@@ -143,14 +143,25 @@ function UserMenu() {
         <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
 
           {/* User info */}
-          <div className="px-4 py-3.5 border-b border-gray-100 dark:border-white/10">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || user.email}</p>
-            {user.role && (
-              <p className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5 truncate">
-                {user.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-              </p>
-            )}
-            {user.name && <p className="text-xs text-gray-400 truncate mt-0.5">{user.email}</p>}
+          <div className="px-4 py-4 border-b border-gray-100 dark:border-white/10 flex items-center gap-3">
+            <div className="flex-shrink-0">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
+                  <span className="text-white text-base font-bold">{initials}</span>
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || user.email}</p>
+              {user.role && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                  {user.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </p>
+              )}
+              {user.name && <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{user.email}</p>}
+            </div>
           </div>
 
           {/* Nav items */}
