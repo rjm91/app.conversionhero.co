@@ -36,9 +36,10 @@ export async function GET() {
 
     const supabase = db()
 
-    const [{ data: existing }, { data: billing }] = await Promise.all([
+    const [{ data: existing }, { data: billing }, { data: allClients }] = await Promise.all([
       supabase.from('client_payments').select('invoice_id, client_id').eq('merchant', 'QBO').not('invoice_id', 'is', null),
       supabase.from('client_billing').select('client_id, qb_customer_id').not('qb_customer_id', 'is', null),
+      supabase.from('client').select('client_id, client_name'),
     ])
 
     const invoiceToClient = {}
@@ -49,11 +50,22 @@ export async function GET() {
       if (row.qb_customer_id) qbCustomerToClient[row.qb_customer_id] = row.client_id
     }
 
+    const normalize = s => s?.toLowerCase().replace(/[^a-z0-9]/g, '') || ''
+    const clientNameMap = {}
+    for (const c of (allClients || [])) {
+      const key = normalize(c.client_name)
+      if (key) clientNameMap[key] = c.client_id
+    }
+
     const invoices = await fetchAllQBInvoices()
     const rows = []
 
     for (const inv of invoices) {
-      const clientId = invoiceToClient[inv.Id] || qbCustomerToClient[inv.CustomerRef?.value]
+      const qbName = normalize(inv.CustomerRef?.name)
+      const clientFromName = qbName
+        ? Object.entries(clientNameMap).find(([key]) => qbName.includes(key) || key.includes(qbName))?.[1]
+        : undefined
+      const clientId = invoiceToClient[inv.Id] || qbCustomerToClient[inv.CustomerRef?.value] || clientFromName
       if (!clientId) continue
       const desc = inv.Line?.find(l => l.Description && l.DetailType !== 'SubTotalLineDetail')?.Description || null
       rows.push({

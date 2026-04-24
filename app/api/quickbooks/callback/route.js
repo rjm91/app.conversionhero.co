@@ -53,5 +53,9 @@ export async function GET(request) {
     updated_at:              new Date().toISOString(),
   }, { onConflict: 'realm_id' })
 
-  return NextResponse.redirect(new URL('/control?qb=connected', request.url))
+  // Trigger immediate sync in background so data is fresh right away
+  const origin = new URL(request.url).origin
+  fetch(`${origin}/api/cron/sync-payments`).catch(() => {})
+
+  return NextResponse.redirect(new URL('/control/payments', request.url))
 }

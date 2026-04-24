@@ -32,38 +32,44 @@ async function fetchAllQBInvoices() {
 export async function POST() {
   const supabase = db()
 
+  const normalize = s => s?.toLowerCase().replace(/[^a-z0-9]/g, '') || ''
+
   // 1. Build invoice_id → client_id map from existing data
-  const { data: existing } = await supabase
-    .from('client_payments')
-    .select('invoice_id, client_id')
-    .eq('merchant', 'QBO')
-    .not('invoice_id', 'is', null)
+  const [{ data: existing }, { data: billing }, { data: allClients }] = await Promise.all([
+    supabase.from('client_payments').select('invoice_id, client_id').eq('merchant', 'QBO').not('invoice_id', 'is', null),
+    supabase.from('client_billing').select('client_id, qb_customer_id').not('qb_customer_id', 'is', null),
+    supabase.from('client').select('client_id, client_name'),
+  ])
 
   const invoiceToClient = {}
   for (const row of (existing || [])) {
     invoiceToClient[row.invoice_id] = row.client_id
   }
 
-  // 2. Build qb_customer_id → client_id map from billing config
-  const { data: billing } = await supabase
-    .from('client_billing')
-    .select('client_id, qb_customer_id')
-    .not('qb_customer_id', 'is', null)
-
   const qbCustomerToClient = {}
   for (const row of (billing || [])) {
     if (row.qb_customer_id) qbCustomerToClient[row.qb_customer_id] = row.client_id
   }
 
-  // 3. Fetch all QB invoices
+  const clientNameMap = {}
+  for (const c of (allClients || [])) {
+    const key = normalize(c.client_name)
+    if (key) clientNameMap[key] = c.client_id
+  }
+
+  // 2. Fetch all QB invoices
   const invoices = await fetchAllQBInvoices()
 
-  // 4. Map each invoice to a client_id
+  // 3. Map each invoice to a client_id
   const rows = []
   let skipped = 0
 
   for (const inv of invoices) {
-    const clientId = invoiceToClient[inv.Id] || qbCustomerToClient[inv.CustomerRef?.value]
+    const qbName = normalize(inv.CustomerRef?.name)
+    const clientFromName = qbName
+      ? Object.entries(clientNameMap).find(([key]) => qbName.includes(key) || key.includes(qbName))?.[1]
+      : undefined
+    const clientId = invoiceToClient[inv.Id] || qbCustomerToClient[inv.CustomerRef?.value] || clientFromName
     if (!clientId) { skipped++; continue }
 
     const desc = inv.Line?.find(l => l.Description && l.DetailType !== 'SubTotalLineDetail')?.Description || null
@@ -81,7 +87,7 @@ export async function POST() {
     })
   }
 
-  // 5. Replace all QBO rows
+  // 4. Replace all QBO rows
   await supabase.from('client_payments').delete().eq('merchant', 'QBO')
 
   if (rows.length) {
