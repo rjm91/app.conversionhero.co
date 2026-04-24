@@ -103,6 +103,7 @@ export default function YouTubeAdsPage() {
         .from('client_yt_campaigns')
         .select('*')
         .eq('client_id', clientId)
+        .ilike('campaign_name', `%${clientId}%`)
         .gte('date', start)
         .lte('date', end)
         .order('campaign_name', { ascending: true }),
