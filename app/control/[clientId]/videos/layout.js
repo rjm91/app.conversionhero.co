@@ -2,17 +2,33 @@
 
 import Link from 'next/link'
 import { usePathname, useParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createClient } from '../../../../lib/supabase-browser'
+
+const CLIENT_ROLES = ['client_admin', 'client_standard']
 
 export default function VideosLayout({ children }) {
   const pathname = usePathname()
   const { clientId } = useParams()
+  const [role, setRole] = useState(null)
 
-  const subNav = [
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setRole(profile?.role || null)
+    })
+  }, [])
+
+  const allTabs = [
     { label: 'Videos',  href: `/control/${clientId}/videos` },
     { label: 'Scripts', href: `/control/${clientId}/videos/scripts` },
-    { label: 'Avatar',  href: `/control/${clientId}/videos/avatar` },
-    { label: 'Media',   href: `/control/${clientId}/videos/media` },
+    { label: 'Avatar',  href: `/control/${clientId}/videos/avatar`,  agencyOnly: true },
+    { label: 'Media',   href: `/control/${clientId}/videos/media`,   agencyOnly: true },
   ]
+
+  const subNav = allTabs.filter(t => !t.agencyOnly || (role !== null && !CLIENT_ROLES.includes(role)))
 
   return (
     <div>
