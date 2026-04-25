@@ -39,6 +39,16 @@ const navItems = [
     ),
   },
   {
+    label: 'Funnels',
+    href: '/control/funnels',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M3 4h18M6 8h12M9 12h6M11 16h2" />
+      </svg>
+    ),
+  },
+  {
     label: 'Clients',
     href: '/control/clients',
     icon: (
