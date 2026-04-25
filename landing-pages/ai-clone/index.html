@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Clone — HVAC Beta · ConversionHero</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,155 +13,331 @@
       --text: #ffffff;
       --muted: #9ca3af;
       --accent: #facc15;
+      --btn-hover: #eab308;
+      --card: #ffffff;
+      --dark: #0f172a;
+      --border: #e5e7eb;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
       font-family: "Inter", sans-serif;
       background: var(--bg);
+      color: var(--text);
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
+      text-align: center;
     }
 
-    /* MODAL */
+    .container {
+      max-width: 900px;
+      padding: 40px 40px 60px;
+      width: 100%;
+    }
+
+    .logo {
+      margin-bottom: 25px;
+    }
+
+    .logo img {
+      width: 150px;
+      height: auto;
+    }
+
+    .preheadline {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+
+    .headline {
+      margin: 0;
+      font-size: clamp(1.8rem, 3.5vw, 3rem);
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      margin-bottom: 16px;
+    }
+
+    .subheadline {
+      font-size: clamp(1rem, 1.6vw, 1.3rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 25px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      width: 85%;
+      margin: 0 auto 25px;
+      padding-top: 48%;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #000;
+      font-weight: 800;
+      font-size: 22px;
+      padding: 20px 42px;
+      border-radius: 14px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cta-btn:hover {
+      background: var(--btn-hover);
+      transform: translateY(-2px);
+    }
+
+    .footer {
+      margin-top: 50px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* BOOKING MODAL */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.8);
-      display: flex;
-      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
       align-items: center;
+      justify-content: center;
       padding: 20px;
+      z-index: 9999;
+    }
+
+    .modal-overlay.active {
+      display: flex;
     }
 
     .booking-modal {
+      background: var(--card);
+      color: var(--dark);
       width: 100%;
-      max-width: 760px;
-      background: #fff;
-      border-radius: 18px;
+      max-width: 950px;
+      border-radius: 22px;
       overflow: hidden;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+      position: relative;
+      text-align: left;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: #f3f4f6;
+      color: #111827;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 2;
     }
 
     .booking-grid {
       display: grid;
-      grid-template-columns: 1fr 1.2fr;
+      grid-template-columns: 1fr 1.3fr;
+      min-height: 600px;
     }
 
     .booking-info {
-      padding: 28px;
+      padding: 42px;
+      border-right: 1px solid var(--border);
       background: #f9fafb;
-      border-right: 1px solid #eee;
     }
 
     .booking-info h2 {
-      font-size: 26px;
-      margin-bottom: 10px;
+      margin: 0 0 12px;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
     }
 
     .booking-info p {
-      font-size: 14px;
-      color: #555;
+      color: #4b5563;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .booking-detail {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: #374151;
+      font-weight: 600;
+      font-size: 15px;
     }
 
     .booking-main {
-      padding: 28px;
+      padding: 42px;
     }
 
     .step-title {
-      font-size: 16px;
+      font-size: 22px;
       font-weight: 800;
-      margin: 10px 0;
+      margin: 0 0 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .date-grid,
+    .time-grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 26px;
     }
 
     .date-grid {
-      display: grid;
-      grid-template-columns: repeat(3,1fr);
-      gap: 8px;
-      margin-bottom: 10px;
+      grid-template-columns: repeat(3, 1fr);
     }
 
     .time-grid {
-      display: grid;
-      grid-template-columns: repeat(2,1fr);
-      gap: 8px;
-      margin-bottom: 10px;
+      grid-template-columns: repeat(2, 1fr);
     }
 
-    .date-btn, .time-btn {
-      padding: 10px;
-      font-size: 14px;
-      border-radius: 10px;
-      border: 1px solid #ddd;
+    .date-btn,
+    .time-btn {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 14px 12px;
       cursor: pointer;
       font-weight: 700;
+      color: #111827;
+      transition: all 0.15s ease;
     }
 
-    .active {
-      background: #111;
-      color: #fff;
+    .date-btn:hover,
+    .time-btn:hover {
+      border-color: #111827;
+    }
+
+    .date-btn.active,
+    .time-btn.active {
+      background: #111827;
+      color: #ffffff;
+      border-color: #111827;
     }
 
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(2,1fr);
-      gap: 8px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 10px;
     }
 
     .form-grid input {
-      padding: 10px;
-      font-size: 14px;
-      border-radius: 10px;
-      border: 1px solid #ddd;
+      width: 100%;
+      padding: 15px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 15px;
+      font-family: inherit;
+    }
+
+    .form-grid input:focus {
+      outline: none;
+      border-color: #111827;
     }
 
     .full {
-      grid-column: 1/-1;
+      grid-column: 1 / -1;
     }
 
     .schedule-btn {
       width: 100%;
-      margin-top: 12px;
-      padding: 14px;
-      font-size: 15px;
-      font-weight: 800;
+      margin-top: 16px;
       background: var(--accent);
+      color: #000;
       border: none;
-      border-radius: 10px;
+      border-radius: 14px;
+      padding: 18px 22px;
+      font-size: 18px;
+      font-weight: 900;
       cursor: pointer;
     }
 
-    @media (max-width: 700px) {
-      body {
-        align-items: flex-start;
-        height: auto;
-      }
+    .schedule-btn:hover {
+      background: var(--btn-hover);
+    }
 
-      .booking-modal {
-        max-width: 100%;
-        border-radius: 0;
-      }
+    .success-message {
+      display: none;
+      margin-top: 16px;
+      padding: 16px;
+      background: #dcfce7;
+      color: #166534;
+      border-radius: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
 
+    .success-message.active {
+      display: block;
+    }
+
+    @media (max-width: 800px) {
       .booking-grid {
         grid-template-columns: 1fr;
       }
 
       .booking-info {
         border-right: none;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 30px 20px 50px;
       }
 
-      .date-grid {
-        grid-template-columns: repeat(2,1fr);
+      .headline {
+        font-size: 30px;
       }
 
-      .time-grid {
-        grid-template-columns: 1fr;
+      .video-wrapper {
+        width: 100%;
+        padding-top: 56.25%;
       }
 
+      .date-grid,
+      .time-grid,
       .form-grid {
         grid-template-columns: 1fr;
+      }
+
+      .booking-info,
+      .booking-main {
+        padding: 28px;
       }
     }
   </style>
@@ -169,71 +345,150 @@
 
 <body>
 
-<div class="modal-overlay">
-  <div class="booking-modal">
+  <div class="container">
 
-    <div class="booking-grid">
+    <div class="logo">
+      <img src="/assets/logo/ch-logo-white-main.webp.png" alt="Logo">
+    </div>
 
-      <div class="booking-info">
-        <h2>Schedule Your Free Estimate</h2>
-        <p>Pick a time that works best.</p>
-      </div>
+    <div class="preheadline">
+      Future-Concious HVAC Companies:
+    </div>
 
-      <div class="booking-main">
+    <h1 class="headline">
+      We're Looking For Beta Testers To Try The Latest Most Advanced AI Clone Technology
+    </h1>
 
-        <div class="step-title">Select Date</div>
-        <div class="date-grid">
-          <button class="date-btn">Mon</button>
-          <button class="date-btn">Tue</button>
-          <button class="date-btn">Wed</button>
-          <button class="date-btn">Thu</button>
-          <button class="date-btn">Fri</button>
-          <button class="date-btn">Sat</button>
+    <div class="subheadline">
+      We'll clone you (the owner/partner) or someone from your team to advertise your HVAC business for 4X less than a traditional YouTube Ads agency.
+    </div>
+
+    <div class="video-wrapper">
+      <iframe src="https://fast.wistia.net/embed/iframe/lrz8ws1v2r" allowfullscreen></iframe>
+    </div>
+
+    <button class="cta-btn" id="openBooking">
+      Get Your Free Estimate
+    </button>
+
+    <div class="footer">
+      © 2026 ConversionHero. All rights reserved.
+    </div>
+
+  </div>
+
+  <!-- BOOKING POPUP -->
+  <div class="modal-overlay" id="bookingModal">
+    <div class="booking-modal">
+
+      <button class="modal-close" id="closeBooking">&times;</button>
+
+      <div class="booking-grid">
+
+        <div class="booking-info">
+          <h2>Schedule Your Free Estimate</h2>
+          <p>
+            Pick a time that works best for you. This is a simple template version and does not send data anywhere yet.
+          </p>
+
+          <div class="booking-detail">⏱ 15 Minute Call</div>
+          <div class="booking-detail">📍 Online / Phone Call</div>
+          <div class="booking-detail">✅ Free Estimate</div>
         </div>
 
-        <div class="step-title">Select Time</div>
-        <div class="time-grid">
-          <button class="time-btn">9:00 AM</button>
-          <button class="time-btn">10:30 AM</button>
-          <button class="time-btn">12:00 PM</button>
-          <button class="time-btn">1:30 PM</button>
-          <button class="time-btn">3:00 PM</button>
-          <button class="time-btn">4:30 PM</button>
+        <div class="booking-main">
+
+          <h3 class="step-title">Select a Date</h3>
+
+          <div class="date-grid">
+            <button class="date-btn">Mon<br>May 6</button>
+            <button class="date-btn">Tue<br>May 7</button>
+            <button class="date-btn">Wed<br>May 8</button>
+            <button class="date-btn">Thu<br>May 9</button>
+            <button class="date-btn">Fri<br>May 10</button>
+            <button class="date-btn">Sat<br>May 11</button>
+          </div>
+
+          <h3 class="step-title">Select a Time</h3>
+
+          <div class="time-grid">
+            <button class="time-btn">9:00 AM</button>
+            <button class="time-btn">10:30 AM</button>
+            <button class="time-btn">12:00 PM</button>
+            <button class="time-btn">1:30 PM</button>
+            <button class="time-btn">3:00 PM</button>
+            <button class="time-btn">4:30 PM</button>
+          </div>
+
+          <h3 class="step-title">Your Information</h3>
+
+          <form id="bookingForm">
+            <div class="form-grid">
+              <input type="text" placeholder="First Name" required>
+              <input type="text" placeholder="Last Name" required>
+              <input type="email" placeholder="Email Address" required>
+              <input type="tel" placeholder="Phone Number" required>
+              <input class="full" type="text" placeholder="Company Name">
+            </div>
+
+            <button type="submit" class="schedule-btn" data-track="opt-in">
+              Schedule Call
+            </button>
+
+            <div class="success-message" id="successMessage">
+              Appointment selected. This is currently a front-end template only.
+            </div>
+          </form>
+
         </div>
-
-        <div class="step-title">Your Info</div>
-
-        <div class="form-grid">
-          <input placeholder="First Name">
-          <input placeholder="Last Name">
-          <input placeholder="Email">
-          <input placeholder="Phone">
-        </div>
-
-        <button class="schedule-btn" data-track="opt-in">Schedule Call</button>
 
       </div>
 
     </div>
-
   </div>
-</div>
 
-<script>
-document.querySelectorAll(".date-btn").forEach(btn=>{
-  btn.onclick=()=>{
-    document.querySelectorAll(".date-btn").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-  }
-});
+  <script>
+    const openBooking = document.getElementById("openBooking");
+    const closeBooking = document.getElementById("closeBooking");
+    const bookingModal = document.getElementById("bookingModal");
+    const dateButtons = document.querySelectorAll(".date-btn");
+    const timeButtons = document.querySelectorAll(".time-btn");
+    const bookingForm = document.getElementById("bookingForm");
+    const successMessage = document.getElementById("successMessage");
 
-document.querySelectorAll(".time-btn").forEach(btn=>{
-  btn.onclick=()=>{
-    document.querySelectorAll(".time-btn").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-  }
-});
-</script>
+    openBooking.addEventListener("click", () => {
+      bookingModal.classList.add("active");
+    });
+
+    closeBooking.addEventListener("click", () => {
+      bookingModal.classList.remove("active");
+    });
+
+    bookingModal.addEventListener("click", (e) => {
+      if (e.target === bookingModal) {
+        bookingModal.classList.remove("active");
+      }
+    });
+
+    dateButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        dateButtons.forEach(btn => btn.classList.remove("active"));
+        button.classList.add("active");
+      });
+    });
+
+    timeButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        timeButtons.forEach(btn => btn.classList.remove("active"));
+        button.classList.add("active");
+      });
+    });
+
+    bookingForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      successMessage.classList.add("active");
+    });
+  </script>
 
 </body>
 </html>
