@@ -434,7 +434,7 @@
               <input name="company" class="full" type="text" placeholder="Company Name">
             </div>
 
-            <button type="submit" class="schedule-btn" data-track="opt-in">
+            <button type="submit" class="schedule-btn">
               Schedule Call
             </button>
 
@@ -517,9 +517,9 @@
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error("submit failed");
-        successMessage.classList.add("active");
-        bookingForm.reset();
-        document.querySelectorAll(".date-btn.active, .time-btn.active").forEach(b => b.classList.remove("active"));
+        try { window.AgencyFunnelTrack && window.AgencyFunnelTrack.optIn({ form: "booking" }); } catch (e) {}
+        window.location.href = "/p/ai-clone/ty";
+        return;
       } catch (err) {
         successMessage.textContent = "Something went wrong. Please try again.";
         successMessage.classList.add("active");

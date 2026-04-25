@@ -32,16 +32,10 @@ export async function POST(request) {
     if (slug) {
       const { data: f } = await supabase
         .from('agency_funnels')
-        .select('id, leads')
+        .select('id')
         .eq('slug', slug)
         .single()
-      if (f) {
-        funnel_id = f.id
-        await supabase
-          .from('agency_funnels')
-          .update({ leads: (f.leads || 0) + 1 })
-          .eq('id', f.id)
-      }
+      if (f) funnel_id = f.id
     }
 
     const { data, error } = await supabase
