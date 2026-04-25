@@ -351,7 +351,7 @@
   <div class="container">
 
     <div class="logo">
-      <img src="/assets/logo/ch-logo-white-main.webp.png" alt="Logo">
+      <img src="https://conversionhero.co/assets/logo/ch-logo-white-main.webp.png" alt="Logo">
     </div>
 
     <div class="preheadline">
@@ -427,11 +427,11 @@
 
           <form id="bookingForm">
             <div class="form-grid">
-              <input type="text" placeholder="First Name" required>
-              <input type="text" placeholder="Last Name" required>
-              <input type="email" placeholder="Email Address" required>
-              <input type="tel" placeholder="Phone Number" required>
-              <input class="full" type="text" placeholder="Company Name">
+              <input name="first_name" type="text" placeholder="First Name" required>
+              <input name="last_name" type="text" placeholder="Last Name" required>
+              <input name="email" type="email" placeholder="Email Address" required>
+              <input name="phone" type="tel" placeholder="Phone Number" required>
+              <input name="company" class="full" type="text" placeholder="Company Name">
             </div>
 
             <button type="submit" class="schedule-btn" data-track="opt-in">
@@ -439,7 +439,7 @@
             </button>
 
             <div class="success-message" id="successMessage">
-              Appointment selected. This is currently a front-end template only.
+              Thanks! We received your booking and will reach out shortly.
             </div>
           </form>
 
@@ -487,9 +487,46 @@
       });
     });
 
-    bookingForm.addEventListener("submit", (e) => {
+    bookingForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      successMessage.classList.add("active");
+      const submitBtn = bookingForm.querySelector(".schedule-btn");
+      submitBtn.disabled = true;
+      const orig = submitBtn.textContent;
+      submitBtn.textContent = "Submitting…";
+
+      const fd = new FormData(bookingForm);
+      const selectedDate = document.querySelector(".date-btn.active")?.innerText.trim() || null;
+      const selectedTime = document.querySelector(".time-btn.active")?.innerText.trim() || null;
+
+      const payload = {
+        slug: "ai-clone",
+        first_name: fd.get("first_name"),
+        last_name:  fd.get("last_name"),
+        email:      fd.get("email"),
+        phone:      fd.get("phone"),
+        company:    fd.get("company"),
+        selected_date: selectedDate,
+        selected_time: selectedTime,
+        meta: { source_url: location.href, referrer: document.referrer || null },
+      };
+
+      try {
+        const res = await fetch("/api/agency-leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("submit failed");
+        successMessage.classList.add("active");
+        bookingForm.reset();
+        document.querySelectorAll(".date-btn.active, .time-btn.active").forEach(b => b.classList.remove("active"));
+      } catch (err) {
+        successMessage.textContent = "Something went wrong. Please try again.";
+        successMessage.classList.add("active");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = orig;
+      }
     });
   </script>
 
