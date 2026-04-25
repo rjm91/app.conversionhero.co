@@ -125,10 +125,12 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.75);
       display: none;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      padding: 20px;
+      padding: 40px 20px;
       z-index: 9999;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .modal-overlay.active {
@@ -145,6 +147,7 @@
       box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
       position: relative;
       text-align: left;
+      margin: auto 0;
     }
 
     .modal-close {
@@ -166,20 +169,20 @@
     .booking-grid {
       display: grid;
       grid-template-columns: 1fr 1.3fr;
-      min-height: 600px;
     }
 
     .booking-info {
-      padding: 42px;
+      padding: 32px;
       border-right: 1px solid var(--border);
       background: #f9fafb;
     }
 
     .booking-info h2 {
       margin: 0 0 12px;
-      font-size: 30px;
-      line-height: 1.05;
+      font-size: 26px;
+      line-height: 1.1;
       letter-spacing: -0.04em;
+      padding-right: 48px;
     }
 
     .booking-info p {
@@ -198,21 +201,21 @@
     }
 
     .booking-main {
-      padding: 42px;
+      padding: 32px;
     }
 
     .step-title {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 800;
-      margin: 0 0 18px;
+      margin: 0 0 12px;
       letter-spacing: -0.03em;
     }
 
     .date-grid,
     .time-grid {
       display: grid;
-      gap: 10px;
-      margin-bottom: 26px;
+      gap: 8px;
+      margin-bottom: 18px;
     }
 
     .date-grid {
@@ -368,7 +371,7 @@
     </div>
 
     <button class="cta-btn" id="openBooking">
-      Get Your Free Estimate
+      Schedule Free Demo Call
     </button>
 
     <div class="footer">
