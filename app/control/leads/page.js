@@ -37,6 +37,9 @@ export default function AgencyLeadsPage() {
   const [selected, setSelected] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [checked, setChecked] = useState(new Set())
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -80,6 +83,54 @@ export default function AgencyLeadsPage() {
     setSaving(false)
   }
 
+  async function deleteIds(ids) {
+    await Promise.all(ids.map(id =>
+      fetch(`/api/agency-leads/${id}`, { method: 'DELETE' })
+    ))
+  }
+
+  async function handleDeleteOne() {
+    if (!selected) return
+    setDeleting(true)
+    try {
+      await deleteIds([selected.id])
+      setLeads(prev => prev.filter(l => l.id !== selected.id))
+      setSelected(null)
+      setConfirmDelete(false)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleDeleteChecked() {
+    setDeleting(true)
+    const ids = [...checked]
+    try {
+      await deleteIds(ids)
+      setLeads(prev => prev.filter(l => !ids.includes(l.id)))
+      setChecked(new Set())
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function toggleCheck(id, e) {
+    e.stopPropagation()
+    setChecked(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (checked.size === filtered.length) {
+      setChecked(new Set())
+    } else {
+      setChecked(new Set(filtered.map(l => l.id)))
+    }
+  }
+
   const filtered = leads.filter(l => {
     const q = search.toLowerCase()
     if (!q) return true
@@ -99,13 +150,27 @@ export default function AgencyLeadsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Leads</h1>
           <p className="text-gray-400 text-sm mt-0.5">{leads.length} total leads from agency funnels</p>
         </div>
-        <input
-          type="text"
-          placeholder="Search by name, email, phone, company..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
-        />
+        <div className="flex items-center gap-3">
+          {checked.size > 0 && (
+            <button
+              onClick={handleDeleteChecked}
+              disabled={deleting}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {deleting ? 'Deleting…' : `Delete ${checked.size} lead${checked.size > 1 ? 's' : ''}`}
+            </button>
+          )}
+          <input
+            type="text"
+            placeholder="Search by name, email, phone, company..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
       </div>
 
       <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm overflow-x-auto">
@@ -117,6 +182,14 @@ export default function AgencyLeadsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5">
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && checked.size === filtered.length}
+                    onChange={toggleAll}
+                    className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Name</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Email</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Phone</th>
@@ -132,11 +205,20 @@ export default function AgencyLeadsPage() {
               {filtered.map((l, i) => (
                 <tr
                   key={l.id}
-                  onClick={() => setSelected(l)}
+                  onClick={() => { setSelected(l); setConfirmDelete(false) }}
                   className={`border-b border-gray-50 dark:border-white/5 hover:bg-blue-50 dark:hover:bg-white/5 cursor-pointer transition ${
+                    checked.has(l.id) ? 'bg-red-50/40 dark:bg-red-500/5' :
                     selected?.id === l.id ? 'bg-blue-50 dark:bg-white/5' : ''
                   } ${i === filtered.length - 1 ? 'border-0' : ''}`}
                 >
+                  <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={checked.has(l.id)}
+                      onChange={e => toggleCheck(l.id, e)}
+                      className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -330,19 +412,47 @@ export default function AgencyLeadsPage() {
               {saveSuccess && (
                 <span className="text-xs text-green-600 dark:text-green-400 mr-auto">Saved ✓</span>
               )}
-              <button
-                onClick={() => setSelected(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
-              >
-                {saving ? 'Saving…' : 'Save'}
-              </button>
+              {confirmDelete ? (
+                <>
+                  <span className="text-xs text-red-600 dark:text-red-400 mr-auto">Delete this lead?</span>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteOne}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-60"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition mr-auto"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
