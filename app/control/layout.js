@@ -167,7 +167,7 @@ export default function AdminLayout({ children }) {
       })
   }, [])
 
-  if (pathname.match(/^\/control\/[^/]+\//)) {
+  if (pathname.match(/^\/control\/[^/]+\//) && !pathname.startsWith('/control/funnels/')) {
     return <>{children}</>
   }
 

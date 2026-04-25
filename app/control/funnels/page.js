@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 export default function AgencyFunnelsPage() {
   const [funnels, setFunnels] = useState([])
@@ -74,7 +75,11 @@ export default function AgencyFunnelsPage() {
                 const liveUrl = `/p/${f.slug}`
                 return (
                   <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{f.name}</td>
+                    <td className="px-5 py-3 font-medium">
+                      <Link href={`/control/funnels/${f.id}`} className="text-gray-900 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 transition">
+                        {f.name}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3">
                       <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs truncate">
                         {liveUrl}

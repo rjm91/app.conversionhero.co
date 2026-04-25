@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar: 220px;
+      --bg: #0f1117;
+      --surface: #171B33;
+      --surface2: #1a1f35;
+      --border: rgba(255,255,255,0.07);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --blue: #3b82f6;
+      --green: #22c55e;
+      --orange: #f97316;
+      --purple: #a855f7;
+      --teal: #14b8a6;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: var(--sidebar); background: #0a1628; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+    .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0 16px 20px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .sidebar-brand .avatar { width: 32px; height: 32px; border-radius: 8px; background: #2e6e42; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+    .sidebar-brand span { font-weight: 600; font-size: 13px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; color: var(--muted); cursor: pointer; border-radius: 0; font-size: 13px; transition: all .15s; }
+    .nav-item:hover { color: var(--text); background: var(--surface); }
+    .nav-item.active { color: var(--text); background: var(--surface); border-left: 3px solid var(--blue); }
+    .nav-icon { width: 16px; text-align: center; }
+
+    /* ── Main ── */
+    .main { flex: 1; overflow: auto; }
+
+    /* ── Page header ── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+    .page-title h1 { font-size: 20px; font-weight: 700; }
+    .page-title p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .date-controls { display: flex; align-items: center; gap: 8px; }
+    .date-controls label { color: var(--muted); font-size: 12px; }
+    .date-controls input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+    .btn-apply { background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    /* ── Content wrapper — single padding + uniform gap ── */
+    .content { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Metric strip ── */
+    .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .metric .label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; }
+    .metric .value { font-size: 28px; font-weight: 800; line-height: 1; color: var(--text); }
+    .c-blue   { color: var(--blue); }
+    .c-orange { color: var(--orange); }
+    .c-purple { color: var(--purple); }
+    .c-green  { color: var(--green); }
+    .c-teal   { color: var(--teal); }
+
+    /* ── Body grid ── */
+    .body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+    /* ── Panel ── */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+    .panel-title { font-size: 13px; font-weight: 700; }
+    .panel-link { font-size: 12px; color: var(--blue); text-decoration: none; cursor: pointer; }
+
+    /* ── Lead rows ── */
+    .row-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .row-item:last-child { border-bottom: none; }
+    .row-left { display: flex; flex-direction: column; gap: 2px; }
+    .row-name { font-size: 13px; font-weight: 600; }
+    .row-sub { font-size: 11px; color: var(--muted); }
+    .badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; letter-spacing: .03em; }
+    .badge-new       { background: #1d4ed820; color: #60a5fa; border: 1px solid #1d4ed840; }
+    .badge-appt      { background: #15803d20; color: #4ade80; border: 1px solid #15803d40; }
+    .badge-customer  { background: #7e22ce20; color: #c084fc; border: 1px solid #7e22ce40; }
+    .badge-draft     { background: #37415120; color: #94a3b8; border: 1px solid #37415140; }
+    .badge-approved  { background: #15803d20; color: #4ade80; border: 1px solid #15803d40; }
+    .badge-review    { background: #92400e20; color: #fb923c; border: 1px solid #92400e40; }
+
+    /* ── Funnel rows ── */
+    .funnel-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .funnel-row:last-child { border-bottom: none; }
+    .funnel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .funnel-info { flex: 1; }
+    .funnel-name { font-size: 13px; font-weight: 600; }
+    .funnel-url  { font-size: 11px; color: var(--muted); }
+    .funnel-stats { display: flex; gap: 12px; text-align: right; }
+    .funnel-stat { display: flex; flex-direction: column; gap: 1px; }
+    .funnel-stat .val { font-size: 13px; font-weight: 700; }
+    .funnel-stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+    /* ── Mini chart placeholder ── */
+    .chart-placeholder { height: 120px; display: flex; align-items: flex-end; gap: 6px; padding: 16px 16px 12px; }
+    .bar { flex: 1; border-radius: 4px 4px 0 0; background: var(--blue); opacity: .7; transition: opacity .15s; }
+    .bar:hover { opacity: 1; }
+    .chart-labels { display: flex; gap: 6px; padding: 0 16px 14px; }
+    .chart-labels span { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+
+    /* ── 2-col span ── */
+    .span2 { grid-column: span 2; }
+
+    /* ── Ads mini table ── */
+    .mini-table { width: 100%; }
+    .mini-table th { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    .mini-table td { padding: 9px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .mini-table tr:last-child td { border-bottom: none; }
+    .mini-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+    .dot-enabled { background: var(--green); }
+    .dot-paused  { background: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="avatar">SH</div>
+    <span>Synergy Home</span>
+  </div>
+  <div class="nav-item"><span class="nav-icon">🏢</span> Company</div>
+  <div class="nav-item active"><span class="nav-icon">📊</span> Dashboard</div>
+  <div class="nav-item"><span class="nav-icon">👤</span> Leads</div>
+  <div class="nav-item"><span class="nav-icon">▶️</span> Ads</div>
+  <div class="nav-item"><span class="nav-icon">📅</span> Calendar</div>
+  <div class="nav-item"><span class="nav-icon">≡</span> Funnels</div>
+  <div class="nav-item"><span class="nav-icon">🎬</span> Videos</div>
+  <div class="nav-item"><span class="nav-icon">💳</span> Billing</div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Dashboard</h1>
+      <p>Synergy Home</p>
+    </div>
+    <div class="date-controls">
+      <label>From</label>
+      <input type="date" value="2026-03-01" />
+      <label>To</label>
+      <input type="date" value="2026-04-24" />
+      <button class="btn-apply">Apply</button>
+    </div>
+  </div>
+
+  <div class="content">
+  <!-- Metric strip — 5 across, 2 rows -->
+  <div class="metrics">
+    <div class="metric"><div class="label c-blue">Ad Spend</div><div class="value">$2,988</div></div>
+    <div class="metric"><div class="label c-orange">Leads</div><div class="value">4</div></div>
+    <div class="metric"><div class="label c-orange">Cost / Lead</div><div class="value">$747</div></div>
+    <div class="metric"><div class="label c-purple">Appt Set</div><div class="value">2</div></div>
+    <div class="metric"><div class="label c-purple">Cost / Set</div><div class="value">$1,494</div></div>
+
+    <div class="metric"><div class="label c-purple">Appt Set Rate</div><div class="value">50%</div></div>
+    <div class="metric"><div class="label c-teal">Appointments</div><div class="value">2</div></div>
+    <div class="metric"><div class="label c-teal">Cost / Appt</div><div class="value">$1,494</div></div>
+    <div class="metric"><div class="label c-green">Customers</div><div class="value">1</div></div>
+    <div class="metric"><div class="label c-green">Close Rate</div><div class="value">50%</div></div>
+  </div>
+
+  <!-- Body panels -->
+  <div class="body">
+
+    <!-- Recent Leads -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Leads</span>
+        <span class="panel-link">See all →</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">James Whitfield</div><div class="row-sub">HVAC · Apr 22 · Lexington, KY</div></div>
+        <span class="badge badge-appt">Appt Set</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Linda Parsons</div><div class="row-sub">HVAC · Apr 20 · Georgetown, KY</div></div>
+        <span class="badge badge-new">New</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Tom Breck</div><div class="row-sub">HVAC · Apr 17 · Nicholasville, KY</div></div>
+        <span class="badge badge-customer">Customer</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Sarah Cole</div><div class="row-sub">HVAC · Mar 30 · Lexington, KY</div></div>
+        <span class="badge badge-appt">Appt Set</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Mike Reeves</div><div class="row-sub">HVAC · Mar 14 · Richmond, KY</div></div>
+        <span class="badge badge-new">New</span>
+      </div>
+    </div>
+
+    <!-- Active Campaigns -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Campaigns</span>
+        <span class="panel-link">See all →</span>
+      </div>
+      <table class="mini-table">
+        <thead>
+          <tr><th>Campaign</th><th class="num">Spend</th><th class="num">Conv.</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="status-dot dot-enabled"></span>ch014 · Home Impr</td>
+            <td class="num">$1,842</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td><span class="status-dot dot-enabled"></span>ch014 · Broad</td>
+            <td class="num">$1,146</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td><span class="status-dot dot-paused"></span>ch014 · Launched</td>
+            <td class="num">$0</td>
+            <td class="num">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Active Funnels -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Funnels</span>
+        <span class="panel-link">See all →</span>
+      </div>
+      <div class="funnel-row">
+        <div class="funnel-dot"></div>
+        <div class="funnel-info">
+          <div class="funnel-name">HVAC Second Opinion</div>
+          <div class="funnel-url">synergyhome.co/f/hvac-quote</div>
+        </div>
+        <div class="funnel-stats">
+          <div class="funnel-stat"><div class="val">148</div><div class="lbl">Visits</div></div>
+          <div class="funnel-stat"><div class="val">2.7%</div><div class="lbl">Conv.</div></div>
+        </div>
+      </div>
+      <div class="funnel-row" style="opacity:.45">
+        <div class="funnel-dot" style="background:var(--muted)"></div>
+        <div class="funnel-info">
+          <div class="funnel-name">Generator Quote</div>
+          <div class="funnel-url">synergyhome.co/services/generators</div>
+        </div>
+        <div class="funnel-stats">
+          <div class="funnel-stat"><div class="val">—</div><div class="lbl">Visits</div></div>
+          <div class="funnel-stat"><div class="val">—</div><div class="lbl">Conv.</div></div>
+        </div>
+      </div>
+      <div style="padding:12px 16px; border-top: 1px solid var(--border); margin-top:4px">
+        <button style="width:100%;background:var(--surface2);border:1px dashed var(--border);color:var(--muted);padding:8px;border-radius:6px;cursor:pointer;font-size:12px">+ Add Funnel</button>
+      </div>
+    </div>
+
+    <!-- Latest Videos -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Latest Videos</span>
+        <span class="panel-link">See all →</span>
+      </div>
+      <div class="row-item" style="gap:10px;align-items:flex-start">
+        <div style="position:relative;flex-shrink:0;width:80px;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#0f1b2d">
+          <img src="https://i.ytimg.com/vi/placeholder/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />
+          <span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:2px">0:27</span>
+        </div>
+        <div class="row-left" style="flex:1;min-width:0">
+          <div class="row-name" style="white-space:normal;line-height:1.3;font-size:12px">Synergy Home · Let's Try &amp; Fix It First | Tiffany</div>
+          <div class="row-sub">4.5K views · Apr 18</div>
+        </div>
+      </div>
+      <div class="row-item" style="gap:10px;align-items:flex-start">
+        <div style="position:relative;flex-shrink:0;width:80px;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#0f1b2d">
+          <span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:2px">0:42</span>
+        </div>
+        <div class="row-left" style="flex:1;min-width:0">
+          <div class="row-name" style="white-space:normal;line-height:1.3;font-size:12px">Never Lose Power Again — Whole-Home Generator</div>
+          <div class="row-sub">88 views · Apr 17</div>
+        </div>
+      </div>
+      <div class="row-item" style="gap:10px;align-items:flex-start">
+        <div style="position:relative;flex-shrink:0;width:80px;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#0f1b2d">
+          <span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:2px">0:37</span>
+        </div>
+        <div class="row-left" style="flex:1;min-width:0">
+          <div class="row-name" style="white-space:normal;line-height:1.3;font-size:12px">Synergy Home — Let's Fix It First</div>
+          <div class="row-sub">6.2K views · Mar 30</div>
+        </div>
+      </div>
+      <div class="row-item" style="gap:10px;align-items:flex-start">
+        <div style="position:relative;flex-shrink:0;width:80px;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#0f1b2d">
+          <span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:2px">0:31</span>
+        </div>
+        <div class="row-left" style="flex:1;min-width:0">
+          <div class="row-name" style="white-space:normal;line-height:1.3;font-size:12px">Synergy Home · Let's Fix It First — Kat</div>
+          <div class="row-sub">3.8K views · Apr 2</div>
+        </div>
+      </div>
+      <div class="row-item" style="gap:10px;align-items:flex-start">
+        <div style="position:relative;flex-shrink:0;width:80px;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#0f1b2d">
+          <span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:2px">0:33</span>
+        </div>
+        <div class="row-left" style="flex:1;min-width:0">
+          <div class="row-name" style="white-space:normal;line-height:1.3;font-size:12px">Synergy Home · Let's Fix It First — Christy</div>
+          <div class="row-sub">3.2K views · Apr 2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Scripts -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Video Scripts</span>
+        <span class="panel-link">See all →</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Why Your AC Stops Working in July</div><div class="row-sub">YouTube Short · Apr 21</div></div>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">Heat Pump vs Furnace — Which Wins?</div><div class="row-sub">YouTube Short · Apr 18</div></div>
+        <span class="badge badge-review">In Review</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">5 Signs Your HVAC Is About to Fail</div><div class="row-sub">YouTube Short · Apr 15</div></div>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">What Does a Second Opinion Actually Cost?</div><div class="row-sub">YouTube Short · Apr 10</div></div>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+      <div class="row-item">
+        <div class="row-left"><div class="row-name">The Trick HVAC Companies Don't Want You to Know</div><div class="row-sub">YouTube Short · Apr 5</div></div>
+        <span class="badge badge-draft">Draft</span>
+      </div>
+    </div>
+
+    <!-- Leads Over Time — now 1/3 width -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Leads Over Time</span>
+        <span style="font-size:11px;color:var(--muted)">Last 7 months</span>
+      </div>
+      <div class="chart-placeholder">
+        <div class="bar" style="height:4%"></div>
+        <div class="bar" style="height:4%"></div>
+        <div class="bar" style="height:4%"></div>
+        <div class="bar" style="height:4%"></div>
+        <div class="bar" style="height:4%"></div>
+        <div class="bar" style="height:40%"></div>
+        <div class="bar" style="height:100%"></div>
+      </div>
+      <div class="chart-labels">
+        <span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+  </div><!-- /content -->
+</div><!-- /main -->
+
+</body>
+</html>
