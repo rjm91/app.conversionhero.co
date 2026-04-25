@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '../../../lib/supabase-browser'
 
 export default function AgencyFunnelsPage() {
   const [funnels, setFunnels] = useState([])
@@ -11,12 +10,9 @@ export default function AgencyFunnelsPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('agency_funnels')
-        .select('*')
-        .order('created_at', { ascending: false })
-      setFunnels(data || [])
+      const res = await fetch('/api/agency-funnels')
+      const json = await res.json()
+      setFunnels(json.funnels || [])
       setLoading(false)
     }
     load()
