@@ -53,6 +53,7 @@ export async function POST(request) {
         selected_date: selected_date || null,
         selected_time: selected_time || null,
         meta: meta || null,
+        lead_status: 'New / Not Yet Contacted',
       })
       .select()
       .single()
