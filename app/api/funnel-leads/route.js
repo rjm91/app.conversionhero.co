@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { dispatchClientEvent } from '../../../lib/automations.js'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -82,6 +83,25 @@ export async function POST(request) {
       if (funnelId) {
         const { data } = await db.from('client_funnels').select('leads').eq('id', funnelId).single()
         if (data) await db.from('client_funnels').update({ leads: (data.leads || 0) + 1 }).eq('id', funnelId)
+      }
+
+      // Fire client-level automations (email notifications, etc).
+      const { data: full } = await db
+        .from('client_lead')
+        .select('client_id, first_name, last_name, email, phone, city, state, lp_url')
+        .eq('lead_id', id)
+        .single()
+      let funnelMeta = null
+      if (funnelId) {
+        const { data: f } = await db.from('client_funnels').select('name, slug').eq('id', funnelId).single()
+        funnelMeta = f || null
+      }
+      if (full?.client_id) {
+        dispatchClientEvent(full.client_id, 'lead.created', {
+          ...full,
+          company: '',
+          agency_funnels: funnelMeta,
+        }).catch(err => console.error('[funnel-leads] dispatchClientEvent error', err))
       }
     }
 

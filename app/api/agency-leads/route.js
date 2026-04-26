@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { dispatchEvent } from '../../../lib/automations.js'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -55,10 +56,15 @@ export async function POST(request) {
         meta: meta || null,
         lead_status: 'New / Not Yet Contacted',
       })
-      .select()
+      .select('*, agency_funnels(name, slug)')
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    dispatchEvent('lead.created', data).catch(err =>
+      console.error('[agency-leads] dispatchEvent error', err)
+    )
+
     return NextResponse.json({ ok: true, lead: data })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
