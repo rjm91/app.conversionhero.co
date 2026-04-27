@@ -17,8 +17,8 @@ function captureMeta() {
     adgroup: p.get('ad_group_id') || p.get('adgroup') || '',
     gclid: p.get('gclid') || '',
     wbraid: p.get('wbraid') || '',
-    contact_id: p.get('contact_id') || '',
     device: p.get('device') || (/Mobi|Android/i.test(navigator.userAgent) ? 'm' : 'd'),
+    cacheBuster: p.get('cacheBuster') || '',
   }
 }
 

@@ -26,3 +26,13 @@ export async function GET(_request, { params }) {
     .from('agency_funnel_steps').select('*').eq('funnel_id', id).order('step_order')
   return NextResponse.json({ funnel, steps: steps || [] })
 }
+
+export async function PATCH(request, { params }) {
+  const { id } = await params
+  const body = await request.json()
+  const supabase = db()
+  const { data, error } = await supabase
+    .from('agency_funnels').update(body).eq('id', id).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ funnel: data })
+}

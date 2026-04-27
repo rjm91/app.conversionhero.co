@@ -11,7 +11,17 @@ const DEFAULT_BODY =
   'Email: {{email}}\n' +
   'Phone: {{phone}}\n' +
   'Company: {{company}}\n' +
-  'Funnel: {{funnel_name}}\n'
+  'Funnel: {{funnel_name}}\n\n' +
+  '— Source —\n' +
+  'utm_source: {{utm_source}}\n' +
+  'utm_medium: {{utm_medium}}\n' +
+  'utm_campaign: {{utm_campaign}}\n' +
+  'utm_content: {{utm_content}}\n' +
+  'ad_group_id: {{ad_group_id}}\n' +
+  'gclid: {{gclid}}\n' +
+  'wbraid: {{wbraid}}\n' +
+  'device: {{device}}\n' +
+  'lp_url: {{lp_url}}\n'
 
 export default function AutomationsPage() {
   const [tab, setTab] = useState('notifications')
@@ -238,9 +248,11 @@ export default function AutomationsPage() {
             )}
           </div>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            Available variables: <code className="text-gray-500 dark:text-gray-400">{'{{first_name}}'}</code>, <code className="text-gray-500 dark:text-gray-400">{'{{last_name}}'}</code>, <code className="text-gray-500 dark:text-gray-400">{'{{email}}'}</code>, <code className="text-gray-500 dark:text-gray-400">{'{{phone}}'}</code>, <code className="text-gray-500 dark:text-gray-400">{'{{company}}'}</code>, <code className="text-gray-500 dark:text-gray-400">{'{{funnel_name}}'}</code>
-          </p>
+          <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
+            <p><span className="font-medium text-gray-500 dark:text-gray-400">Contact:</span> <code>{'{{first_name}}'}</code> <code>{'{{last_name}}'}</code> <code>{'{{email}}'}</code> <code>{'{{phone}}'}</code> <code>{'{{company}}'}</code> <code>{'{{city}}'}</code> <code>{'{{state}}'}</code> <code>{'{{zip_code}}'}</code></p>
+            <p><span className="font-medium text-gray-500 dark:text-gray-400">Funnel:</span> <code>{'{{funnel_name}}'}</code> <code>{'{{lp_url}}'}</code></p>
+            <p><span className="font-medium text-gray-500 dark:text-gray-400">Source:</span> <code>{'{{utm_source}}'}</code> <code>{'{{utm_medium}}'}</code> <code>{'{{utm_campaign}}'}</code> <code>{'{{utm_content}}'}</code> <code>{'{{ad_group_id}}'}</code> <code>{'{{gclid}}'}</code> <code>{'{{wbraid}}'}</code> <code>{'{{device}}'}</code></p>
+          </div>
         </div>
       )}
 

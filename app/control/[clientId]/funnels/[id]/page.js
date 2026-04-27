@@ -25,6 +25,10 @@ export default function FunnelDetailPage() {
   const [savingHead, setSavingHead] = useState(false)
   const [headSaved, setHeadSaved] = useState(false)
 
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   async function load() {
     const supabase = createClient()
     const [{ data: f }, { data: st }] = await Promise.all([
@@ -104,6 +108,30 @@ export default function FunnelDetailPage() {
     }
   }
 
+  async function saveName() {
+    const trimmed = nameDraft.trim()
+    if (!trimmed || trimmed === funnel.name) {
+      setEditingName(false)
+      return
+    }
+    setSavingName(true)
+    try {
+      const res = await fetch(`/api/funnels/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (res.ok) {
+        setFunnel(f => ({ ...f, name: trimmed }))
+      }
+    } catch (e) {
+      console.error('saveName failed:', e)
+    } finally {
+      setSavingName(false)
+      setEditingName(false)
+    }
+  }
+
   async function saveStep(stepId, config) {
     const res = await fetch(`/api/funnel-steps/${stepId}`, {
       method: 'PATCH',
@@ -130,10 +158,34 @@ export default function FunnelDetailPage() {
       </Link>
 
       <div className="mt-3 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{funnel.name}</h2>
-        <a href={liveUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
-          {liveUrl}
-        </a>
+        {editingName ? (
+          <input
+            type="text"
+            value={nameDraft}
+            onChange={e => setNameDraft(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); saveName() }
+              if (e.key === 'Escape') { setEditingName(false) }
+            }}
+            disabled={savingName}
+            autoFocus
+            className="text-lg font-semibold text-gray-900 dark:text-white bg-transparent border-b border-blue-500 focus:outline-none w-full max-w-lg"
+          />
+        ) : (
+          <h2
+            onClick={() => { setNameDraft(funnel.name || ''); setEditingName(true) }}
+            className="text-lg font-semibold text-gray-900 dark:text-white cursor-text hover:bg-gray-50 dark:hover:bg-white/5 rounded px-1 -mx-1 inline-block"
+            title="Click to rename"
+          >
+            {funnel.name}
+          </h2>
+        )}
+        <div>
+          <a href={liveUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
+            {liveUrl}
+          </a>
+        </div>
       </div>
 
       {/* Tabs */}

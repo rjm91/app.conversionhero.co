@@ -88,7 +88,7 @@ export async function POST(request) {
       // Fire client-level automations (email notifications, etc).
       const { data: full } = await db
         .from('client_lead')
-        .select('client_id, first_name, last_name, email, phone, city, state, lp_url')
+        .select('client_id, first_name, last_name, email, phone, city, state, zip_code, lp_url, utm_source, utm_medium, utm_campaign, utm_content, utm_adgroup, gclid, wbraid, device, cache_buster')
         .eq('lead_id', id)
         .single()
       let funnelMeta = null
