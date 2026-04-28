@@ -12,6 +12,9 @@ export default function ProspectingPage() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [campaign, setCampaign] = useState('All Campaigns')
+  const [state, setState] = useState('All States')
+  const [industry, setIndustry] = useState('All Industries')
+  const [market, setMarket] = useState('All Markets')
   const [status, setStatus] = useState('All Status')
 
   useEffect(() => {
@@ -43,26 +46,35 @@ export default function ProspectingPage() {
     load()
   }, [])
 
+  const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
   const campaignOptions = ['All Campaigns', ...campaigns.map(c => c.name)]
-
   const selectedCampaign = campaigns.find(c => c.name === campaign)
+
+  const stateOptions = ['All States', ...Array.from(new Set(leads.map(l => l.state).filter(Boolean))).sort()]
+  const industryOptions = ['All Industries', ...Array.from(new Set(leads.map(l => l.industry).filter(Boolean))).sort()]
+  const marketOptions = ['All Markets', ...Array.from(new Set(leads.map(l => l.market).filter(Boolean))).sort()]
 
   const filtered = leads.filter(l => {
     const name = `${l.first_name} ${l.last_name}`
     if (search && !`${name} ${l.email} ${l.company_name}`.toLowerCase().includes(search.toLowerCase())) return false
     if (campaign !== 'All Campaigns' && selectedCampaign && l.group_id !== selectedCampaign.leads_group_id) return false
+    if (state !== 'All States' && l.state !== state) return false
+    if (industry !== 'All Industries' && l.industry !== industry) return false
+    if (market !== 'All Markets' && l.market !== market) return false
     if (status !== 'All Status' && l.status !== status) return false
     return true
   })
 
   function handleExport() {
     if (!filtered.length) return
-    const headers = ['Name', 'Email', 'Company', 'Campaign', 'Status']
-    const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
+    const headers = ['Name', 'Email', 'Company', 'State', 'Industry', 'Market', 'Campaign', 'Status']
     const rows = filtered.map(l => [
       `${l.first_name} ${l.last_name}`,
       l.email,
       l.company_name,
+      l.state || '',
+      l.industry || '',
+      l.market || '',
       campaignMap[l.group_id] || '',
       l.status,
     ])
@@ -72,8 +84,6 @@ export default function ProspectingPage() {
     a.download = 'blaztr-leads.csv'
     a.click()
   }
-
-  const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
 
   return (
     <div className="p-8">
@@ -104,6 +114,9 @@ export default function ProspectingPage() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          <FilterSelect value={state} onChange={setState} options={stateOptions} />
+          <FilterSelect value={industry} onChange={setIndustry} options={industryOptions} />
+          <FilterSelect value={market} onChange={setMarket} options={marketOptions} />
           <FilterSelect value={campaign} onChange={setCampaign} options={campaignOptions} />
           <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} />
           <button
@@ -122,26 +135,28 @@ export default function ProspectingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                {['NAME', 'EMAIL', 'COMPANY', 'CAMPAIGN', 'STATUS'].map(col => (
+                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS'].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
               ) : error ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-red-400">{error}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-red-400">{error}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-400">No leads found.</td>
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No leads found.</td>
                 </tr>
               ) : filtered.map(lead => (
                 <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.company_name}</td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-500 text-xs">{campaignMap[lead.group_id] || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.state || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.industry || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.market || '—'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={lead.status} />
                   </td>
