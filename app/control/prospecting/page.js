@@ -2,46 +2,78 @@
 
 import { useEffect, useState } from 'react'
 
-const STATUS_OPTIONS = ['All Status', 'Active', 'Paused', 'Completed', 'Bounced', 'Unsubscribed']
-const STATE_OPTIONS = ['All States', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
-const INDUSTRY_OPTIONS = ['All Industries', 'HVAC', 'Plumbing', 'Roofing', 'Solar', 'Funeral', 'Landscaping', 'Pest Control', 'Electrical', 'Remodeling', 'Other']
-const MARKET_OPTIONS = ['All Markets']
+const STATUS_OPTIONS = ['All Status', 'New', 'Contacted', 'Replied', 'Bounced', 'Unsubscribed']
 
 export default function ProspectingPage() {
   const [leads, setLeads] = useState([])
+  const [campaigns, setCampaigns] = useState([])
   const [stats, setStats] = useState({ totalLeads: 0, sent: 0, replies: 0 })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [state, setState] = useState('All States')
-  const [industry, setIndustry] = useState('All Industries')
-  const [market, setMarket] = useState('All Markets')
+  const [campaign, setCampaign] = useState('All Campaigns')
   const [status, setStatus] = useState('All Status')
-  const [connected, setConnected] = useState(false)
 
   useEffect(() => {
-    // Will be wired to Blaztr API once credentials are available
-    setLoading(false)
+    async function load() {
+      try {
+        const [summaryRes, leadsRes, campaignsRes] = await Promise.all([
+          fetch('/api/blaztr?action=summary'),
+          fetch('/api/blaztr?action=leads'),
+          fetch('/api/blaztr?action=campaigns'),
+        ])
+        const [summaryData, leadsData, campaignsData] = await Promise.all([
+          summaryRes.json(),
+          leadsRes.json(),
+          campaignsRes.json(),
+        ])
+
+        if (summaryData.success) {
+          const d = summaryData.data
+          setStats({ totalLeads: d.total_leads, sent: d.total_sent, replies: d.total_replies })
+        }
+        if (leadsData.success) setLeads(leadsData.data)
+        if (campaignsData.success) setCampaigns(campaignsData.data)
+      } catch (e) {
+        setError('Failed to load Blaztr data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
+  const campaignOptions = ['All Campaigns', ...campaigns.map(c => c.name)]
+
+  const selectedCampaign = campaigns.find(c => c.name === campaign)
+
   const filtered = leads.filter(l => {
-    if (search && !`${l.name} ${l.email} ${l.company}`.toLowerCase().includes(search.toLowerCase())) return false
-    if (state !== 'All States' && l.state !== state) return false
-    if (industry !== 'All Industries' && l.industry !== industry) return false
-    if (market !== 'All Markets' && l.market !== market) return false
+    const name = `${l.first_name} ${l.last_name}`
+    if (search && !`${name} ${l.email} ${l.company_name}`.toLowerCase().includes(search.toLowerCase())) return false
+    if (campaign !== 'All Campaigns' && selectedCampaign && l.group_id !== selectedCampaign.leads_group_id) return false
     if (status !== 'All Status' && l.status !== status) return false
     return true
   })
 
   function handleExport() {
     if (!filtered.length) return
-    const headers = ['Name', 'Email', 'Company', 'State', 'Industry', 'Market', 'Status']
-    const rows = filtered.map(l => [l.name, l.email, l.company, l.state, l.industry, l.market, l.status])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const headers = ['Name', 'Email', 'Company', 'Campaign', 'Status']
+    const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
+    const rows = filtered.map(l => [
+      `${l.first_name} ${l.last_name}`,
+      l.email,
+      l.company_name,
+      campaignMap[l.group_id] || '',
+      l.status,
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = 'leads.csv'
+    a.download = 'blaztr-leads.csv'
     a.click()
   }
+
+  const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
 
   return (
     <div className="p-8">
@@ -72,9 +104,7 @@ export default function ProspectingPage() {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <FilterSelect value={state} onChange={setState} options={STATE_OPTIONS} />
-          <FilterSelect value={industry} onChange={setIndustry} options={INDUSTRY_OPTIONS} />
-          <FilterSelect value={market} onChange={setMarket} options={MARKET_OPTIONS} />
+          <FilterSelect value={campaign} onChange={setCampaign} options={campaignOptions} />
           <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} />
           <button
             onClick={handleExport}
@@ -92,40 +122,26 @@ export default function ProspectingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS'].map(col => (
+                {['NAME', 'EMAIL', 'COMPANY', 'CAMPAIGN', 'STATUS'].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-red-400">{error}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center">
-                    {!connected ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                          <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                          </svg>
-                        </div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">Connect Blaztr to see your leads</p>
-                        <p className="text-xs text-gray-400">API integration coming soon — leads will appear here automatically</p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No leads found.</p>
-                    )}
-                  </td>
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-400">No leads found.</td>
                 </tr>
-              ) : filtered.map((lead, i) => (
-                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{lead.name}</td>
+              ) : filtered.map(lead => (
+                <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.company}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.state}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.industry}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.market}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.company_name}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-500 text-xs">{campaignMap[lead.group_id] || '—'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={lead.status} />
                   </td>
@@ -167,9 +183,9 @@ function FilterSelect({ value, onChange, options }) {
 
 function StatusBadge({ status }) {
   const colors = {
-    Active: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-    Paused: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
-    Completed: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+    New: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+    Contacted: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+    Replied: 'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
     Bounced: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
     Unsubscribed: 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-400',
   }
