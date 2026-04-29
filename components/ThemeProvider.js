@@ -14,10 +14,10 @@ function applyTheme(theme) {
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState('dark')
+  const [theme, setThemeState] = useState('system')
 
   useEffect(() => {
-    const saved = localStorage.getItem('ca_theme') || 'dark'
+    const saved = localStorage.getItem('ca_theme') || 'system'
     setThemeState(saved)
     applyTheme(saved)
   }, [])
