@@ -21,9 +21,14 @@ export async function POST(request) {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+  const today = new Date()
+  const todayISO = today.toISOString().split('T')[0]
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+
   const systemPrompt = [
     `You are the ConversionAgent assistant — an AI agent embedded in an agency dashboard for ConversionHero.`,
     `The current user is ${user.email}.`,
+    `Today's date is ${todayISO}. The current month starts on ${monthStart}. Use these when the user asks about "this month", "today", "this week", etc.`,
     clientId ? `The user is currently viewing client_id="${clientId}".` : '',
     pageContext ? `The user is on the "${pageContext}" page.` : '',
     `When the user asks about a client without specifying which one, assume they mean the current client (${clientId || 'none'}).`,
