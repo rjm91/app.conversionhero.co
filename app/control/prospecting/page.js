@@ -16,19 +16,23 @@ export default function ProspectingPage() {
   const [industry, setIndustry] = useState('All Industries')
   const [market, setMarket] = useState('All Markets')
   const [status, setStatus] = useState('All Status')
+  const [convertedIds, setConvertedIds] = useState(new Set())
+  const [converting, setConverting] = useState(null)
 
   useEffect(() => {
     async function load() {
       try {
-        const [summaryRes, leadsRes, campaignsRes] = await Promise.all([
+        const [summaryRes, leadsRes, campaignsRes, agencyLeadsRes] = await Promise.all([
           fetch('/api/blaztr?action=summary'),
           fetch('/api/blaztr?action=leads'),
           fetch('/api/blaztr?action=campaigns'),
+          fetch('/api/agency-leads'),
         ])
-        const [summaryData, leadsData, campaignsData] = await Promise.all([
+        const [summaryData, leadsData, campaignsData, agencyLeadsData] = await Promise.all([
           summaryRes.json(),
           leadsRes.json(),
           campaignsRes.json(),
+          agencyLeadsRes.json(),
         ])
 
         if (summaryData.success) {
@@ -37,6 +41,10 @@ export default function ProspectingPage() {
         }
         if (leadsData.success) setLeads(leadsData.data)
         if (campaignsData.success) setCampaigns(campaignsData.data)
+        if (agencyLeadsData.leads) {
+          const ids = new Set(agencyLeadsData.leads.map(l => l.blaztr_id).filter(Boolean))
+          setConvertedIds(ids)
+        }
       } catch (e) {
         setError('Failed to load Blaztr data')
       } finally {
@@ -45,6 +53,35 @@ export default function ProspectingPage() {
     }
     load()
   }, [])
+
+  async function handleCreateLead(prospect) {
+    setConverting(prospect.id)
+    try {
+      const res = await fetch('/api/agency-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blaztr_id: prospect.id,
+          first_name: prospect.first_name,
+          last_name: prospect.last_name,
+          email: prospect.email,
+          company: prospect.company_name,
+          meta: {
+            source: 'blaztr',
+            blaztr_status: prospect.status,
+            industry: prospect.industry || null,
+            state: prospect.state || null,
+            market: prospect.market || null,
+          },
+        }),
+      })
+      if (res.ok) {
+        setConvertedIds(prev => new Set([...prev, prospect.id]))
+      }
+    } finally {
+      setConverting(null)
+    }
+  }
 
   const campaignMap = Object.fromEntries(campaigns.map(c => [c.leads_group_id, c.name]))
   const campaignOptions = ['All Campaigns', ...campaigns.map(c => c.name)]
@@ -67,7 +104,7 @@ export default function ProspectingPage() {
 
   function handleExport() {
     if (!filtered.length) return
-    const headers = ['Name', 'Email', 'Company', 'State', 'Industry', 'Market', 'Campaign', 'Status']
+    const headers = ['Name', 'Email', 'Company', 'State', 'Industry', 'Market', 'Status']
     const rows = filtered.map(l => [
       `${l.first_name} ${l.last_name}`,
       l.email,
@@ -75,7 +112,6 @@ export default function ProspectingPage() {
       l.state || '',
       l.industry || '',
       l.market || '',
-      campaignMap[l.group_id] || '',
       l.status,
     ])
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
@@ -135,33 +171,48 @@ export default function ProspectingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS'].map(col => (
+                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS', ''].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">Loading…</td></tr>
               ) : error ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-red-400">{error}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-red-400">{error}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No leads found.</td>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">No leads found.</td>
                 </tr>
-              ) : filtered.map(lead => (
-                <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.company_name}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.state || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.industry || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.market || '—'}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={lead.status} />
-                  </td>
-                </tr>
-              ))}
+              ) : filtered.map(lead => {
+                const isConverted = convertedIds.has(lead.id)
+                const isConverting = converting === lead.id
+                return (
+                  <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.company_name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.state || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.industry || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.market || '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
+                    <td className="px-4 py-3">
+                      {isConverted ? (
+                        <span className="text-xs text-green-500 dark:text-green-400 font-medium">✓ Lead Created</span>
+                      ) : (
+                        <button
+                          onClick={() => handleCreateLead(lead)}
+                          disabled={isConverting}
+                          className="px-3 py-1 text-xs font-medium rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isConverting ? 'Creating…' : 'Create Lead'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

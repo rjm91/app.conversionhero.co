@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { slug, first_name, last_name, email, phone, company, selected_date, selected_time, meta } = body
+    const { slug, first_name, last_name, email, phone, company, selected_date, selected_time, meta, blaztr_id } = body
 
     const supabase = db()
     let funnel_id = null
@@ -46,6 +46,7 @@ export async function POST(request) {
       .from('agency_leads')
       .insert({
         funnel_id,
+        blaztr_id: blaztr_id || null,
         first_name: first_name || null,
         last_name: last_name || null,
         email: email || null,

@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/sync-payments",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/blaztr-sync",
-      "schedule": "0 * * * *"
     }
   ]
 }
