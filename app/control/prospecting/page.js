@@ -171,9 +171,10 @@ export default function ProspectingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS', ''].map(col => (
+                {['NAME', 'EMAIL', 'COMPANY', 'STATE', 'INDUSTRY', 'MARKET', 'STATUS'].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">{col}</th>
                 ))}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider whitespace-nowrap w-px"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
@@ -197,14 +198,14 @@ export default function ProspectingPage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.industry || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.market || '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap w-px">
                       {isConverted ? (
                         <span className="text-xs text-green-500 dark:text-green-400 font-medium">✓ Lead Created</span>
                       ) : (
                         <button
                           onClick={() => handleCreateLead(lead)}
                           disabled={isConverting}
-                          className="px-3 py-1 text-xs font-medium rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-1 text-xs font-medium rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                           {isConverting ? 'Creating…' : 'Create Lead'}
                         </button>
