@@ -25,6 +25,8 @@ export default function PaymentsPage() {
   const [clientFilter,   setClientFilter]   = useState('all')
   const [merchantFilter, setMerchantFilter] = useState('all')
   const [sortDir,        setSortDir]        = useState('desc')
+  const [startDate,      setStartDate]      = useState('')
+  const [endDate,        setEndDate]        = useState('')
 
   const supabaseRef = createClient()
 
@@ -51,6 +53,8 @@ export default function PaymentsPage() {
     let rows = payments
     if (clientFilter !== 'all') rows = rows.filter(r => r.client_id === clientFilter)
     if (merchantFilter !== 'all') rows = rows.filter(r => r.merchant === merchantFilter)
+    if (startDate) rows = rows.filter(r => r.date_created && r.date_created.slice(0, 10) >= startDate)
+    if (endDate)   rows = rows.filter(r => r.date_created && r.date_created.slice(0, 10) <= endDate)
     if (search) {
       const q = search.toLowerCase()
       rows = rows.filter(r =>
@@ -65,7 +69,7 @@ export default function PaymentsPage() {
       return sortDir === 'desc' ? db - da : da - db
     })
     return sorted
-  }, [payments, clientFilter, merchantFilter, search, sortDir])
+  }, [payments, clientFilter, merchantFilter, search, sortDir, startDate, endDate])
 
   const total = useMemo(() => filtered.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0), [filtered])
 
@@ -132,6 +136,26 @@ export default function PaymentsPage() {
           <option value="all">All Merchants</option>
           {merchants.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
+        <input
+          type="date"
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={e => setEndDate(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {(startDate || endDate) && (
+          <button
+            onClick={() => { setStartDate(''); setEndDate('') }}
+            className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+          >
+            Clear dates
+          </button>
+        )}
         <button
           onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
           className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
