@@ -139,7 +139,7 @@
 .ctaBtn:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
 
 .prevLink {
-  display: block; text-align: center; margin-top: 16px;
+  display: block; text-align: center; margin-top: 16px; width: 100%;
   font-size: 14px; font-weight: 600; color: #6b7280;
   cursor: pointer; text-decoration: none; transition: color 0.15s;
   -webkit-tap-highlight-color: transparent; background: none; border: none;
