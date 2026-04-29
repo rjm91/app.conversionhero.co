@@ -147,8 +147,8 @@ export default function FunnelDetailPage() {
   if (loading) return <div className="p-8 text-sm text-gray-400">Loading…</div>
   if (!funnel) return <div className="p-8 text-sm text-gray-400">Funnel not found.</div>
 
-  const liveUrl = funnel.custom_domain
-    ? `https://${funnel.custom_domain}`
+  const liveUrl = funnel.custom_domain && funnel.slug
+    ? `https://${funnel.custom_domain}/f/${funnel.slug}`
     : `/f/${funnel.slug}`
 
   return (

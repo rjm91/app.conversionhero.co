@@ -86,8 +86,8 @@ export default function FunnelsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-white/5">
               {funnels.map(f => {
                 const convRate = f.visitors ? f.leads / f.visitors : null
-                const liveUrl = f.custom_domain
-                  ? `https://${f.custom_domain}`
+                const liveUrl = f.custom_domain && f.slug
+                  ? `https://${f.custom_domain}/f/${f.slug}`
                   : f.slug ? `/f/${f.slug}` : f.url
                 const displayUrl = liveUrl?.startsWith('http') ? liveUrl.replace(/^https?:\/\//, '') : liveUrl
                 return (
