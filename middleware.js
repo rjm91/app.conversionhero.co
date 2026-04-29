@@ -31,12 +31,15 @@ export async function middleware(request) {
     )
 
     const lookupHostname = hostname.startsWith('www.') ? hostname.slice(4) : hostname
-    const { data: funnel } = await supabase
+    const { data: funnels } = await supabase
       .from('client_funnels')
       .select('slug')
       .eq('custom_domain', lookupHostname)
       .eq('status', 'live')
-      .single()
+      .order('created_at', { ascending: true })
+      .limit(1)
+
+    const funnel = funnels?.[0] ?? null
 
     if (!funnel) {
       return new NextResponse(
