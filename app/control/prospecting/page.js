@@ -93,7 +93,7 @@ export default function ProspectingPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard icon={<PeopleIcon />} value={stats.totalLeads} label="Total Leads" />
+        <StatCard icon={<PeopleIcon />} value={stats.totalLeads} label="Total Prospects" />
         <StatCard icon={<SendIcon />} value={stats.sent} label="Sent" />
         <StatCard icon={<ReplyIcon />} value={stats.replies} label="Replies" />
       </div>
