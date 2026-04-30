@@ -112,7 +112,14 @@ export default function ProjectsPage() {
       body: JSON.stringify({ ...taskForm, project_id: project.id, sort_order: tasks.length }),
     })
     const json = await res.json()
-    if (res.ok) { setTasks(prev => [...prev, json.task]); setTaskForm(emptyTask); setAddingTask(false) }
+    if (res.ok) {
+      setTasks(prev => [...prev, json.task])
+      setProjects(prev => prev.map(p => p.id === project.id
+        ? { ...p, project_tasks: [...(p.project_tasks || []), json.task] }
+        : p
+      ))
+      setTaskForm(emptyTask); setAddingTask(false)
+    }
     setTaskSaving(false)
   }
 
@@ -126,6 +133,10 @@ export default function ProjectsPage() {
       setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
       if (editingTask?.id === taskId) setEditingTask(json.task)
       setTaskSaveMsg('Saved ✓'); setTimeout(() => setTaskSaveMsg(null), 1800)
+      setProjects(prev => prev.map(p => p.id === project.id
+        ? { ...p, project_tasks: (p.project_tasks || []).map(t => t.id === taskId ? json.task : t) }
+        : p
+      ))
     }
   }
 
@@ -133,6 +144,10 @@ export default function ProjectsPage() {
     await fetch(`/api/project-tasks/${taskId}`, { method: 'DELETE' })
     setTasks(prev => prev.filter(t => t.id !== taskId))
     if (editingTask?.id === taskId) setEditingTask(null)
+    setProjects(prev => prev.map(p => p.id === project.id
+      ? { ...p, project_tasks: (p.project_tasks || []).filter(t => t.id !== taskId) }
+      : p
+    ))
   }
 
   async function cycleTaskStatus(task) {
