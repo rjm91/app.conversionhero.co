@@ -109,10 +109,11 @@ export default function DashboardPage() {
         .select('created_at')
         .eq('client_id', clientId),
 
-      // Panel: 5 most recent leads
+      // Panel: 5 most recent leads (exclude partial/in-progress submissions)
       supabase.from('client_lead')
         .select('lead_id, first_name, last_name, created_at, lead_status, appt_status, sale_status, city, zip_code')
         .eq('client_id', clientId)
+        .neq('lead_status', 'in_progress')
         .order('created_at', { ascending: false })
         .limit(5),
 

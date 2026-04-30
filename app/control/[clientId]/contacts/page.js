@@ -50,6 +50,7 @@ export default function ContactsPage() {
       .from('client_lead')
       .select('*')
       .eq('client_id', clientId)
+      .neq('lead_status', 'in_progress')
       .order('created_at', { ascending: false })
     if (error) console.error('Error fetching leads:', error)
     else setLeads(data || [])
