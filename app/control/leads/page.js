@@ -30,7 +30,7 @@ function StatusBadge({ value }) {
   )
 }
 
-const emptyNew = { first_name: '', last_name: '', email: '', phone: '', company: '' }
+const emptyNew = { first_name: '', last_name: '', email: '', phone: '', company: '', notify: false }
 
 export default function AgencyLeadsPage() {
   const [leads, setLeads] = useState([])
@@ -332,6 +332,15 @@ export default function AgencyLeadsPage() {
                     value={newLead.company} onChange={e => setNewLead(p => ({ ...p, company: e.target.value }))} />
                 </div>
               </div>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none mt-1">
+                <input
+                  type="checkbox"
+                  checked={newLead.notify}
+                  onChange={e => setNewLead(p => ({ ...p, notify: e.target.checked }))}
+                  className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Send new lead notification email</span>
+              </label>
               {createError && <p className="text-xs text-red-500">{createError}</p>}
             </div>
 
