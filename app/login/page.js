@@ -29,6 +29,11 @@ function ResetPasswordForm() {
       return
     }
 
+    fetch('/api/user-activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'password_updated' }),
+    }).catch(() => {})
     setDone(true)
     setTimeout(() => router.push('/login'), 2000)
   }
@@ -95,6 +100,11 @@ function ForgotPasswordForm({ onBack }) {
     })
     setLoading(false)
     if (resetError) { setError(resetError.message); return }
+    fetch('/api/user-activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, event: 'password_reset_requested' }),
+    }).catch(() => {})
     setSent(true)
   }
 
@@ -192,6 +202,13 @@ export default function LoginPage() {
     }
 
     const user = signInData.user
+
+    // Log login event (fire-and-forget)
+    fetch('/api/user-activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, email: user.email, event: 'login' }),
+    }).catch(() => {})
 
     const { data: profile } = await supabase
       .from('profiles').select('role, client_id').eq('id', user.id).single()
