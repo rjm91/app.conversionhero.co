@@ -196,14 +196,14 @@ export default function ProjectsPage() {
                   {p.due_date && <span className="text-[10px] text-gray-400">Due {new Date(p.due_date).toLocaleDateString()}</span>}
                 </div>
                 {tasks_.length > 0 && (
-                  <div>
-                    <div className="flex justify-between text-[10px] text-gray-400 mb-1"><span>{done_}/{tasks_.length} tasks</span><span>{pct_}%</span></div>
-                    <div className="h-1.5 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct_}%` }} />
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-300 font-medium mb-1.5"><span>{done_}/{tasks_.length} tasks</span><span>{pct_}%</span></div>
+                    <div className="h-2 bg-gray-200 dark:bg-white/15 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct_}%` }} />
                     </div>
                   </div>
                 )}
-                {p.owner && <p className="text-[10px] text-gray-400 mt-3">Owner: {p.owner}</p>}
+                {p.owner && <p className="text-xs text-gray-600 dark:text-gray-300 font-medium mt-3">Owner: {p.owner}</p>}
               </button>
             )
           })}
