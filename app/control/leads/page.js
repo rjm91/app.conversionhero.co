@@ -30,6 +30,8 @@ function StatusBadge({ value }) {
   )
 }
 
+const emptyNew = { first_name: '', last_name: '', email: '', phone: '', company: '' }
+
 export default function AgencyLeadsPage() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
@@ -40,6 +42,10 @@ export default function AgencyLeadsPage() {
   const [checked, setChecked] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newLead, setNewLead] = useState(emptyNew)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createError, setCreateError] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -81,6 +87,28 @@ export default function AgencyLeadsPage() {
       setTimeout(() => setSaveSuccess(false), 1800)
     }
     setSaving(false)
+  }
+
+  async function handleCreate() {
+    setCreateSaving(true)
+    setCreateError(null)
+    try {
+      const res = await fetch('/api/agency-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLead),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create lead')
+      setLeads(prev => [json.lead, ...prev])
+      setCreating(false)
+      setNewLead(emptyNew)
+      setSelected(json.lead)
+    } catch (err) {
+      setCreateError(err.message)
+    } finally {
+      setCreateSaving(false)
+    }
   }
 
   async function deleteIds(ids) {
@@ -151,6 +179,15 @@ export default function AgencyLeadsPage() {
           <p className="text-gray-400 text-sm mt-0.5">{leads.length} total leads from agency funnels</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setCreating(true); setSelected(null) }}
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Lead
+          </button>
           {checked.size > 0 && (
             <button
               onClick={handleDeleteChecked}
@@ -247,6 +284,75 @@ export default function AgencyLeadsPage() {
           </table>
         )}
       </div>
+
+      {creating && (
+        <>
+          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30" onClick={() => setCreating(false)} />
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-transparent dark:border-white/5">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/5">
+              <div>
+                <h2 className="font-semibold text-gray-900 dark:text-white">New Lead</h2>
+                <p className="text-xs text-gray-400">Manually add a lead</p>
+              </div>
+              <button
+                onClick={() => setCreating(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">First Name</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={newLead.first_name} onChange={e => setNewLead(p => ({ ...p, first_name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Last Name</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={newLead.last_name} onChange={e => setNewLead(p => ({ ...p, last_name: e.target.value }))} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Email</label>
+                  <input type="email" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Phone</label>
+                  <input type="tel" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Company</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={newLead.company} onChange={e => setNewLead(p => ({ ...p, company: e.target.value }))} />
+                </div>
+              </div>
+              {createError && <p className="text-xs text-red-500">{createError}</p>}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setCreating(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={createSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+              >
+                {createSaving ? 'Creating…' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {selected && (
         <>
