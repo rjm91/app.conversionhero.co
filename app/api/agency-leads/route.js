@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { slug, first_name, last_name, email, phone, company, selected_date, selected_time, meta, blaztr_id } = body
+    const { slug, first_name, last_name, email, phone, company, selected_date, selected_time, meta, blaztr_id, notify = true } = body
 
     const supabase = db()
     let funnel_id = null
@@ -62,9 +62,11 @@ export async function POST(request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    dispatchEvent('lead.created', data).catch(err =>
-      console.error('[agency-leads] dispatchEvent error', err)
-    )
+    if (notify) {
+      dispatchEvent('lead.created', data).catch(err =>
+        console.error('[agency-leads] dispatchEvent error', err)
+      )
+    }
 
     return NextResponse.json({ ok: true, lead: data })
   } catch (err) {
