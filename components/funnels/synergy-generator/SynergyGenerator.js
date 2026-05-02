@@ -331,7 +331,7 @@ export default function SynergyGenerator({
         await fetch('/api/funnel-leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead' }),
+          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId }),
         }).catch(() => {})
       }
       try { sessionStorage.removeItem(sessionKey) } catch {}
