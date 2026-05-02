@@ -7,6 +7,11 @@ export async function middleware(request) {
   const { pathname } = request.nextUrl
   const hostname = (request.headers.get('host') || '').split(':')[0]
 
+  // Dev mockups bypass all auth/domain logic so they're reachable from any host
+  if (pathname.startsWith('/dev/') || pathname === '/dev') {
+    return NextResponse.next()
+  }
+
   const isAppDomain =
     APP_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`)) ||
     hostname.endsWith('.vercel.app')
