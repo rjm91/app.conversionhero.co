@@ -175,6 +175,7 @@ public/
 | Client | Domain | Slug | Status |
 |---|---|---|---|
 | Synergy Home (ch014) | synergyhome.co | hvac-quote | live |
+| Synergy Home (ch014) | synergyhome.co/f/generator-quote | generator-quote | live |
 
 ---
 

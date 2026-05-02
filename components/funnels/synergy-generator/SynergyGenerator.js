@@ -331,7 +331,7 @@ export default function SynergyGenerator({
         await fetch('/api/funnel-leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead' }),
+          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId }),
         }).catch(() => {})
       }
       try { sessionStorage.removeItem(sessionKey) } catch {}
@@ -392,6 +392,10 @@ export default function SynergyGenerator({
               <h1 className="stage-headline">
                 Get a free whole-home <span className="hl">generator quote</span>.
               </h1>
+              <p className="stage-promo">
+                <span className="stage-promo-badge">Spring Sale</span>
+                7-Year Parts &amp; Labor Warranty, 18 Months Same-As-Cash &amp; Financing Options Up To 10 Years.
+              </p>
               <div className="progress-row" aria-hidden="true">
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${progress * 100}%` }} />
