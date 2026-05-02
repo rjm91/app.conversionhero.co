@@ -38,6 +38,7 @@ export async function POST(request) {
       lead_id: leadId,
       client_id: clientId,
       lead_status: 'in_progress',
+      created_at: new Date().toISOString(),
       lp_url: meta.lpurl || null,
       utm_source: meta.utm_source || null,
       utm_medium: meta.utm_medium || null,
