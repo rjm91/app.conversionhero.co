@@ -337,18 +337,16 @@ export default function SynergyGenerator({
       try { sessionStorage.removeItem(sessionKey) } catch {}
 
       const params = new URLSearchParams({ name: contact.name, city })
-      if (branding.thankYouUrl) {
-        const sep = branding.thankYouUrl.includes('?') ? '&' : '?'
-        window.location.href = `${branding.thankYouUrl}${sep}${params.toString()}`
-      } else if (disableTracking) {
+      if (disableTracking) {
         // Dev preview falls back to the dev thank-you
         window.location.href = `/dev/funnel-preview/thank-you?${params.toString()}`
       } else {
-        const onCustomDomain = !window.location.pathname.startsWith('/f/')
+        // Code-based funnels always route to the registered thank-you step.
+        // Always use the absolute /f/{slug}/thanks path — middleware passes
+        // /f/* through unchanged on both app domain and custom domain, and
+        // it's unambiguous when multiple funnels share a single domain.
         const slug = funnelSlug || 'generator-quote'
-        window.location.href = onCustomDomain
-          ? `/thanks?${params.toString()}`
-          : `/f/${slug}/thanks?${params.toString()}`
+        window.location.href = `/f/${slug}/thanks?${params.toString()}`
       }
       return
     }
