@@ -102,9 +102,34 @@ const server = http.createServer(async (req, res) => {
       if (tokenData.refresh_token) {
         console.log('\n✅ SUCCESS! Here is your refresh token:\n')
         console.log(`   ${tokenData.refresh_token}\n`)
-        console.log('Update these places with the new token:')
-        console.log('  1. .env.local → GOOGLE_ADS_REFRESH_TOKEN=<token>')
-        console.log('  2. Vercel → Settings → Environment Variables → GOOGLE_ADS_REFRESH_TOKEN\n')
+
+        // Auto-seed to production DB if SEED_SECRET and APP_URL are set
+        if (process.env.SEED_SECRET && process.env.APP_URL) {
+          try {
+            const seedRes = await fetch(`${process.env.APP_URL}/api/google-ads/seed`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                secret: process.env.SEED_SECRET,
+                refresh_token: tokenData.refresh_token,
+              }),
+            })
+            const seedData = await seedRes.json()
+            if (seedData.success) {
+              console.log('✅ Auto-seeded to production database (google_ads_tokens table)\n')
+            } else {
+              console.log('⚠️  Auto-seed failed:', seedData.error)
+              console.log('   You can manually seed via POST /api/google-ads/seed\n')
+            }
+          } catch (e) {
+            console.log('⚠️  Auto-seed error:', e.message, '\n')
+          }
+        } else {
+          console.log('To seed to production, POST to /api/google-ads/seed:')
+          console.log(`  curl -X POST $APP_URL/api/google-ads/seed \\`)
+          console.log(`    -H "Content-Type: application/json" \\`)
+          console.log(`    -d '{"secret":"<SEED_SECRET>","refresh_token":"${tokenData.refresh_token}"}'\n`)
+        }
 
         res.writeHead(200, { 'Content-Type': 'text/html' })
         res.end(`
