@@ -14,7 +14,7 @@ function captureMeta() {
     utm_medium: p.get('utm_medium') || '',
     utm_campaign: p.get('utm_campaign') || '',
     utm_content: p.get('utm_content') || '',
-    adgroup: p.get('ad_group_id') || p.get('adgroup') || '',
+    adgroup: p.get('utm_adgroup') || p.get('ad_group_id') || p.get('adgroup') || '',
     gclid: p.get('gclid') || '',
     wbraid: p.get('wbraid') || '',
     device: p.get('device') || (/Mobi|Android/i.test(navigator.userAgent) ? 'm' : 'd'),

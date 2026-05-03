@@ -17,7 +17,7 @@ const DEFAULT_BODY =
   'utm_medium: {{utm_medium}}\n' +
   'utm_campaign: {{utm_campaign}}\n' +
   'utm_content: {{utm_content}}\n' +
-  'ad_group_id: {{ad_group_id}}\n' +
+  'utm_adgroup: {{utm_adgroup}}\n' +
   'gclid: {{gclid}}\n' +
   'wbraid: {{wbraid}}\n' +
   'device: {{device}}\n' +
@@ -251,7 +251,7 @@ export default function AutomationsPage() {
           <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
             <p><span className="font-medium text-gray-500 dark:text-gray-400">Contact:</span> <code>{'{{first_name}}'}</code> <code>{'{{last_name}}'}</code> <code>{'{{email}}'}</code> <code>{'{{phone}}'}</code> <code>{'{{company}}'}</code> <code>{'{{city}}'}</code> <code>{'{{state}}'}</code> <code>{'{{zip_code}}'}</code></p>
             <p><span className="font-medium text-gray-500 dark:text-gray-400">Funnel:</span> <code>{'{{funnel_name}}'}</code> <code>{'{{lp_url}}'}</code></p>
-            <p><span className="font-medium text-gray-500 dark:text-gray-400">Source:</span> <code>{'{{utm_source}}'}</code> <code>{'{{utm_medium}}'}</code> <code>{'{{utm_campaign}}'}</code> <code>{'{{utm_content}}'}</code> <code>{'{{ad_group_id}}'}</code> <code>{'{{gclid}}'}</code> <code>{'{{wbraid}}'}</code> <code>{'{{device}}'}</code></p>
+            <p><span className="font-medium text-gray-500 dark:text-gray-400">Source:</span> <code>{'{{utm_source}}'}</code> <code>{'{{utm_medium}}'}</code> <code>{'{{utm_campaign}}'}</code> <code>{'{{utm_content}}'}</code> <code>{'{{utm_adgroup}}'}</code> <code>{'{{gclid}}'}</code> <code>{'{{wbraid}}'}</code> <code>{'{{device}}'}</code></p>
           </div>
         </div>
       )}
