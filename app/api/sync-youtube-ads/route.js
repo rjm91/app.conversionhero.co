@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { getGoogleAdsAccessToken } from '../../../lib/google-ads'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,29 +16,6 @@ async function safeJson(res) {
   } catch {
     return { ok: false, status: res.status, data: null, rawText: text.slice(0, 500) }
   }
-}
-
-// Step 1: Get fresh access token using refresh token
-async function getAccessToken() {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     process.env.GOOGLE_ADS_CLIENT_ID,
-      client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET,
-      refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN,
-      grant_type:    'refresh_token',
-    }),
-  })
-  const { ok, status, data, rawText } = await safeJson(res)
-  if (!data?.access_token) {
-    const isExpired = rawText?.includes('invalid_grant') || rawText?.includes('Token has been expired or revoked')
-    if (isExpired) {
-      throw new Error('[Step 1 - OAuth] Refresh token expired or revoked. Run: node scripts/get-google-refresh-token.js to generate a new one, then update .env.local and Vercel.')
-    }
-    throw new Error(`[Step 1 - OAuth] HTTP ${status}: ${rawText}`)
-  }
-  return data.access_token
 }
 
 // Step 2: Query Google Ads API — daily rows per campaign (segments.date)
@@ -153,7 +131,7 @@ export async function GET(request) {
       return d.toISOString().split('T')[0]
     })()
 
-    const missing = ['GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN','GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_MANAGER_ID']
+    const missing = ['GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_MANAGER_ID']
       .filter(k => !process.env[k])
     if (missing.length > 0) {
       return Response.json({ success: false, error: 'Missing env vars: ' + missing.join(', ') }, { status: 500 })
@@ -170,7 +148,7 @@ export async function GET(request) {
       return Response.json({ success: true, synced: [], message: 'No active Google Ads accounts found.' })
     }
 
-    const accessToken = await getAccessToken()
+    const accessToken = await getGoogleAdsAccessToken()
     const results = []
 
     for (const account of adsAccounts) {
