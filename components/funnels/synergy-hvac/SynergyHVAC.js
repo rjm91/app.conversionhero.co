@@ -109,17 +109,16 @@ function StatStrip() {
 }
 
 function Testimonial() {
-  // TODO: replace with HVAC-specific testimonial
   return (
     <figure className="testimonial">
       <div className="testimonial-photo" aria-hidden="true">
-        <img src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/testi-generator-kemS.png"
-             alt="Placeholder" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/testi-hvac-chris-giebler.png"
+             alt="Chris Giebler" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
       <div>
-        <blockquote>"Placeholder testimonial — update with HVAC customer quote."</blockquote>
+        <blockquote>"Their customer service is second to none! I will use no other company than Synergy Home from here on out. Highly recommended! Five stars all around!"</blockquote>
         <figcaption>
-          <strong>Name Here</strong>
+          <strong>Chris Giebler</strong>
           <span>Lexington, KY</span>
         </figcaption>
       </div>
