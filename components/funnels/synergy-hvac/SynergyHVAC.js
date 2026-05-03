@@ -382,7 +382,7 @@ export default function SynergyHVAC({
             <header className="stage-top stage-top--centered">
               <div className="stage-eyebrow">Lexington &amp; Bluegrass area homeowners</div>
               <h1 className="stage-headline">
-                Don&apos;t buy a new HVAC system without a <span className="hl">free second opinion</span>.
+                Don&apos;t buy a new HVAC system without a <span className="hl">free second opinion</span> from Synergy Home.
               </h1>
               <div className="progress-row" aria-hidden="true">
                 <div className="progress-bar">
