@@ -140,7 +140,7 @@ export default function SalesPage() {
   const allDealsForChart = deals
   const chartData = months.map(m => ({
     label: m.label,
-    closes: allDealsForChart.filter(d => d.stage === 'Closed Won' && d.closed_at >= m.start && d.closed_at <= m.end + 'T23:59:59').length,
+    closes: allDealsForChart.filter(d => d.stage === 'Closed Won' && new Date(d.closed_at) >= new Date(m.start) && new Date(d.closed_at) <= new Date(m.end + 'T23:59:59-12:00')).length,
   }))
   const maxCloses = Math.max(...chartData.map(c => c.closes), 1)
 

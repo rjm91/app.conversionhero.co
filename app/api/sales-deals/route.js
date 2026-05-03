@@ -27,7 +27,7 @@ export async function GET(request) {
   const db = adminDb()
   let query = db.from('sales_deals').select('*').order('created_at', { ascending: false })
   if (start) query = query.gte('created_at', start)
-  if (end) query = query.lte('created_at', end + 'T23:59:59')
+  if (end) query = query.lte('created_at', end + 'T23:59:59-12:00')
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

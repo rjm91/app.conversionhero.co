@@ -94,7 +94,7 @@ export default function DashboardPage() {
         .select('lead_id, created_at, appt_status, sale_status')
         .eq('client_id', clientId)
         .gte('created_at', start)
-        .lte('created_at', end + 'T23:59:59'),
+        .lte('created_at', end + 'T23:59:59-12:00'),
 
       // Metrics: ad spend in date range
       supabase.from('client_yt_campaigns')
@@ -173,7 +173,7 @@ export default function DashboardPage() {
     setChartData({
       labels: months.map(m => m.label),
       leads:  months.map(m =>
-        (allLeadsRaw || []).filter(l => l.created_at >= m.start && l.created_at <= m.end + 'T23:59:59').length
+        (allLeadsRaw || []).filter(l => new Date(l.created_at) >= new Date(m.start) && new Date(l.created_at) <= new Date(m.end + 'T23:59:59-12:00')).length
       ),
     })
 

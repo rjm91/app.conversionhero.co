@@ -337,7 +337,7 @@ export default function SynergyHVAC({
       if (disableTracking) {
         window.location.href = `/dev/funnel-preview/thank-you?${params.toString()}`
       } else {
-        const slug = funnelSlug || 'hvac-quote'
+        const slug = funnelSlug || 'hvac-second-opinion'
         window.location.href = `/f/${slug}/thanks?${params.toString()}`
       }
       return
