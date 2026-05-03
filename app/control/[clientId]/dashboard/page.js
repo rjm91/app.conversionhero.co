@@ -93,6 +93,7 @@ export default function DashboardPage() {
       supabase.from('client_lead')
         .select('lead_id, created_at, appt_status, sale_status')
         .eq('client_id', clientId)
+        .neq('lead_status', 'in_progress')
         .gte('created_at', start)
         .lte('created_at', end + 'T23:59:59-12:00'),
 
@@ -107,7 +108,8 @@ export default function DashboardPage() {
       // Chart: all leads for rolling 7 months
       supabase.from('client_lead')
         .select('created_at')
-        .eq('client_id', clientId),
+        .eq('client_id', clientId)
+        .neq('lead_status', 'in_progress'),
 
       // Panel: 5 most recent leads (exclude partial/in-progress submissions)
       supabase.from('client_lead')
