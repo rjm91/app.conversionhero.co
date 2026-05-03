@@ -50,6 +50,9 @@ export const DESIGN_CSS = `
 .stage-top--centered { align-items: center; text-align: center; }
 .stage-top--centered .stage-headline { max-width: none; }
 .stage-top--centered .progress-row { width: 100%; }
+@media (max-width: 720px) {
+  .stage-top--centered { align-items: flex-start; text-align: left; }
+}
 
 .rail { display: none; background: var(--paper-2); border-right: 1px solid var(--line);
   padding: 28px 24px; flex-direction: column; gap: 28px;
