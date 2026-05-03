@@ -78,7 +78,7 @@ export default function YouTubeAdsPage() {
       .select('utm_campaign')
       .eq('client_id', clientId)
       .gte('created_at', start)
-      .lte('created_at', end + 'T23:59:59')
+      .lte('created_at', end + 'T23:59:59-12:00')
       .not('utm_campaign', 'is', null)
 
     // Build map of utm_campaign_value → count
