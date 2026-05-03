@@ -102,12 +102,13 @@ export const DESIGN_CSS = `
 .stage-headline { font-family: var(--serif); font-weight: 400;
   font-size: clamp(41px, 3.8vw, 55px); line-height: 1.1; letter-spacing: -0.02em;
   margin: 0; color: var(--ink); max-width: 28ch; }
-.stage-headline .hl { color: var(--brand); font-style: italic; font-weight: 500; }
-.stage-promo { margin: 0; font-family: var(--sans); font-size: 17px; line-height: 1.5;
-  color: var(--ink-2); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.stage-headline .hl { color: var(--brand); font-style: italic; font-weight: 500; white-space: nowrap; }
+.stage-promo { margin: 0; font-family: var(--sans); font-size: 17px; line-height: 1.6;
+  color: var(--ink-2); }
 .stage-promo-badge { font-family: var(--mono); font-size: 14px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent);
-  padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+  padding: 2px 7px; border-radius: 4px; white-space: nowrap; margin-right: 10px;
+  display: inline-block; vertical-align: middle; }
 .progress-row { margin-top: 6px; display: flex; align-items: center; gap: 14px; }
 .progress-bar { flex: 1; height: 4px; background: var(--paper-3); border-radius: 99px; position: relative; overflow: hidden; }
 .progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--brand);
