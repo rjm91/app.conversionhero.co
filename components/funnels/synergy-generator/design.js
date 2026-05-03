@@ -52,6 +52,7 @@ export const DESIGN_CSS = `
 .stage-top--centered .progress-row { width: 100%; }
 @media (max-width: 720px) {
   .stage-top--centered { align-items: flex-start; text-align: left; }
+  .stage-eyebrow { font-size: 13px; letter-spacing: 0.1em; white-space: nowrap; }
 }
 
 .rail { display: none; background: var(--paper-2); border-right: 1px solid var(--line);
