@@ -53,15 +53,34 @@ export async function middleware(request) {
       )
     }
 
+    // Assign A/B variant cookie and pass to page via header
+    const existingVariant = request.cookies.get('ch_variant')?.value
+    const variant = existingVariant || (Math.random() < 0.5 ? 'a' : 'b')
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-funnel-variant', variant)
+
+    let response
     if (pathname.startsWith('/f/')) {
-      return NextResponse.next()
+      response = NextResponse.next({ request: { headers: requestHeaders } })
+    } else {
+      const rewritePath = pathname === '/'
+        ? `/f/${funnel.slug}`
+        : `/f/${funnel.slug}${pathname}`
+      response = NextResponse.rewrite(new URL(rewritePath, request.url), {
+        request: { headers: requestHeaders },
+      })
     }
 
-    const rewritePath = pathname === '/'
-      ? `/f/${funnel.slug}`
-      : `/f/${funnel.slug}${pathname}`
+    if (!existingVariant) {
+      response.cookies.set('ch_variant', variant, {
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+      })
+    }
 
-    return NextResponse.rewrite(new URL(rewritePath, request.url))
+    return response
   }
 
   // ── App domain — auth guard for /control ─────────────────────────────────

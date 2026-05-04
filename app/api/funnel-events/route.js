@@ -12,6 +12,7 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}))
   const { funnelId, clientId, eventType, stepId, sessionId, leadId, meta = {} } = body
 
+
   if (!funnelId || !eventType) {
     return NextResponse.json({ success: false, error: 'funnelId + eventType required' }, { status: 400 })
   }
@@ -38,6 +39,14 @@ export async function POST(request) {
   if (eventType === 'page_view') {
     const { data } = await db.from('client_funnels').select('visitors').eq('id', funnelId).single()
     if (data) await db.from('client_funnels').update({ visitors: (data.visitors || 0) + 1 }).eq('id', funnelId)
+
+    // Also bump step-level visitors when tracking a variant step
+    if (stepId) {
+      const { data: s } = await db.from('client_funnel_steps').select('visitors, variant').eq('id', stepId).single()
+      if (s?.variant) {
+        await db.from('client_funnel_steps').update({ visitors: (s.visitors || 0) + 1 }).eq('id', stepId)
+      }
+    }
   }
 
   return NextResponse.json({ success: true })

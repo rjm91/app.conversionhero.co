@@ -205,6 +205,8 @@ export default function SynergyHVAC({
   branding = {},
   tracking = {},
   disableTracking = false,
+  stepId = null,
+  variant = null,
 }) {
   const [step, setStep] = useState(0)
   const [intent, setIntent] = useState(null)
@@ -254,7 +256,7 @@ export default function SynergyHVAC({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          funnelId, clientId, eventType: 'page_view', sessionId: sid, meta: metaRef.current,
+          funnelId, clientId, eventType: 'page_view', stepId, sessionId: sid, meta: metaRef.current,
         }),
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
@@ -328,7 +330,7 @@ export default function SynergyHVAC({
         await fetch('/api/funnel-leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId }),
+          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId, stepId }),
         }).catch(() => {})
       }
       try { sessionStorage.removeItem(sessionKey) } catch {}

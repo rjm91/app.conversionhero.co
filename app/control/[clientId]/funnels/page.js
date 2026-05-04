@@ -88,7 +88,7 @@ export default function FunnelsPage() {
                 const convRate = f.visitors ? f.leads / f.visitors : null
                 const liveUrl = f.custom_domain && f.slug
                   ? `https://${f.custom_domain}/f/${f.slug}`
-                  : f.slug ? `/f/${f.slug}` : f.url
+                  : f.slug ? `/f/${f.slug}` : null
                 const displayUrl = liveUrl?.startsWith('http') ? liveUrl.replace(/^https?:\/\//, '') : liveUrl
                 return (
                   <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
