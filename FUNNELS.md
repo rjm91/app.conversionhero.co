@@ -41,18 +41,41 @@ Top-level funnel record — one per client offer.
 | `branding` | jsonb: `{ logoUrl, primaryColor, primaryColorHover, primaryColorLight, thankYouUrl }` |
 | `tracking` | jsonb: `{ gtagId, headCode }` — headCode injected into every funnel page `<head>` |
 | `service` | `hvac` / `generator` / `solar` etc. |
-| `config` | Legacy seed blob — not read at runtime |
+| `config` | Legacy seed blob — **not read at runtime**, only used for initial migration |
 
 ### `client_funnel_steps`
-One row per page within a funnel (survey, thank-you, etc.).
+One row per page within a funnel (survey, thank-you, landing, etc.).
 
 | Column | Purpose |
 |---|---|
 | `funnel_id` | FK to `client_funnels` |
 | `step_order` | 1 = entry page, 2 = thank-you, etc. |
-| `step_type` | `survey` / `thank_you` |
+| `step_type` | `survey` / `thank_you` / `landing` / `booking` / `custom` |
 | `slug` | null for step 1 (entry); otherwise appended to funnel URL |
-| `config` | jsonb — used for tracking pixels and metadata only; page content lives in code |
+| `config` | jsonb — all step content lives here (headline, steps[], options[], etc.) |
+
+**Survey step config shape:**
+```json
+{
+  "headline": { "eyebrow": "...", "title": "..." },
+  "footer":   { "companyName": "...", "privacyUrl": "...", "termsUrl": "..." },
+  "steps": [
+    {
+      "id": "intent",
+      "question": "Would you Like To Fix or Replace Your HVAC System?",
+      "type": "cards",
+      "cols": 2,
+      "autoNext": true,
+      "options": [
+        { "label": "Fix System (If Possible)", "value": "Fix (if possible)", "img": "https://..." },
+        { "label": "Replace System", "value": "Replace", "img": "https://..." }
+      ]
+    }
+  ]
+}
+```
+
+Step types: `cards` (image grid), `list` (icon list), `text` (single input), `contact` (name/phone/email form).
 
 ---
 
@@ -89,15 +112,11 @@ When adding a new template (e.g. `solar-quote`), create `templates/solar-quote/`
 | File | Purpose |
 |---|---|
 | `middleware.js` | Host-based routing + auth guard |
-| `lib/funnel-loader.js` | Loads funnel from Supabase, maps slug → component via `CODE_FUNNELS` registry |
+| `lib/funnel-loader.js` | Loads funnel + steps from Supabase (no-store fetch — cache-safe) |
 | `app/f/[slug]/page.js` | Entry step renderer |
 | `app/f/[slug]/[stepSlug]/page.js` | Subsequent step renderer |
-| `components/funnels/synergy-generator/SynergyGenerator.js` | Generator Quote survey page |
-| `components/funnels/synergy-generator/SynergyGeneratorThankYou.js` | Generator Quote thank-you page |
-| `components/funnels/synergy-hvac/SynergyHVAC.js` | HVAC Second Opinion survey page |
-| `components/funnels/synergy-hvac/SynergyHVACThankYou.js` | HVAC Second Opinion thank-you page |
-
-All funnels are **code-based**. Page content (copy, questions, options, layout) lives entirely in the component files above — not in the database. To add a new funnel, build a new component pair and register the slug in `CODE_FUNNELS` in `funnel-loader.js`.
+| `components/FunnelSurvey.js` | Renders survey steps (cards, list, text, contact) |
+| `components/FunnelThankYou.js` | Renders thank-you page |
 
 ---
 
