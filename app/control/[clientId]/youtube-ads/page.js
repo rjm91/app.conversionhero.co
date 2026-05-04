@@ -93,6 +93,7 @@ export default function YouTubeAdsPage() {
       .from('client_lead')
       .select('utm_campaign')
       .eq('client_id', clientId)
+      .neq('lead_status', 'in_progress')
       .gte('created_at', start)
       .lte('created_at', end + 'T23:59:59-12:00')
       .not('utm_campaign', 'is', null)
