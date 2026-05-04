@@ -13,7 +13,6 @@ export default function FunnelDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [tab, setTab] = useState('steps')
-  const [addingVariant, setAddingVariant] = useState(null)
 
   const [domain, setDomain] = useState('')
   const [domains, setDomains] = useState([])
@@ -145,13 +144,6 @@ export default function FunnelDetailPage() {
     }
   }
 
-  async function addVariant(stepId) {
-    setAddingVariant(stepId)
-    const res = await fetch(`/api/funnel-steps/${stepId}/add-variant`, { method: 'POST' })
-    if (res.ok) await load()
-    setAddingVariant(null)
-  }
-
   if (loading) return <div className="p-8 text-sm text-gray-400">Loading…</div>
   if (!funnel) return <div className="p-8 text-sm text-gray-400">Funnel not found.</div>
 
@@ -224,94 +216,41 @@ export default function FunnelDetailPage() {
           </div>
 
           <div className="divide-y divide-gray-100 dark:divide-white/5">
-            {(() => {
-              // Group steps: collect unique step_orders, then handle variant sub-rows
-              const orders = [...new Set(steps.map(s => s.step_order))]
-              return orders.map(order => {
-                const group = steps.filter(s => s.step_order === order)
-                const hasVariants = group.some(s => s.variant !== null)
-                const representative = group[0]
-                const path = representative.slug ? `/f/${funnel.slug}/${representative.slug}` : `/f/${funnel.slug}`
-                const url = funnel.custom_domain ? `https://${funnel.custom_domain}${path}` : path
-
-                return (
-                  <div key={order}>
-                    {/* Step header row */}
-                    <div className="px-5 py-4 flex items-center gap-4">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0">
-                        {order}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {hasVariants ? (group.find(s => s.variant === 'a')?.name?.replace(' — Variant A', '') || representative.name || representative.step_type) : (representative.name || representative.step_type)}
-                          </p>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400">
-                            {representative.step_type}
-                          </span>
-                          {hasVariants && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                              A/B test
-                            </span>
-                          )}
-                        </div>
-                        <a href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline mt-0.5 inline-block truncate">
-                          {url} ↗
-                        </a>
-                      </div>
-                      {!hasVariants && representative.step_type === 'survey' && (
-                        <button
-                          onClick={() => addVariant(representative.id)}
-                          disabled={addingVariant === representative.id}
-                          className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition disabled:opacity-50"
-                        >
-                          {addingVariant === representative.id ? 'Adding…' : '+ Add B variant'}
-                        </button>
-                      )}
-                      {!hasVariants && (
-                        <button
-                          onClick={() => setEditing(representative)}
-                          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Variant sub-rows */}
-                    {hasVariants && group.map(variantStep => {
-                      const convRate = variantStep.visitors > 0 ? (variantStep.leads / variantStep.visitors * 100).toFixed(1) : null
-                      return (
-                        <div key={variantStep.id} className="px-5 py-3 flex items-center gap-4 bg-gray-50/50 dark:bg-white/[0.015] border-t border-gray-100 dark:border-white/5">
-                          <div className="w-8 flex-shrink-0 flex justify-center">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              variantStep.variant === 'a'
-                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
-                                : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
-                            }`}>
-                              {variantStep.variant?.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{variantStep.name || `Variant ${variantStep.variant?.toUpperCase()}`}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {variantStep.visitors.toLocaleString()} visitor{variantStep.visitors !== 1 ? 's' : ''} · {variantStep.leads.toLocaleString()} lead{variantStep.leads !== 1 ? 's' : ''}
-                              {convRate !== null && <span className="ml-1">· {convRate}% conv.</span>}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => setEditing(variantStep)}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      )
-                    })}
+            {steps.map(step => (
+              <div key={step.id} className="px-5 py-4 flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  {step.step_order}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{step.name || step.step_type}</p>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400">
+                      {step.step_type}
+                    </span>
                   </div>
-                )
-              })
-            })()}
+                  {(() => {
+                    const path = step.slug ? `/f/${funnel.slug}/${step.slug}` : `/f/${funnel.slug}`
+                    const url = funnel.custom_domain ? `https://${funnel.custom_domain}${path}` : path
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-500 hover:underline mt-0.5 inline-block truncate"
+                      >
+                        {url} ↗
+                      </a>
+                    )
+                  })()}
+                </div>
+                <button
+                  onClick={() => setEditing(step)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}

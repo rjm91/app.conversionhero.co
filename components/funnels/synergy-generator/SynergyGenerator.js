@@ -206,8 +206,6 @@ export default function SynergyGenerator({
   branding = {},
   tracking = {},
   disableTracking = false,
-  stepId = null,
-  variant = null,
 }) {
   const [step, setStep] = useState(0)
   const [reason, setReason] = useState(null)
@@ -258,7 +256,7 @@ export default function SynergyGenerator({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          funnelId, clientId, eventType: 'page_view', stepId, sessionId: sid, meta: metaRef.current,
+          funnelId, clientId, eventType: 'page_view', sessionId: sid, meta: metaRef.current,
         }),
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
@@ -333,7 +331,7 @@ export default function SynergyGenerator({
         await fetch('/api/funnel-leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId, stepId }),
+          body: JSON.stringify({ action: 'update', id: leadIdRef.current, status: 'new_lead', funnelId }),
         }).catch(() => {})
       }
       try { sessionStorage.removeItem(sessionKey) } catch {}
