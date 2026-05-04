@@ -65,6 +65,15 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       return data.results || []
     }
 
+    if (status === 401) {
+      throw new Error(
+        `[Step 2 - Google Ads API ${version}] HTTP 401: ${rawText}\n\n` +
+        'The access token was obtained from Google but Google Ads API rejected it. ' +
+        'This means your OAuth credentials need to be reconnected. ' +
+        'Click "Reconnect Google Ads" on this page to fix it.'
+      )
+    }
+
     if (status !== 404) {
       throw new Error(`[Step 2 - Google Ads API ${version}] HTTP ${status}: ${rawText}`)
     }

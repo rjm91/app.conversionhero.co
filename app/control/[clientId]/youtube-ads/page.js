@@ -24,6 +24,14 @@ function defaultDates() {
   }
 }
 
+function isAuthError(msg) {
+  if (!msg) return false
+  const m = msg.toLowerCase()
+  return m.includes('401') || m.includes('unauthenticated') || m.includes('expired') ||
+         m.includes('revoked') || m.includes('reconnect') || m.includes('[google ads oauth]') ||
+         m.includes('invalid_grant') || m.includes('credentials')
+}
+
 const STATUS_OPTIONS = ['All', 'ENABLED', 'PAUSED']
 
 export default function YouTubeAdsPage() {
@@ -52,6 +60,15 @@ export default function YouTubeAdsPage() {
   const [syncing,        setSyncing]        = useState(false)
   const [syncedAt,       setSyncedAt]       = useState(null)
   const [error,          setError]          = useState(null)
+  const [connected,      setConnected]      = useState(false)
+
+  // Handle OAuth callback result params
+  useEffect(() => {
+    const oauthError = searchParams.get('google_ads_error')
+    const oauthOk    = searchParams.get('google_ads_connected')
+    if (oauthError) setError(decodeURIComponent(oauthError))
+    if (oauthOk)    setConnected(true)
+  }, [])
 
   // Sync current filter state to URL and localStorage so it persists on refresh/navigation
   function updateURL(start, end, status) {
@@ -72,7 +89,6 @@ export default function YouTubeAdsPage() {
 
   // Fetch CH attribution: leads grouped by utm_campaign within date range
   const fetchAttribution = useCallback(async (start, end) => {
-    // utm_campaign is a direct column on client_lead
     const { data: leads } = await supabase
       .from('client_lead')
       .select('utm_campaign')
@@ -81,7 +97,6 @@ export default function YouTubeAdsPage() {
       .lte('created_at', end + 'T23:59:59-12:00')
       .not('utm_campaign', 'is', null)
 
-    // Build map of utm_campaign_value → count
     const map = {}
     if (leads?.length) {
       for (const row of leads) {
@@ -136,7 +151,6 @@ export default function YouTubeAdsPage() {
       map[id].cost        += Number(row.cost)        || 0
       map[id].clicks      += Number(row.clicks)      || 0
       map[id].conversions += Number(row.conversions) || 0
-      // Keep the most recent budget, status, and synced_at
       if (row.synced_at > map[id].synced_at) {
         map[id].budget    = row.budget
         map[id].status    = row.status
@@ -173,6 +187,7 @@ export default function YouTubeAdsPage() {
   async function handleRefresh() {
     setSyncing(true)
     setError(null)
+    setConnected(false)
     try {
       const res = await fetch(`/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`)
       const text = await res.text()
@@ -188,13 +203,8 @@ export default function YouTubeAdsPage() {
     setSyncing(false)
   }
 
-  // Match a campaign row to a CH lead count
-  // Tries: exact campaign_id match → partial name match
   function getChLeads(row) {
-    // Try exact campaign_id match (utm_campaign set to numeric ID)
     if (chAttribution[row.campaign_id]) return chAttribution[row.campaign_id]
-
-    // Try utm_campaign value that appears inside the campaign name
     for (const [utmVal, count] of Object.entries(chAttribution)) {
       if (
         row.campaign_name?.toLowerCase().includes(utmVal.toLowerCase()) ||
@@ -229,6 +239,8 @@ export default function YouTubeAdsPage() {
       ? 'Last synced ' + new Date(syncedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : 'Not yet synced'
 
+  const reconnectUrl = `/api/google-ads/auth?return_to=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`
+
   return (
     <div className="p-8">
 
@@ -239,9 +251,23 @@ export default function YouTubeAdsPage() {
         </div>
       </div>
 
+      {connected && (
+        <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm px-4 py-3 rounded-lg">
+          Google Ads reconnected successfully. Click <strong>Sync Now</strong> to pull the latest data.
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm px-4 py-3 rounded-lg">
-          {error}
+          <p>{error}</p>
+          {isAuthError(error) && (
+            <a
+              href={reconnectUrl}
+              className="mt-2 inline-flex items-center gap-1.5 font-semibold underline underline-offset-2"
+            >
+              Reconnect Google Ads →
+            </a>
+          )}
         </div>
       )}
 
@@ -299,7 +325,6 @@ export default function YouTubeAdsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
-                  {/* CH Attribution */}
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                     Conv. (CH Reported)
                   </th>
@@ -332,7 +357,6 @@ export default function YouTubeAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      {/* CH columns */}
                       <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                         {chLeads}
                       </td>
