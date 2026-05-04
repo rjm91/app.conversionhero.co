@@ -13,7 +13,9 @@ import { getGoogleAdsAuthUrl } from '../../../../lib/google-ads'
 export async function GET(request) {
   const { origin, searchParams } = new URL(request.url)
   const returnTo = searchParams.get('return_to') || '/'
-  const callbackUrl = `${origin}/api/google-ads/callback?return_to=${encodeURIComponent(returnTo)}`
-  const authUrl = getGoogleAdsAuthUrl(callbackUrl)
+  // redirect_uri must match Google Cloud Console exactly (no query string)
+  // pass return_to via OAuth state param instead
+  const callbackUrl = `${origin}/api/google-ads/callback`
+  const authUrl = getGoogleAdsAuthUrl(callbackUrl, returnTo)
   return Response.redirect(authUrl, 302)
 }

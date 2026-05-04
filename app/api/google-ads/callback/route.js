@@ -8,7 +8,8 @@ export async function GET(request) {
   const { origin, searchParams } = new URL(request.url)
   const code     = searchParams.get('code')
   const error    = searchParams.get('error')
-  const returnTo = searchParams.get('return_to') || '/'
+  // return_to is passed via OAuth state param (not in redirect_uri) to avoid redirect_uri_mismatch
+  const returnTo = searchParams.get('state') || '/'
 
   if (error) {
     const msg = encodeURIComponent(`Google Ads auth cancelled: ${error}`)
@@ -20,8 +21,8 @@ export async function GET(request) {
   }
 
   try {
-    // The callbackUrl passed here must exactly match what was used in /auth
-    const callbackUrl = `${origin}/api/google-ads/callback?return_to=${encodeURIComponent(returnTo)}`
+    // redirect_uri must exactly match what's registered in Google Cloud Console (no query string)
+    const callbackUrl = `${origin}/api/google-ads/callback`
     await exchangeCodeForGoogleAdsToken(code, callbackUrl)
     return Response.redirect(`${origin}${returnTo}?google_ads_connected=1`, 302)
   } catch (err) {
