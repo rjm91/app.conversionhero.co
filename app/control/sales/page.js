@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import MetricCard from '../../components/MetricCard'
+import MetricCard from '../../../components/MetricCard'
 
 const STAGES = ['Prospect', 'Appt Set', 'Showed', 'Closed Won', 'Closed Lost']
 

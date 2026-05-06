@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../../lib/supabase'
-import MetricCard from '../../../components/MetricCard'
+import MetricCard from '../../../../components/MetricCard'
 
 function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
 function fmtPct(n) { return (Math.round((n || 0) * 10) / 10) + '%' }
