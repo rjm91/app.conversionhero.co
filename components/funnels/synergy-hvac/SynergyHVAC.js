@@ -87,7 +87,7 @@ function StatStrip() {
     <div className="stat-strip">
       <div className="stat">
         <div className="stat-title">Licensed &amp; Insured HVAC</div>
-        <div className="stat-label">Factory-trained technicians</div>
+        <div className="stat-label">Certified technicians</div>
       </div>
       <div className="stat-rule" />
       <div className="stat">
