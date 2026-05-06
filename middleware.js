@@ -23,12 +23,6 @@ export async function middleware(request) {
       return NextResponse.next()
     }
 
-    // Static HTML pages served from public/ — add new top-level paths here
-    const STATIC_PATHS = ['/services/', '/testimonials/', '/about/', '/contact/']
-    if (STATIC_PATHS.some(p => pathname.startsWith(p))) {
-      return NextResponse.next()
-    }
-
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
