@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A/B Test UI — Mockup v3</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; }
+
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
+  .page + .page { border-top: 2px dashed #e5e7eb; margin-top: 0; }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 28px; }
+
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+
+  /* ── shared table base ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f9fafb; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f3f4f6; }
+  thead th.r { text-align: right; }
+  tbody tr { border-top: 1px solid #f3f4f6; }
+  tbody tr:first-child { border-top: none; }
+  td { padding: 14px 20px; vertical-align: middle; }
+  td.r { text-align: right; }
+
+  /* ── funnel name ── */
+  .fname { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: #111827; text-decoration: none; }
+  .fname .arr { color: #d1d5db; }
+  .fname:hover { color: #2563eb; }
+  .fname:hover .arr { color: #2563eb; }
+
+  /* ── badges ── */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .badge-live  { background: #dcfce7; color: #16a34a; }
+  .badge-type  { background: #f3f4f6; color: #6b7280; }
+  .badge-ab    { background: #eff6ff; color: #3b82f6; letter-spacing: .04em; }
+  .badge-paused { background: #f3f4f6; color: #9ca3af; }
+
+  /* ── url ── */
+  .url { color: #3b82f6; font-size: 12px; text-decoration: none; }
+  .url:hover { text-decoration: underline; }
+  .url-dim { color: #9ca3af; font-size: 12px; text-decoration: none; }
+
+  /* ── variant pills ── */
+  .vpill { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+  .vpill-a { background: #eef2ff; color: #4f46e5; }
+  .vpill-b { background: #fffbeb; color: #d97706; }
+
+  /* ── stat numbers ── */
+  .num { font-size: 13px; color: #374151; font-variant-numeric: tabular-nums; }
+  .num-dim { font-size: 13px; color: #d1d5db; font-variant-numeric: tabular-nums; }
+
+  /* ── delta badge ── */
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 6px; }
+  .delta-up   { background: #dcfce7; color: #16a34a; }
+  .delta-even { background: #f3f4f6; color: #9ca3af; }
+
+  /* ── winner row highlight ── */
+  .winner-row { background: #f0fdf4; }
+
+  /* ── paused row ── */
+  .paused-row { background: #fafafa; opacity: .55; }
+
+  /* ── conv bar ── */
+  .conv-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .conv-bar-track { width: 60px; height: 4px; background: #f3f4f6; border-radius: 99px; overflow: hidden; flex-shrink: 0; }
+  .conv-bar-fill { height: 100%; border-radius: 99px; }
+  .fill-a { background: #818cf8; }
+  .fill-b { background: #fbbf24; }
+
+  /* ══ PAGE 1 ══════════════════════════════════════════ */
+  .section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+  .section-title { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+  .section-sub   { font-size: 13px; color: #6b7280; }
+  .btn-new { padding: 8px 16px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; opacity: .45; cursor: not-allowed; }
+
+  /* ══ PAGE 2 ══════════════════════════════════════════ */
+  .back { font-size: 12px; color: #9ca3af; margin-bottom: 14px; cursor: default; }
+  .funnel-title { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+  .funnel-href  { font-size: 12px; color: #3b82f6; display: block; margin-bottom: 24px; text-decoration: none; }
+  .tabs { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 24px; }
+  .tab  { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #9ca3af; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: default; }
+  .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+  .card-header { padding: 12px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+  .card-header-title { font-size: 13px; font-weight: 600; }
+  .card-header-count { font-size: 12px; color: #9ca3af; }
+
+  /* step rows */
+  .step-row { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; border-top: 1px solid #f3f4f6; }
+  .step-row:first-child { border-top: none; }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #6b7280; flex-shrink: 0; margin-top: 1px; }
+  .step-info { flex: 1; min-width: 0; }
+  .step-name { font-size: 13px; font-weight: 500; color: #111827; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .step-href  { font-size: 12px; color: #3b82f6; margin-top: 4px; display: inline-block; }
+  .btn-edit { font-size: 12px; padding: 5px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #374151; cursor: default; white-space: nowrap; }
+
+  /* variant sub-table */
+  .vtable { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; border: 1px solid #f3f4f6; border-radius: 8px; overflow: hidden; }
+  .vtable thead th { background: #fafafa; padding: 7px 14px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f3f4f6; }
+  .vtable thead th.r { text-align: right; }
+  .vtable td { padding: 11px 14px; border-top: 1px solid #f3f4f6; vertical-align: middle; }
+  .vtable td.r { text-align: right; }
+  .vtable tr:first-child td { border-top: none; }
+  .vtable .winner-row td:first-child { border-left: 3px solid #16a34a; padding-left: 11px; }
+  .vtable .paused-row td:first-child { border-left: 3px solid #e5e7eb; padding-left: 11px; }
+
+  /* ── toggle switch ── */
+  .toggle-wrap { display: flex; align-items: center; gap: 7px; }
+  .toggle-label { font-size: 11px; font-weight: 500; color: #6b7280; min-width: 40px; }
+  .toggle-label.on  { color: #16a34a; }
+  .toggle-label.off { color: #9ca3af; }
+
+  .toggle {
+    position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0; background: #d1d5db; border-radius: 99px;
+    transition: background .18s;
+  }
+  .toggle input:checked + .toggle-track { background: #16a34a; }
+  .toggle-thumb {
+    position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.18);
+    transition: transform .18s;
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
+
+  .traffic-note { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+  .traffic-note strong { color: #6b7280; }
+
+  .note { font-size: 11px; color: #b0b7c3; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE 1 — FUNNELS LIST
+     ══════════════════════════════════════════════════════ -->
+<div class="page">
+  <p class="label">Page 1 — Funnels list</p>
+
+  <div class="section-header">
+    <div>
+      <div class="section-title">Funnels</div>
+      <div class="section-sub">Landing pages and lead funnels built for this client.</div>
+    </div>
+    <button class="btn-new">+ New Funnel</button>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>URL</th>
+          <th class="r">Visitors</th>
+          <th class="r">Leads</th>
+          <th class="r">Conv. Rate</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Generator Quote — A/B active, combined stats -->
+        <tr>
+          <td>
+            <a class="fname" href="#">
+              Generator Quote <span class="arr">›</span>
+            </a>
+            <div style="margin-top:5px;">
+              <span class="badge badge-ab">A/B test</span>
+            </div>
+          </td>
+          <td><a class="url" href="#">synergyhome.co/f/generator-quote</a></td>
+          <td class="r num">45</td>
+          <td class="r num">3</td>
+          <td class="r num">6.7%</td>
+          <td><span class="badge badge-live">live</span></td>
+          <td><button style="font-size:12px;color:#9ca3af;background:none;border:none;cursor:default;">Reset stats</button></td>
+        </tr>
+
+        <!-- HVAC Second Opinion — no A/B -->
+        <tr>
+          <td><a class="fname" href="#">HVAC Second Opinion <span class="arr">›</span></a></td>
+          <td><a class="url" href="#">synergyhome.co/f/hvac-second-opinion</a></td>
+          <td class="r num">14</td>
+          <td class="r num">0</td>
+          <td class="r num">0.0%</td>
+          <td><span class="badge badge-live">live</span></td>
+          <td><button style="font-size:12px;color:#9ca3af;background:none;border:none;cursor:default;">Reset stats</button></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Stats shown are combined totals across both variants. Click the funnel to see per-variant breakdown.</p>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE 2 — FUNNEL STEPS DETAIL
+     ══════════════════════════════════════════════════════ -->
+<div class="page">
+  <p class="label">Page 2 — Funnel steps detail (Generator Quote · A/B active on step 1)</p>
+
+  <div class="back">← All funnels</div>
+  <div class="funnel-title">Generator Quote</div>
+  <a class="funnel-href" href="#">https://synergyhome.co/f/generator-quote</a>
+
+  <div class="tabs">
+    <div class="tab active">Steps</div>
+    <div class="tab">Settings</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-header-title">Funnel Steps</span>
+      <span class="card-header-count">2 steps</span>
+    </div>
+
+    <!-- ── Step 1 — A/B active ── -->
+    <div class="step-row">
+      <div class="step-num">1</div>
+      <div class="step-info">
+        <div class="step-name">
+          Generator Survey
+          <span class="badge badge-type">survey</span>
+          <span class="badge badge-ab">A/B test</span>
+        </div>
+
+        <table class="vtable" id="vtable">
+          <thead>
+            <tr>
+              <th>Variant</th>
+              <th>URL</th>
+              <th class="r">Visitors</th>
+              <th class="r">Leads</th>
+              <th class="r">Conv. Rate</th>
+              <th style="text-align:right;">Traffic</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- Variant A — losing -->
+            <tr id="row-a" class="">
+              <td id="cell-a">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span class="vpill vpill-a">A</span>
+                  <span id="paused-badge-a" style="display:none;" class="badge badge-paused">Paused</span>
+                </div>
+              </td>
+              <td><a id="url-a" class="url" href="#">synergyhome.co/f/generator-quote</a></td>
+              <td class="r"><span id="vis-a" class="num">22</span></td>
+              <td class="r"><span id="leads-a" class="num">1</span></td>
+              <td class="r">
+                <div class="conv-wrap">
+                  <span id="conv-a" class="num">4.5%</span>
+                  <div class="conv-bar-track"><div class="conv-bar-fill fill-a" style="width:45%;"></div></div>
+                </div>
+              </td>
+              <td style="text-align:right;">
+                <div class="toggle-wrap" style="justify-content:flex-end;">
+                  <span id="label-a" class="toggle-label on">On</span>
+                  <label class="toggle">
+                    <input type="checkbox" id="toggle-a" checked onchange="handleToggle('a')">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-thumb"></div>
+                  </label>
+                </div>
+              </td>
+              <td style="text-align:right;"><button class="btn-edit">Edit</button></td>
+            </tr>
+
+            <!-- Variant B — winning -->
+            <tr id="row-b" class="winner-row">
+              <td id="cell-b" style="border-left:3px solid #16a34a;padding-left:11px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span class="vpill vpill-b">B</span>
+                  <span class="delta delta-up">▲ +4.6%</span>
+                  <span id="paused-badge-b" style="display:none;" class="badge badge-paused">Paused</span>
+                </div>
+              </td>
+              <td><a id="url-b" class="url" href="#">synergyhome.co/f/generator-quote</a></td>
+              <td class="r"><span id="vis-b" class="num">23</span></td>
+              <td class="r"><span id="leads-b" class="num">2</span></td>
+              <td class="r">
+                <div class="conv-wrap">
+                  <span id="conv-b" class="num">8.7%</span>
+                  <div class="conv-bar-track"><div class="conv-bar-fill fill-b" style="width:87%;"></div></div>
+                </div>
+              </td>
+              <td style="text-align:right;">
+                <div class="toggle-wrap" style="justify-content:flex-end;">
+                  <span id="label-b" class="toggle-label on">On</span>
+                  <label class="toggle">
+                    <input type="checkbox" id="toggle-b" checked onchange="handleToggle('b')">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-thumb"></div>
+                  </label>
+                </div>
+              </td>
+              <td style="text-align:right;"><button class="btn-edit">Edit</button></td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Traffic note below the sub-table -->
+        <p class="traffic-note" id="traffic-note">Traffic split: <strong>50 / 50</strong></p>
+
+      </div>
+    </div>
+
+    <!-- ── Step 2 — no A/B ── -->
+    <div class="step-row">
+      <div class="step-num">2</div>
+      <div class="step-info" style="flex:1;">
+        <div class="step-name">
+          Thank You
+          <span class="badge badge-type">thank_you</span>
+        </div>
+        <a class="step-href" href="#">https://synergyhome.co/f/generator-quote/thanks ↗</a>
+      </div>
+      <button class="btn-edit">Edit</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function handleToggle(which) {
+  const aOn = document.getElementById('toggle-a').checked
+  const bOn = document.getElementById('toggle-b').checked
+
+  // Prevent both being turned off
+  if (!aOn && !bOn) {
+    document.getElementById('toggle-' + which).checked = true
+    return
+  }
+
+  applyState(aOn, bOn)
+}
+
+function applyState(aOn, bOn) {
+  // Row A
+  const rowA = document.getElementById('row-a')
+  rowA.className = aOn ? '' : 'paused-row'
+  document.getElementById('cell-a').style.borderLeft = aOn ? '' : '3px solid #e5e7eb'
+  document.getElementById('cell-a').style.paddingLeft = aOn ? '' : '11px'
+  document.getElementById('label-a').textContent = aOn ? 'On' : 'Off'
+  document.getElementById('label-a').className = 'toggle-label ' + (aOn ? 'on' : 'off')
+  document.getElementById('paused-badge-a').style.display = aOn ? 'none' : ''
+  document.getElementById('url-a').className = aOn ? 'url' : 'url-dim'
+
+  // Row B
+  const rowB = document.getElementById('row-b')
+  rowB.className = bOn ? 'winner-row' : 'paused-row'
+  document.getElementById('cell-b').style.borderLeft = bOn ? '3px solid #16a34a' : '3px solid #e5e7eb'
+  document.getElementById('cell-b').style.paddingLeft = '11px'
+  document.getElementById('label-b').textContent = bOn ? 'On' : 'Off'
+  document.getElementById('label-b').className = 'toggle-label ' + (bOn ? 'on' : 'off')
+  document.getElementById('paused-badge-b').style.display = bOn ? 'none' : ''
+  document.getElementById('url-b').className = bOn ? 'url' : 'url-dim'
+
+  // Traffic note
+  const note = document.getElementById('traffic-note')
+  if (aOn && bOn)       note.innerHTML = 'Traffic split: <strong>50 / 50</strong>'
+  else if (aOn && !bOn) note.innerHTML = '100% of traffic → <strong>Variant A</strong> &nbsp;·&nbsp; Variant B is paused'
+  else if (!aOn && bOn) note.innerHTML = '100% of traffic → <strong>Variant B</strong> &nbsp;·&nbsp; Variant A is paused'
+}
+</script>
+
+</body>
+</html>
