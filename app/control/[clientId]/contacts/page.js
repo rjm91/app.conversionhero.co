@@ -42,6 +42,8 @@ export default function ContactsPage() {
   const [checked,     setChecked]     = useState(new Set())   // multi-select
   const [deleting,    setDeleting]    = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)   // confirm in panel
+  const [resending,   setResending]   = useState(false)
+  const [resendResult, setResendResult] = useState(null)      // 'sent' | 'error'
 
   useEffect(() => { fetchLeads() }, [clientId])
 
@@ -114,6 +116,28 @@ export default function ContactsPage() {
       console.error('Delete failed:', e)
     }
     setDeleting(false)
+  }
+
+  async function handleResendNotification() {
+    if (!selected) return
+    setResending(true)
+    setResendResult(null)
+    try {
+      const res = await fetch('/api/client-leads/resend-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: selected.lead_id, clientId }),
+      })
+      if (res.ok) {
+        setResendResult('sent')
+        setTimeout(() => setResendResult(null), 3000)
+      } else {
+        setResendResult('error')
+      }
+    } catch {
+      setResendResult('error')
+    }
+    setResending(false)
   }
 
   function toggleCheck(leadId, e) {
@@ -458,6 +482,30 @@ export default function ContactsPage() {
                     </div>
                   ) : null)}
                 </div>
+              </div>
+
+              {/* Resend Notification */}
+              <div className="border border-blue-100 dark:border-blue-500/20 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notification</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleResendNotification}
+                    disabled={resending}
+                    className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-60"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {resending ? 'Sending…' : 'Resend Notification'}
+                  </button>
+                  {resendResult === 'sent' && (
+                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">Sent!</span>
+                  )}
+                  {resendResult === 'error' && (
+                    <span className="text-xs text-red-500 font-medium">Failed — check automation config</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">Re-sends the lead notification email to all recipients configured in this client's automations.</p>
               </div>
 
               {/* Danger zone */}
