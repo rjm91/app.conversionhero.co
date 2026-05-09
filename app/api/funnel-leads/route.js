@@ -37,6 +37,7 @@ export async function POST(request) {
     const row = {
       lead_id: leadId,
       client_id: clientId,
+      funnel_id: funnelId || null,
       lead_status: 'in_progress',
       created_at: new Date().toISOString(),
       lp_url: meta.lpurl || null,

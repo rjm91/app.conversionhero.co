@@ -37,8 +37,26 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
 
+  // Look up funnel metadata so {{funnel_name}} renders in email templates
+  let funnelMeta = null
+  if (lead.funnel_id) {
+    const { data: f } = await db.from('client_funnels').select('name, slug').eq('id', lead.funnel_id).single()
+    funnelMeta = f || null
+  }
+  // Fallback: try to extract funnel slug from lp_url (e.g. "synergyhome.co/f/generator-quote")
+  if (!funnelMeta && lead.lp_url) {
+    const slugMatch = lead.lp_url.match(/\/f\/([^/?]+)/)
+    if (slugMatch) {
+      const { data: f } = await db.from('client_funnels').select('name, slug').eq('slug', slugMatch[1]).single()
+      funnelMeta = f || null
+    }
+  }
+
   try {
-    await dispatchClientEvent(clientId, 'lead.created', lead)
+    await dispatchClientEvent(clientId, 'lead.created', {
+      ...lead,
+      agency_funnels: funnelMeta,
+    })
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[resend-notification] error:', err)
