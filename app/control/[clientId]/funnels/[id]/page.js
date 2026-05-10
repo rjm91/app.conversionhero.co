@@ -139,7 +139,7 @@ function CopyButton({ text }) {
 
 // ─── AB Step Row ─────────────────────────────────────────────────────────────
 
-function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onEditStep }) {
+function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onEditStep, onResetStats }) {
   const winner    = getWinner(variants)
   const declWinner = variants.find(v => v.is_active && !isArchived(v) && liveVariants(variants).length < 2)
   const pending   = variants.find(isPending)
@@ -299,6 +299,14 @@ function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onE
                   <td className="px-3 py-3 text-right">
                     {pend ? (
                       <PendingActions step={v} variants={variants} funnel={funnel} onGoLive={() => onToggle(v, true)} />
+                    ) : !arch && (v.visitors > 0 || v.leads > 0) ? (
+                      <button
+                        onClick={() => onResetStats(v)}
+                        className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-white/10 text-gray-400 hover:text-red-500 hover:border-red-300 dark:hover:border-red-500/30 transition"
+                        title="Reset visitors & leads to 0"
+                      >
+                        Reset
+                      </button>
                     ) : null}
                   </td>
                 </tr>
@@ -549,6 +557,15 @@ export default function FunnelDetailPage() {
     })
   }
 
+  async function handleResetStats(step) {
+    setSteps(prev => prev.map(s => s.id === step.id ? { ...s, visitors: 0, leads: 0 } : s))
+    await fetch(`/api/funnel-steps/${step.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visitors: 0, leads: 0 }),
+    })
+  }
+
   async function handleAddChallenger({ name, hypothesis }) {
     const { stepOrder } = challengerModal
     setChallengerModal(null)
@@ -720,6 +737,7 @@ export default function FunnelDetailPage() {
                     variants={variants}
                     funnel={funnel}
                     onToggle={handleToggle}
+                    onResetStats={handleResetStats}
                     onAddChallenger={(stepOrder) => setChallengerModal({ stepOrder })}
                     onEditStep={setEditing}
                   />
