@@ -49,11 +49,21 @@ export default async function FunnelEntryPage({ params }) {
     return renderStep({ funnel: loaded.funnel, step: surveySteps[0] })
   }
 
-  // Multiple active variants — read the cookie to pick one
+  // Multiple active variants — read the cookie to pick one.
+  // On first visit the middleware sets the cookie on the response, but it isn't
+  // readable by cookies() until the *next* request. So if no cookie exists yet,
+  // pick a random variant here (same logic as middleware).
   const cookieStore = cookies()
   const variantCookie = cookieStore.get('ch_variant')?.value
-  const matched = variantCookie && surveySteps.find(s => s.variant === variantCookie)
+  let step
 
-  const step = matched || surveySteps[0]
+  if (variantCookie) {
+    const matched = surveySteps.find(s => s.variant === variantCookie)
+    step = matched || surveySteps[0]
+  } else {
+    // First visit — no cookie yet, pick randomly
+    step = surveySteps[Math.floor(Math.random() * surveySteps.length)]
+  }
+
   return renderStep({ funnel: loaded.funnel, step })
 }
