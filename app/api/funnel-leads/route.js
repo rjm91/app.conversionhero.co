@@ -26,7 +26,7 @@ function genUUID() {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}))
-  const { action, id, field, value, funnelId, clientId, meta = {}, status } = body
+  const { action, id, field, value, funnelId, clientId, stepId, meta = {}, status } = body
   const db = admin()
 
   // ─── CREATE: insert stub client_lead row on first interaction ───────────────
@@ -85,6 +85,10 @@ export async function POST(request) {
       if (funnelId) {
         const { data } = await db.from('client_funnels').select('leads').eq('id', funnelId).single()
         if (data) await db.from('client_funnels').update({ leads: (data.leads || 0) + 1 }).eq('id', funnelId)
+      }
+      if (stepId) {
+        const { data: step } = await db.from('client_funnel_steps').select('leads').eq('id', stepId).single()
+        if (step) await db.from('client_funnel_steps').update({ leads: (step.leads || 0) + 1 }).eq('id', stepId)
       }
 
       // Fire client-level automations (email notifications, etc).

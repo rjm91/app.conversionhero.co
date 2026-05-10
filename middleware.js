@@ -3,6 +3,45 @@ import { NextResponse } from 'next/server'
 
 const APP_HOSTS = ['app.conversionhero.co', 'localhost']
 
+// Assign a random A/B variant cookie for funnel traffic splitting.
+// Reads active variants from DB, picks one at random, sets cookie for 30 days.
+async function assignVariantCookie(request, response, funnelSlug) {
+  if (request.cookies.get('ch_variant')) return response
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { cookies: { getAll() { return [] }, setAll() {} } }
+  )
+
+  const { data: funnel } = await supabase
+    .from('client_funnels')
+    .select('id')
+    .eq('slug', funnelSlug)
+    .eq('status', 'live')
+    .single()
+
+  if (!funnel) return response
+
+  const { data: variants } = await supabase
+    .from('client_funnel_steps')
+    .select('variant')
+    .eq('funnel_id', funnel.id)
+    .eq('step_order', 1)
+    .eq('is_active', true)
+
+  const labels = (variants || []).map(v => v.variant).filter(Boolean)
+  if (labels.length < 2) return response
+
+  const pick = labels[Math.floor(Math.random() * labels.length)]
+  response.cookies.set('ch_variant', pick, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: 'lax',
+  })
+  return response
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl
   const hostname = (request.headers.get('host') || '').split(':')[0]
@@ -12,9 +51,11 @@ export async function middleware(request) {
     return NextResponse.next()
   }
 
+  const isPrivateIp = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(hostname)
   const isAppDomain =
     APP_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`)) ||
-    hostname.endsWith('.vercel.app')
+    hostname.endsWith('.vercel.app') ||
+    isPrivateIp
 
   // ── Custom client domain ──────────────────────────────────────────────────
   if (!isAppDomain) {
@@ -48,14 +89,19 @@ export async function middleware(request) {
     }
 
     if (pathname.startsWith('/f/')) {
-      return NextResponse.next()
+      const fSlug = pathname.split('/')[2]
+      let resp = NextResponse.next()
+      if (fSlug) resp = await assignVariantCookie(request, resp, fSlug)
+      return resp
     }
 
     const rewritePath = pathname === '/'
       ? `/f/${funnel.slug}`
       : `/f/${funnel.slug}${pathname}`
 
-    return NextResponse.rewrite(new URL(rewritePath, request.url))
+    let resp = NextResponse.rewrite(new URL(rewritePath, request.url))
+    resp = await assignVariantCookie(request, resp, funnel.slug)
+    return resp
   }
 
   // ── App domain — auth guard for /control ─────────────────────────────────

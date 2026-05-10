@@ -1,10 +1,26 @@
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { loadFunnel, renderStep } from '../../../lib/funnel-loader'
 
 export const dynamic = 'force-dynamic'
 
+// Variant slugs: generator-quote-1 → variant 1 (a), generator-quote-2 → variant 2 (b), etc.
+const VARIANT_LABELS = ['a', 'b', 'c', 'd', 'e', 'f']
+
+function parseSlug(slug) {
+  const match = slug.match(/^(.+)-(\d+)$/)
+  if (match) {
+    const num = parseInt(match[2], 10)
+    if (num >= 1 && num <= VARIANT_LABELS.length) {
+      return { baseSlug: match[1], variantLabel: VARIANT_LABELS[num - 1] }
+    }
+  }
+  return { baseSlug: slug, variantLabel: null }
+}
+
 export async function generateMetadata({ params }) {
-  const loaded = await loadFunnel(params.slug)
+  const { baseSlug } = parseSlug(params.slug)
+  const loaded = await loadFunnel(baseSlug)
   if (!loaded) return { title: 'Not found' }
   const entry = loaded.steps.find(s => s.step_order === 1)
   return {
@@ -14,9 +30,30 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function FunnelEntryPage({ params }) {
-  const loaded = await loadFunnel(params.slug)
+  const { baseSlug, variantLabel } = parseSlug(params.slug)
+  const loaded = await loadFunnel(baseSlug)
   if (!loaded) notFound()
-  const entry = loaded.steps.find(s => s.step_order === 1)
-  if (!entry) notFound()
-  return renderStep({ funnel: loaded.funnel, step: entry })
+
+  // Direct variant URL (e.g. /f/generator-quote-2) — serve that specific variant
+  if (variantLabel) {
+    const step = loaded.steps.find(s => s.step_order === 1 && s.variant === variantLabel)
+    if (!step) notFound()
+    return renderStep({ funnel: loaded.funnel, step })
+  }
+
+  // Rotator URL — split traffic among active variants
+  const surveySteps = loaded.steps.filter(s => s.step_order === 1 && s.is_active)
+  if (!surveySteps.length) notFound()
+
+  if (surveySteps.length === 1) {
+    return renderStep({ funnel: loaded.funnel, step: surveySteps[0] })
+  }
+
+  // Multiple active variants — read the cookie to pick one
+  const cookieStore = cookies()
+  const variantCookie = cookieStore.get('ch_variant')?.value
+  const matched = variantCookie && surveySteps.find(s => s.variant === variantCookie)
+
+  const step = matched || surveySteps[0]
+  return renderStep({ funnel: loaded.funnel, step })
 }

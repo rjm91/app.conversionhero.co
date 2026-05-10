@@ -15,12 +15,13 @@ export async function PATCH(request, { params }) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
-  const { config, name, slug } = body
+  const { config, name, slug, is_active } = body
 
   const patch = { updated_at: new Date().toISOString() }
-  if (config !== undefined) patch.config = config
-  if (name !== undefined) patch.name = name
-  if (slug !== undefined) patch.slug = slug
+  if (config    !== undefined) patch.config    = config
+  if (name      !== undefined) patch.name      = name
+  if (slug      !== undefined) patch.slug      = slug
+  if (is_active !== undefined) patch.is_active = is_active
 
   const { error } = await admin()
     .from('client_funnel_steps')

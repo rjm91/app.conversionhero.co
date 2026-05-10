@@ -34,10 +34,15 @@ export async function POST(request) {
     user_agent: request.headers.get('user-agent') || null,
   })
 
-  // Bump visitor count on page_view (only once per session)
+  // Bump visitor count on page_view (funnel-level + step-level)
   if (eventType === 'page_view') {
     const { data } = await db.from('client_funnels').select('visitors').eq('id', funnelId).single()
     if (data) await db.from('client_funnels').update({ visitors: (data.visitors || 0) + 1 }).eq('id', funnelId)
+
+    if (stepId) {
+      const { data: step } = await db.from('client_funnel_steps').select('visitors').eq('id', stepId).single()
+      if (step) await db.from('client_funnel_steps').update({ visitors: (step.visitors || 0) + 1 }).eq('id', stepId)
+    }
   }
 
   return NextResponse.json({ success: true })
