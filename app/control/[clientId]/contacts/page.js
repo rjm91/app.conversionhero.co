@@ -44,8 +44,18 @@ export default function ContactsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)   // confirm in panel
   const [resending,   setResending]   = useState(false)
   const [resendResult, setResendResult] = useState(null)      // 'sent' | 'error'
+  const [leadMeta,    setLeadMeta]    = useState([])           // client_lead_meta rows
 
   useEffect(() => { fetchLeads() }, [clientId])
+
+  useEffect(() => {
+    if (!selected?.lead_id) { setLeadMeta([]); return }
+    supabase
+      .from('client_lead_meta')
+      .select('meta_key, meta_value')
+      .eq('lead_id', selected.lead_id)
+      .then(({ data }) => setLeadMeta(data || []))
+  }, [selected?.lead_id])
 
   async function fetchLeads() {
     const { data, error } = await supabase
@@ -374,6 +384,20 @@ export default function ContactsPage() {
                   </div>
                 </div>
               </div>
+
+              {leadMeta.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Survey Responses</p>
+                  <div className="bg-gray-50 dark:bg-white/5 rounded-lg p-3 space-y-2 text-xs text-gray-500">
+                    {leadMeta.map(({ meta_key, meta_value }) => (
+                      <div key={meta_key} className="flex justify-between gap-2">
+                        <span className="text-gray-400">{meta_key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+                        <span className="text-gray-600 dark:text-gray-300 text-right">{meta_value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Status</p>
