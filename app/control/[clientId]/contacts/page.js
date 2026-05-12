@@ -539,6 +539,7 @@ export default function ContactsPage() {
                     ['UTM Source',   selected.utm_source],
                     ['UTM Medium',   selected.utm_medium],
                     ['UTM Campaign', selected.utm_campaign],
+                    ['UTM Content',  selected.utm_content],
                     ['UTM Ad Group', selected.utm_adgroup],
                     ['Device',       selected.device],
                     ['LP URL',       selected.lp_url],
