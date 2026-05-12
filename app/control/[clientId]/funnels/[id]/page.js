@@ -59,14 +59,24 @@ function nextVariantLabel(variants) {
   return 'c'
 }
 
+// Map funnel slug → component folder + default component name
+const FUNNEL_COMPONENTS = {
+  'generator-quote':      { folder: 'components/funnels/synergy-generator', base: 'SynergyGenerator' },
+  'hvac-second-opinion':  { folder: 'components/funnels/synergy-hvac',      base: 'SynergyHVAC' },
+}
+
+function getFunnelComponent(funnel, winner) {
+  const mapped = FUNNEL_COMPONENTS[funnel.slug]
+  const base = winner?.config?.componentName || mapped?.base || 'Unknown'
+  const folder = mapped?.folder || 'components/funnels'
+  return { base, folder }
+}
+
 function buildPrompt({ winner, loser, componentName, hypothesis, funnel }) {
   const winConv  = winner.visitors ? (convRate(winner) * 100).toFixed(1) : '0.0'
   const loseConv = loser?.visitors  ? (convRate(loser)  * 100).toFixed(1) : '0.0'
-  const winnerFile = winner.config?.componentName
-    ? `${winner.config.componentName}.js`
-    : 'SynergyGenerator.js'
-
-  const folder = 'components/funnels/synergy-generator'
+  const { folder } = getFunnelComponent(funnel, winner)
+  const winnerFile = (winner.config?.componentName || getFunnelComponent(funnel, winner).base) + '.js'
 
   return `Winner declared: Variant ${(winner.variant || 'b').toUpperCase()} (${winnerFile}) — ${winConv}% conv vs ${loseConv}%
 
@@ -145,7 +155,8 @@ function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onE
   const pending   = variants.find(isPending)
   const archived  = variants.filter(isArchived)
   const showAddChallenger = !pending && (liveVariants(variants).length <= 1 || !!declWinner)
-  const componentName = pending?.config?.componentName || 'SynergyGeneratorV3'
+  const { base: defaultBase } = getFunnelComponent(funnel)
+  const componentName = pending?.config?.componentName || `${defaultBase}V2`
 
   // Check if challenger component file exists
   const [draftReady, setDraftReady] = useState(false)
@@ -180,7 +191,7 @@ function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onE
           {stepOrder}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-gray-900 dark:text-white">Generator Survey</span>
+          <span className="text-sm font-medium text-gray-900 dark:text-white">{funnel.name || 'Survey'}</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400">survey</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 tracking-wide">A/B test</span>
         </div>
@@ -417,8 +428,10 @@ function Modal({ children, onClose }) {
   )
 }
 
-function AddChallengerModal({ onConfirm, onClose }) {
-  const [name, setName] = useState('SynergyGeneratorV3')
+function AddChallengerModal({ funnel, onConfirm, onClose }) {
+  const mapped = FUNNEL_COMPONENTS[funnel?.slug]
+  const defaultName = (mapped?.base || 'SynergyGenerator') + 'V3'
+  const [name, setName] = useState(defaultName)
   const [hypothesis, setHypothesis] = useState('')
 
   return (
@@ -436,7 +449,7 @@ function AddChallengerModal({ onConfirm, onClose }) {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. SynergyGeneratorV3"
+              placeholder={`e.g. ${defaultName}`}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             <p className="text-[11px] text-gray-400 mt-1">Must match the React component filename you'll build in Cursor.</p>
@@ -817,6 +830,7 @@ export default function FunnelDetailPage() {
       {/* Modals */}
       {challengerModal && (
         <AddChallengerModal
+          funnel={funnel}
           onConfirm={handleAddChallenger}
           onClose={() => setChallengerModal(null)}
         />
