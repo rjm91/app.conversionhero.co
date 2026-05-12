@@ -41,7 +41,6 @@ export default function YouTubeAdsPage() {
 
   const defaults = defaultDates()
 
-  // Read initial values from URL params → localStorage → defaults
   const saved      = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(`ytads_${clientId}`) || '{}') : {}
   const initStart  = searchParams.get('start')  || saved.start  || defaults.start
   const initEnd    = searchParams.get('end')    || saved.end    || defaults.end
@@ -53,6 +52,8 @@ export default function YouTubeAdsPage() {
   const [appliedEnd,   setAppliedEnd]   = useState(initEnd)
 
   const [campaigns,      setCampaigns]      = useState([])
+  const [adGroups,       setAdGroups]       = useState([])
+  const [ads,            setAds]            = useState([])
   const [chAttribution,  setChAttribution]  = useState({})
   const [clientName,     setClientName]     = useState('')
   const [statusFilter,   setStatusFilter]   = useState(initStatus)
@@ -62,7 +63,11 @@ export default function YouTubeAdsPage() {
   const [error,          setError]          = useState(null)
   const [connected,      setConnected]      = useState(false)
 
-  // Handle OAuth callback result params
+  // Drill-down state: 'campaigns' → 'adGroups' → 'ads'
+  const [view, setView]                     = useState('campaigns')
+  const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }
+  const [selectedAdGroup, setSelectedAdGroup]   = useState(null) // { ad_group_id, ad_group_name }
+
   useEffect(() => {
     const oauthError = searchParams.get('google_ads_error')
     const oauthOk    = searchParams.get('google_ads_connected')
@@ -70,14 +75,12 @@ export default function YouTubeAdsPage() {
     if (oauthOk)    setConnected(true)
   }, [])
 
-  // Sync current filter state to URL and localStorage so it persists on refresh/navigation
   function updateURL(start, end, status) {
     const params = new URLSearchParams({ start, end, status })
     router.replace(`?${params.toString()}`, { scroll: false })
     localStorage.setItem(`ytads_${clientId}`, JSON.stringify({ start, end, status }))
   }
 
-  // Fetch client name
   useEffect(() => {
     supabase
       .from('client')
@@ -87,7 +90,6 @@ export default function YouTubeAdsPage() {
       .then(({ data }) => { if (data) setClientName(data.client_name) })
   }, [clientId])
 
-  // Fetch CH attribution: leads grouped by utm_campaign within date range
   const fetchAttribution = useCallback(async (start, end) => {
     const { data: leads } = await supabase
       .from('client_lead')
@@ -105,11 +107,9 @@ export default function YouTubeAdsPage() {
         if (v) map[v] = (map[v] || 0) + 1
       }
     }
-
     setChAttribution(map)
   }, [clientId])
 
-  // Fetch campaigns from Supabase — query by date range, aggregate per campaign
   const fetchCampaigns = useCallback(async (start, end) => {
     setLoading(true)
     setError(null)
@@ -132,21 +132,15 @@ export default function YouTubeAdsPage() {
       return
     }
 
-    // Aggregate daily rows into one row per campaign
+    // Aggregate daily rows per campaign
     const map = {}
     for (const row of (data || [])) {
       const id = row.campaign_id
       if (!map[id]) {
         map[id] = {
-          campaign_id:   row.campaign_id,
-          campaign_name: row.campaign_name,
-          status:        row.status,
-          channel_type:  row.channel_type,
-          budget:        row.budget,
-          cost:          0,
-          clicks:        0,
-          conversions:   0,
-          synced_at:     row.synced_at,
+          campaign_id: row.campaign_id, campaign_name: row.campaign_name,
+          status: row.status, channel_type: row.channel_type, budget: row.budget,
+          cost: 0, clicks: 0, conversions: 0, synced_at: row.synced_at,
         }
       }
       map[id].cost        += Number(row.cost)        || 0
@@ -170,6 +164,88 @@ export default function YouTubeAdsPage() {
     setLoading(false)
   }, [clientId, fetchAttribution])
 
+  // Fetch ad groups for a specific campaign
+  const fetchAdGroups = useCallback(async (campaignId, start, end) => {
+    setLoading(true)
+    const { data, error: err } = await supabase
+      .from('client_yt_ad_groups')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('campaign_id', campaignId)
+      .gte('date', start)
+      .lte('date', end)
+      .order('ad_group_name', { ascending: true })
+
+    if (err) { setError('Failed to load ad groups.'); setLoading(false); return }
+
+    const map = {}
+    for (const row of (data || [])) {
+      const id = row.ad_group_id
+      if (!map[id]) {
+        map[id] = {
+          ad_group_id: row.ad_group_id, ad_group_name: row.ad_group_name,
+          campaign_id: row.campaign_id, status: row.status,
+          cost: 0, clicks: 0, conversions: 0, synced_at: row.synced_at,
+        }
+      }
+      map[id].cost        += Number(row.cost)        || 0
+      map[id].clicks      += Number(row.clicks)      || 0
+      map[id].conversions += Number(row.conversions) || 0
+      if (row.synced_at > map[id].synced_at) {
+        map[id].status    = row.status
+        map[id].synced_at = row.synced_at
+      }
+    }
+
+    setAdGroups(Object.values(map).map(g => ({
+      ...g,
+      cpc:                 g.clicks > 0      ? g.cost / g.clicks      : 0,
+      cost_per_conversion: g.conversions > 0 ? g.cost / g.conversions : 0,
+    })))
+    setLoading(false)
+  }, [clientId])
+
+  // Fetch ads for a specific ad group
+  const fetchAds = useCallback(async (adGroupId, start, end) => {
+    setLoading(true)
+    const { data, error: err } = await supabase
+      .from('client_yt_ads')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('ad_group_id', adGroupId)
+      .gte('date', start)
+      .lte('date', end)
+      .order('ad_name', { ascending: true })
+
+    if (err) { setError('Failed to load ads.'); setLoading(false); return }
+
+    const map = {}
+    for (const row of (data || [])) {
+      const id = row.ad_id
+      if (!map[id]) {
+        map[id] = {
+          ad_id: row.ad_id, ad_name: row.ad_name, ad_type: row.ad_type,
+          ad_group_id: row.ad_group_id, campaign_id: row.campaign_id, status: row.status,
+          cost: 0, clicks: 0, conversions: 0, synced_at: row.synced_at,
+        }
+      }
+      map[id].cost        += Number(row.cost)        || 0
+      map[id].clicks      += Number(row.clicks)      || 0
+      map[id].conversions += Number(row.conversions) || 0
+      if (row.synced_at > map[id].synced_at) {
+        map[id].status    = row.status
+        map[id].synced_at = row.synced_at
+      }
+    }
+
+    setAds(Object.values(map).map(a => ({
+      ...a,
+      cpc:                 a.clicks > 0      ? a.cost / a.clicks      : 0,
+      cost_per_conversion: a.conversions > 0 ? a.cost / a.conversions : 0,
+    })))
+    setLoading(false)
+  }, [clientId])
+
   useEffect(() => {
     fetchCampaigns(appliedStart, appliedEnd)
   }, [fetchCampaigns, appliedStart, appliedEnd])
@@ -178,6 +254,10 @@ export default function YouTubeAdsPage() {
     setAppliedStart(startDate)
     setAppliedEnd(endDate)
     updateURL(startDate, endDate, statusFilter)
+    // Reset to campaigns view on date change
+    setView('campaigns')
+    setSelectedCampaign(null)
+    setSelectedAdGroup(null)
   }
 
   function handleStatusChange(val) {
@@ -197,11 +277,42 @@ export default function YouTubeAdsPage() {
         throw new Error(`Route returned HTTP ${res.status}. Response: ${text.slice(0, 200)}`)
       }
       if (!json.success) throw new Error(json.error || 'Sync failed')
-      await fetchCampaigns(appliedStart, appliedEnd)
+      // Refresh current view
+      if (view === 'ads' && selectedAdGroup) {
+        await fetchAds(selectedAdGroup.ad_group_id, appliedStart, appliedEnd)
+      } else if (view === 'adGroups' && selectedCampaign) {
+        await fetchAdGroups(selectedCampaign.campaign_id, appliedStart, appliedEnd)
+      } else {
+        await fetchCampaigns(appliedStart, appliedEnd)
+      }
     } catch (e) {
       setError('Sync failed: ' + e.message)
     }
     setSyncing(false)
+  }
+
+  function drillIntoCampaign(row) {
+    setSelectedCampaign({ campaign_id: row.campaign_id, campaign_name: row.campaign_name })
+    setView('adGroups')
+    fetchAdGroups(row.campaign_id, appliedStart, appliedEnd)
+  }
+
+  function drillIntoAdGroup(row) {
+    setSelectedAdGroup({ ad_group_id: row.ad_group_id, ad_group_name: row.ad_group_name })
+    setView('ads')
+    fetchAds(row.ad_group_id, appliedStart, appliedEnd)
+  }
+
+  function navToCampaigns() {
+    setView('campaigns')
+    setSelectedCampaign(null)
+    setSelectedAdGroup(null)
+  }
+
+  function navToAdGroups() {
+    setView('adGroups')
+    setSelectedAdGroup(null)
+    if (selectedCampaign) fetchAdGroups(selectedCampaign.campaign_id, appliedStart, appliedEnd)
   }
 
   function getChLeads(row) {
@@ -217,18 +328,21 @@ export default function YouTubeAdsPage() {
     return 0
   }
 
+  // Current data based on view
+  const currentData = view === 'campaigns' ? campaigns : view === 'adGroups' ? adGroups : ads
+
   const filtered = useMemo(() => {
-    if (statusFilter === 'All') return campaigns
-    return campaigns.filter(c => c.status === statusFilter)
-  }, [campaigns, statusFilter])
+    if (statusFilter === 'All') return currentData
+    return currentData.filter(c => c.status === statusFilter)
+  }, [currentData, statusFilter])
 
   const totals = useMemo(() => filtered.reduce((acc, row) => ({
     budget:   acc.budget  + (Number(row.budget)  || 0),
     cost:     acc.cost    + (Number(row.cost)    || 0),
     clicks:   acc.clicks  + (Number(row.clicks)  || 0),
     conv:     acc.conv    + (Number(row.conversions) || 0),
-    chConv:   acc.chConv  + getChLeads(row),
-  }), { budget: 0, cost: 0, clicks: 0, conv: 0, chConv: 0 }), [filtered, chAttribution])
+    chConv:   acc.chConv  + (view === 'campaigns' ? getChLeads(row) : 0),
+  }), { budget: 0, cost: 0, clicks: 0, conv: 0, chConv: 0 }), [filtered, chAttribution, view])
 
   const totalCpc         = totals.clicks > 0 ? totals.cost / totals.clicks : 0
   const totalCostPerConv = totals.conv   > 0 ? totals.cost / totals.conv   : 0
@@ -241,6 +355,30 @@ export default function YouTubeAdsPage() {
       : 'Not yet synced'
 
   const reconnectUrl = `/api/google-ads/auth?return_to=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`
+
+  // Column config per view
+  const nameLabel = view === 'campaigns' ? 'Campaign' : view === 'adGroups' ? 'Ad Group' : 'Ad'
+  const showBudget = view === 'campaigns'
+  const showCH = view === 'campaigns'
+
+  function getRowName(row) {
+    if (view === 'campaigns') return row.campaign_name
+    if (view === 'adGroups') return row.ad_group_name
+    return row.ad_name || `Ad ${row.ad_id}`
+  }
+
+  function getRowId(row) {
+    if (view === 'campaigns') return row.campaign_id
+    if (view === 'adGroups') return row.ad_group_id
+    return row.ad_id
+  }
+
+  function handleRowClick(row) {
+    if (view === 'campaigns') drillIntoCampaign(row)
+    else if (view === 'adGroups') drillIntoAdGroup(row)
+  }
+
+  const isClickable = view !== 'ads'
 
   return (
     <div className="p-8">
@@ -262,10 +400,7 @@ export default function YouTubeAdsPage() {
         <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm px-4 py-3 rounded-lg">
           <p>{error}</p>
           {isAuthError(error) && (
-            <a
-              href={reconnectUrl}
-              className="mt-2 inline-flex items-center gap-1.5 font-semibold underline underline-offset-2"
-            >
+            <a href={reconnectUrl} className="mt-2 inline-flex items-center gap-1.5 font-semibold underline underline-offset-2">
               Reconnect Google Ads →
             </a>
           )}
@@ -311,46 +446,92 @@ export default function YouTubeAdsPage() {
           </div>
         </div>
 
+        {/* Breadcrumbs */}
+        {view !== 'campaigns' && (
+          <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2 text-sm">
+            <button onClick={navToCampaigns} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+              Campaigns
+            </button>
+            {selectedCampaign && (
+              <>
+                <span className="text-gray-400">/</span>
+                {view === 'adGroups' ? (
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">{selectedCampaign.campaign_name}</span>
+                ) : (
+                  <button onClick={navToAdGroups} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                    {selectedCampaign.campaign_name}
+                  </button>
+                )}
+              </>
+            )}
+            {selectedAdGroup && view === 'ads' && (
+              <>
+                <span className="text-gray-400">/</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{selectedAdGroup.ad_group_name}</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Table */}
         {loading ? (
-          <div className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">Loading campaigns…</div>
+          <div className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
+            Loading {nameLabel.toLowerCase()}s…
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px]">Campaign</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Budget / Day</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px]">{nameLabel}</th>
+                  {showBudget && (
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Budget / Day</th>
+                  )}
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Clicks</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
-                    Conv. (CH Reported)
-                  </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                    Cost / Conv. (CH Reported)
-                  </th>
+                  {showCH && (
+                    <>
+                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                        Conv. (CH Reported)
+                      </th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                        Cost / Conv. (CH Reported)
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {filtered.map((row, i) => {
                   const costPerConv = row.conversions > 0 ? Number(row.cost) / Number(row.conversions) : 0
-                  const chLeads     = getChLeads(row)
+                  const chLeads     = showCH ? getChLeads(row) : 0
                   const chCost      = chLeads > 0 ? Number(row.cost) / chLeads : 0
                   return (
-                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <tr
+                      key={i}
+                      onClick={() => isClickable && handleRowClick(row)}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isClickable ? 'cursor-pointer' : ''}`}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2.5">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <div>
-                            <span className="text-gray-800 dark:text-gray-100 font-medium">{row.campaign_name}</span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">ID: {row.campaign_id}</p>
+                            <span className={`font-medium ${isClickable ? 'text-blue-600 dark:text-blue-400 hover:underline' : 'text-gray-800 dark:text-gray-100'}`}>
+                              {getRowName(row)}
+                            </span>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">
+                              ID: {getRowId(row)}
+                              {view === 'ads' && row.ad_type && <span className="ml-2 text-gray-400">({row.ad_type})</span>}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmtBudget(row.budget)}</td>
+                      {showBudget && (
+                        <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmtBudget(row.budget)}</td>
+                      )}
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(row.cost)}</td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{Number(row.clicks || 0).toLocaleString()}</td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(row.cpc)}</td>
@@ -358,12 +539,16 @@ export default function YouTubeAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
-                        {chLeads}
-                      </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                        {chLeads > 0 ? fmt$(chCost) : '—'}
-                      </td>
+                      {showCH && (
+                        <>
+                          <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                            {chLeads}
+                          </td>
+                          <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                            {chLeads > 0 ? fmt$(chCost) : '—'}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   )
                 })}
@@ -373,7 +558,9 @@ export default function YouTubeAdsPage() {
                 <tfoot className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
-                    <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmtBudget(totals.budget)}</td>
+                    {showBudget && (
+                      <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmtBudget(totals.budget)}</td>
+                    )}
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totals.cost)}</td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{totals.clicks.toLocaleString()}</td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
@@ -381,10 +568,14 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                      {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
-                    </td>
+                    {showCH && (
+                      <>
+                        <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
+                        <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                          {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 </tfoot>
               )}
@@ -398,7 +589,7 @@ export default function YouTubeAdsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No campaign data for this date range.</p>
+            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No {nameLabel.toLowerCase()} data for this date range.</p>
             <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click <strong>Sync Now</strong> to pull data from Google Ads.</p>
           </div>
         )}

@@ -84,6 +84,94 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
   throw new Error(`[Step 2 - Google Ads API] All versions returned 404. Last: ${lastError}.`)
 }
 
+// Step 2b: Query Google Ads API — daily rows per ad group
+async function fetchAdGroups(accessToken, customerId, startDate, endDate) {
+  const query = `
+    SELECT
+      campaign.id,
+      ad_group.id,
+      ad_group.name,
+      ad_group.status,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.average_cpc,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      segments.date
+    FROM ad_group
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX')
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY ad_group.name, segments.date
+  `
+
+  const versions = ['v20', 'v21', 'v22', 'v19']
+  for (const version of versions) {
+    const res = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization':     `Bearer ${accessToken}`,
+          'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
+          'Content-Type':      'application/json',
+        },
+        body: JSON.stringify({ query }),
+      }
+    )
+    const { ok, status, data, rawText } = await safeJson(res)
+    if (ok) return data.results || []
+    if (status === 401) throw new Error(`[Google Ads API ${version}] HTTP 401: ${rawText}`)
+    if (status !== 404) throw new Error(`[Google Ads API ${version}] HTTP ${status}: ${rawText}`)
+  }
+  return []
+}
+
+// Step 2c: Query Google Ads API — daily rows per ad
+async function fetchAds(accessToken, customerId, startDate, endDate) {
+  const query = `
+    SELECT
+      campaign.id,
+      ad_group.id,
+      ad_group_ad.ad.id,
+      ad_group_ad.ad.name,
+      ad_group_ad.ad.type,
+      ad_group_ad.status,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.average_cpc,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      segments.date
+    FROM ad_group_ad
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX')
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY ad_group_ad.ad.id, segments.date
+  `
+
+  const versions = ['v20', 'v21', 'v22', 'v19']
+  for (const version of versions) {
+    const res = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization':     `Bearer ${accessToken}`,
+          'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
+          'Content-Type':      'application/json',
+        },
+        body: JSON.stringify({ query }),
+      }
+    )
+    const { ok, status, data, rawText } = await safeJson(res)
+    if (ok) return data.results || []
+    if (status === 401) throw new Error(`[Google Ads API ${version}] HTTP 401: ${rawText}`)
+    if (status !== 404) throw new Error(`[Google Ads API ${version}] HTTP ${status}: ${rawText}`)
+  }
+  return []
+}
+
 // Step 3: Save daily campaign rows to Supabase
 async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate) {
   // Delete existing daily rows for this client + date range
@@ -128,6 +216,62 @@ async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate
   if (error) throw new Error('[Step 3 - Supabase] Insert error: ' + JSON.stringify(error))
 }
 
+// Step 3b: Save daily ad group rows to Supabase
+async function saveAdGroups(clientId, customerId, adGroups, startDate, endDate) {
+  await supabase.from('client_yt_ad_groups').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
+  if (adGroups.length === 0) return
+
+  const rows = adGroups.map(row => ({
+    client_id:           clientId,
+    customer_id:         customerId,
+    campaign_id:         row.campaign?.id?.toString() || '',
+    ad_group_id:         row.adGroup?.id?.toString() || '',
+    ad_group_name:       row.adGroup?.name || '',
+    status:              row.adGroup?.status || '',
+    cost:                (row.metrics?.costMicros || 0) / 1_000_000,
+    clicks:              row.metrics?.clicks || 0,
+    cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
+    conversions:         row.metrics?.conversions || 0,
+    cost_per_conversion: row.metrics?.costPerConversion || 0,
+    date:                row.segments?.date || startDate,
+    date_range_start:    startDate,
+    date_range_end:      endDate,
+    synced_at:           new Date().toISOString(),
+  }))
+
+  const { error } = await supabase.from('client_yt_ad_groups').insert(rows)
+  if (error) throw new Error('[Step 3b - Supabase] Ad groups insert error: ' + JSON.stringify(error))
+}
+
+// Step 3c: Save daily ad rows to Supabase
+async function saveAds(clientId, customerId, ads, startDate, endDate) {
+  await supabase.from('client_yt_ads').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
+  if (ads.length === 0) return
+
+  const rows = ads.map(row => ({
+    client_id:           clientId,
+    customer_id:         customerId,
+    campaign_id:         row.campaign?.id?.toString() || '',
+    ad_group_id:         row.adGroup?.id?.toString() || '',
+    ad_id:               row.adGroupAd?.ad?.id?.toString() || '',
+    ad_name:             row.adGroupAd?.ad?.name || '',
+    ad_type:             row.adGroupAd?.ad?.type || '',
+    status:              row.adGroupAd?.status || '',
+    cost:                (row.metrics?.costMicros || 0) / 1_000_000,
+    clicks:              row.metrics?.clicks || 0,
+    cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
+    conversions:         row.metrics?.conversions || 0,
+    cost_per_conversion: row.metrics?.costPerConversion || 0,
+    date:                row.segments?.date || startDate,
+    date_range_start:    startDate,
+    date_range_end:      endDate,
+    synced_at:           new Date().toISOString(),
+  }))
+
+  const { error } = await supabase.from('client_yt_ads').insert(rows)
+  if (error) throw new Error('[Step 3c - Supabase] Ads insert error: ' + JSON.stringify(error))
+}
+
 // Main handler
 export async function GET(request) {
   try {
@@ -161,9 +305,17 @@ export async function GET(request) {
     const results = []
 
     for (const account of adsAccounts) {
-      const campaigns = await fetchYouTubeCampaigns(accessToken, account.customer_id, startDate, endDate)
-      await saveCampaigns(account.client_id, account.customer_id, campaigns, startDate, endDate)
-      results.push({ client_id: account.client_id, client_name: account.client_name, campaigns: campaigns.length })
+      const [campaigns, adGroups, ads] = await Promise.all([
+        fetchYouTubeCampaigns(accessToken, account.customer_id, startDate, endDate),
+        fetchAdGroups(accessToken, account.customer_id, startDate, endDate),
+        fetchAds(accessToken, account.customer_id, startDate, endDate),
+      ])
+      await Promise.all([
+        saveCampaigns(account.client_id, account.customer_id, campaigns, startDate, endDate),
+        saveAdGroups(account.client_id, account.customer_id, adGroups, startDate, endDate),
+        saveAds(account.client_id, account.customer_id, ads, startDate, endDate),
+      ])
+      results.push({ client_id: account.client_id, client_name: account.client_name, campaigns: campaigns.length, adGroups: adGroups.length, ads: ads.length })
     }
 
     return Response.json({
