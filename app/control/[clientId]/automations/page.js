@@ -7,22 +7,68 @@ const NOTIFICATION_KIND = 'lead.notification.email'
 
 const DEFAULT_SUBJECT = 'New lead: {{first_name}} {{last_name}}'
 const DEFAULT_BODY =
-  'A new lead just came in:\n\n' +
-  'Name: {{first_name}} {{last_name}}\n' +
-  'Email: {{email}}\n' +
-  'Phone: {{phone}}\n' +
-  'City/State: {{city}} {{state}}\n' +
-  'Funnel: {{funnel_name}}\n\n' +
-  '— Source —\n' +
-  'utm_source: {{utm_source}}\n' +
-  'utm_medium: {{utm_medium}}\n' +
-  'utm_campaign: {{utm_campaign}}\n' +
-  'utm_content: {{utm_content}}\n' +
-  'utm_adgroup: {{utm_adgroup}}\n' +
-  'gclid: {{gclid}}\n' +
-  'wbraid: {{wbraid}}\n' +
-  'device: {{device}}\n' +
-  'lp_url: {{lp_url}}\n'
+  `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Lead!</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+    .email-container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #dddddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .content h3 { color: #333333; margin-bottom: 8px; border-bottom: 1px solid #eeeeee; padding-bottom: 5px; }
+    ul { font-size: 1rem; color: #555555; padding-left: 20px; }
+    .footer { text-align: center; font-size: 0.9rem; color: #888888; border-top: 1px solid #eeeeee; padding-top: 10px; margin-top: 20px; }
+    .footer a { color: #0073e6; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="content">
+      <div class="section">
+        <h3>Contact:</h3>
+        <ul>
+          <li><strong>Name: </strong>{{first_name}} {{last_name}}</li>
+          <li><strong>Email: </strong>{{email}}</li>
+          <li><strong>Phone: </strong>{{phone}}</li>
+          <li><strong>Location: </strong>{{city}}, {{state}} {{zip_code}}</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>Survey Responses:</h3>
+        <ul>
+          <li><strong>Outage Frequency: </strong>{{reason}}</li>
+          <li><strong>Fuel Type: </strong>{{fuel}}</li>
+          <li><strong>Home Size: </strong>{{size}}</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>Funnel:</h3>
+        <ul>
+          <li><strong>Name: </strong>{{funnel_name}}</li>
+          <li><strong>Landing Page: </strong>{{lp_url}}</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>Source:</h3>
+        <ul>
+          <li><strong>utm_source: </strong>{{utm_source}}</li>
+          <li><strong>utm_medium: </strong>{{utm_medium}}</li>
+          <li><strong>utm_campaign: </strong>{{utm_campaign}}</li>
+          <li><strong>utm_content: </strong>{{utm_content}}</li>
+          <li><strong>ad_group_id: </strong>{{ad_group_id}}</li>
+          <li><strong>gclid: </strong>{{gclid}}</li>
+          <li><strong>wbraid: </strong>{{wbraid}}</li>
+          <li><strong>device: </strong>{{device}}</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer">
+      <p><a href="https://app.conversionhero.co">View All Leads</a></p>
+    </div>
+  </div>
+</body>
+</html>`
 
 export default function ClientAutomationsPage() {
   const { clientId } = useParams()
@@ -252,6 +298,7 @@ export default function ClientAutomationsPage() {
 
           <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
             <p><span className="font-medium text-gray-500 dark:text-gray-400">Contact:</span> <code>{'{{first_name}}'}</code> <code>{'{{last_name}}'}</code> <code>{'{{email}}'}</code> <code>{'{{phone}}'}</code> <code>{'{{city}}'}</code> <code>{'{{state}}'}</code> <code>{'{{zip_code}}'}</code></p>
+            <p><span className="font-medium text-gray-500 dark:text-gray-400">Survey:</span> <code>{'{{reason}}'}</code> <code>{'{{fuel}}'}</code> <code>{'{{size}}'}</code> <code>{'{{intent}}'}</code> <code>{'{{system_type}}'}</code> <code>{'{{system_age}}'}</code></p>
             <p><span className="font-medium text-gray-500 dark:text-gray-400">Funnel:</span> <code>{'{{funnel_name}}'}</code> <code>{'{{lp_url}}'}</code></p>
             <p><span className="font-medium text-gray-500 dark:text-gray-400">Source:</span> <code>{'{{utm_source}}'}</code> <code>{'{{utm_medium}}'}</code> <code>{'{{utm_campaign}}'}</code> <code>{'{{utm_content}}'}</code> <code>{'{{utm_adgroup}}'}</code> <code>{'{{gclid}}'}</code> <code>{'{{wbraid}}'}</code> <code>{'{{device}}'}</code></p>
           </div>

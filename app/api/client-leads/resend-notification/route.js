@@ -52,9 +52,20 @@ export async function POST(request) {
     }
   }
 
+  // Fetch survey responses from client_lead_meta
+  const { data: metaRows } = await db
+    .from('client_lead_meta')
+    .select('meta_key, meta_value')
+    .eq('lead_id', leadId)
+  const surveyMeta = {}
+  for (const row of metaRows || []) {
+    surveyMeta[row.meta_key] = row.meta_value
+  }
+
   try {
     await dispatchClientEvent(clientId, 'lead.created', {
       ...lead,
+      ...surveyMeta,
       agency_funnels: funnelMeta,
     })
     return NextResponse.json({ success: true })

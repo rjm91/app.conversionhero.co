@@ -103,8 +103,18 @@ export async function POST(request) {
         funnelMeta = f || null
       }
       if (full?.client_id) {
+        // Fetch survey responses from client_lead_meta so they're available as template vars
+        const { data: metaRows } = await db
+          .from('client_lead_meta')
+          .select('meta_key, meta_value')
+          .eq('lead_id', id)
+        const surveyMeta = {}
+        for (const row of metaRows || []) {
+          surveyMeta[row.meta_key] = row.meta_value
+        }
         dispatchClientEvent(full.client_id, 'lead.created', {
           ...full,
+          ...surveyMeta,
           company: '',
           agency_funnels: funnelMeta,
         }).catch(err => console.error('[funnel-leads] dispatchClientEvent error', err))
