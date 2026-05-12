@@ -54,7 +54,9 @@ export default function YouTubeAdsPage() {
   const [campaigns,      setCampaigns]      = useState([])
   const [adGroups,       setAdGroups]       = useState([])
   const [ads,            setAds]            = useState([])
-  const [chAttribution,  setChAttribution]  = useState({})
+  const [chAttribution,  setChAttribution]  = useState({})   // campaign_id → count
+  const [chAdGroupAttr,  setChAdGroupAttr]  = useState({})   // ad_group_id → count
+  const [chAdAttr,       setChAdAttr]       = useState({})   // ad_id (utm_content) → count
   const [clientName,     setClientName]     = useState('')
   const [statusFilter,   setStatusFilter]   = useState(initStatus)
   const [loading,        setLoading]        = useState(true)
@@ -93,21 +95,28 @@ export default function YouTubeAdsPage() {
   const fetchAttribution = useCallback(async (start, end) => {
     const { data: leads } = await supabase
       .from('client_lead')
-      .select('utm_campaign')
+      .select('utm_campaign, utm_adgroup, utm_content')
       .eq('client_id', clientId)
       .neq('lead_status', 'in_progress')
       .gte('created_at', start)
       .lte('created_at', end + 'T23:59:59-12:00')
-      .not('utm_campaign', 'is', null)
 
-    const map = {}
+    const campaignMap = {}
+    const adGroupMap = {}
+    const adMap = {}
     if (leads?.length) {
       for (const row of leads) {
-        const v = (row.utm_campaign || '').trim()
-        if (v) map[v] = (map[v] || 0) + 1
+        const c = (row.utm_campaign || '').trim()
+        const g = (row.utm_adgroup || '').trim()
+        const a = (row.utm_content || '').trim()
+        if (c) campaignMap[c] = (campaignMap[c] || 0) + 1
+        if (g) adGroupMap[g] = (adGroupMap[g] || 0) + 1
+        if (a) adMap[a] = (adMap[a] || 0) + 1
       }
     }
-    setChAttribution(map)
+    setChAttribution(campaignMap)
+    setChAdGroupAttr(adGroupMap)
+    setChAdAttr(adMap)
   }, [clientId])
 
   const fetchCampaigns = useCallback(async (start, end) => {
@@ -316,6 +325,13 @@ export default function YouTubeAdsPage() {
   }
 
   function getChLeads(row) {
+    if (view === 'ads') {
+      return chAdAttr[row.ad_id] || 0
+    }
+    if (view === 'adGroups') {
+      return chAdGroupAttr[row.ad_group_id] || 0
+    }
+    // Campaign level — match by campaign_id or fuzzy name match
     if (chAttribution[row.campaign_id]) return chAttribution[row.campaign_id]
     for (const [utmVal, count] of Object.entries(chAttribution)) {
       if (
@@ -341,7 +357,7 @@ export default function YouTubeAdsPage() {
     cost:     acc.cost    + (Number(row.cost)    || 0),
     clicks:   acc.clicks  + (Number(row.clicks)  || 0),
     conv:     acc.conv    + (Number(row.conversions) || 0),
-    chConv:   acc.chConv  + (view === 'campaigns' ? getChLeads(row) : 0),
+    chConv:   acc.chConv  + getChLeads(row),
   }), { budget: 0, cost: 0, clicks: 0, conv: 0, chConv: 0 }), [filtered, chAttribution, view])
 
   const totalCpc         = totals.clicks > 0 ? totals.cost / totals.clicks : 0
@@ -359,7 +375,6 @@ export default function YouTubeAdsPage() {
   // Column config per view
   const nameLabel = view === 'campaigns' ? 'Campaign' : view === 'adGroups' ? 'Ad Group' : 'Ad'
   const showBudget = view === 'campaigns'
-  const showCH = view === 'campaigns'
 
   function getRowName(row) {
     if (view === 'campaigns') return row.campaign_name
@@ -501,22 +516,18 @@ export default function YouTubeAdsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
-                  {showCH && (
-                    <>
-                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
-                        Conv. (CH Reported)
-                      </th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                        Cost / Conv. (CH Reported)
-                      </th>
-                    </>
-                  )}
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                    Conv. (CH Reported)
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                    Cost / Conv. (CH Reported)
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {filtered.map((row, i) => {
                   const costPerConv = row.conversions > 0 ? Number(row.cost) / Number(row.conversions) : 0
-                  const chLeads     = showCH ? getChLeads(row) : 0
+                  const chLeads     = getChLeads(row)
                   const chCost      = chLeads > 0 ? Number(row.cost) / chLeads : 0
                   return (
                     <tr
@@ -548,16 +559,12 @@ export default function YouTubeAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      {showCH && (
-                        <>
-                          <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
-                            {chLeads}
-                          </td>
-                          <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                            {chLeads > 0 ? fmt$(chCost) : '—'}
-                          </td>
-                        </>
-                      )}
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                        {chLeads}
+                      </td>
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                        {chLeads > 0 ? fmt$(chCost) : '—'}
+                      </td>
                     </tr>
                   )
                 })}
@@ -577,14 +584,10 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    {showCH && (
-                      <>
-                        <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
-                        <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
-                          {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
-                        </td>
-                      </>
-                    )}
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                      {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
+                    </td>
                   </tr>
                 </tfoot>
               )}
