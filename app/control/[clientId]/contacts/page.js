@@ -24,6 +24,49 @@ const statusColors = {
   'Sale Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
+// Human-readable labels for meta_key names
+const META_LABELS = {
+  reason:      'Outage Frequency',
+  fuel:        'Fuel Type',
+  size:        'Home Size',
+  intent:      'Intent',
+  system_type: 'System Type',
+  system_age:  'System Age',
+  city:        'City',
+}
+
+// Human-readable labels for meta_value IDs (survey option id → label)
+const VALUE_LABELS = {
+  // Generator — reason
+  rarely:   'Rarely (once every few years)',
+  '1_2x':   '1–2x a year',
+  several:  'Several times a year',
+  recent:   'Major outage recently',
+  // Generator — fuel
+  gas:      'Natural gas',
+  propane:  'Propane',
+  electric: 'Neither / electric only',
+  unsure:   'Not sure',
+  // Generator — size
+  small:    'Under 1,500 sq ft',
+  mid:      '1,500 – 2,500 sq ft',
+  large:    '2,500 – 4,000 sq ft',
+  xl:       '4,000+ sq ft',
+  // HVAC — intent
+  fix:      'Fix System (If Possible)',
+  replace:  'Replace System',
+  // HVAC — system_type
+  heat_pump:  'Heat Pump',
+  furnace_ac: 'Furnace + AC',
+  mini_split: 'Ductless / Mini-Split',
+  // HVAC — system_age
+  under_3:  'Under 3 years',
+  '3_7':    '3–7 years',
+  '7_12':   '7–12 years',
+  '12_plus': '12+ years',
+  unknown:  "I don't know",
+}
+
 async function deleteLeads(leadIds) {
   // Delete child rows first, then parent
   await supabase.from('client_lead_meta').delete().in('lead_id', leadIds)
@@ -391,8 +434,8 @@ export default function ContactsPage() {
                   <div className="bg-gray-50 dark:bg-white/5 rounded-lg p-3 space-y-2 text-xs text-gray-500">
                     {leadMeta.map(({ meta_key, meta_value }) => (
                       <div key={meta_key} className="flex justify-between gap-2">
-                        <span className="text-gray-400">{meta_key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-                        <span className="text-gray-600 dark:text-gray-300 text-right">{meta_value}</span>
+                        <span className="text-gray-400">{META_LABELS[meta_key] || meta_key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+                        <span className="text-gray-600 dark:text-gray-300 text-right">{VALUE_LABELS[meta_value] || meta_value}</span>
                       </div>
                     ))}
                   </div>
