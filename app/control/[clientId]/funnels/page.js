@@ -12,12 +12,36 @@ export default function FunnelsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const { data } = await supabase
+      const { data: funnelRows } = await supabase
         .from('client_funnels')
         .select('*')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
-      setFunnels(data || [])
+
+      const funnelIds = (funnelRows || []).map(f => f.id)
+      const { data: allSteps } = funnelIds.length > 0
+        ? await supabase
+            .from('client_funnel_steps')
+            .select('funnel_id, visitors, leads')
+            .in('funnel_id', funnelIds)
+        : { data: [] }
+
+      // Aggregate step-level stats per funnel
+      const stepStats = {}
+      for (const s of (allSteps || [])) {
+        if (!stepStats[s.funnel_id]) stepStats[s.funnel_id] = { visitors: 0, leads: 0 }
+        stepStats[s.funnel_id].visitors += Number(s.visitors) || 0
+        stepStats[s.funnel_id].leads += Number(s.leads) || 0
+      }
+
+      // Merge: prefer step-level stats when available
+      const merged = (funnelRows || []).map(f => ({
+        ...f,
+        visitors: stepStats[f.id]?.visitors ?? f.visitors ?? 0,
+        leads: stepStats[f.id]?.leads ?? f.leads ?? 0,
+      }))
+
+      setFunnels(merged)
       setLoading(false)
     }
     if (clientId) load()

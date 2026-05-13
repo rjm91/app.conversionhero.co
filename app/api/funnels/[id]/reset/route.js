@@ -18,6 +18,10 @@ export async function POST(request, { params }) {
   const funnelId = params.id
 
   await db.from('funnel_events').delete().eq('funnel_id', funnelId)
+  // Reset both funnel-level and step-level stats so they stay in sync
+  await db.from('client_funnel_steps')
+    .update({ visitors: 0, leads: 0 })
+    .eq('funnel_id', funnelId)
   const { error } = await db.from('client_funnels')
     .update({ visitors: 0, leads: 0, updated_at: new Date().toISOString() })
     .eq('id', funnelId)
