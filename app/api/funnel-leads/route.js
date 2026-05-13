@@ -77,7 +77,7 @@ export async function POST(request) {
       const { data: lead } = await db.from('client_lead').select('zip_code').eq('lead_id', id).single()
       const loc = await lookupZip(lead?.zip_code)
       await db.from('client_lead').update({
-        lead_status: 'New Lead',
+        lead_status: 'New / Not Yet Contacted',
         ...(loc.city ? { city: loc.city } : {}),
         ...(loc.state ? { state: loc.state } : {}),
       }).eq('lead_id', id)
