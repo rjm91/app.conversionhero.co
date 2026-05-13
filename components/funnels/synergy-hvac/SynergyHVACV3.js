@@ -482,8 +482,7 @@ export default function SynergyHVACV3({
                   Get a <span className="hl">free second opinion</span> on your HVAC system.
                 </h1>
                 <p className="v3-promo">
-                  <span className="v3-badge">Limited Time</span>
-                  Free diagnostic visit, financing options up to 10 years &amp; manufacturer warranty on all new installs.
+                  Don&apos;t guess. Don&apos;t overpay. Get expert confirmation at zero cost before you commit.
                 </p>
               </div>
 
