@@ -172,6 +172,49 @@ async function fetchAds(accessToken, customerId, startDate, endDate) {
   return []
 }
 
+// Step 2d: Query Google Ads API — YouTube video IDs per ad
+async function fetchAdVideos(accessToken, customerId) {
+  const query = `
+    SELECT
+      ad_group_ad.ad.id,
+      asset.youtube_video_asset.youtube_video_id
+    FROM ad_group_ad_asset_view
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX')
+      AND asset.type = 'YOUTUBE_VIDEO'
+  `
+
+  const versions = ['v20', 'v21', 'v22', 'v19']
+  for (const version of versions) {
+    const res = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization':     `Bearer ${accessToken}`,
+          'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          'login-customer-id': process.env.GOOGLE_ADS_MANAGER_ID,
+          'Content-Type':      'application/json',
+        },
+        body: JSON.stringify({ query }),
+      }
+    )
+    const { ok, status, data, rawText } = await safeJson(res)
+    if (ok) {
+      // Build map: ad_id → youtube_video_id (first video wins per ad)
+      const map = {}
+      for (const row of (data.results || [])) {
+        const adId = row.adGroupAd?.ad?.id?.toString()
+        const videoId = row.asset?.youtubeVideoAsset?.youtubeVideoId
+        if (adId && videoId && !map[adId]) map[adId] = videoId
+      }
+      return map
+    }
+    if (status === 401) throw new Error(`[Google Ads API ${version}] HTTP 401: ${rawText}`)
+    if (status !== 404) throw new Error(`[Google Ads API ${version}] HTTP ${status}: ${rawText}`)
+  }
+  return {}
+}
+
 // Step 3: Save daily campaign rows to Supabase
 async function saveCampaigns(clientId, customerId, campaigns, startDate, endDate) {
   // Delete existing daily rows for this client + date range
@@ -244,7 +287,7 @@ async function saveAdGroups(clientId, customerId, adGroups, startDate, endDate) 
 }
 
 // Step 3c: Save daily ad rows to Supabase
-async function saveAds(clientId, customerId, ads, startDate, endDate) {
+async function saveAds(clientId, customerId, ads, startDate, endDate, videoMap = {}) {
   await supabase.from('client_yt_ads').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
   if (ads.length === 0) return
 
@@ -257,6 +300,7 @@ async function saveAds(clientId, customerId, ads, startDate, endDate) {
     ad_name:             row.adGroupAd?.ad?.name || '',
     ad_type:             row.adGroupAd?.ad?.type || '',
     status:              row.adGroupAd?.status || '',
+    youtube_video_id:    videoMap[row.adGroupAd?.ad?.id?.toString()] || null,
     cost:                (row.metrics?.costMicros || 0) / 1_000_000,
     clicks:              row.metrics?.clicks || 0,
     cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
@@ -305,15 +349,16 @@ export async function GET(request) {
     const results = []
 
     for (const account of adsAccounts) {
-      const [campaigns, adGroups, ads] = await Promise.all([
+      const [campaigns, adGroups, ads, videoMap] = await Promise.all([
         fetchYouTubeCampaigns(accessToken, account.customer_id, startDate, endDate),
         fetchAdGroups(accessToken, account.customer_id, startDate, endDate),
         fetchAds(accessToken, account.customer_id, startDate, endDate),
+        fetchAdVideos(accessToken, account.customer_id),
       ])
       await Promise.all([
         saveCampaigns(account.client_id, account.customer_id, campaigns, startDate, endDate),
         saveAdGroups(account.client_id, account.customer_id, adGroups, startDate, endDate),
-        saveAds(account.client_id, account.customer_id, ads, startDate, endDate),
+        saveAds(account.client_id, account.customer_id, ads, startDate, endDate, videoMap),
       ])
       results.push({ client_id: account.client_id, client_name: account.client_name, campaigns: campaigns.length, adGroups: adGroups.length, ads: ads.length })
     }

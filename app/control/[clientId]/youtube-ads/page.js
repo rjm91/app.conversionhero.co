@@ -235,6 +235,7 @@ export default function YouTubeAdsPage() {
         map[id] = {
           ad_id: row.ad_id, ad_name: row.ad_name, ad_type: row.ad_type,
           ad_group_id: row.ad_group_id, campaign_id: row.campaign_id, status: row.status,
+          youtube_video_id: row.youtube_video_id || null,
           cost: 0, clicks: 0, conversions: 0, synced_at: row.synced_at,
         }
       }
@@ -538,6 +539,13 @@ export default function YouTubeAdsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2.5">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          {view === 'ads' && row.youtube_video_id && (
+                            <img
+                              src={`https://img.youtube.com/vi/${row.youtube_video_id}/default.jpg`}
+                              alt=""
+                              className="w-16 h-9 object-cover rounded flex-shrink-0"
+                            />
+                          )}
                           <div>
                             <span className={`font-medium ${isClickable ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
                               {getRowName(row)}
