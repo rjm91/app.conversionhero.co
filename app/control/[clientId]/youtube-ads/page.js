@@ -541,9 +541,9 @@ export default function YouTubeAdsPage() {
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
                           {view === 'ads' && row.youtube_video_id && (
                             <img
-                              src={`https://img.youtube.com/vi/${row.youtube_video_id}/default.jpg`}
+                              src={`https://img.youtube.com/vi/${row.youtube_video_id}/mqdefault.jpg`}
                               alt=""
-                              className="w-16 h-9 object-cover rounded flex-shrink-0"
+                              className="w-28 h-16 object-cover rounded flex-shrink-0"
                             />
                           )}
                           <div>
