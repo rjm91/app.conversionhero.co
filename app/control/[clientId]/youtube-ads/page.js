@@ -465,7 +465,7 @@ export default function YouTubeAdsPage() {
         {view !== 'campaigns' && (
           <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 text-sm">
-              <button onClick={navToCampaigns} className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0">
+              <button onClick={navToCampaigns} className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -479,7 +479,7 @@ export default function YouTubeAdsPage() {
                   {view === 'adGroups' ? (
                     <span className="text-gray-700 dark:text-gray-200 font-medium truncate">{selectedCampaign.campaign_name}</span>
                   ) : (
-                    <button onClick={navToAdGroups} className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate max-w-[300px]">
+                    <button onClick={navToAdGroups} className="text-blue-600 dark:text-blue-400 font-medium truncate max-w-[300px]">
                       {selectedCampaign.campaign_name}
                     </button>
                   )}
@@ -539,7 +539,7 @@ export default function YouTubeAdsPage() {
                         <div className="flex items-center gap-2.5">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <div>
-                            <span className={`font-medium ${isClickable ? 'text-blue-600 dark:text-blue-400 hover:underline' : 'text-gray-800 dark:text-gray-100'}`}>
+                            <span className={`font-medium ${isClickable ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
                               {getRowName(row)}
                             </span>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">
