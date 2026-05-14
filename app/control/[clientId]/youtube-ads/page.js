@@ -551,8 +551,14 @@ export default function YouTubeAdsPage() {
                               {getRowName(row)}
                             </span>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">
-                              ID: {getRowId(row)}
-                              {view === 'ads' && row.ad_type && <span className="ml-2 text-gray-400">({row.ad_type})</span>}
+                              {view === 'ads' ? (
+                                <>
+                                  Ad ID: {getRowId(row)}
+                                  {row.youtube_video_id && <span className="ml-3">Video ID: {row.youtube_video_id}</span>}
+                                </>
+                              ) : (
+                                <>ID: {getRowId(row)}</>
+                              )}
                             </p>
                           </div>
                         </div>
