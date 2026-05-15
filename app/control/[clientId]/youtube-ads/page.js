@@ -399,7 +399,7 @@ export default function YouTubeAdsPage() {
   return (
     <div className="p-8">
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">YouTube Ads</h1>
           <div className="flex items-center gap-3 mt-1">
@@ -415,6 +415,29 @@ export default function YouTubeAdsPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               LIVE
             </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Start</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">End</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+              className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <button onClick={handleApply}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm">
+            Apply
+          </button>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</label>
+            <select value={statusFilter} onChange={e => handleStatusChange(e.target.value)}
+              className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#161b30]">
+              {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+            </select>
           </div>
         </div>
       </div>
@@ -437,33 +460,6 @@ export default function YouTubeAdsPage() {
       )}
 
       <div className="bg-white dark:bg-[#111528] rounded-xl border border-gray-100 dark:border-white/[0.06] shadow-sm dark:shadow-none overflow-hidden">
-
-        {/* Controls */}
-        <div className="flex items-center justify-end px-6 py-4 border-b border-gray-100 dark:border-white/[0.06] flex-wrap gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Start</label>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">End</label>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <button onClick={handleApply}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm">
-              Apply
-            </button>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</label>
-              <select value={statusFilter} onChange={e => handleStatusChange(e.target.value)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700">
-                {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
 
         {/* Breadcrumb Navigation */}
         {view !== 'campaigns' && (
