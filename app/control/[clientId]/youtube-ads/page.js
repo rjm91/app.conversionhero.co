@@ -402,13 +402,26 @@ export default function YouTubeAdsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">YouTube Ads</h1>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">{clientName}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-gray-400 dark:text-gray-500 text-sm">{clientName} · {syncedLabel}</span>
+            <button
+              onClick={handleRefresh}
+              disabled={syncing}
+              className="text-xs font-medium border border-gray-200 dark:border-gray-600 px-3 py-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400 disabled:opacity-50"
+            >
+              {syncing ? 'Syncing…' : 'Refresh'}
+            </button>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              LIVE
+            </span>
+          </div>
         </div>
       </div>
 
       {connected && (
         <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm px-4 py-3 rounded-lg">
-          Google Ads reconnected successfully. Click <strong>Sync Now</strong> to pull the latest data.
+          Google Ads reconnected successfully. Click <strong>Refresh</strong> to pull the latest data.
         </div>
       )}
 
@@ -423,30 +436,20 @@ export default function YouTubeAdsPage() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
+      <div className="bg-white dark:bg-[#111528] rounded-xl border border-gray-100 dark:border-white/[0.06] shadow-sm dark:shadow-none overflow-hidden">
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400 dark:text-gray-500">{syncedLabel}</span>
-            <button
-              onClick={handleRefresh}
-              disabled={syncing}
-              className="text-sm font-medium border border-gray-200 dark:border-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-300 disabled:opacity-50"
-            >
-              {syncing ? 'Syncing…' : 'Sync Now'}
-            </button>
-          </div>
+        <div className="flex items-center justify-end px-6 py-4 border-b border-gray-100 dark:border-white/[0.06] flex-wrap gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Start</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">End</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <button onClick={handleApply}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition shadow-sm">
@@ -464,7 +467,7 @@ export default function YouTubeAdsPage() {
 
         {/* Breadcrumb Navigation */}
         {view !== 'campaigns' && (
-          <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700">
+          <div className="px-6 py-3 border-b border-gray-100 dark:border-white/[0.06]">
             <div className="flex items-center gap-2 text-sm">
               <button onClick={navToCampaigns} className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,7 +509,7 @@ export default function YouTubeAdsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+              <thead className="bg-gray-50 dark:bg-[#161b30] border-b border-gray-100 dark:border-white/[0.06]">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px]">{nameLabel}</th>
                   {showBudget && (
@@ -517,15 +520,15 @@ export default function YouTubeAdsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                     Conv. (CH Reported)
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
                     Cost / Conv. (CH Reported)
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                 {filtered.map((row, i) => {
                   const costPerConv = row.conversions > 0 ? Number(row.cost) / Number(row.conversions) : 0
                   const chLeads     = getChLeads(row)
@@ -534,11 +537,11 @@ export default function YouTubeAdsPage() {
                     <tr
                       key={i}
                       onClick={() => isClickable && handleRowClick(row)}
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isClickable ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors ${isClickable ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]' : 'bg-gray-400 dark:bg-gray-600'}`} />
                           {view === 'ads' && row.youtube_video_id && (
                             <img
                               src={`https://img.youtube.com/vi/${row.youtube_video_id}/mqdefault.jpg`}
@@ -547,7 +550,7 @@ export default function YouTubeAdsPage() {
                             />
                           )}
                           <div>
-                            <span className={`font-medium ${isClickable ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                            <span className="font-medium text-gray-800 dark:text-white">
                               {getRowName(row)}
                             </span>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-mono tracking-wide">
@@ -573,10 +576,10 @@ export default function YouTubeAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -585,7 +588,7 @@ export default function YouTubeAdsPage() {
               </tbody>
 
               {filtered.length > 0 && (
-                <tfoot className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                <tfoot className="border-t-2 border-gray-200 dark:border-white/[0.08] bg-gray-50 dark:bg-[#161b30]">
                   <tr>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
                     {showBudget && (
@@ -598,8 +601,8 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#4ad87d] bg-blue-50 dark:bg-transparent">
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent border-l border-blue-100 dark:border-white/10">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
@@ -616,7 +619,7 @@ export default function YouTubeAdsPage() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No {nameLabel.toLowerCase()} data for this date range.</p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click <strong>Sync Now</strong> to pull data from Google Ads.</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click <strong>Refresh</strong> to pull data from Google Ads.</p>
           </div>
         )}
       </div>
