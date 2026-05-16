@@ -47,6 +47,14 @@ export default function AgencyLeadsPage() {
   const [createSaving, setCreateSaving] = useState(false)
   const [createError, setCreateError] = useState(null)
 
+  // Create Client state
+  const [creatingClient, setCreatingClient] = useState(false)
+  const [clientForm, setClientForm] = useState({ client_name: '', industry: '', city: '', state: '' })
+  const [clientSaving, setClientSaving] = useState(false)
+  const [clientError, setClientError] = useState(null)
+  const [clientCreatedIds, setClientCreatedIds] = useState(new Set())
+  const [clientSourceLeadId, setClientSourceLeadId] = useState(null)
+
   useEffect(() => { load() }, [])
 
   async function load() {
@@ -159,6 +167,39 @@ export default function AgencyLeadsPage() {
     }
   }
 
+  function openCreateClient(lead) {
+    setClientForm({
+      client_name: lead.company || `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+      industry: '',
+      city: lead.meta?.city || '',
+      state: lead.meta?.state || '',
+    })
+    setClientSourceLeadId(lead.id)
+    setClientError(null)
+    setCreatingClient(true)
+    setSelected(null)
+  }
+
+  async function handleCreateClient() {
+    setClientSaving(true)
+    setClientError(null)
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clientForm),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create client')
+      setClientCreatedIds(prev => new Set([...prev, clientSourceLeadId]))
+      setCreatingClient(false)
+    } catch (err) {
+      setClientError(err.message)
+    } finally {
+      setClientSaving(false)
+    }
+  }
+
   const filtered = leads.filter(l => {
     const q = search.toLowerCase()
     if (!q) return true
@@ -236,6 +277,7 @@ export default function AgencyLeadsPage() {
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Appt Status</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Sale Status</th>
                 <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Submitted</th>
+                <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="whitespace-nowrap">
@@ -277,6 +319,18 @@ export default function AgencyLeadsPage() {
                   <td className="px-4 py-3.5"><StatusBadge value={l.sale_status} /></td>
                   <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
                     {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-4 py-3.5 whitespace-nowrap w-px" onClick={e => e.stopPropagation()}>
+                    {clientCreatedIds.has(l.id) ? (
+                      <span className="text-xs text-green-500 dark:text-green-400 font-medium">✓ Client Created</span>
+                    ) : (
+                      <button
+                        onClick={() => openCreateClient(l)}
+                        className="px-3 py-1 text-xs font-medium rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition whitespace-nowrap"
+                      >
+                        Create Client
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -357,6 +411,79 @@ export default function AgencyLeadsPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
               >
                 {createSaving ? 'Creating…' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {creatingClient && (
+        <>
+          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-30" onClick={() => setCreatingClient(false)} />
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-transparent dark:border-white/5">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/5">
+              <div>
+                <h2 className="font-semibold text-gray-900 dark:text-white">Create Client</h2>
+                <p className="text-xs text-gray-400">Set up a new client from this lead</p>
+              </div>
+              <button
+                onClick={() => setCreatingClient(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-sm">
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Client Name</label>
+                <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                  value={clientForm.client_name} onChange={e => setClientForm(p => ({ ...p, client_name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Industry</label>
+                <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] dark:text-white"
+                  value={clientForm.industry} onChange={e => setClientForm(p => ({ ...p, industry: e.target.value }))}>
+                  <option value="">Select industry</option>
+                  <option>HVAC</option>
+                  <option>Roofing</option>
+                  <option>Solar</option>
+                  <option>Funeral</option>
+                  <option>Restaurant</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">City</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={clientForm.city} onChange={e => setClientForm(p => ({ ...p, city: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">State</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white"
+                    value={clientForm.state} onChange={e => setClientForm(p => ({ ...p, state: e.target.value }))} />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">A client ID will be auto-generated (e.g. ch015). Status will be set to Active.</p>
+              {clientError && <p className="text-xs text-red-500">{clientError}</p>}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setCreatingClient(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateClient}
+                disabled={clientSaving || !clientForm.client_name}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+              >
+                {clientSaving ? 'Creating…' : 'Create Client'}
               </button>
             </div>
           </div>
