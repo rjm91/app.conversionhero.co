@@ -21,6 +21,10 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [updating, setUpdating] = useState(null)
+  const [adsAccounts, setAdsAccounts] = useState({}) // client_id → { customer_id, is_active }
+  const [editingAds, setEditingAds] = useState(null) // client_id being edited
+  const [editValue, setEditValue] = useState('')
+  const [savingAds, setSavingAds] = useState(null)
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
@@ -29,6 +33,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients()
+    fetchAdsAccounts()
   }, [])
 
   async function fetchClients() {
@@ -40,6 +45,75 @@ export default function ClientsPage() {
     if (error) console.error('Error fetching clients:', error)
     else setClients(data)
     setLoading(false)
+  }
+
+  async function fetchAdsAccounts() {
+    const { data } = await supabase
+      .from('client_google_ads_account')
+      .select('client_id, customer_id, is_active')
+    if (data) {
+      const map = {}
+      for (const row of data) map[row.client_id] = row
+      setAdsAccounts(map)
+    }
+  }
+
+  function startEditAds(clientId) {
+    setEditingAds(clientId)
+    setEditValue(adsAccounts[clientId]?.customer_id || '')
+  }
+
+  async function saveAdsAccount(client) {
+    const cleaned = editValue.replace(/[^0-9]/g, '').trim()
+    setSavingAds(client.client_id)
+
+    if (!cleaned) {
+      // Remove the account if cleared
+      if (adsAccounts[client.client_id]) {
+        await supabase
+          .from('client_google_ads_account')
+          .delete()
+          .eq('client_id', client.client_id)
+        setAdsAccounts(prev => {
+          const next = { ...prev }
+          delete next[client.client_id]
+          return next
+        })
+      }
+    } else {
+      const existing = adsAccounts[client.client_id]
+      if (existing) {
+        await supabase
+          .from('client_google_ads_account')
+          .update({ customer_id: cleaned, client_name: client.client_name })
+          .eq('client_id', client.client_id)
+      } else {
+        await supabase
+          .from('client_google_ads_account')
+          .insert({
+            client_id: client.client_id,
+            client_name: client.client_name,
+            customer_id: cleaned,
+            login_customer_id: null,
+            is_active: true,
+          })
+      }
+      setAdsAccounts(prev => ({
+        ...prev,
+        [client.client_id]: { customer_id: cleaned, is_active: true },
+      }))
+    }
+
+    setEditingAds(null)
+    setEditValue('')
+    setSavingAds(null)
+  }
+
+  function formatCustomerId(id) {
+    if (!id) return ''
+    const d = id.replace(/[^0-9]/g, '')
+    if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`
+    return d
   }
 
   async function toggleStatus(client) {
@@ -137,6 +211,7 @@ export default function ClientsPage() {
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Client</th>
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Industry</th>
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Location</th>
+                <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Google Ads ID</th>
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Status</th>
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Action</th>
               </tr>
@@ -163,6 +238,58 @@ export default function ClientsPage() {
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{client.industry}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                     {client.city && client.state ? `${client.city}, ${client.state}` : '—'}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingAds === client.client_id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="e.g. 123-456-7890"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveAdsAccount(client)
+                            if (e.key === 'Escape') setEditingAds(null)
+                          }}
+                          className="w-32 text-xs font-mono border border-blue-400 dark:border-blue-500 rounded px-2 py-1 bg-white dark:bg-white/5 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => saveAdsAccount(client)}
+                          disabled={savingAds === client.client_id}
+                          className="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline disabled:opacity-50"
+                        >
+                          {savingAds === client.client_id ? '...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingAds(null)}
+                          className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditAds(client.client_id)}
+                        className="group flex items-center gap-1.5"
+                      >
+                        {adsAccounts[client.client_id]?.customer_id ? (
+                          <>
+                            <span className="text-xs font-mono text-gray-600 dark:text-gray-300">
+                              {formatCustomerId(adsAccounts[client.client_id].customer_id)}
+                            </span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title="Linked" />
+                            <svg className="w-3 h-3 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition">
+                            + Link Account
+                          </span>
+                        )}
+                      </button>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
@@ -194,7 +321,7 @@ export default function ClientsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
                     No clients found.
                   </td>
                 </tr>
