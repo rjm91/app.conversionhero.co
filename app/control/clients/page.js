@@ -25,6 +25,8 @@ export default function ClientsPage() {
   const [editingAds, setEditingAds] = useState(null) // client_id being edited
   const [editValue, setEditValue] = useState('')
   const [savingAds, setSavingAds] = useState(null)
+  const [sortCol, setSortCol] = useState('created_at')
+  const [sortDir, setSortDir] = useState('desc')
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
@@ -40,7 +42,7 @@ export default function ClientsPage() {
     const { data, error } = await supabase
       .from('client')
       .select('*')
-      .order('client_name', { ascending: true })
+      .order('created_at', { ascending: false })
 
     if (error) console.error('Error fetching clients:', error)
     else setClients(data)
@@ -137,6 +139,17 @@ export default function ClientsPage() {
     setUpdating(null)
   }
 
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ↕'
+
+  function fmtDate(d) {
+    if (!d) return '—'
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   const filtered = clients.filter(c => {
     const matchesFilter = filter === 'All' || c.status === filter
     const matchesSearch =
@@ -144,6 +157,29 @@ export default function ClientsPage() {
       c.industry?.toLowerCase().includes(search.toLowerCase()) ||
       c.city?.toLowerCase().includes(search.toLowerCase())
     return matchesFilter && matchesSearch
+  }).sort((a, b) => {
+    let va, vb
+    switch (sortCol) {
+      case 'created_at':
+        va = new Date(a.created_at || 0); vb = new Date(b.created_at || 0)
+        return sortDir === 'desc' ? vb - va : va - vb
+      case 'client_name':
+        va = (a.client_name || '').toLowerCase(); vb = (b.client_name || '').toLowerCase()
+        break
+      case 'industry':
+        va = (a.industry || '').toLowerCase(); vb = (b.industry || '').toLowerCase()
+        break
+      case 'location':
+        va = `${a.city || ''} ${a.state || ''}`.toLowerCase(); vb = `${b.city || ''} ${b.state || ''}`.toLowerCase()
+        break
+      case 'status':
+        va = (a.status || '').toLowerCase(); vb = (b.status || '').toLowerCase()
+        break
+      default:
+        return 0
+    }
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0
+    return sortDir === 'desc' ? -cmp : cmp
   })
 
   const activeCount = clients.filter(c => c.status === 'Active').length
@@ -208,11 +244,27 @@ export default function ClientsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
-                <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Client</th>
-                <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Industry</th>
-                <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Location</th>
+                {[
+                  { key: 'created_at', label: 'Date' },
+                  { key: 'client_name', label: 'Client' },
+                  { key: 'industry', label: 'Industry' },
+                  { key: 'location', label: 'Location' },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3 cursor-pointer select-none hover:text-gray-300 transition"
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    {col.label}{arrow(col.key)}
+                  </th>
+                ))}
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Google Ads ID</th>
-                <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Status</th>
+                <th
+                  className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3 cursor-pointer select-none hover:text-gray-300 transition"
+                  onClick={() => toggleSort('status')}
+                >
+                  Status{arrow('status')}
+                </th>
                 <th className="text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3">Action</th>
               </tr>
             </thead>
@@ -224,6 +276,7 @@ export default function ClientsPage() {
                     i === filtered.length - 1 ? 'border-0' : ''
                   }`}
                 >
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(client.created_at)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-lg flex items-center justify-center text-base flex-shrink-0">
@@ -321,7 +374,7 @@ export default function ClientsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
                     No clients found.
                   </td>
                 </tr>
