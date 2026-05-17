@@ -87,6 +87,8 @@ export default function PaymentsPage() {
     return { startDate: '', endDate: '' }
   }, [dateRange])
 
+  const clientName = id => clients.find(c => c.client_id === id)?.client_name || id
+
   const filtered = useMemo(() => {
     let rows = payments
     if (clientFilter !== 'all') rows = rows.filter(r => r.client_id === clientFilter)
@@ -130,17 +132,15 @@ export default function PaymentsPage() {
       return sortDir === 'desc' ? -cmp : cmp
     })
     return sorted
-  }, [payments, clientFilter, merchantFilter, search, sortCol, sortDir, startDate, endDate, dateRange])
+  }, [payments, clients, clientFilter, merchantFilter, search, sortCol, sortDir, startDate, endDate, dateRange])
 
   const total = useMemo(() => filtered.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0), [filtered])
-
-  const clientName = id => clients.find(c => c.client_id === id)?.client_name || id
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortCol(col); setSortDir('asc') }
   }
-  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''
+  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ↕'
 
   return (
     <div className="p-8">
