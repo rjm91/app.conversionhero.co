@@ -25,8 +25,7 @@ export default function PaymentsPage() {
   const [clientFilter,   setClientFilter]   = useState('all')
   const [merchantFilter, setMerchantFilter] = useState('all')
   const [sortDir,        setSortDir]        = useState('desc')
-  const [startDate,      setStartDate]      = useState('')
-  const [endDate,        setEndDate]        = useState('')
+  const [dateRange,      setDateRange]      = useState('all')
 
   const supabaseRef = createClient()
 
@@ -49,6 +48,44 @@ export default function PaymentsPage() {
 
   const merchants = useMemo(() => [...new Set(payments.map(p => p.merchant).filter(Boolean))].sort(), [payments])
 
+  // Build dynamic date range options
+  const dateRangeOptions = useMemo(() => {
+    const now = new Date()
+    const thisYear = now.getFullYear()
+    const opts = [
+      { value: 'last7', label: 'Last 7 Days' },
+      { value: 'last14', label: 'Last 14 Days' },
+      { value: 'last30', label: 'Last 30 Days' },
+      { value: 'last90', label: 'Last 90 Days' },
+      { value: `year_${thisYear}`, label: 'This Year' },
+      { value: `year_${thisYear - 1}`, label: 'Last Year' },
+    ]
+    // Add earlier years dynamically (down to 2021)
+    for (let y = thisYear - 2; y >= 2021; y--) {
+      opts.push({ value: `year_${y}`, label: String(y) })
+    }
+    opts.push({ value: 'all', label: 'All Time' })
+    return opts
+  }, [])
+
+  // Compute start/end from dateRange
+  const { startDate, endDate } = useMemo(() => {
+    if (dateRange === 'all') return { startDate: '', endDate: '' }
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    if (dateRange.startsWith('last')) {
+      const days = parseInt(dateRange.replace('last', ''), 10)
+      const d = new Date(now)
+      d.setDate(d.getDate() - days)
+      return { startDate: d.toISOString().split('T')[0], endDate: today }
+    }
+    if (dateRange.startsWith('year_')) {
+      const y = parseInt(dateRange.replace('year_', ''), 10)
+      return { startDate: `${y}-01-01`, endDate: `${y}-12-31` }
+    }
+    return { startDate: '', endDate: '' }
+  }, [dateRange])
+
   const filtered = useMemo(() => {
     let rows = payments
     if (clientFilter !== 'all') rows = rows.filter(r => r.client_id === clientFilter)
@@ -69,7 +106,7 @@ export default function PaymentsPage() {
       return sortDir === 'desc' ? db - da : da - db
     })
     return sorted
-  }, [payments, clientFilter, merchantFilter, search, sortDir, startDate, endDate])
+  }, [payments, clientFilter, merchantFilter, search, sortDir, startDate, endDate, dateRange])
 
   const total = useMemo(() => filtered.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0), [filtered])
 
@@ -136,26 +173,13 @@ export default function PaymentsPage() {
           <option value="all">All Merchants</option>
           {merchants.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <input
-          type="date"
-          value={startDate}
-          onChange={e => setStartDate(e.target.value)}
+        <select
+          value={dateRange}
+          onChange={e => setDateRange(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <input
-          type="date"
-          value={endDate}
-          onChange={e => setEndDate(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {(startDate || endDate) && (
-          <button
-            onClick={() => { setStartDate(''); setEndDate('') }}
-            className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-          >
-            Clear dates
-          </button>
-        )}
+        >
+          {dateRangeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         <button
           onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
           className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
