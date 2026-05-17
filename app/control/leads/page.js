@@ -452,6 +452,7 @@ export default function AgencyLeadsPage() {
                   <option>Solar</option>
                   <option>Funeral</option>
                   <option>Restaurant</option>
+                  <option>E-comm</option>
                   <option>Other</option>
                 </select>
               </div>

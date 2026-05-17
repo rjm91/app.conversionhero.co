@@ -10,6 +10,7 @@ const industryEmoji = {
   Solar: '☀️',
   Funeral: '🕊️',
   Restaurant: '🍽️',
+  'E-comm': '🛒',
   Other: '📊',
 }
 
