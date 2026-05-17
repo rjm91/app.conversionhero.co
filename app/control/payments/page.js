@@ -140,7 +140,7 @@ export default function PaymentsPage() {
     if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortCol(col); setSortDir('asc') }
   }
-  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ↑↓'
+  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ↓'
 
   return (
     <div className="p-8">
