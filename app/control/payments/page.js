@@ -192,7 +192,7 @@ export default function PaymentsPage() {
                     {row.customer_email && <p className="text-xs text-gray-400">{row.customer_email}</p>}
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{row.merchant || '—'}</td>
-                  <td className="px-4 py-3 text-gray-400 font-mono text-xs">{row.invoice_id || '—'}</td>
+                  <td className="px-4 py-3 text-gray-400 font-mono text-xs max-w-[120px] truncate" title={row.invoice_id || ''}>{row.invoice_id || '—'}</td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                     {row.amount ? fmt(parseFloat(row.amount)) : '—'}
                   </td>
