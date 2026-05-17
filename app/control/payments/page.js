@@ -24,6 +24,7 @@ export default function PaymentsPage() {
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
   const [merchantFilter, setMerchantFilter] = useState('all')
+  const [sortCol,        setSortCol]        = useState('date_created')
   const [sortDir,        setSortDir]        = useState('desc')
   const [dateRange,      setDateRange]      = useState('all')
 
@@ -102,15 +103,44 @@ export default function PaymentsPage() {
       )
     }
     const sorted = [...rows].sort((a, b) => {
-      const da = new Date(a.date_created), db = new Date(b.date_created)
-      return sortDir === 'desc' ? db - da : da - db
+      let va, vb
+      switch (sortCol) {
+        case 'date_created':
+          va = new Date(a.date_created || 0); vb = new Date(b.date_created || 0)
+          return sortDir === 'desc' ? vb - va : va - vb
+        case 'client':
+          va = clientName(a.client_id).toLowerCase(); vb = clientName(b.client_id).toLowerCase()
+          break
+        case 'customer':
+          va = (a.customer_name || '').toLowerCase(); vb = (b.customer_name || '').toLowerCase()
+          break
+        case 'merchant':
+          va = (a.merchant || '').toLowerCase(); vb = (b.merchant || '').toLowerCase()
+          break
+        case 'invoice':
+          va = (a.invoice_id || '').toLowerCase(); vb = (b.invoice_id || '').toLowerCase()
+          break
+        case 'amount':
+          va = parseFloat(a.amount) || 0; vb = parseFloat(b.amount) || 0
+          return sortDir === 'desc' ? vb - va : va - vb
+        default:
+          return 0
+      }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0
+      return sortDir === 'desc' ? -cmp : cmp
     })
     return sorted
-  }, [payments, clientFilter, merchantFilter, search, sortDir, startDate, endDate, dateRange])
+  }, [payments, clientFilter, merchantFilter, search, sortCol, sortDir, startDate, endDate, dateRange])
 
   const total = useMemo(() => filtered.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0), [filtered])
 
   const clientName = id => clients.find(c => c.client_id === id)?.client_name || id
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''
 
   return (
     <div className="p-8">
@@ -188,17 +218,22 @@ export default function PaymentsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                <th
-                  className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-gray-300 transition"
-                  onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-                >
-                  Date {sortDir === 'desc' ? '↓' : '↑'}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Client</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Customer</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Merchant</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Invoice</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Amount</th>
+                {[
+                  { key: 'date_created', label: 'Date', align: 'left' },
+                  { key: 'client', label: 'Client', align: 'left' },
+                  { key: 'customer', label: 'Customer', align: 'left' },
+                  { key: 'merchant', label: 'Merchant', align: 'left' },
+                  { key: 'invoice', label: 'Invoice', align: 'left' },
+                  { key: 'amount', label: 'Amount', align: 'right' },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    className={`text-${col.align} px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-gray-300 transition`}
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    {col.label}{arrow(col.key)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
