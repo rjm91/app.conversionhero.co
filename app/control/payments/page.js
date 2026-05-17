@@ -180,12 +180,6 @@ export default function PaymentsPage() {
         >
           {dateRangeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button
-          onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#171B33] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-        >
-          Date {sortDir === 'desc' ? '↓' : '↑'}
-        </button>
       </div>
 
       {/* Table */}
@@ -194,7 +188,12 @@ export default function PaymentsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+                <th
+                  className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-gray-300 transition"
+                  onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+                >
+                  Date {sortDir === 'desc' ? '↓' : '↑'}
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Client</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Customer</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Merchant</th>
