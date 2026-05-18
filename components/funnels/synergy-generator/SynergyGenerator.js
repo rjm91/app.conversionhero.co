@@ -304,9 +304,9 @@ export default function SynergyGenerator({
     }, 600)
   }
 
-  function chooseReason(v)  { setReason(v); saveField('reason', v); scheduleAdvance() }
-  function chooseFuel(v)    { setFuel(v);   saveField('fuel', v);   scheduleAdvance() }
-  function chooseSize(v)    { setSize(v);   saveField('size', v);   scheduleAdvance() }
+  function chooseReason(id) { setReason(id); saveField('reason', REASONS.find(o => o.id === id)?.label || id); scheduleAdvance() }
+  function chooseFuel(id)   { setFuel(id);   saveField('fuel', FUEL.find(o => o.id === id)?.label || id);    scheduleAdvance() }
+  function chooseSize(id)   { setSize(id);   saveField('size', SIZE.find(o => o.id === id)?.label || id);    scheduleAdvance() }
 
   async function next() {
     clearTimeout(advanceTimer.current)
