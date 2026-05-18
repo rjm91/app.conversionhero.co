@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ads → Campaign Builder — In-App Placement Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 232px;
+      --bg: #0a0b12;
+      --sidebar-bg: #0c0e16;
+      --surface: #10131d;
+      --surface2: #161a26;
+      --border: rgba(255,255,255,0.06);
+      --border2: rgba(255,255,255,0.10);
+      --text: #f3f5f9;
+      --muted: #8b93a7;
+      --dim: #59617a;
+      --blue: #2f63e6;
+      --blue-soft: rgba(47,99,230,0.16);
+      --ch-green: #34d399;
+      --ch-green-light: #6ee7b7;
+      --amber: #f5c542;
+      --red: #f87171;
+      --indigo: #6d5cf5;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 18px 14px;
+      flex-shrink: 0;
+    }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 11px;
+      padding: 4px 6px 18px;
+    }
+    .sidebar-avatar {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      background: var(--blue);
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 13px; color: #fff;
+    }
+    .sidebar-brand span { font-weight: 600; font-size: 15px; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 9px;
+      text-decoration: none;
+      margin-bottom: 2px;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .nav-item.active {
+      color: #fff;
+      background: var(--blue);
+      font-weight: 600;
+    }
+    .nav-icon { width: 17px; text-align: center; font-size: 15px; opacity: .85; }
+    .sidebar-spacer { flex: 1; }
+    .nav-back {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; color: var(--muted);
+      font-size: 13px; cursor: pointer; border-top: 1px solid var(--border);
+      margin-top: 10px; padding-top: 16px;
+    }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    .topbar {
+      display: flex; justify-content: flex-end; align-items: center;
+      padding: 16px 28px; gap: 12px;
+    }
+    .avatar-rm {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #1e2840; color: #aab6d6;
+      display: grid; place-items: center;
+      font-size: 12px; font-weight: 700;
+    }
+
+    .page-header { padding: 0 32px; }
+    .page-header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+
+    /* ── Tab switch ── */
+    .tabs {
+      display: flex; gap: 4px;
+      margin: 18px 0 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 10px 16px;
+      font-size: 14px; font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border: none; background: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: #fff; border-bottom-color: var(--blue); }
+    .tab .hint { font-size: 11px; font-weight: 500; color: var(--dim); margin-left: 7px; }
+
+    .content { flex: 1; padding: 22px 32px 32px; display: flex; flex-direction: column; min-height: 0; }
+    .hidden { display: none !important; }
+
+    /* ── Performance tab ── */
+    .filter-row {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .flabel { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; color: var(--dim); text-transform: uppercase; }
+    .fdate, .fsel {
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text); border-radius: 8px; padding: 8px 12px;
+      font-size: 13px; font-family: 'SF Mono','Fira Code',monospace;
+    }
+    .btn-apply { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .perf-table {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); flex: 1;
+      display: flex; flex-direction: column;
+    }
+    .perf-head {
+      display: grid; grid-template-columns: 2fr repeat(7, 1fr);
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--dim);
+    }
+    .perf-head span:not(:first-child) { text-align: right; }
+    .perf-head .ch { color: var(--ch-green); }
+    .perf-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      color: var(--dim); padding: 80px 0;
+    }
+    .perf-empty .ico { font-size: 34px; opacity: .5; }
+    .perf-empty .t { color: var(--muted); font-size: 14px; }
+    .perf-empty .s { font-size: 12px; }
+
+    /* ── Campaign Builder tab ── */
+    .builder-note {
+      font-size: 12px; color: var(--muted);
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 13px; margin-bottom: 16px;
+    }
+    .builder-note b { color: var(--ch-green-light); }
+    .split {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 18px; min-height: 520px;
+    }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 16px; font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim);
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .conv { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+    .msg { max-width: 86%; }
+    .msg-user { align-self: flex-end; }
+    .msg-agent { align-self: flex-start; }
+    .bubble { padding: 10px 13px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+    .msg-user .bubble { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+    .msg-agent .bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg-label { font-size: 10px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .msg-user .msg-label { text-align: right; }
+    .voice-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--ch-green-light); margin-left: 5px; }
+    .mic-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ch-green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .composer {
+      border-top: 1px solid var(--border); padding: 13px 14px;
+      display: flex; align-items: center; gap: 10px; background: var(--surface2);
+    }
+    .mic-btn {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--ch-green); color: #06281c; border: none;
+      font-size: 16px; cursor: pointer; flex-shrink: 0;
+      display: grid; place-items: center;
+      animation: ring 2.5s infinite;
+    }
+    @keyframes ring { 0%{box-shadow:0 0 0 0 rgba(52,211,153,0.45)} 70%{box-shadow:0 0 0 11px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+    .composer-input { flex: 1; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; padding: 9px 12px; color: var(--muted); font-size: 13px; font-family: inherit; }
+    .send-btn { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 9px 15px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    .preview { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 11px; }
+    .camp-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 13px; }
+    .camp-card.warn { border-color: rgba(245,197,66,0.4); background: rgba(245,197,66,0.05); }
+    .camp-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .camp-name { font-weight: 600; font-size: 14px; }
+    .camp-meta { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'SF Mono','Fira Code',monospace; }
+    .pill { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+    .pill-search { background: rgba(47,99,230,0.20); color: #93b8fb; }
+    .pill-blocked { background: rgba(248,113,113,0.16); color: var(--red); }
+    .camp-detail { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .camp-detail .k { color: var(--dim); display: inline-block; min-width: 90px; }
+    .camp-detail .v { color: var(--text); }
+    .subrow { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border); font-size: 11.5px; color: var(--muted); }
+    .subrow b { color: var(--text); font-weight: 600; }
+    .warn-note { margin-top: 9px; font-size: 12px; color: var(--amber); line-height: 1.5; }
+
+    .footer-bar { border-top: 1px solid var(--border); padding: 13px 15px; background: var(--surface2); }
+    .val-row { display: flex; flex-wrap: wrap; gap: 7px 15px; margin-bottom: 11px; }
+    .val { font-size: 11.5px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+    .val .ok { color: var(--ch-green); }
+    .val .bad { color: var(--amber); }
+    .dl-btn {
+      width: 100%; background: var(--ch-green); color: #06281c;
+      border: none; border-radius: 8px; padding: 12px; font-size: 14px;
+      font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .dl-sub { text-align: center; font-size: 11px; color: var(--dim); margin-top: 7px; }
+
+    /* ── Preview mode toggle ── */
+    .preview-toggle {
+      display: flex; gap: 2px; background: var(--bg); border-radius: 7px; padding: 2px;
+      border: 1px solid var(--border);
+    }
+    .preview-toggle button {
+      padding: 6px 14px; font-size: 11px; font-weight: 600; border: none;
+      border-radius: 5px; cursor: pointer; color: var(--muted); background: transparent;
+      transition: all 0.15s;
+    }
+    .preview-toggle button.active {
+      background: var(--surface2); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .preview-toggle button:hover:not(.active) { color: var(--text); }
+
+    /* ── CSV Spreadsheet view ── */
+    .csv-wrap {
+      flex: 1; overflow: auto; padding: 0;
+    }
+    .csv-table {
+      width: max-content; min-width: 100%; border-collapse: collapse;
+      font-size: 11px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+    .csv-table thead { position: sticky; top: 0; z-index: 2; }
+    .csv-table th {
+      background: var(--surface2); color: var(--dim);
+      padding: 8px 12px; text-align: left;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; white-space: nowrap;
+      border-bottom: 2px solid var(--border2);
+      border-right: 1px solid var(--border);
+    }
+    .csv-table th:last-child { border-right: none; }
+    .csv-table td {
+      padding: 7px 12px; white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .csv-table td:last-child { border-right: none; }
+
+    /* Row type color coding */
+    .csv-table tr.row-campaign td { color: var(--text); font-weight: 600; }
+    .csv-table tr.row-campaign td:first-child { border-left: 3px solid var(--blue); }
+    .csv-table tr.row-adgroup td { color: var(--ch-green-light); }
+    .csv-table tr.row-adgroup td:first-child { border-left: 3px solid var(--ch-green); }
+    .csv-table tr.row-keyword td { color: var(--muted); }
+    .csv-table tr.row-keyword td:first-child { border-left: 3px solid var(--indigo); }
+    .csv-table tr.row-ad td { color: #c4b5fd; }
+    .csv-table tr.row-ad td:first-child { border-left: 3px solid var(--amber); }
+
+    .csv-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* Row type badge */
+    .row-type {
+      display: inline-block; padding: 2px 6px; border-radius: 4px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+    }
+    .rt-campaign { background: var(--blue-soft); color: #93b8fb; }
+    .rt-adgroup { background: rgba(52,211,153,0.12); color: var(--ch-green-light); }
+    .rt-keyword { background: rgba(109,92,245,0.15); color: #b4a9fb; }
+    .rt-ad { background: rgba(245,197,66,0.12); color: var(--amber); }
+
+    .csv-legend {
+      display: flex; gap: 16px; padding: 10px 15px;
+      border-bottom: 1px solid var(--border); background: var(--surface);
+      font-size: 11px; color: var(--dim); align-items: center;
+    }
+    .csv-legend .leg-item { display: flex; align-items: center; gap: 6px; }
+    .leg-swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+    .fab {
+      position: fixed; bottom: 26px; right: 26px;
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--indigo); color: #fff;
+      display: grid; place-items: center; font-size: 18px;
+      box-shadow: 0 8px 24px rgba(109,92,245,0.4); cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-avatar">S</div>
+      <span>ShieldTech</span>
+    </div>
+    <a class="nav-item" href="#"><span class="nav-icon">🏢</span> Company</a>
+    <a class="nav-item" href="#"><span class="nav-icon">📊</span> Dashboard</a>
+    <a class="nav-item" href="#"><span class="nav-icon">👤</span> Leads</a>
+    <a class="nav-item active" href="#"><span class="nav-icon">▶️</span> Ads</a>
+    <a class="nav-item" href="#"><span class="nav-icon">📅</span> Calendar</a>
+    <a class="nav-item" href="#"><span class="nav-icon">🔄</span> Funnels</a>
+    <a class="nav-item" href="#"><span class="nav-icon">🎬</span> Videos</a>
+    <a class="nav-item" href="#"><span class="nav-icon">⚡</span> Automations</a>
+    <a class="nav-item" href="#"><span class="nav-icon">💳</span> Billing</a>
+    <div class="sidebar-spacer"></div>
+    <div class="nav-back">← All Clients</div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <div class="topbar">
+      <div class="avatar-rm">RM</div>
+    </div>
+
+    <div class="page-header">
+      <h1>Ads</h1>
+      <div class="tabs">
+        <button class="tab" id="tab-perf" onclick="showTab('perf')">Performance</button>
+        <button class="tab active" id="tab-build" onclick="showTab('build')">Campaign Builder <span class="hint">voice → CSV</span></button>
+      </div>
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="content hidden" id="panel-perf">
+      <div class="filter-row">
+        <span class="flabel">Start</span>
+        <span class="fdate">04/18/2026</span>
+        <span class="flabel">End</span>
+        <span class="fdate">05/18/2026</span>
+        <button class="btn-apply">Apply</button>
+        <span class="flabel" style="margin-left:8px;">Status</span>
+        <span class="fsel">All ▾</span>
+      </div>
+      <div class="perf-table">
+        <div class="perf-head">
+          <span>Campaign</span><span>Budget/Day</span><span>Cost</span>
+          <span>Clicks</span><span>CPC</span><span>Conv.</span>
+          <span class="ch">Conv. (CH)</span><span class="ch">Cost/Conv. (CH)</span>
+        </div>
+        <div class="perf-empty">
+          <div class="ico">📊</div>
+          <div class="t">No campaign data for this date range.</div>
+          <div class="s">Click <b>Refresh</b> to pull data from Google Ads.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMPAIGN BUILDER -->
+    <div class="content" id="panel-build">
+      <div class="builder-note">
+        Describe campaigns by voice → review → download a <b>Google Ads Editor CSV</b>.
+        Supports <b>Search &amp; Shopping</b>. Demand Gen / PMax can't go through Editor
+        CSV and are flagged, not exported.
+      </div>
+
+      <div class="split">
+
+        <!-- Conversation -->
+        <div class="panel">
+          <div class="panel-head">
+            <span>Talk to the agent</span>
+            <span class="voice-tag"><span class="mic-dot"></span> LISTENING</span>
+          </div>
+          <div class="conv">
+            <div class="msg msg-user">
+              <div class="msg-label">You <span class="voice-tag">🎙 voice</span></div>
+              <div class="bubble">Create two search campaigns for ShieldTech. First: brand prospecting, US only, fifty a day, target CPA forty. Second: competitor terms, US, thirty a day, max clicks.</div>
+            </div>
+            <div class="msg msg-agent">
+              <div class="msg-label">Agent</div>
+              <div class="bubble">Got both. Before I build a clean Editor CSV:<br>1. Ad group + keywords for each?<br>2. Final URL?<br>3. Start date — today (2026-05-18) or later? Editor rejects past dates.</div>
+            </div>
+            <div class="msg msg-user">
+              <div class="msg-label">You <span class="voice-tag">🎙 voice</span></div>
+              <div class="bubble">Brand: ad group "Brand — Exact", keywords shieldtech and shield tech exact. Competitor: ad group "Rivals", phrase match on the three main competitors. URL shieldtech.com, start today.</div>
+            </div>
+            <div class="msg msg-agent">
+              <div class="msg-label">Agent</div>
+              <div class="bubble">Built. 2 Search campaigns → 2 ad groups → 5 keywords + 2 RSAs. Preview on the right. I also caught a Demand Gen request — flagging it separately, it can't export to Editor CSV.</div>
+            </div>
+          </div>
+          <div class="composer">
+            <button class="mic-btn">🎙</button>
+            <input class="composer-input" placeholder="Hold the mic and talk, or type a campaign…" />
+            <button class="send-btn">Send</button>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="panel">
+          <div class="panel-head">
+            <span>Parsed campaigns — review before export</span>
+            <div style="display:flex;align-items:center;gap:14px;">
+              <span style="color:var(--muted);font-weight:600;font-size:10.5px;">3 detected · 2 exportable</span>
+              <div class="preview-toggle">
+                <button class="active" onclick="switchView('cards')">Cards</button>
+                <button onclick="switchView('csv')">CSV Preview</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards view -->
+          <div class="preview" id="view-cards">
+            <div class="camp-card">
+              <div class="camp-top">
+                <div>
+                  <div class="camp-name">ShieldTech | Brand | Prospecting | US</div>
+                  <div class="camp-meta">Search · $50.00/day · tCPA $40 · starts 2026-05-18</div>
+                </div>
+                <span class="pill pill-search">SEARCH</span>
+              </div>
+              <div class="camp-detail">
+                <div><span class="k">Bid strategy</span><span class="v">Target CPA</span></div>
+                <div><span class="k">Networks</span><span class="v">Google Search</span></div>
+                <div><span class="k">Location</span><span class="v">United States</span></div>
+              </div>
+              <div class="subrow"><b>Ad group:</b> Brand — Exact · <b>2 keywords:</b> [shieldtech], [shield tech] (Exact) · <b>1 RSA</b> → shieldtech.com</div>
+            </div>
+
+            <div class="camp-card">
+              <div class="camp-top">
+                <div>
+                  <div class="camp-name">ShieldTech | Competitor | US</div>
+                  <div class="camp-meta">Search · $30.00/day · Maximize clicks · starts 2026-05-18</div>
+                </div>
+                <span class="pill pill-search">SEARCH</span>
+              </div>
+              <div class="camp-detail">
+                <div><span class="k">Bid strategy</span><span class="v">Maximize clicks</span></div>
+                <div><span class="k">Networks</span><span class="v">Google Search</span></div>
+                <div><span class="k">Location</span><span class="v">United States</span></div>
+              </div>
+              <div class="subrow"><b>Ad group:</b> Rivals · <b>3 keywords:</b> "competitor a", "competitor b", "competitor c" (Phrase) · <b>1 RSA</b> → shieldtech.com</div>
+            </div>
+
+            <div class="camp-card warn">
+              <div class="camp-top">
+                <div>
+                  <div class="camp-name">ShieldTech | Demand Gen | Prospecting | US</div>
+                  <div class="camp-meta">Demand Gen · cannot export to Editor CSV</div>
+                </div>
+                <span class="pill pill-blocked">BLOCKED</span>
+              </div>
+              <div class="warn-note">⚠ Demand Gen has no Google Ads Editor CSV schema (asset/audience-based). Excluded from the download — saved as a manual-rebuild reference instead.</div>
+            </div>
+          </div>
+
+          <!-- CSV Spreadsheet view -->
+          <div id="view-csv" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+            <div class="csv-legend">
+              <span style="font-weight:600;color:var(--muted);">Row types:</span>
+              <span class="leg-item"><span class="leg-swatch" style="background:var(--blue)"></span> Campaign</span>
+              <span class="leg-item"><span class="leg-swatch" style="background:var(--ch-green)"></span> Ad Group</span>
+              <span class="leg-item"><span class="leg-swatch" style="background:var(--indigo)"></span> Keyword</span>
+              <span class="leg-item"><span class="leg-swatch" style="background:var(--amber)"></span> Ad (RSA)</span>
+              <span style="margin-left:auto;color:var(--dim);font-size:10px;">12 rows · 16 columns · scroll →</span>
+            </div>
+            <div class="csv-wrap">
+              <table class="csv-table">
+                <thead>
+                  <tr>
+                    <th>Row Type</th>
+                    <th>Campaign</th>
+                    <th>Campaign Type</th>
+                    <th>Campaign Status</th>
+                    <th>Budget</th>
+                    <th>Bid Strategy</th>
+                    <th>Start Date</th>
+                    <th>Networks</th>
+                    <th>Location</th>
+                    <th>Ad Group</th>
+                    <th>Keyword</th>
+                    <th>Match Type</th>
+                    <th>Final URL</th>
+                    <th>Headline 1</th>
+                    <th>Headline 2</th>
+                    <th>Headline 3</th>
+                    <th>Description 1</th>
+                    <th>Description 2</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Campaign 1 -->
+                  <tr class="row-campaign">
+                    <td><span class="row-type rt-campaign">CAMPAIGN</span></td>
+                    <td>ShieldTech | Brand | Prospecting | US</td>
+                    <td>Search</td>
+                    <td>Enabled</td>
+                    <td>50.00</td>
+                    <td>Target CPA</td>
+                    <td>2026-05-18</td>
+                    <td>Google Search</td>
+                    <td>United States</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-adgroup">
+                    <td><span class="row-type rt-adgroup">AD GROUP</span></td>
+                    <td>ShieldTech | Brand | Prospecting | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Brand — Exact</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-keyword">
+                    <td><span class="row-type rt-keyword">KEYWORD</span></td>
+                    <td>ShieldTech | Brand | Prospecting | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Brand — Exact</td>
+                    <td>[shieldtech]</td>
+                    <td>Exact</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-keyword">
+                    <td><span class="row-type rt-keyword">KEYWORD</span></td>
+                    <td>ShieldTech | Brand | Prospecting | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Brand — Exact</td>
+                    <td>[shield tech]</td>
+                    <td>Exact</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-ad">
+                    <td><span class="row-type rt-ad">AD (RSA)</span></td>
+                    <td>ShieldTech | Brand | Prospecting | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Brand — Exact</td>
+                    <td></td>
+                    <td></td>
+                    <td>https://shieldtech.com</td>
+                    <td>ShieldTech – Official Site</td>
+                    <td>Trusted Protection Solutions</td>
+                    <td>Get Started Today</td>
+                    <td>Industry-leading protection technology. Learn more about ShieldTech solutions.</td>
+                    <td>Visit our website for pricing and product details. Free consultation available.</td>
+                  </tr>
+
+                  <!-- Campaign 2 -->
+                  <tr class="row-campaign">
+                    <td><span class="row-type rt-campaign">CAMPAIGN</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td>Search</td>
+                    <td>Enabled</td>
+                    <td>30.00</td>
+                    <td>Maximize clicks</td>
+                    <td>2026-05-18</td>
+                    <td>Google Search</td>
+                    <td>United States</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-adgroup">
+                    <td><span class="row-type rt-adgroup">AD GROUP</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Rivals</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-keyword">
+                    <td><span class="row-type rt-keyword">KEYWORD</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Rivals</td>
+                    <td>"competitor a"</td>
+                    <td>Phrase</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-keyword">
+                    <td><span class="row-type rt-keyword">KEYWORD</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Rivals</td>
+                    <td>"competitor b"</td>
+                    <td>Phrase</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-keyword">
+                    <td><span class="row-type rt-keyword">KEYWORD</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Rivals</td>
+                    <td>"competitor c"</td>
+                    <td>Phrase</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-ad">
+                    <td><span class="row-type rt-ad">AD (RSA)</span></td>
+                    <td>ShieldTech | Competitor | US</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>Rivals</td>
+                    <td></td>
+                    <td></td>
+                    <td>https://shieldtech.com</td>
+                    <td>Switch to ShieldTech</td>
+                    <td>Better Protection, Better Price</td>
+                    <td>See Why Customers Switch</td>
+                    <td>Looking for an alternative? ShieldTech offers superior protection at a better value.</td>
+                    <td>Join thousands who made the switch. Compare plans and get started today.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="footer-bar">
+            <div class="val-row">
+              <span class="val"><span class="ok">✓</span> Budgets numeric &gt; 0</span>
+              <span class="val"><span class="ok">✓</span> Dates ≥ today</span>
+              <span class="val"><span class="ok">✓</span> Match types valid</span>
+              <span class="val"><span class="ok">✓</span> Headlines ≤ 30</span>
+              <span class="val"><span class="ok">✓</span> Names resolve</span>
+              <span class="val"><span class="bad">⚠</span> 1 excluded (Demand Gen)</span>
+            </div>
+            <button class="dl-btn">⬇ Download Editor CSV — 2 campaigns</button>
+            <div class="dl-sub">Then: Google Ads Editor → Account → Import → From file…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <div class="fab">💡</div>
+
+  <script>
+    function showTab(which) {
+      var perf = which === 'perf';
+      document.getElementById('panel-perf').classList.toggle('hidden', !perf);
+      document.getElementById('panel-build').classList.toggle('hidden', perf);
+      document.getElementById('tab-perf').classList.toggle('active', perf);
+      document.getElementById('tab-build').classList.toggle('active', !perf);
+    }
+
+    function switchView(view) {
+      var cards = document.getElementById('view-cards');
+      var csv = document.getElementById('view-csv');
+      var btns = document.querySelectorAll('.preview-toggle button');
+
+      if (view === 'cards') {
+        cards.classList.remove('hidden');
+        csv.classList.add('hidden');
+        btns[0].classList.add('active');
+        btns[1].classList.remove('active');
+      } else {
+        cards.classList.add('hidden');
+        csv.classList.remove('hidden');
+        csv.style.display = 'flex';
+        btns[0].classList.remove('active');
+        btns[1].classList.add('active');
+      }
+    }
+  </script>
+
+</body>
+</html>
