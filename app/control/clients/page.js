@@ -14,6 +14,8 @@ const industryEmoji = {
   Other: '📊',
 }
 
+const INDUSTRIES = ['HVAC', 'Roofing', 'Solar', 'Funeral', 'Restaurant', 'E-comm', 'Other']
+
 export default function ClientsPage() {
   const router = useRouter()
   const [clients, setClients] = useState([])
@@ -21,12 +23,18 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [updating, setUpdating] = useState(null)
-  const [adsAccounts, setAdsAccounts] = useState({}) // client_id → { customer_id, is_active }
-  const [editingAds, setEditingAds] = useState(null) // client_id being edited
+  const [adsAccounts, setAdsAccounts] = useState({})
+  const [editingAds, setEditingAds] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [savingAds, setSavingAds] = useState(null)
   const [sortCol, setSortCol] = useState('created_at')
   const [sortDir, setSortDir] = useState('desc')
+
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerClient, setDrawerClient] = useState(null)
+  const [drawerForm, setDrawerForm] = useState({})
+  const [drawerSaving, setDrawerSaving] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
@@ -70,7 +78,6 @@ export default function ClientsPage() {
     setSavingAds(client.client_id)
 
     if (!cleaned) {
-      // Remove the account if cleared
       if (adsAccounts[client.client_id]) {
         await supabase
           .from('client_google_ads_account')
@@ -135,6 +142,11 @@ export default function ClientsPage() {
           c.client_id === client.client_id ? { ...c, status: newStatus } : c
         )
       )
+      // Update drawer if open for this client
+      if (drawerClient?.client_id === client.client_id) {
+        setDrawerClient(prev => ({ ...prev, status: newStatus }))
+        setDrawerForm(prev => ({ ...prev, status: newStatus }))
+      }
     }
     setUpdating(null)
   }
@@ -148,6 +160,65 @@ export default function ClientsPage() {
   function fmtDate(d) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  function fmtDateInput(d) {
+    if (!d) return ''
+    return new Date(d).toISOString().split('T')[0]
+  }
+
+  // Drawer functions
+  function openDrawer(client) {
+    setDrawerClient(client)
+    setDrawerForm({
+      client_name: client.client_name || '',
+      industry: client.industry || '',
+      city: client.city || '',
+      state: client.state || '',
+      created_at: fmtDateInput(client.created_at),
+      status: client.status || 'Active',
+    })
+    setDrawerOpen(true)
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false)
+    setDrawerClient(null)
+  }
+
+  async function saveDrawer() {
+    if (!drawerClient) return
+    setDrawerSaving(true)
+
+    const updates = {
+      client_name: drawerForm.client_name,
+      industry: drawerForm.industry || null,
+      city: drawerForm.city || null,
+      state: drawerForm.state || null,
+      status: drawerForm.status,
+    }
+    if (drawerForm.created_at) {
+      updates.created_at = new Date(drawerForm.created_at).toISOString()
+    }
+
+    const { error } = await supabase
+      .from('client')
+      .update(updates)
+      .eq('client_id', drawerClient.client_id)
+
+    if (error) {
+      console.error('Error saving client:', error)
+    } else {
+      setClients(prev =>
+        prev.map(c =>
+          c.client_id === drawerClient.client_id
+            ? { ...c, ...updates }
+            : c
+        )
+      )
+      closeDrawer()
+    }
+    setDrawerSaving(false)
   }
 
   const filtered = clients.filter(c => {
@@ -272,9 +343,10 @@ export default function ClientsPage() {
               {filtered.map((client, i) => (
                 <tr
                   key={client.client_id}
-                  className={`border-b border-gray-50 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition ${
+                  onClick={() => openDrawer(client)}
+                  className={`border-b border-gray-50 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition cursor-pointer ${
                     i === filtered.length - 1 ? 'border-0' : ''
-                  }`}
+                  } ${drawerClient?.client_id === client.client_id ? 'bg-blue-50/50 dark:bg-blue-500/[0.04]' : ''}`}
                 >
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(client.created_at)}</td>
                   <td className="px-6 py-4">
@@ -292,7 +364,7 @@ export default function ClientsPage() {
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                     {client.city && client.state ? `${client.city}, ${client.state}` : '—'}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                     {editingAds === client.client_id ? (
                       <div className="flex items-center gap-1.5">
                         <input
@@ -353,7 +425,7 @@ export default function ClientsPage() {
                       ● {client.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => toggleStatus(client)}
                       disabled={updating === client.client_id}
@@ -383,6 +455,209 @@ export default function ClientsPage() {
           </table>
         )}
       </div>
+
+      {/* Drawer Overlay */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={closeDrawer}
+        />
+      )}
+
+      {/* Drawer */}
+      <div className={`fixed top-0 right-0 bottom-0 w-[480px] bg-white dark:bg-[#111528] border-l border-gray-200 dark:border-white/10 z-50 flex flex-col shadow-2xl transition-transform duration-300 ${
+        drawerOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        {drawerClient && (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-xl">
+                  {industryEmoji[drawerForm.industry] || '📊'}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">{drawerForm.client_name || 'Client'}</h2>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{drawerClient.client_id} · Created {fmtDate(drawerClient.created_at)}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeDrawer}
+                className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-7">
+
+              {/* Client Details */}
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 dark:border-white/5">Client Details</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Client Name</label>
+                    <input
+                      type="text"
+                      value={drawerForm.client_name}
+                      onChange={e => setDrawerForm(f => ({ ...f, client_name: e.target.value }))}
+                      className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Industry</label>
+                    <select
+                      value={drawerForm.industry}
+                      onChange={e => setDrawerForm(f => ({ ...f, industry: e.target.value }))}
+                      className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select...</option>
+                      {INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">City</label>
+                      <input
+                        type="text"
+                        value={drawerForm.city}
+                        onChange={e => setDrawerForm(f => ({ ...f, city: e.target.value }))}
+                        className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">State</label>
+                      <input
+                        type="text"
+                        value={drawerForm.state}
+                        onChange={e => setDrawerForm(f => ({ ...f, state: e.target.value }))}
+                        className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Start Date</label>
+                      <input
+                        type="date"
+                        value={drawerForm.created_at}
+                        onChange={e => setDrawerForm(f => ({ ...f, created_at: e.target.value }))}
+                        className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Client ID</label>
+                      <div className="px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 rounded-lg text-gray-400 dark:text-gray-500 font-mono">
+                        {drawerClient.client_id}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 dark:border-white/5">Status</h3>
+                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5 rounded-xl">
+                  <div className={`w-2.5 h-2.5 rounded-full ${drawerForm.status === 'Active' ? 'bg-[#34CC93]' : 'bg-gray-400'}`} />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1">{drawerForm.status}</span>
+                  <button
+                    onClick={() => {
+                      const newStatus = drawerForm.status === 'Active' ? 'Past' : 'Active'
+                      setDrawerForm(f => ({ ...f, status: newStatus }))
+                    }}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${
+                      drawerForm.status === 'Active'
+                        ? 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:border-red-300 dark:hover:border-red-500/30 hover:text-red-500'
+                        : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:border-[#34CC93]/30 hover:text-[#34CC93]'
+                    }`}
+                  >
+                    {drawerForm.status === 'Active' ? 'Set to Past' : 'Set to Active'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Google Ads */}
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 dark:border-white/5">Google Ads</h3>
+                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5 rounded-xl">
+                  {adsAccounts[drawerClient.client_id]?.customer_id ? (
+                    <>
+                      <div className="flex-1">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-semibold">Customer ID</p>
+                        <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">{formatCustomerId(adsAccounts[drawerClient.client_id].customer_id)}</p>
+                      </div>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <button
+                        onClick={() => { closeDrawer(); startEditAds(drawerClient.client_id) }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:border-blue-300 transition"
+                      >
+                        Edit
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex-1">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-semibold">Customer ID</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500">No account linked</p>
+                      </div>
+                      <button
+                        onClick={() => { closeDrawer(); startEditAds(drawerClient.client_id) }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:border-blue-300 transition"
+                      >
+                        + Link
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Links */}
+              <div>
+                <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 dark:border-white/5">Quick Links</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { icon: '📊', label: 'Dashboard', path: 'dashboard' },
+                    { icon: '👤', label: 'Contacts', path: 'contacts' },
+                    { icon: '▶️', label: 'Ads', path: 'youtube-ads' },
+                    { icon: '🔄', label: 'Funnels', path: 'funnels' },
+                    { icon: '🎬', label: 'Videos', path: 'videos' },
+                    { icon: '💳', label: 'Billing', path: 'billing' },
+                  ].map(link => (
+                    <button
+                      key={link.path}
+                      onClick={() => router.push(`/control/${drawerClient.client_id}/${link.path}`)}
+                      className="flex items-center gap-2 px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5 rounded-xl hover:border-blue-300 dark:hover:border-blue-500/30 hover:text-blue-500 dark:hover:text-blue-400 transition"
+                    >
+                      <span className="text-base">{link.icon}</span> {link.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-white/5 flex gap-3">
+              <button
+                onClick={closeDrawer}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 rounded-lg hover:text-gray-700 dark:hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveDrawer}
+                disabled={drawerSaving}
+                className="flex-1 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
+              >
+                {drawerSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
     </div>
   )
 }
