@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pinnable Nav — Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --sidebar-bg: #0f1117; --surface: #111528; --surface2: #171B33;
+      --topbar-bg: #0c0e18; --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+      --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+      --blue: #3b82f6; --green: #34CC93;
+      --sidebar-w: 240px; --sidebar-collapsed-w: 54px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; -webkit-font-smoothing: antialiased; overflow: hidden; height: 100vh; }
+
+    .app-wrapper { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ===== TOP NAV ===== */
+    .topnav {
+      height: 48px; background: var(--topbar-bg); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 12px 0 0; gap: 4px;
+      flex-shrink: 0; position: relative; z-index: 50;
+    }
+
+    /* Brand area */
+    .topnav-brand {
+      display: flex; align-items: center; gap: 8px; margin-right: 12px; padding: 0 12px 0 12px;
+      border-right: 1px solid var(--border2); flex-shrink: 0; height: 100%;
+      transition: all 0.3s ease;
+    }
+    .topnav-brand-icon {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--blue); display: grid;
+      place-items: center; font-weight: 700; font-size: 10px; color: #fff; flex-shrink: 0;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .topnav-brand-icon:hover { filter: brightness(1.15); }
+    .brand-name-area {
+      display: flex; align-items: center; gap: 6px; overflow: hidden;
+      transition: width 0.3s ease, opacity 0.25s ease;
+      width: 140px; opacity: 1;
+    }
+    .brand-name-area.collapsed { width: 0; opacity: 0; pointer-events: none; }
+    .brand-name { font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .brand-chevron {
+      cursor: pointer; padding: 4px; border-radius: 4px; display: grid; place-items: center;
+      transition: background 0.15s; flex-shrink: 0; position: relative;
+    }
+    .brand-chevron:hover { background: rgba(255,255,255,0.08); }
+    .brand-chevron svg { width: 12px; height: 12px; color: var(--dim); }
+
+    .brand-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); left: 12px;
+      background: #1a1f36; border: 1px solid var(--border2); border-radius: 10px;
+      padding: 6px; min-width: 200px; z-index: 100;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    .brand-dropdown.open { display: block; }
+    .brand-dropdown-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      color: var(--muted); font-size: 13px; font-weight: 500; border-radius: 6px;
+      text-decoration: none; cursor: pointer; transition: all 0.12s;
+    }
+    .brand-dropdown-item:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    /* Nav items */
+    .topnav-primary { position: relative; display: flex; align-items: center; }
+    .topnav-primary-btn {
+      display: flex; align-items: center; gap: 5px; padding: 7px 14px;
+      color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500;
+      border-radius: 8px; border: none; background: none; transition: all 0.15s; white-space: nowrap;
+    }
+    .topnav-primary-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .topnav-primary-btn.active { color: #fff; background: var(--blue); font-weight: 600; }
+    .topnav-primary-btn .caret { font-size: 8px; opacity: 0.5; margin-left: 2px; }
+    .topnav-primary.pinned { display: none; }
+
+    /* Dropdown */
+    .topnav-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      background: #1a1f36; border: 1px solid var(--border2); border-radius: 10px;
+      padding: 6px; min-width: 220px; z-index: 100;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    .topnav-dropdown.open { display: block; }
+    .topnav-dropdown-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+    }
+    .topnav-dropdown-header span { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    .dropdown-pin-btn {
+      width: 26px; height: 26px; border-radius: 6px; border: none;
+      background: transparent; color: var(--dim); cursor: pointer; display: grid; place-items: center;
+      transition: all 0.15s; position: relative;
+    }
+    .dropdown-pin-btn:hover { background: rgba(255,255,255,0.08); color: var(--blue); }
+    .dropdown-pin-btn svg { width: 14px; height: 14px; }
+    .dropdown-pin-btn .tooltip {
+      display: none; position: absolute; top: calc(100% + 4px); right: 0;
+      background: #222; color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 5px;
+      white-space: nowrap; pointer-events: none; z-index: 10;
+    }
+    .dropdown-pin-btn:hover .tooltip { display: block; }
+    .topnav-dropdown a {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      color: var(--muted); font-size: 13px; font-weight: 500; border-radius: 6px;
+      text-decoration: none; cursor: pointer; transition: all 0.12s;
+    }
+    .topnav-dropdown a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .topnav-dropdown a.active { color: #fff; background: var(--blue); font-weight: 600; }
+    .topnav-dropdown .icon { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+
+    .topnav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .avatar-sm { width: 30px; height: 30px; border-radius: 50%; background: #1e2840; color: #aab6d6; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+
+    /* ===== APP ROW ===== */
+    .app-row { display: flex; flex: 1; min-height: 0; }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 0; background: var(--sidebar-bg); border-right: none;
+      display: flex; flex-direction: column; flex-shrink: 0;
+      transition: width 0.3s ease;
+      overflow: hidden;
+    }
+    .sidebar.has-pins { width: var(--sidebar-w); border-right: 1px solid var(--border); }
+    .sidebar.has-pins.collapsed { width: var(--sidebar-collapsed-w); }
+
+    .sidebar-nav { flex: 1; padding: 6px 6px; overflow-y: auto; }
+
+    .sidebar-group { margin-bottom: 6px; display: none; }
+    .sidebar-group.visible { display: block; }
+    .sidebar-group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 8px 6px;
+      transition: opacity 0.25s;
+    }
+    .sidebar.collapsed .sidebar-group-header { opacity: 0; height: 0; padding: 0; overflow: hidden; }
+    .sidebar-group-label {
+      font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase;
+      letter-spacing: 0.08em; white-space: nowrap;
+    }
+    .sidebar-unpin-btn {
+      width: 22px; height: 22px; border-radius: 5px; border: none;
+      background: transparent; color: var(--blue); cursor: pointer; display: grid; place-items: center;
+      transition: all 0.15s; position: relative;
+    }
+    .sidebar-unpin-btn:hover { background: rgba(255,255,255,0.06); color: var(--muted); }
+    .sidebar-unpin-btn svg { width: 13px; height: 13px; }
+    .sidebar-unpin-btn .tooltip {
+      display: none; position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+      background: #222; color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 5px;
+      white-space: nowrap; pointer-events: none; z-index: 10;
+    }
+    .sidebar-unpin-btn:hover .tooltip { display: block; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 11px; padding: 8px 12px;
+      color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500;
+      border-radius: 8px; text-decoration: none; margin-bottom: 1px; transition: all 0.15s;
+      white-space: nowrap; overflow: hidden; position: relative;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: #fff; background: var(--blue); font-weight: 600; }
+    .nav-item .icon { width: 18px; display: inline-flex; justify-content: center; flex-shrink: 0; font-size: 14px; }
+    .nav-item .nav-label { transition: opacity 0.25s; }
+
+    /* Collapsed sidebar: icon-only */
+    .sidebar.collapsed .nav-item { padding: 10px 0; justify-content: center; }
+    .sidebar.collapsed .nav-item .nav-label { opacity: 0; width: 0; overflow: hidden; }
+    .sidebar.collapsed .nav-item .icon { font-size: 16px; }
+
+    /* Tooltip for collapsed icons */
+    .sidebar.collapsed .nav-item { position: relative; }
+    .nav-item .collapsed-tooltip {
+      display: none; position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: #222; color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 6px;
+      white-space: nowrap; pointer-events: none; z-index: 100;
+    }
+    .sidebar.collapsed .nav-item:hover .collapsed-tooltip { display: block; }
+
+    /* ===== MAIN CONTENT ===== */
+    .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    .page { flex: 1; padding: 24px 32px; overflow-y: auto; background: var(--bg); }
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 24px; font-weight: 700; }
+    .page-header .sub { font-size: 13px; color: var(--dim); margin-top: 2px; }
+
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px; }
+    .stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+    .stat-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+    .stat-val { font-size: 26px; font-weight: 800; }
+    .stats2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; min-height: 200px; }
+    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .card-title .see-all { font-size: 12px; color: var(--blue); font-weight: 500; cursor: pointer; }
+    .card-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+    .card-row:last-child { border-bottom: none; }
+
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--blue); color: #fff; font-size: 12px; font-weight: 600;
+      padding: 8px 20px; border-radius: 100px; z-index: 100;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    .dropdown-overlay { display: none; position: fixed; inset: 0; z-index: 49; }
+    .dropdown-overlay.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="dropdown-overlay" id="dropdownOverlay" onclick="closeAllDropdowns()"></div>
+
+  <div class="app-wrapper">
+    <div class="topnav" id="topnav">
+      <!-- Brand: icon toggles collapse, chevron opens dropdown -->
+      <div class="topnav-brand" id="brandArea">
+        <div class="topnav-brand-icon" onclick="toggleCollapse()" title="Toggle sidebar">SH</div>
+        <div class="brand-name-area" id="brandNameArea">
+          <span class="brand-name">Synergy Home</span>
+          <div class="brand-chevron" onclick="toggleBrandDropdown(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+        <div class="brand-dropdown" id="brandDropdown">
+          <a class="brand-dropdown-item" onclick="event.stopPropagation();">
+            <svg style="width:14px; height:14px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Agency
+          </a>
+        </div>
+      </div>
+
+      <!-- Dashboard -->
+      <div class="topnav-primary" data-group="dashboard">
+        <button class="topnav-primary-btn active" onclick="navTo('dashboard')">
+          <span>📊</span> Dashboard
+        </button>
+      </div>
+
+      <!-- Marketing -->
+      <div class="topnav-primary" data-group="marketing" id="topMarketing">
+        <button class="topnav-primary-btn" onclick="toggleDropdown('topMarketing', event)">
+          <span>📢</span> Marketing <span class="caret">&#9662;</span>
+        </button>
+        <div class="topnav-dropdown">
+          <div class="topnav-dropdown-header">
+            <span>Marketing</span>
+            <button class="dropdown-pin-btn" onclick="event.stopPropagation(); pinGroup('marketing')">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+              <span class="tooltip">Pin to sidebar</span>
+            </button>
+          </div>
+          <a onclick="navTo('ads')"><span class="icon">📺</span> Ads</a>
+          <a onclick="navTo('funnels')"><span class="icon">🔄</span> Funnels</a>
+          <a onclick="navTo('videos')"><span class="icon">🎬</span> Videos</a>
+        </div>
+      </div>
+
+      <!-- Contacts -->
+      <div class="topnav-primary" data-group="contacts" id="topContacts">
+        <button class="topnav-primary-btn" onclick="toggleDropdown('topContacts', event)">
+          <span>👥</span> Contacts <span class="caret">&#9662;</span>
+        </button>
+        <div class="topnav-dropdown">
+          <div class="topnav-dropdown-header">
+            <span>Contacts</span>
+            <button class="dropdown-pin-btn" onclick="event.stopPropagation(); pinGroup('contacts')">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+              <span class="tooltip">Pin to sidebar</span>
+            </button>
+          </div>
+          <a onclick="navTo('leads')"><span class="icon">👤</span> Leads</a>
+          <a onclick="navTo('calendar')"><span class="icon">📅</span> Calendar</a>
+        </div>
+      </div>
+
+      <!-- Account -->
+      <div class="topnav-primary" data-group="account" id="topAccount">
+        <button class="topnav-primary-btn" onclick="toggleDropdown('topAccount', event)">
+          <span>🏢</span> Account <span class="caret">&#9662;</span>
+        </button>
+        <div class="topnav-dropdown">
+          <div class="topnav-dropdown-header">
+            <span>Account</span>
+            <button class="dropdown-pin-btn" onclick="event.stopPropagation(); pinGroup('account')">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+              <span class="tooltip">Pin to sidebar</span>
+            </button>
+          </div>
+          <a onclick="navTo('company')"><span class="icon">🏢</span> Company</a>
+          <a onclick="navTo('automations')"><span class="icon">⚡</span> Automations</a>
+          <a onclick="navTo('billing')"><span class="icon">💳</span> Billing</a>
+        </div>
+      </div>
+
+      <div class="topnav-right">
+        <div class="avatar-sm">RM</div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR + CONTENT -->
+    <div class="app-row">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-nav">
+          <div class="sidebar-group" data-sidebar-group="marketing">
+            <div class="sidebar-group-header">
+              <span class="sidebar-group-label">Marketing</span>
+              <button class="sidebar-unpin-btn" onclick="unpinGroup('marketing')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                <span class="tooltip">Unpin</span>
+              </button>
+            </div>
+            <a class="nav-item" data-page="ads" onclick="navTo('ads')"><span class="icon">📺</span> <span class="nav-label">Ads</span><span class="collapsed-tooltip">Ads</span></a>
+            <a class="nav-item" data-page="funnels" onclick="navTo('funnels')"><span class="icon">🔄</span> <span class="nav-label">Funnels</span><span class="collapsed-tooltip">Funnels</span></a>
+            <a class="nav-item" data-page="videos" onclick="navTo('videos')"><span class="icon">🎬</span> <span class="nav-label">Videos</span><span class="collapsed-tooltip">Videos</span></a>
+          </div>
+
+          <div class="sidebar-group" data-sidebar-group="contacts">
+            <div class="sidebar-group-header">
+              <span class="sidebar-group-label">Contacts</span>
+              <button class="sidebar-unpin-btn" onclick="unpinGroup('contacts')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                <span class="tooltip">Unpin</span>
+              </button>
+            </div>
+            <a class="nav-item" data-page="leads" onclick="navTo('leads')"><span class="icon">👤</span> <span class="nav-label">Leads</span><span class="collapsed-tooltip">Leads</span></a>
+            <a class="nav-item" data-page="calendar" onclick="navTo('calendar')"><span class="icon">📅</span> <span class="nav-label">Calendar</span><span class="collapsed-tooltip">Calendar</span></a>
+          </div>
+
+          <div class="sidebar-group" data-sidebar-group="account">
+            <div class="sidebar-group-header">
+              <span class="sidebar-group-label">Account</span>
+              <button class="sidebar-unpin-btn" onclick="unpinGroup('account')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                <span class="tooltip">Unpin</span>
+              </button>
+            </div>
+            <a class="nav-item" data-page="company" onclick="navTo('company')"><span class="icon">🏢</span> <span class="nav-label">Company</span><span class="collapsed-tooltip">Company</span></a>
+            <a class="nav-item" data-page="automations" onclick="navTo('automations')"><span class="icon">⚡</span> <span class="nav-label">Automations</span><span class="collapsed-tooltip">Automations</span></a>
+            <a class="nav-item" data-page="billing" onclick="navTo('billing')"><span class="icon">💳</span> <span class="nav-label">Billing</span><span class="collapsed-tooltip">Billing</span></a>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-area">
+        <div class="page">
+          <div class="page-header">
+            <h1 id="pageTitle">Dashboard</h1>
+            <p class="sub">Synergy Home</p>
+          </div>
+
+          <div class="stats">
+            <div class="stat"><div class="stat-label">Ad Spend</div><div class="stat-val">$1,865</div></div>
+            <div class="stat"><div class="stat-label">Leads</div><div class="stat-val">3</div></div>
+            <div class="stat"><div class="stat-label">Cost / Lead</div><div class="stat-val">$622</div></div>
+            <div class="stat"><div class="stat-label">Appt Set</div><div class="stat-val">0</div></div>
+            <div class="stat"><div class="stat-label">Cost / Set</div><div class="stat-val">$0</div></div>
+          </div>
+
+          <div class="stats2">
+            <div class="stat"><div class="stat-label">Appt Set Rate</div><div class="stat-val">0%</div></div>
+            <div class="stat"><div class="stat-label">Appointments</div><div class="stat-val">0</div></div>
+            <div class="stat"><div class="stat-label">Customers</div><div class="stat-val">0</div></div>
+            <div class="stat"><div class="stat-label">Close Rate</div><div class="stat-val">0%</div></div>
+          </div>
+
+          <div class="cards">
+            <div class="card">
+              <div class="card-title">Recent Leads <span class="see-all">See all &rarr;</span></div>
+              <div class="card-row"><span>Ben Sweger</span><span style="color: #f97316; font-size:11px;">New / Not Yet Contacted</span></div>
+              <div class="card-row"><span>Chris Smith</span><span style="color: #3b82f6; font-size:11px;">New Lead</span></div>
+              <div class="card-row"><span>Debbie</span><span style="color: #3b82f6; font-size:11px;">New Lead</span></div>
+              <div class="card-row"><span>Melody Hudson</span><span style="color: #3b82f6; font-size:11px;">New Lead</span></div>
+              <div class="card-row"><span>Verna Birk</span><span style="color: #34cc93; font-size:11px;">Appt Complete</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Active Campaigns <span class="see-all">See all &rarr;</span></div>
+              <div class="card-row"><span>Generator Quote - Home</span><span>$581 / 3 conv</span></div>
+              <div class="card-row"><span>HVAC Second Opinion -</span><span>$130 / 0</span></div>
+              <div class="card-row"><span>HVAC Second Opinion -</span><span>$125 / 0</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Funnels <span class="see-all">See all &rarr;</span></div>
+              <div class="card-row"><span>Generator Quote</span><span>136 visits / 2.2%</span></div>
+              <div class="card-row"><span>HVAC Second Opinion</span><span>465 visits / 0.9%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let activePage = 'dashboard';
+    let isCollapsed = false;
+    const pinnedGroups = new Set();
+
+    const PAGE_GROUP = {
+      dashboard: null,
+      ads: 'marketing', funnels: 'marketing', videos: 'marketing',
+      leads: 'contacts', calendar: 'contacts',
+      company: 'account', automations: 'account', billing: 'account',
+    };
+    const PAGE_LABEL = {
+      dashboard: 'Dashboard', ads: 'Ads', funnels: 'Funnels', videos: 'Videos',
+      leads: 'Leads', calendar: 'Calendar', company: 'Company',
+      automations: 'Automations', billing: 'Billing',
+    };
+
+    function toggleCollapse() {
+      isCollapsed = !isCollapsed;
+      render();
+    }
+
+    function pinGroup(group) {
+      pinnedGroups.add(group);
+      closeAllDropdowns();
+      render();
+      showToast('Pinned ' + group.charAt(0).toUpperCase() + group.slice(1));
+    }
+
+    function unpinGroup(group) {
+      pinnedGroups.delete(group);
+      render();
+      showToast('Unpinned ' + group.charAt(0).toUpperCase() + group.slice(1));
+    }
+
+    function render() {
+      // Brand name collapse
+      document.getElementById('brandNameArea').classList.toggle('collapsed', isCollapsed);
+
+      // Topnav: hide pinned groups
+      document.querySelectorAll('.topnav-primary[data-group]').forEach(el => {
+        const g = el.dataset.group;
+        if (g === 'dashboard') return;
+        el.classList.toggle('pinned', pinnedGroups.has(g));
+      });
+
+      // Sidebar groups
+      document.querySelectorAll('.sidebar-group[data-sidebar-group]').forEach(el => {
+        el.classList.toggle('visible', pinnedGroups.has(el.dataset.sidebarGroup));
+      });
+
+      const hasPins = pinnedGroups.size > 0;
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('has-pins', hasPins);
+      sidebar.classList.toggle('collapsed', isCollapsed);
+
+      highlightAll();
+    }
+
+    function navTo(page) {
+      activePage = page;
+      document.getElementById('pageTitle').textContent = PAGE_LABEL[page] || page;
+      closeAllDropdowns();
+      highlightAll();
+    }
+
+    function highlightAll() {
+      const group = PAGE_GROUP[activePage];
+      document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(n => {
+        n.classList.toggle('active', n.dataset.page === activePage);
+      });
+      document.querySelectorAll('.topnav-primary[data-group]').forEach(el => {
+        const g = el.dataset.group;
+        const btn = el.querySelector('.topnav-primary-btn');
+        if (g === 'dashboard') btn.classList.toggle('active', activePage === 'dashboard');
+        else btn.classList.toggle('active', group === g);
+      });
+      document.querySelectorAll('.topnav-dropdown a').forEach(a => {
+        const text = a.textContent.trim().toLowerCase();
+        a.classList.toggle('active', text === (PAGE_LABEL[activePage] || '').toLowerCase());
+      });
+    }
+
+    function toggleDropdown(parentId, e) {
+      e.stopPropagation();
+      const parent = document.getElementById(parentId);
+      const dd = parent.querySelector('.topnav-dropdown');
+      const wasOpen = dd.classList.contains('open');
+      closeAllDropdowns();
+      if (!wasOpen) {
+        dd.classList.add('open');
+        document.getElementById('dropdownOverlay').classList.add('active');
+      }
+    }
+
+    function toggleBrandDropdown(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('brandDropdown');
+      const wasOpen = dd.classList.contains('open');
+      closeAllDropdowns();
+      if (!wasOpen) {
+        dd.classList.add('open');
+        document.getElementById('dropdownOverlay').classList.add('active');
+      }
+    }
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.topnav-dropdown').forEach(d => d.classList.remove('open'));
+      document.getElementById('brandDropdown').classList.remove('open');
+      document.getElementById('dropdownOverlay').classList.remove('active');
+    }
+
+    function showToast(text) {
+      const t = document.getElementById('toast');
+      t.textContent = text;
+      t.classList.add('show');
+      clearTimeout(window._tt);
+      window._tt = setTimeout(() => t.classList.remove('show'), 1500);
+    }
+
+    render();
+  </script>
+
+</body>
+</html>
