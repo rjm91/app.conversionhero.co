@@ -25,7 +25,7 @@ function defaultRect() {
   if (typeof window === 'undefined') return { x: 100, y: 100, w: 420, h: 640 }
   const w = 420
   const h = Math.min(720, window.innerHeight - 80)
-  return { x: window.innerWidth - w - 24, y: 40, w, h }
+  return { x: window.innerWidth - w - 24, y: 56, w, h }
 }
 
 function clampRect(r) {
@@ -35,7 +35,7 @@ function clampRect(r) {
   const w = Math.max(MIN_W, Math.min(r.w, vw))
   const h = Math.max(MIN_H, Math.min(r.h, vh))
   const x = Math.max(0, Math.min(r.x, vw - w))
-  const y = Math.max(0, Math.min(r.y, vh - h))
+  const y = Math.max(48, Math.min(r.y, vh - h))
   return { x, y, w, h }
 }
 
