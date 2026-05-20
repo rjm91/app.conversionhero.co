@@ -555,10 +555,10 @@ export default function YouTubeAdsPage() {
                   <th onClick={() => toggleSort('conversions')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Conv.{arrow('conversions')}</th>
                   <th onClick={() => toggleSort('cost_per_conversion')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost / Conv.{arrow('cost_per_conversion')}</th>
                   <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
-                    Conv. (CH Reported){arrow('chConv')}
+                    Conv. (CH){arrow('chConv')}
                   </th>
                   <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
-                    Cost / Conv. (CH Reported){arrow('chCost')}
+                    Cost / Conv. (CH){arrow('chCost')}
                   </th>
                 </tr>
               </thead>
