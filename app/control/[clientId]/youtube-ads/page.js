@@ -545,6 +545,7 @@ export default function YouTubeAdsPage() {
               <thead className="bg-gray-50 dark:bg-[#161b30] border-b border-gray-100 dark:border-white/[0.06]">
                 <tr>
                   <th onClick={() => toggleSort('name')} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px] cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">{nameLabel}{arrow('name')}</th>
+                  <th onClick={() => toggleSort('status')} className="text-center px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Status{arrow('status')}</th>
                   {showBudget && (
                     <th onClick={() => toggleSort('budget')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Budget / Day{arrow('budget')}</th>
                   )}
@@ -574,7 +575,6 @@ export default function YouTubeAdsPage() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status === 'ENABLED' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]' : 'bg-gray-400 dark:bg-gray-600'}`} />
                           {view === 'ads' && row.youtube_video_id && (
                             <img
                               src={`https://img.youtube.com/vi/${row.youtube_video_id}/mqdefault.jpg`}
@@ -598,6 +598,12 @@ export default function YouTubeAdsPage() {
                             </p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${row.status === 'ENABLED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          {row.status === 'ENABLED' ? 'Enabled' : 'Paused'}
+                        </span>
                       </td>
                       {showBudget && (
                         <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmtBudget(row.budget)}</td>
@@ -624,6 +630,7 @@ export default function YouTubeAdsPage() {
                 <tfoot className="border-t-2 border-gray-200 dark:border-white/[0.08] bg-gray-50 dark:bg-[#161b30]">
                   <tr>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
+                    <td></td>
                     {showBudget && (
                       <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmtBudget(totals.budget)}</td>
                     )}
