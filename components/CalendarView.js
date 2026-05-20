@@ -122,7 +122,7 @@ export default function CalendarView({ clientId = null, title = 'Content Calenda
   }
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8">
       <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
