@@ -65,6 +65,10 @@ export default function YouTubeAdsPage() {
   const [error,          setError]          = useState(null)
   const [connected,      setConnected]      = useState(false)
 
+  // Sort state
+  const [sortCol, setSortCol] = useState('cost')
+  const [sortDir, setSortDir] = useState('desc')
+
   // Drill-down state: 'campaigns' → 'adGroups' → 'ads'
   const [view, setView]                     = useState('campaigns')
   const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }
@@ -345,13 +349,46 @@ export default function YouTubeAdsPage() {
     return 0
   }
 
+  // Sort helpers
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  const arrow = col => sortCol === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ↓'
+
   // Current data based on view
   const currentData = view === 'campaigns' ? campaigns : view === 'adGroups' ? adGroups : ads
 
   const filtered = useMemo(() => {
-    if (statusFilter === 'All') return currentData
-    return currentData.filter(c => c.status === statusFilter)
-  }, [currentData, statusFilter])
+    let rows = statusFilter === 'All' ? [...currentData] : currentData.filter(c => c.status === statusFilter)
+
+    rows.sort((a, b) => {
+      let va, vb
+      if (sortCol === 'name') {
+        va = (getRowName(a) || '').toLowerCase()
+        vb = (getRowName(b) || '').toLowerCase()
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      } else if (sortCol === 'status') {
+        va = a.status || ''
+        vb = b.status || ''
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      } else if (sortCol === 'chConv') {
+        va = getChLeads(a)
+        vb = getChLeads(b)
+      } else if (sortCol === 'chCost') {
+        const aLeads = getChLeads(a)
+        const bLeads = getChLeads(b)
+        va = aLeads > 0 ? Number(a.cost) / aLeads : 0
+        vb = bLeads > 0 ? Number(b.cost) / bLeads : 0
+      } else {
+        va = Number(a[sortCol]) || 0
+        vb = Number(b[sortCol]) || 0
+      }
+      return sortDir === 'asc' ? va - vb : vb - va
+    })
+
+    return rows
+  }, [currentData, statusFilter, sortCol, sortDir, chAttribution, chAdGroupAttr, chAdAttr, view])
 
   const totals = useMemo(() => filtered.reduce((acc, row) => ({
     budget:   acc.budget  + (Number(row.budget)  || 0),
@@ -507,20 +544,20 @@ export default function YouTubeAdsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-[#161b30] border-b border-gray-100 dark:border-white/[0.06]">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px]">{nameLabel}</th>
+                  <th onClick={() => toggleSort('name')} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px] cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">{nameLabel}{arrow('name')}</th>
                   {showBudget && (
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Budget / Day</th>
+                    <th onClick={() => toggleSort('budget')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Budget / Day{arrow('budget')}</th>
                   )}
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Clicks</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">CPC</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Conv.</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Cost / Conv.</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent ">
-                    Conv. (CH Reported)
+                  <th onClick={() => toggleSort('cost')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost{arrow('cost')}</th>
+                  <th onClick={() => toggleSort('clicks')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Clicks{arrow('clicks')}</th>
+                  <th onClick={() => toggleSort('cpc')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">CPC{arrow('cpc')}</th>
+                  <th onClick={() => toggleSort('conversions')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Conv.{arrow('conversions')}</th>
+                  <th onClick={() => toggleSort('cost_per_conversion')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost / Conv.{arrow('cost_per_conversion')}</th>
+                  <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                    Conv. (CH Reported){arrow('chConv')}
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
-                    Cost / Conv. (CH Reported)
+                  <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                    Cost / Conv. (CH Reported){arrow('chCost')}
                   </th>
                 </tr>
               </thead>
