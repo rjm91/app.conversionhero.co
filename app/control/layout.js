@@ -2,113 +2,74 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '../../lib/supabase-browser'
 import ThemeSelector from '../../components/ThemeSelector'
 import AgentPanel from '../../components/AgentPanel'
 
-const navItems = [
-  {
-    label: 'Overview',
-    href: '/control',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Prospecting',
-    href: '/control/prospecting',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Leads',
-    href: '/control/leads',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-  },
-  {
+/* ─── Nav structure ─── */
+const NAV_GROUPS = {
+  sales: {
     label: 'Sales',
-    href: '/control/sales',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     ),
+    items: [
+      { key: 'prospecting', label: 'Prospecting', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> },
+      { key: 'leads', label: 'Leads', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
+      { key: 'sales', label: 'Sales', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg> },
+      { key: 'funnels', label: 'Funnels', matchPrefix: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 8h12M9 12h6M11 16h2" /></svg> },
+    ],
   },
-  {
-    label: 'Funnels',
-    href: '/control/funnels',
+  management: {
+    label: 'Management',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M3 4h18M6 8h12M9 12h6M11 16h2" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
+    items: [
+      { key: 'clients', label: 'Clients', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
+      { key: 'projects', label: 'Projects', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
+      { key: 'calendar', label: 'Calendar', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
+    ],
   },
-  {
-    label: 'Clients',
-    href: '/control/clients',
+  admin: {
+    label: 'Admin',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
+    items: [
+      { key: 'payments', label: 'Payments', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> },
+      { key: 'automations', label: 'Automations', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
+    ],
   },
-  {
-    label: 'Projects',
-    href: '/control/projects',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Payments',
-    href: '/control/payments',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Automations',
-    href: '/control/automations',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Calendar',
-    href: '/control/calendar',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-]
+}
+
+/* Pin SVG icon */
+const PinIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" /></svg>
+)
+
+/* ─── Determine which group a route key belongs to ─── */
+function getGroupForKey(key) {
+  for (const [groupId, group] of Object.entries(NAV_GROUPS)) {
+    if (group.items.some(i => i.key === key)) return groupId
+  }
+  return null
+}
+
+/* ─── Get active route key from pathname ─── */
+function getActiveKey(pathname) {
+  if (pathname === '/control' || pathname === '/control/') return 'overview'
+  const segment = pathname.replace('/control/', '').split('/')[0]
+  return segment || 'overview'
+}
 
 function getInitials(name, email) {
   const parts = (name || email || '').trim().split(' ').filter(Boolean)
@@ -116,6 +77,7 @@ function getInitials(name, email) {
   return (parts[0]?.[0] || '?').toUpperCase()
 }
 
+/* ─── User Menu ─── */
 function AdminUserMenu({ profile }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -141,7 +103,7 @@ function AdminUserMenu({ profile }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:ring-2 hover:ring-blue-400 hover:ring-offset-2 dark:hover:ring-offset-[#0f1117] transition"
+        className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:ring-2 hover:ring-blue-400 hover:ring-offset-2 dark:hover:ring-offset-[#0c0e18] transition"
       >
         <span className="text-white text-xs font-bold">{initials}</span>
       </button>
@@ -154,9 +116,7 @@ function AdminUserMenu({ profile }) {
           </div>
           <div className="py-1.5">
             <Link href="/control/profile" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               Profile
             </Link>
             <Link href="/control/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
@@ -173,9 +133,7 @@ function AdminUserMenu({ profile }) {
               onClick={handleSignOut}
               className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-red-600 dark:hover:text-red-400 transition"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               Log out
             </button>
           </div>
@@ -185,10 +143,36 @@ function AdminUserMenu({ profile }) {
   )
 }
 
+/* ─── Toast notification ─── */
+function Toast({ message }) {
+  if (!message) return null
+  return (
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-semibold px-5 py-2 rounded-full shadow-lg z-[100] animate-fade-in">
+      {message}
+    </div>
+  )
+}
+
+/* ─── Main Layout ─── */
 export default function AdminLayout({ children }) {
   const pathname = usePathname()
   const [profile, setProfile] = useState({ name: '', email: '' })
+  const [pinnedGroups, setPinnedGroups] = useState(new Set())
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const [toast, setToast] = useState('')
+  const dropdownRefs = useRef({})
 
+  const activeKey = getActiveKey(pathname)
+  const activeGroup = getGroupForKey(activeKey)
+  const hasPins = pinnedGroups.size > 0
+
+  // Pass through to client-level layout (but not agency funnel editor)
+  if (pathname.match(/^\/control\/[^/]+\//) && !pathname.startsWith('/control/funnels/')) {
+    return <>{children}</>
+  }
+
+  // Load profile
   useEffect(() => {
     fetch('/api/profile')
       .then(r => r.json())
@@ -197,82 +181,242 @@ export default function AdminLayout({ children }) {
       })
   }, [])
 
-  if (pathname.match(/^\/control\/[^/]+\//) && !pathname.startsWith('/control/funnels/')) {
-    return <>{children}</>
+  // Load pinned state from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ch-pinned-agency')
+      if (saved) setPinnedGroups(new Set(JSON.parse(saved)))
+      const collapsed = localStorage.getItem('ch-collapsed-agency')
+      if (collapsed === 'true') setIsCollapsed(true)
+    } catch {}
+  }, [])
+
+  // Persist pinned state
+  useEffect(() => {
+    try {
+      localStorage.setItem('ch-pinned-agency', JSON.stringify([...pinnedGroups]))
+      localStorage.setItem('ch-collapsed-agency', String(isCollapsed))
+    } catch {}
+  }, [pinnedGroups, isCollapsed])
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    function handleClick(e) {
+      if (openDropdown) {
+        const ref = dropdownRefs.current[openDropdown]
+        if (ref && !ref.contains(e.target)) setOpenDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openDropdown])
+
+  const showToast = useCallback((msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 1500)
+  }, [])
+
+  function pinGroup(groupId) {
+    setPinnedGroups(prev => new Set([...prev, groupId]))
+    setOpenDropdown(null)
+    showToast(`Pinned ${NAV_GROUPS[groupId].label}`)
   }
 
-  const initials = getInitials(profile.name, profile.email)
+  function unpinGroup(groupId) {
+    setPinnedGroups(prev => { const s = new Set(prev); s.delete(groupId); return s })
+    showToast(`Unpinned ${NAV_GROUPS[groupId].label}`)
+  }
+
+  function toggleCollapse() {
+    setIsCollapsed(c => !c)
+  }
+
+  function isItemActive(item) {
+    const href = `/control/${item.key}`
+    if (item.matchPrefix) return pathname.startsWith(href)
+    return pathname === href
+  }
+
+  const sidebarW = !hasPins ? '0px' : isCollapsed ? '54px' : '240px'
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex flex-col min-h-screen">
 
-      {/* Sidebar */}
-      <aside className="w-60 bg-gray-900 dark:bg-[#0f1117] flex flex-col fixed top-0 left-0 bottom-0 z-20 border-r border-gray-800 dark:border-white/5">
+      {/* ===== TOP NAV BAR ===== */}
+      <header className="h-12 bg-[#0c0e18] border-b border-white/[0.06] flex items-center pr-3 gap-1 flex-shrink-0 relative z-50">
 
-        {/* Logo */}
-        <div className="h-14 px-5 border-b border-gray-800 flex items-center">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">CA</span>
-            </div>
-            <span className="text-white font-bold text-sm tracking-tight">ConversionAgent</span>
+        {/* Brand area */}
+        <div className="flex items-center gap-2 px-3 border-r border-white/10 h-full flex-shrink-0 relative">
+          {/* Icon — toggles collapse */}
+          <button
+            onClick={toggleCollapse}
+            className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 hover:brightness-110 transition text-white text-[10px] font-bold"
+            title="Toggle sidebar"
+          >
+            CA
+          </button>
+
+          {/* Name — collapses away */}
+          <div
+            className="flex items-center gap-1.5 overflow-hidden transition-all duration-300"
+            style={{ width: isCollapsed ? 0 : 150, opacity: isCollapsed ? 0 : 1 }}
+          >
+            <span className="text-white font-semibold text-[13px] whitespace-nowrap">
+              ConversionAgent
+            </span>
           </div>
         </div>
 
-        {/* User Badge */}
-        <div className="px-4 py-4 border-b border-gray-800">
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2.5">Workspace</p>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">CA</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-white text-sm font-semibold truncate">Agency Admin</p>
-              <p className="text-gray-500 text-xs truncate">Control Center</p>
-            </div>
-          </div>
-        </div>
+        {/* Dashboard — standalone, always in topnav */}
+        <Link
+          href="/control"
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
+            activeKey === 'overview'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+          Dashboard
+        </Link>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(item => {
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  active
+        {/* Group buttons — hidden when pinned */}
+        {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
+          if (pinnedGroups.has(groupId)) return null
+
+          return (
+            <div
+              key={groupId}
+              ref={el => dropdownRefs.current[groupId] = el}
+              className="relative flex items-center"
+            >
+              <button
+                onClick={() => setOpenDropdown(o => o === groupId ? null : groupId)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition border-none bg-transparent cursor-pointer ${
+                  activeGroup === groupId
                     ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
-                {item.icon}
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
+                {group.icon}
+                {group.label}
+                <span className="text-[8px] opacity-50 ml-0.5">&#9662;</span>
+              </button>
 
-        {/* Bottom */}
-        <div className="px-3 py-4 border-t border-gray-800" />
-      </aside>
+              {/* Dropdown */}
+              {openDropdown === groupId && (
+                <div className="absolute top-full left-0 mt-1.5 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[220px] z-[100] shadow-xl">
+                  <div className="flex items-center justify-between px-3 pb-2 mb-1 border-b border-white/[0.06]">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{group.label}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); pinGroup(groupId) }}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-gray-500 hover:bg-white/[0.08] hover:text-blue-400 transition relative group/pin"
+                      title="Pin to sidebar"
+                    >
+                      <PinIcon />
+                      <span className="hidden group-hover/pin:block absolute top-full right-0 mt-1 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap">Pin to sidebar</span>
+                    </button>
+                  </div>
+                  {group.items.map(item => (
+                    <Link
+                      key={item.key}
+                      href={`/control/${item.key}`}
+                      onClick={() => setOpenDropdown(null)}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-lg transition ${
+                        isItemActive(item)
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="w-[18px] flex justify-center flex-shrink-0">{item.icon}</span>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
 
-      {/* Main area */}
-      <div className="flex-1 min-w-0 ml-60 flex flex-col min-h-screen">
-
-        {/* Top header */}
-        <header className="sticky top-0 z-10 h-14 bg-white dark:bg-[#0f1117] border-b border-gray-100 dark:border-white/5 flex items-center justify-end px-6">
+        {/* Right side */}
+        <div className="ml-auto flex items-center gap-2.5">
           <AdminUserMenu profile={profile} />
-        </header>
+        </div>
+      </header>
 
-        {/* Page content */}
-        <main className="flex-1 bg-gray-50 dark:bg-[#0f1117]">
+      {/* ===== CONTENT ROW (sidebar + main) ===== */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* Sidebar — only visible when pins exist */}
+        <aside
+          className="bg-[#0f1117] flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300"
+          style={{
+            width: sidebarW,
+            borderRight: hasPins ? '1px solid rgba(255,255,255,0.06)' : 'none',
+          }}
+        >
+          <nav className="flex-1 px-1.5 py-1.5 overflow-y-auto">
+            {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
+              if (!pinnedGroups.has(groupId)) return null
+              return (
+                <div key={groupId} className="mb-1.5">
+                  {/* Group header — hidden when collapsed */}
+                  {!isCollapsed && (
+                    <div className="flex items-center justify-between px-2 py-1.5">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{group.label}</span>
+                      <button
+                        onClick={() => unpinGroup(groupId)}
+                        className="w-5 h-5 rounded flex items-center justify-center text-blue-400 hover:bg-white/[0.06] hover:text-gray-400 transition"
+                        title="Unpin"
+                      >
+                        <PinIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  {/* Nav items */}
+                  {group.items.map(item => (
+                    <Link
+                      key={item.key}
+                      href={`/control/${item.key}`}
+                      className={`group/nav relative flex items-center gap-2.5 rounded-lg text-[13px] font-medium mb-px whitespace-nowrap overflow-hidden transition ${
+                        isCollapsed ? 'justify-center py-2.5 px-0' : 'px-3 py-2'
+                      } ${
+                        isItemActive(item)
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className={`flex justify-center flex-shrink-0 ${isCollapsed ? 'text-base' : 'w-[18px]'}`}>{item.icon}</span>
+                      {!isCollapsed && <span>{item.label}</span>}
+                      {/* Tooltip when collapsed */}
+                      {isCollapsed && (
+                        <span className="hidden group-hover/nav:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white text-[11px] px-2.5 py-1 rounded-md whitespace-nowrap z-[100]">
+                          {item.label}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )
+            })}
+          </nav>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 min-w-0 bg-gray-50 dark:bg-[#0f1117]">
           {children}
         </main>
       </div>
 
+      <Toast message={toast} />
       <AgentPanel mode="agency" />
+
+      <style jsx global>{`
+        @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
+      `}</style>
     </div>
   )
 }
