@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>A/B Test UI — Mockup v3</title>
+<title>A/B Test UI — Mockup v5</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; }
 
   .page { max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
-  .page + .page { border-top: 2px dashed #e5e7eb; margin-top: 0; }
+  .page + .page { border-top: 2px dashed #e5e7eb; }
   .label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 28px; }
 
   .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
 
-  /* ── shared table base ── */
+  /* shared table */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th { background: #f9fafb; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f3f4f6; }
   thead th.r { text-align: right; }
@@ -23,59 +23,62 @@
   td { padding: 14px 20px; vertical-align: middle; }
   td.r { text-align: right; }
 
-  /* ── funnel name ── */
-  .fname { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: #111827; text-decoration: none; }
+  /* funnel name */
+  .fname { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: #111827; text-decoration: none; cursor: pointer; }
   .fname .arr { color: #d1d5db; }
   .fname:hover { color: #2563eb; }
   .fname:hover .arr { color: #2563eb; }
 
-  /* ── badges ── */
+  /* badges */
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; white-space: nowrap; }
-  .badge-live  { background: #dcfce7; color: #16a34a; }
-  .badge-type  { background: #f3f4f6; color: #6b7280; }
-  .badge-ab    { background: #eff6ff; color: #3b82f6; letter-spacing: .04em; }
-  .badge-paused { background: #f3f4f6; color: #9ca3af; }
+  .badge-live     { background: #dcfce7; color: #16a34a; }
+  .badge-type     { background: #f3f4f6; color: #6b7280; }
+  .badge-ab       { background: #eff6ff; color: #3b82f6; letter-spacing: .04em; }
+  .badge-archived { background: #fef2f2; color: #ef4444; }
+  .badge-pending  { background: #fffbeb; color: #d97706; }
 
-  /* ── url ── */
+  /* url */
   .url { color: #3b82f6; font-size: 12px; text-decoration: none; }
   .url:hover { text-decoration: underline; }
-  .url-dim { color: #9ca3af; font-size: 12px; text-decoration: none; }
+  .url-dim { color: #9ca3af; font-size: 12px; }
 
-  /* ── variant pills ── */
+  /* variant pills */
   .vpill { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
   .vpill-a { background: #eef2ff; color: #4f46e5; }
   .vpill-b { background: #fffbeb; color: #d97706; }
+  .vpill-c { background: #f0fdf4; color: #16a34a; }
 
-  /* ── stat numbers ── */
-  .num { font-size: 13px; color: #374151; font-variant-numeric: tabular-nums; }
+  /* stats */
+  .num     { font-size: 13px; color: #374151; font-variant-numeric: tabular-nums; }
   .num-dim { font-size: 13px; color: #d1d5db; font-variant-numeric: tabular-nums; }
 
-  /* ── delta badge ── */
+  /* delta */
   .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 6px; }
   .delta-up   { background: #dcfce7; color: #16a34a; }
-  .delta-even { background: #f3f4f6; color: #9ca3af; }
+  .delta-down { background: #fef2f2; color: #ef4444; }
 
-  /* ── winner row highlight ── */
-  .winner-row { background: #f0fdf4; }
+  /* row states */
+  .row-winner   { background: #f0fdf4; }
+  .row-archived { background: #fafafa; opacity: .5; }
+  .row-pending  { background: #fffdf0; }
 
-  /* ── paused row ── */
-  .paused-row { background: #fafafa; opacity: .55; }
-
-  /* ── conv bar ── */
+  /* conv bar */
   .conv-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
   .conv-bar-track { width: 60px; height: 4px; background: #f3f4f6; border-radius: 99px; overflow: hidden; flex-shrink: 0; }
   .conv-bar-fill { height: 100%; border-radius: 99px; }
   .fill-a { background: #818cf8; }
   .fill-b { background: #fbbf24; }
+  .fill-c { background: #4ade80; }
 
-  /* ══ PAGE 1 ══════════════════════════════════════════ */
+  /* page 1 */
   .section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
   .section-title { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 4px; }
   .section-sub   { font-size: 13px; color: #6b7280; }
   .btn-new { padding: 8px 16px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; opacity: .45; cursor: not-allowed; }
 
-  /* ══ PAGE 2 ══════════════════════════════════════════ */
-  .back { font-size: 12px; color: #9ca3af; margin-bottom: 14px; cursor: default; }
+  /* page 2 */
+  .back { font-size: 12px; color: #9ca3af; margin-bottom: 14px; cursor: pointer; user-select: none; display: inline-block; }
+  .back:hover { color: #3b82f6; }
   .funnel-title { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 4px; }
   .funnel-href  { font-size: 12px; color: #3b82f6; display: block; margin-bottom: 24px; text-decoration: none; }
   .tabs { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 24px; }
@@ -84,61 +87,109 @@
 
   .card-header { padding: 12px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
   .card-header-title { font-size: 13px; font-weight: 600; }
-  .card-header-count { font-size: 12px; color: #9ca3af; }
+  .card-header-sub   { font-size: 12px; color: #9ca3af; }
 
   /* step rows */
   .step-row { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; border-top: 1px solid #f3f4f6; }
   .step-row:first-child { border-top: none; }
-  .step-num { width: 30px; height: 30px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #6b7280; flex-shrink: 0; margin-top: 1px; }
+  .step-num  { width: 30px; height: 30px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #6b7280; flex-shrink: 0; margin-top: 1px; }
   .step-info { flex: 1; min-width: 0; }
-  .step-name { font-size: 13px; font-weight: 500; color: #111827; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-  .step-href  { font-size: 12px; color: #3b82f6; margin-top: 4px; display: inline-block; }
-  .btn-edit { font-size: 12px; padding: 5px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #374151; cursor: default; white-space: nowrap; }
+  .step-name { font-size: 13px; font-weight: 500; color: #111827; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+  .step-href { font-size: 12px; color: #3b82f6; margin-top: 4px; display: inline-block; }
+  .btn-edit  { font-size: 12px; padding: 5px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #374151; cursor: default; white-space: nowrap; }
 
-  /* variant sub-table */
-  .vtable { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; border: 1px solid #f3f4f6; border-radius: 8px; overflow: hidden; }
+  /* vtable */
+  .vtable { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #f3f4f6; border-radius: 8px; overflow: hidden; }
   .vtable thead th { background: #fafafa; padding: 7px 14px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f3f4f6; }
   .vtable thead th.r { text-align: right; }
   .vtable td { padding: 11px 14px; border-top: 1px solid #f3f4f6; vertical-align: middle; }
   .vtable td.r { text-align: right; }
   .vtable tr:first-child td { border-top: none; }
-  .vtable .winner-row td:first-child { border-left: 3px solid #16a34a; padding-left: 11px; }
-  .vtable .paused-row td:first-child { border-left: 3px solid #e5e7eb; padding-left: 11px; }
 
-  /* ── toggle switch ── */
-  .toggle-wrap { display: flex; align-items: center; gap: 7px; }
-  .toggle-label { font-size: 11px; font-weight: 500; color: #6b7280; min-width: 40px; }
+  /* toggle */
+  .toggle-wrap  { display: flex; align-items: center; gap: 7px; justify-content: flex-end; }
+  .toggle-label { font-size: 11px; font-weight: 500; min-width: 28px; text-align: right; }
   .toggle-label.on  { color: #16a34a; }
   .toggle-label.off { color: #9ca3af; }
-
-  .toggle {
-    position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0;
-  }
+  .toggle { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
   .toggle input { opacity: 0; width: 0; height: 0; }
-  .toggle-track {
-    position: absolute; inset: 0; background: #d1d5db; border-radius: 99px;
-    transition: background .18s;
-  }
+  .toggle-track { position: absolute; inset: 0; background: #d1d5db; border-radius: 99px; transition: background .18s; }
   .toggle input:checked + .toggle-track { background: #16a34a; }
-  .toggle-thumb {
-    position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
-    background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.18);
-    transition: transform .18s;
-  }
+  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.18); transition: transform .18s; }
   .toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
 
-  .traffic-note { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+  /* traffic area */
+  .traffic-area { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; min-height: 24px; }
+  .traffic-note { font-size: 11px; color: #9ca3af; }
   .traffic-note strong { color: #6b7280; }
 
+  /* action buttons */
+  .btn-declare { font-size: 12px; padding: 5px 12px; border: 1px solid #16a34a; border-radius: 8px; background: #fff; color: #16a34a; cursor: pointer; white-space: nowrap; font-weight: 500; }
+  .btn-declare:hover { background: #f0fdf4; }
+
+  .btn-add-challenger { font-size: 12px; padding: 6px 14px; border: 1.5px dashed #d97706; border-radius: 8px; background: #fff; color: #d97706; cursor: pointer; white-space: nowrap; font-weight: 500; }
+  .btn-add-challenger:hover { background: #fffbeb; }
+
+  .btn-go-live { font-size: 12px; padding: 5px 12px; border: none; border-radius: 8px; background: #2563eb; color: #fff; cursor: pointer; white-space: nowrap; font-weight: 500; }
+  .btn-go-live:hover { background: #1d4ed8; }
+  .btn-go-live:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+
+  /* cursor prompt box */
+  .prompt-box { background: #0f172a; border-radius: 8px; padding: 14px 16px; margin: 12px 14px 0; position: relative; }
+  .prompt-box-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .prompt-box-label span { color: #64748b; }
+  .prompt-text { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; color: #e2e8f0; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+  .prompt-text .line-comment { color: #64748b; }
+  .prompt-text .line-key     { color: #7dd3fc; }
+  .prompt-text .line-val     { color: #e2e8f0; }
+  .prompt-text .line-hyp     { color: #fde68a; }
+  .btn-copy { font-size: 11px; padding: 4px 10px; border: 1px solid #334155; border-radius: 6px; background: #1e293b; color: #94a3b8; cursor: pointer; white-space: nowrap; }
+  .btn-copy:hover { background: #273549; color: #e2e8f0; }
+  .btn-copy.copied { border-color: #16a34a; color: #4ade80; }
+
+  /* checklist */
+  .checklist { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; background: #fffdf0; border-top: 1px solid #fef3c7; }
+  .checklist-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #d97706; margin-bottom: 4px; }
+  .check-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
+  .check-item input[type=checkbox] { width: 14px; height: 14px; accent-color: #2563eb; cursor: pointer; flex-shrink: 0; }
+  .check-item.done { color: #9ca3af; text-decoration: line-through; }
+  .check-item code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 10px; }
+
   .note { font-size: 11px; color: #b0b7c3; margin-top: 10px; }
+
+  /* modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 28px; width: 460px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+  .modal-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+  .modal-icon-green  { background: #dcfce7; }
+  .modal-icon-yellow { background: #fef9c3; }
+  .modal-title { font-size: 15px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+  .modal-body  { font-size: 13px; color: #6b7280; line-height: 1.6; margin-bottom: 22px; }
+  .modal-body strong { color: #374151; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-cancel  { padding: 8px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #374151; font-size: 13px; cursor: pointer; }
+  .btn-cancel:hover { background: #f9fafb; }
+  .btn-confirm-green  { padding: 8px 16px; border: none; border-radius: 8px; background: #16a34a; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-confirm-green:hover  { background: #15803d; }
+  .btn-confirm-yellow { padding: 8px 16px; border: none; border-radius: 8px; background: #d97706; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-confirm-yellow:hover { background: #b45309; }
+
+  .field-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; display: block; margin-bottom: 6px; }
+  .field-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; color: #111827; outline: none; font-family: inherit; }
+  .field-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+  .field-textarea { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; color: #111827; outline: none; font-family: inherit; resize: vertical; min-height: 72px; line-height: 1.5; }
+  .field-textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+  .field-hint  { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+  .field-group { margin-top: 16px; }
 </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════
      PAGE 1 — FUNNELS LIST
-     ══════════════════════════════════════════════════════ -->
-<div class="page">
+══════════════════════════════════════════════ -->
+<div class="page" id="page1">
   <p class="label">Page 1 — Funnels list</p>
 
   <div class="section-header">
@@ -163,28 +214,20 @@
         </tr>
       </thead>
       <tbody>
-
-        <!-- Generator Quote — A/B active, combined stats -->
         <tr>
           <td>
-            <a class="fname" href="#">
-              Generator Quote <span class="arr">›</span>
-            </a>
-            <div style="margin-top:5px;">
-              <span class="badge badge-ab">A/B test</span>
-            </div>
+            <span class="fname" onclick="goToDetail()">Generator Quote <span class="arr">›</span></span>
+            <div style="margin-top:5px;"><span class="badge badge-ab">A/B test</span></div>
           </td>
           <td><a class="url" href="#">synergyhome.co/f/generator-quote</a></td>
-          <td class="r num">45</td>
-          <td class="r num">3</td>
-          <td class="r num">6.7%</td>
+          <td class="r num" id="p1-visitors">45</td>
+          <td class="r num" id="p1-leads">3</td>
+          <td class="r num" id="p1-conv">6.7%</td>
           <td><span class="badge badge-live">live</span></td>
           <td><button style="font-size:12px;color:#9ca3af;background:none;border:none;cursor:default;">Reset stats</button></td>
         </tr>
-
-        <!-- HVAC Second Opinion — no A/B -->
         <tr>
-          <td><a class="fname" href="#">HVAC Second Opinion <span class="arr">›</span></a></td>
+          <td><span class="fname">HVAC Second Opinion <span class="arr">›</span></span></td>
           <td><a class="url" href="#">synergyhome.co/f/hvac-second-opinion</a></td>
           <td class="r num">14</td>
           <td class="r num">0</td>
@@ -192,21 +235,20 @@
           <td><span class="badge badge-live">live</span></td>
           <td><button style="font-size:12px;color:#9ca3af;background:none;border:none;cursor:default;">Reset stats</button></td>
         </tr>
-
       </tbody>
     </table>
   </div>
-  <p class="note">Stats shown are combined totals across both variants. Click the funnel to see per-variant breakdown.</p>
+  <p class="note">Stats shown are combined totals across all active variants. Click the funnel to see per-variant breakdown.</p>
 </div>
 
 
-<!-- ══════════════════════════════════════════════════════
-     PAGE 2 — FUNNEL STEPS DETAIL
-     ══════════════════════════════════════════════════════ -->
-<div class="page">
-  <p class="label">Page 2 — Funnel steps detail (Generator Quote · A/B active on step 1)</p>
+<!-- ══════════════════════════════════════════════
+     PAGE 2 — FUNNEL DETAIL
+══════════════════════════════════════════════ -->
+<div class="page" id="page2">
+  <p class="label">Page 2 — Funnel steps detail</p>
 
-  <div class="back">← All funnels</div>
+  <span class="back" onclick="goBack()">← All funnels</span>
   <div class="funnel-title">Generator Quote</div>
   <a class="funnel-href" href="#">https://synergyhome.co/f/generator-quote</a>
 
@@ -218,10 +260,10 @@
   <div class="card">
     <div class="card-header">
       <span class="card-header-title">Funnel Steps</span>
-      <span class="card-header-count">2 steps</span>
+      <span class="card-header-sub">2 steps</span>
     </div>
 
-    <!-- ── Step 1 — A/B active ── -->
+    <!-- Step 1 — A/B -->
     <div class="step-row">
       <div class="step-num">1</div>
       <div class="step-info">
@@ -231,95 +273,34 @@
           <span class="badge badge-ab">A/B test</span>
         </div>
 
-        <table class="vtable" id="vtable">
+        <table class="vtable">
           <thead>
             <tr>
-              <th>Variant</th>
+              <th style="width:140px;">Variant</th>
               <th>URL</th>
               <th class="r">Visitors</th>
               <th class="r">Leads</th>
               <th class="r">Conv. Rate</th>
-              <th style="text-align:right;">Traffic</th>
-              <th></th>
+              <th class="r" style="width:90px;">Traffic</th>
+              <th style="width:130px;"></th>
             </tr>
           </thead>
-          <tbody>
-
-            <!-- Variant A — losing -->
-            <tr id="row-a" class="">
-              <td id="cell-a">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span class="vpill vpill-a">A</span>
-                  <span id="paused-badge-a" style="display:none;" class="badge badge-paused">Paused</span>
-                </div>
-              </td>
-              <td><a id="url-a" class="url" href="#">synergyhome.co/f/generator-quote</a></td>
-              <td class="r"><span id="vis-a" class="num">22</span></td>
-              <td class="r"><span id="leads-a" class="num">1</span></td>
-              <td class="r">
-                <div class="conv-wrap">
-                  <span id="conv-a" class="num">4.5%</span>
-                  <div class="conv-bar-track"><div class="conv-bar-fill fill-a" style="width:45%;"></div></div>
-                </div>
-              </td>
-              <td style="text-align:right;">
-                <div class="toggle-wrap" style="justify-content:flex-end;">
-                  <span id="label-a" class="toggle-label on">On</span>
-                  <label class="toggle">
-                    <input type="checkbox" id="toggle-a" checked onchange="handleToggle('a')">
-                    <div class="toggle-track"></div>
-                    <div class="toggle-thumb"></div>
-                  </label>
-                </div>
-              </td>
-              <td style="text-align:right;"><button class="btn-edit">Edit</button></td>
-            </tr>
-
-            <!-- Variant B — winning -->
-            <tr id="row-b" class="winner-row">
-              <td id="cell-b" style="border-left:3px solid #16a34a;padding-left:11px;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span class="vpill vpill-b">B</span>
-                  <span class="delta delta-up">▲ +4.6%</span>
-                  <span id="paused-badge-b" style="display:none;" class="badge badge-paused">Paused</span>
-                </div>
-              </td>
-              <td><a id="url-b" class="url" href="#">synergyhome.co/f/generator-quote</a></td>
-              <td class="r"><span id="vis-b" class="num">23</span></td>
-              <td class="r"><span id="leads-b" class="num">2</span></td>
-              <td class="r">
-                <div class="conv-wrap">
-                  <span id="conv-b" class="num">8.7%</span>
-                  <div class="conv-bar-track"><div class="conv-bar-fill fill-b" style="width:87%;"></div></div>
-                </div>
-              </td>
-              <td style="text-align:right;">
-                <div class="toggle-wrap" style="justify-content:flex-end;">
-                  <span id="label-b" class="toggle-label on">On</span>
-                  <label class="toggle">
-                    <input type="checkbox" id="toggle-b" checked onchange="handleToggle('b')">
-                    <div class="toggle-track"></div>
-                    <div class="toggle-thumb"></div>
-                  </label>
-                </div>
-              </td>
-              <td style="text-align:right;"><button class="btn-edit">Edit</button></td>
-            </tr>
-
-          </tbody>
+          <tbody id="vtbody"></tbody>
         </table>
 
-        <!-- Traffic note below the sub-table -->
-        <p class="traffic-note" id="traffic-note">Traffic split: <strong>50 / 50</strong></p>
+        <div class="traffic-area">
+          <p class="traffic-note" id="traffic-note"></p>
+          <button class="btn-add-challenger" id="btn-add-challenger" style="display:none;" onclick="openModal('modal-challenger')">＋ Add Challenger</button>
+        </div>
 
       </div>
     </div>
 
-    <!-- ── Step 2 — no A/B ── -->
+    <!-- Step 2 -->
     <div class="step-row">
       <div class="step-num">2</div>
       <div class="step-info" style="flex:1;">
-        <div class="step-name">
+        <div class="step-name" style="margin-bottom:0;">
           Thank You
           <span class="badge badge-type">thank_you</span>
         </div>
@@ -327,52 +308,360 @@
       </div>
       <button class="btn-edit">Edit</button>
     </div>
-
   </div>
 </div>
 
-<script>
-function handleToggle(which) {
-  const aOn = document.getElementById('toggle-a').checked
-  const bOn = document.getElementById('toggle-b').checked
 
-  // Prevent both being turned off
-  if (!aOn && !bOn) {
-    document.getElementById('toggle-' + which).checked = true
-    return
+<!-- ══════════════════════════════════════════════
+     MODAL — Declare Winner
+══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-declare" onclick="overlayClick(event,'modal-declare')">
+  <div class="modal">
+    <div class="modal-icon modal-icon-green">🏆</div>
+    <div class="modal-title" id="declare-title"></div>
+    <div class="modal-body"  id="declare-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-declare')">Cancel</button>
+      <button class="btn-confirm-green" onclick="confirmDeclareWinner()">Declare Winner</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL — Add Challenger
+══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-challenger" onclick="overlayClick(event,'modal-challenger')">
+  <div class="modal">
+    <div class="modal-icon modal-icon-yellow">⚡</div>
+    <div class="modal-title">Add New Challenger</div>
+    <div class="modal-body">
+      Register a challenger to test against the current winner. Fill in what you want to test — a prompt will be generated for you to paste into Cursor.
+      <div class="field-group">
+        <label class="field-label">Component Name</label>
+        <input class="field-input" id="challenger-name" type="text" placeholder="e.g. SynergyGeneratorV3" value="SynergyGeneratorV3" />
+        <p class="field-hint">Should match the React component filename you'll build in Cursor.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">What are you testing next?</label>
+        <textarea class="field-textarea" id="challenger-hypothesis" placeholder="e.g. New headline emphasizing cost savings, shorter form with 3 questions instead of 5..."></textarea>
+        <p class="field-hint">This becomes the hypothesis in your Cursor build prompt.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-challenger')">Cancel</button>
+      <button class="btn-confirm-yellow" onclick="confirmAddChallenger()">Register Challenger</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+
+const state = {
+  phase: 'testing', // testing | winner_declared | challenger_added | retesting
+  declaredWinner: null,
+  challengerName: '',
+  hypothesis: '',
+  vars: [
+    { key: 'a', label: 'A', pill: 'vpill-a', fill: 'fill-a', visitors: 22, leads: 1,  conv: 4.5, live: true,  archived: false },
+    { key: 'b', label: 'B', pill: 'vpill-b', fill: 'fill-b', visitors: 23, leads: 2,  conv: 8.7, live: true,  archived: false },
+  ]
+}
+
+let pendingDeclareKey = null
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function liveActiveVars() {
+  return state.vars.filter(v => v.live && !v.archived)
+}
+
+function getRunningWinner() {
+  const live = liveActiveVars()
+  if (live.length < 2) return null
+  return live.reduce((best, v) => v.conv > best.conv ? v : best)
+}
+
+function getDelta(v) {
+  const live = liveActiveVars()
+  if (live.length < 2) return null
+  const others = live.filter(o => o.key !== v.key)
+  const maxOther = Math.max(...others.map(o => o.conv))
+  return v.conv - maxOther
+}
+
+function buildPrompt() {
+  const winner = state.vars.find(v => v.key === state.declaredWinner)
+  const loser  = state.vars.find(v => v.key !== state.declaredWinner && v.archived && !v.live)
+  const winConv  = winner ? winner.conv.toFixed(1) : '—'
+  const loseConv = loser  ? loser.conv.toFixed(1)  : '—'
+  const hyp = state.hypothesis || '[describe what you want to change or test]'
+
+  // Map winner label to likely filename
+  const fileMap = { A: 'SynergyGenerator.js', B: 'SynergyGenerator.js', C: 'SynergyGeneratorV2.js' }
+  const winnerFile = fileMap[winner ? winner.label : 'B'] || 'SynergyGenerator.js'
+
+  return `Winner declared: Variant ${winner ? winner.label : '?'} (${winnerFile}) — ${winConv}% conv vs ${loseConv}%
+
+Build challenger for ch014 / Generator Quote:
+- Fork:       components/funnels/synergy-generator/${winnerFile}
+- Save as:    components/funnels/synergy-generator/${state.challengerName}.js
+- Register:   lib/funnel-loader.js → CODE_FUNNELS['generator-quote']
+- Hypothesis: ${hyp}`
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+
+function render() {
+  const tbody   = document.getElementById('vtbody')
+  const tnote   = document.getElementById('traffic-note')
+  const btnChal = document.getElementById('btn-add-challenger')
+  const runWinner = getRunningWinner()
+  let rows = ''
+
+  for (const v of state.vars) {
+    const isRunWinner  = runWinner && v.key === runWinner.key
+    const isDeclWinner = state.declaredWinner === v.key
+
+    let rowClass = ''
+    let leftBorder = ''
+    if (v.archived) {
+      rowClass = 'row-archived'
+      leftBorder = 'border-left:3px solid #e5e7eb;padding-left:11px;'
+    } else if (!v.live) {
+      rowClass = 'row-pending'
+      leftBorder = 'border-left:3px solid #f59e0b;padding-left:11px;'
+    } else if (isRunWinner || isDeclWinner) {
+      rowClass = 'row-winner'
+      leftBorder = 'border-left:3px solid #16a34a;padding-left:11px;'
+    }
+
+    const dim = v.archived || !v.live
+    const numClass = dim ? 'num-dim' : 'num'
+    const urlClass = dim ? 'url-dim' : 'url'
+    const barOpacity = dim ? ';opacity:.3' : ''
+    const barW = Math.min(100, Math.round(v.conv * 10))
+    const delta = getDelta(v)
+
+    rows += `<tr class="${rowClass}">`
+
+    // Variant cell
+    rows += `<td style="${leftBorder}">`
+    rows += `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">`
+    rows += `<span class="vpill ${v.pill}">${v.label}</span>`
+    if (isRunWinner && delta !== null) {
+      const sign = delta >= 0 ? '▲ +' : '▼ '
+      rows += `<span class="delta ${delta > 0 ? 'delta-up' : 'delta-down'}">${sign}${Math.abs(delta).toFixed(1)}%</span>`
+    }
+    if (v.archived) rows += `<span class="badge badge-archived">Archived</span>`
+    if (!v.live && !v.archived) rows += `<span class="badge badge-pending">Pending</span>`
+    rows += `</div></td>`
+
+    // URL
+    rows += `<td><span class="${urlClass}">synergyhome.co/f/generator-quote</span></td>`
+
+    // Stats
+    rows += `<td class="r"><span class="${numClass}">${v.visitors}</span></td>`
+    rows += `<td class="r"><span class="${numClass}">${v.leads}</span></td>`
+    rows += `<td class="r"><div class="conv-wrap"><span class="${numClass}">${v.conv.toFixed(1)}%</span>`
+    rows += `<div class="conv-bar-track"><div class="conv-bar-fill ${v.fill}" style="width:${barW}%${barOpacity};"></div></div></div></td>`
+
+    // Traffic toggle
+    const liveActive = liveActiveVars()
+    const isOnlyLive = liveActive.length === 1 && v.live && !v.archived
+    if (v.archived) {
+      rows += `<td class="r"><span class="toggle-label off">Off</span></td>`
+    } else if (!v.live) {
+      rows += `<td class="r"><span class="toggle-label" style="color:#d97706;font-size:11px;font-weight:500;">Pending</span></td>`
+    } else {
+      rows += `<td class="r"><div class="toggle-wrap">`
+      rows += `<span class="toggle-label on">On</span>`
+      rows += `<label class="toggle">`
+      rows += `<input type="checkbox" checked ${isOnlyLive ? 'disabled' : `onchange="handleToggle('${v.key}')"`}>`
+      rows += `<div class="toggle-track"></div><div class="toggle-thumb"></div>`
+      rows += `</label></div></td>`
+    }
+
+    // Action button
+    rows += `<td style="text-align:right;">`
+    if (isRunWinner && liveActive.length >= 2) {
+      rows += `<button class="btn-declare" onclick="openDeclareWinner('${v.key}')">Declare Winner</button>`
+    } else if (!v.live && !v.archived) {
+      rows += `<button class="btn-go-live" id="go-live-btn" onclick="goLive()" disabled>Go Live</button>`
+    } else if (v.live && !v.archived && !isRunWinner && liveActive.length >= 2) {
+      rows += `<button class="btn-edit">Edit</button>`
+    }
+    rows += `</td>`
+    rows += `</tr>`
+
+    // Challenger: prompt + checklist
+    if (!v.live && !v.archived) {
+      const prompt = buildPrompt()
+
+      rows += `<tr style="background:#0f172a;"><td colspan="7" style="padding:0;">`
+      rows += `<div class="prompt-box">`
+      rows += `<div class="prompt-box-label"><span>Cursor prompt — paste this to build the challenger</span>`
+      rows += `<button class="btn-copy" id="btn-copy" onclick="copyPrompt()">Copy</button></div>`
+      rows += `<div class="prompt-text" id="prompt-text">${escapeHtml(prompt)}</div>`
+      rows += `</div></td></tr>`
+
+      rows += `<tr style="background:#fffdf0;"><td colspan="7" style="padding:0;">`
+      rows += `<div class="checklist">`
+      rows += `<div class="checklist-label">Before going live</div>`
+      rows += `<div class="check-item" id="ci1"><input type="checkbox" id="chk1" onchange="updateGoLive()"> Build <strong style="margin:0 3px;">${state.challengerName}.js</strong> in Cursor</div>`
+      rows += `<div class="check-item" id="ci2"><input type="checkbox" id="chk2" onchange="updateGoLive()"> Register in <code>lib/funnel-loader.js</code> CODE_FUNNELS</div>`
+      rows += `</div></td></tr>`
+    }
   }
 
-  applyState(aOn, bOn)
+  tbody.innerHTML = rows
+
+  // Traffic note + Add Challenger button
+  const live = liveActiveVars()
+  if (state.phase === 'winner_declared') {
+    const w = state.vars.find(v => v.key === state.declaredWinner)
+    tnote.innerHTML = `100% of traffic → <strong>Variant ${w.label}</strong> &nbsp;·&nbsp; Previous variant archived`
+    btnChal.style.display = ''
+  } else if (state.phase === 'challenger_added') {
+    const w = state.vars.find(v => v.key === state.declaredWinner)
+    tnote.innerHTML = `100% of traffic → <strong>Variant ${w.label}</strong> &nbsp;·&nbsp; Challenger pending build`
+    btnChal.style.display = 'none'
+  } else if (state.phase === 'retesting') {
+    tnote.innerHTML = `Traffic split: <strong>50 / 50</strong> &nbsp;·&nbsp; New test running`
+    btnChal.style.display = 'none'
+  } else {
+    if (live.length === 2) tnote.innerHTML = `Traffic split: <strong>50 / 50</strong>`
+    else if (live.length === 1) tnote.innerHTML = `100% of traffic → <strong>Variant ${live[0].label}</strong>`
+    btnChal.style.display = 'none'
+  }
+
+  // Sync Page 1 stats
+  const totalV = state.vars.filter(v => !v.archived).reduce((s,v) => s + v.visitors, 0)
+  const totalL = state.vars.filter(v => !v.archived).reduce((s,v) => s + v.leads, 0)
+  const totalC = totalV > 0 ? (totalL / totalV * 100).toFixed(1) + '%' : '0.0%'
+  document.getElementById('p1-visitors').textContent = totalV
+  document.getElementById('p1-leads').textContent = totalL
+  document.getElementById('p1-conv').textContent = totalC
 }
 
-function applyState(aOn, bOn) {
-  // Row A
-  const rowA = document.getElementById('row-a')
-  rowA.className = aOn ? '' : 'paused-row'
-  document.getElementById('cell-a').style.borderLeft = aOn ? '' : '3px solid #e5e7eb'
-  document.getElementById('cell-a').style.paddingLeft = aOn ? '' : '11px'
-  document.getElementById('label-a').textContent = aOn ? 'On' : 'Off'
-  document.getElementById('label-a').className = 'toggle-label ' + (aOn ? 'on' : 'off')
-  document.getElementById('paused-badge-a').style.display = aOn ? 'none' : ''
-  document.getElementById('url-a').className = aOn ? 'url' : 'url-dim'
+// ─── Toggle ──────────────────────────────────────────────────────────────────
 
-  // Row B
-  const rowB = document.getElementById('row-b')
-  rowB.className = bOn ? 'winner-row' : 'paused-row'
-  document.getElementById('cell-b').style.borderLeft = bOn ? '3px solid #16a34a' : '3px solid #e5e7eb'
-  document.getElementById('cell-b').style.paddingLeft = '11px'
-  document.getElementById('label-b').textContent = bOn ? 'On' : 'Off'
-  document.getElementById('label-b').className = 'toggle-label ' + (bOn ? 'on' : 'off')
-  document.getElementById('paused-badge-b').style.display = bOn ? 'none' : ''
-  document.getElementById('url-b').className = bOn ? 'url' : 'url-dim'
-
-  // Traffic note
-  const note = document.getElementById('traffic-note')
-  if (aOn && bOn)       note.innerHTML = 'Traffic split: <strong>50 / 50</strong>'
-  else if (aOn && !bOn) note.innerHTML = '100% of traffic → <strong>Variant A</strong> &nbsp;·&nbsp; Variant B is paused'
-  else if (!aOn && bOn) note.innerHTML = '100% of traffic → <strong>Variant B</strong> &nbsp;·&nbsp; Variant A is paused'
+function handleToggle(key) {
+  const v = state.vars.find(v => v.key === key)
+  v.live = !v.live
+  if (liveActiveVars().length === 0) v.live = true
+  render()
 }
+
+// ─── Declare Winner ──────────────────────────────────────────────────────────
+
+function openDeclareWinner(key) {
+  pendingDeclareKey = key
+  const winner = state.vars.find(v => v.key === key)
+  const losers  = liveActiveVars().filter(v => v.key !== key)
+  document.getElementById('declare-title').textContent = `Declare Variant ${winner.label} the winner?`
+  document.getElementById('declare-body').innerHTML = losers.length
+    ? `<strong>Variant ${losers.map(l => l.label).join(', ')}</strong> will be archived. 100% of traffic goes to <strong>Variant ${winner.label}</strong>.<br><br>Stats are preserved. You can add a new challenger at any time.`
+    : `100% of traffic will continue going to <strong>Variant ${winner.label}</strong>.`
+  openModal('modal-declare')
+}
+
+function confirmDeclareWinner() {
+  closeModal('modal-declare')
+  state.declaredWinner = pendingDeclareKey
+  state.phase = 'winner_declared'
+  for (const v of state.vars) {
+    if (v.key !== pendingDeclareKey && !v.archived) {
+      v.archived = true
+      v.live = false
+    }
+  }
+  render()
+}
+
+// ─── Add Challenger ──────────────────────────────────────────────────────────
+
+function confirmAddChallenger() {
+  const name = document.getElementById('challenger-name').value.trim() || 'ChallengerV2'
+  const hyp  = document.getElementById('challenger-hypothesis').value.trim()
+  state.challengerName = name
+  state.hypothesis = hyp
+  closeModal('modal-challenger')
+  state.phase = 'challenger_added'
+
+  const used   = state.vars.map(v => v.label)
+  const labels = ['A','B','C','D','E','F']
+  const pills  = ['vpill-a','vpill-b','vpill-c','vpill-a','vpill-b','vpill-c']
+  const fills  = ['fill-a','fill-b','fill-c','fill-a','fill-b','fill-c']
+  const nextLabel = labels.find(l => !used.includes(l)) || 'C'
+  const idx = labels.indexOf(nextLabel)
+
+  state.vars.push({
+    key: 'ch_' + Date.now(),
+    label: nextLabel,
+    pill: pills[idx] || 'vpill-c',
+    fill: fills[idx] || 'fill-c',
+    visitors: 0, leads: 0, conv: 0.0,
+    live: false, archived: false,
+  })
+
+  render()
+}
+
+// ─── Go Live ─────────────────────────────────────────────────────────────────
+
+function updateGoLive() {
+  const c1 = document.getElementById('chk1')
+  const c2 = document.getElementById('chk2')
+  const btn = document.getElementById('go-live-btn')
+  if (!c1 || !c2 || !btn) return
+  btn.disabled = !(c1.checked && c2.checked)
+  document.getElementById('ci1').classList.toggle('done', c1.checked)
+  document.getElementById('ci2').classList.toggle('done', c2.checked)
+}
+
+function goLive() {
+  const challenger = state.vars.find(v => !v.live && !v.archived)
+  if (!challenger) return
+  challenger.live = true
+  state.phase = 'retesting'
+  render()
+}
+
+// ─── Copy prompt ─────────────────────────────────────────────────────────────
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').innerText
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy')
+    btn.textContent = 'Copied!'
+    btn.classList.add('copied')
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied') }, 2000)
+  })
+}
+
+// ─── Utils ───────────────────────────────────────────────────────────────────
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+// ─── Modal helpers ───────────────────────────────────────────────────────────
+
+function openModal(id)  { document.getElementById(id).classList.add('open') }
+function closeModal(id) { document.getElementById(id).classList.remove('open') }
+function overlayClick(e, id) { if (e.target === e.currentTarget) closeModal(id) }
+
+// ─── Navigation ──────────────────────────────────────────────────────────────
+
+function goToDetail() { document.getElementById('page2').scrollIntoView({ behavior: 'smooth' }) }
+function goBack()     { document.getElementById('page1').scrollIntoView({ behavior: 'smooth' }) }
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+
+render()
 </script>
-
 </body>
 </html>

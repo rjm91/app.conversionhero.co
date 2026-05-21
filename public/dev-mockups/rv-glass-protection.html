@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShieldGlass RV — Premium Windshield Protection</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0f1c;
+      --surface: #111827;
+      --surface2: #1a2236;
+      --border: rgba(255,255,255,0.06);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #0ea5e9;
+      --green: #34d399;
+      --orange: #fb923c;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(10,15,28,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+    .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); }
+    .btn-nav {
+      background: var(--accent);
+      color: #0a0f1c;
+      border: none;
+      padding: 9px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-nav:hover { opacity: 0.85; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 100px 24px 80px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.2);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: 52px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p { font-size: 18px; color: var(--muted); max-width: 560px; margin: 0 auto 36px; }
+    .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0a0f1c;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 4px 24px rgba(56,189,248,0.25);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 32px rgba(56,189,248,0.35); }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    /* ── Stats strip ── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat { text-align: center; }
+    .stat-val { font-size: 36px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Features ── */
+    .features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .features .sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      transition: border-color .2s;
+    }
+    .feature:hover { border-color: rgba(56,189,248,0.2); }
+    .feature-icon { font-size: 32px; margin-bottom: 14px; }
+    .feature h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ── How it works ── */
+    .how {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .how h2 { text-align: center; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 48px; }
+    .steps { display: flex; gap: 24px; }
+    .step {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: rgba(56,189,248,0.1);
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    .step h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--muted); }
+
+    /* ── Testimonials ── */
+    .testimonials {
+      padding: 80px 24px;
+      border-top: 1px solid var(--border);
+    }
+    .testimonials h2 { text-align: center; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 48px; }
+    .testimonial-grid {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .testimonial {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+    }
+    .stars { color: var(--orange); font-size: 16px; margin-bottom: 12px; letter-spacing: 2px; }
+    .testimonial blockquote { font-size: 15px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; font-style: italic; }
+    .testimonial .author { font-size: 13px; font-weight: 700; color: var(--text); }
+    .testimonial .author span { color: var(--muted); font-weight: 400; }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 80px 24px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .cta-section h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 16px; }
+    .cta-section p { color: var(--muted); font-size: 16px; margin-bottom: 32px; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 28px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 34px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .steps { flex-direction: column; }
+      .testimonial-grid { grid-template-columns: 1fr; }
+      .stats { flex-direction: column; gap: 24px; }
+      nav { padding: 14px 20px; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="logo">Shield<span>Glass</span> RV</div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#reviews">Reviews</a>
+    </div>
+    <button class="btn-nav">Get Protected</button>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="badge">Trusted by 10,000+ RV owners</div>
+    <h1>Stop rocks from <em>destroying</em> your windshield.</h1>
+    <p>Military-grade nano-ceramic film that absorbs impact, blocks UV, and keeps your RV glass crystal clear — mile after mile.</p>
+    <div class="hero-cta">
+      <button class="btn-primary">Shop Protection Kits</button>
+      <button class="btn-secondary">Watch Demo</button>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val">300%</div>
+      <div class="stat-label">Stronger than stock glass</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">99.8%</div>
+      <div class="stat-label">UV rejection</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">50K+</div>
+      <div class="stat-label">Windshields protected</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">10 yr</div>
+      <div class="stat-label">Warranty coverage</div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <h2>Built for the open road.</h2>
+    <p class="sub">Every feature engineered for RV owners who refuse to compromise.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="feature-icon">🛡️</div>
+        <h3>Impact Absorption</h3>
+        <p>Our 8-mil nano-ceramic layer absorbs rock strikes that would chip or crack factory glass. Tested at highway speeds up to 80 mph.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">☀️</div>
+        <h3>UV + Heat Rejection</h3>
+        <p>Blocks 99.8% of harmful UV rays and reduces cabin heat by up to 40%. Your dash stays cool, your skin stays safe.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💧</div>
+        <h3>Hydrophobic Coating</h3>
+        <p>Rain, bugs, and road grime bead right off. Better visibility in storms without constantly running wipers at full speed.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔍</div>
+        <h3>Optically Clear</h3>
+        <p>Zero distortion, zero haze. Our film is engineered to be invisible — you'll forget it's there until a rock reminds you.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔧</div>
+        <h3>DIY Install</h3>
+        <p>Pre-cut kits for every major RV make and model. Average install time: 45 minutes. No pros needed, just a spray bottle and squeegee.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💰</div>
+        <h3>Saves You Thousands</h3>
+        <p>RV windshield replacement runs $1,500–$4,000+. Our kit costs a fraction and prevents the damage before it happens.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how" id="how">
+    <h2>Three steps. That's it.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Pick your RV</h3>
+        <p>Select your year, make, and model. We'll send a film kit precision-cut to your exact windshield dimensions.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Clean & apply</h3>
+        <p>Spray the glass, peel the backing, squeegee it flat. Our alignment guides make it foolproof.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Drive worry-free</h3>
+        <p>Hit the road knowing your windshield is protected. Backed by our 10-year no-chip warranty.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testimonials" id="reviews">
+    <h2>Owners love it.</h2>
+    <div class="testimonial-grid">
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"Took my Class A through a construction zone in Wyoming. Heard three solid hits — not a single mark on the glass. This stuff is legit."</blockquote>
+        <div class="author">Mike T. <span>— 2023 Thor Palazzo, Full-timer</span></div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"Installed it myself in under an hour. My last windshield replacement was $3,200. This was the best $289 I've ever spent on my rig."</blockquote>
+        <div class="author">Sandy R. <span>— 2022 Winnebago View</span></div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"The UV rejection alone is worth it. My dash was getting cooked. Now the cabin is noticeably cooler and I'm not squinting through glare."</blockquote>
+        <div class="author">Carlos D. <span>— 2024 Tiffin Allegro</span></div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"I was skeptical about DIY install on a curved RV windshield. The pre-cut kit fit perfectly. Watched the YouTube video once and nailed it."</blockquote>
+        <div class="author">Jen & Paul K. <span>— 2021 Newmar Bay Star</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="cta-section">
+    <h2>Your windshield's next rock chip is coming.</h2>
+    <p>Don't wait for the crack. Protect your glass now and save thousands in replacement costs down the road.</p>
+    <button class="btn-primary">Get Your Kit — Starting at $189</button>
+  </section>
+
+  <footer>
+    &copy; 2026 ShieldGlass RV. All rights reserved. &nbsp;|&nbsp; 30-day money-back guarantee &nbsp;|&nbsp; Made in the USA
+  </footer>
+
+</body>
+</html>

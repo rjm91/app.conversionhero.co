@@ -1,8 +1,12 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../../../lib/supabase'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
+import { Line } from 'react-chartjs-2'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 function fmt$(n) {
   if (!n || n === 0) return '$0.00'
@@ -52,6 +56,7 @@ export default function YouTubeAdsPage() {
   const [appliedEnd,   setAppliedEnd]   = useState(initEnd)
 
   const [campaigns,      setCampaigns]      = useState([])
+  const [dailyRows,      setDailyRows]      = useState([])   // raw rows for chart
   const [adGroups,       setAdGroups]       = useState([])
   const [ads,            setAds]            = useState([])
   const [chAttribution,  setChAttribution]  = useState({})   // campaign_id → count
@@ -145,6 +150,9 @@ export default function YouTubeAdsPage() {
       setLoading(false)
       return
     }
+
+    // Store raw daily rows for spend chart
+    setDailyRows(data || [])
 
     // Aggregate daily rows per campaign
     const map = {}
@@ -396,6 +404,41 @@ export default function YouTubeAdsPage() {
     return rows
   }, [currentData, statusFilter, searchQuery, sortCol, sortDir, chAttribution, chAdGroupAttr, chAdAttr, view])
 
+  // Build daily spend chart data (respects status + search filters, campaign view only)
+  const spendChartData = useMemo(() => {
+    // Get campaign IDs that pass the current filters
+    const filteredIds = new Set(filtered.map(c => c.campaign_id))
+    // Filter raw daily rows to only matching campaigns
+    const relevant = view === 'campaigns'
+      ? dailyRows.filter(r => filteredIds.has(r.campaign_id))
+      : dailyRows
+    // Aggregate spend by date
+    const byDate = {}
+    for (const row of relevant) {
+      const d = row.date
+      if (!d) continue
+      byDate[d] = (byDate[d] || 0) + (Number(row.cost) || 0)
+    }
+    const sorted = Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0]))
+    return {
+      labels: sorted.map(([d]) => {
+        const dt = new Date(d + 'T00:00:00')
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }),
+      datasets: [{
+        label: 'Ad Spend',
+        data: sorted.map(([, v]) => v),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: sorted.length > 30 ? 0 : 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      }],
+    }
+  }, [dailyRows, filtered, view])
+
   const totals = useMemo(() => filtered.reduce((acc, row) => ({
     budget:   acc.budget  + (Number(row.budget)  || 0),
     cost:     acc.cost    + (Number(row.cost)    || 0),
@@ -521,6 +564,47 @@ export default function YouTubeAdsPage() {
               Reconnect Google Ads →
             </a>
           )}
+        </div>
+      )}
+
+      {/* Spend Chart */}
+      {view === 'campaigns' && spendChartData.labels.length > 0 && !loading && (
+        <div className="mb-6 bg-white dark:bg-[#111528] rounded-xl border border-gray-100 dark:border-white/[0.06] shadow-sm dark:shadow-none p-5">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Ad Spend</p>
+          <div style={{ height: 180 }}>
+            <Line
+              data={spendChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: { color: '#6b7280', font: { size: 11 }, maxRotation: 0, autoSkipPadding: 16 },
+                    border: { display: false },
+                  },
+                  y: {
+                    grid: { color: 'rgba(107,114,128,0.1)' },
+                    ticks: {
+                      color: '#6b7280',
+                      font: { size: 11 },
+                      callback: v => '$' + v.toLocaleString(),
+                    },
+                    border: { display: false },
+                    beginAtZero: true,
+                  },
+                },
+                plugins: {
+                  tooltip: {
+                    callbacks: {
+                      label: ctx => ' $' + ctx.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
         </div>
       )}
 
