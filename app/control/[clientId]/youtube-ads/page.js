@@ -59,6 +59,7 @@ export default function YouTubeAdsPage() {
   const [chAdAttr,       setChAdAttr]       = useState({})   // ad_id (utm_content) → count
   const [clientName,     setClientName]     = useState('')
   const [statusFilter,   setStatusFilter]   = useState(initStatus)
+  const [searchQuery,    setSearchQuery]    = useState('')
   const [loading,        setLoading]        = useState(true)
   const [syncing,        setSyncing]        = useState(false)
   const [syncedAt,       setSyncedAt]       = useState(null)
@@ -362,6 +363,11 @@ export default function YouTubeAdsPage() {
   const filtered = useMemo(() => {
     let rows = statusFilter === 'All' ? [...currentData] : currentData.filter(c => c.status === statusFilter)
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      rows = rows.filter(r => (getRowName(r) || '').toLowerCase().includes(q))
+    }
+
     rows.sort((a, b) => {
       let va, vb
       if (sortCol === 'name') {
@@ -388,7 +394,7 @@ export default function YouTubeAdsPage() {
     })
 
     return rows
-  }, [currentData, statusFilter, sortCol, sortDir, chAttribution, chAdGroupAttr, chAdAttr, view])
+  }, [currentData, statusFilter, searchQuery, sortCol, sortDir, chAttribution, chAdGroupAttr, chAdAttr, view])
 
   const totals = useMemo(() => filtered.reduce((acc, row) => ({
     budget:   acc.budget  + (Number(row.budget)  || 0),
@@ -475,6 +481,28 @@ export default function YouTubeAdsPage() {
               className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#161b30]">
               {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
             </select>
+          </div>
+          <div className="relative flex items-center">
+            <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Filter campaigns..."
+              className="border border-gray-200 dark:border-gray-600 rounded-lg pl-8 pr-7 py-1.5 text-sm text-gray-700 dark:text-gray-100 dark:bg-[#161b30] outline-none focus:ring-2 focus:ring-blue-500 w-48"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
