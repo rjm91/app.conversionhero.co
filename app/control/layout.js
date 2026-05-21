@@ -163,15 +163,7 @@ export default function AdminLayout({ children }) {
   const [toast, setToast] = useState('')
   const dropdownRefs = useRef({})
 
-  const activeKey = getActiveKey(pathname)
-  const activeGroup = getGroupForKey(activeKey)
-  const hasPins = pinnedGroups.size > 0
-
-  // Pass through to client-level layout (but not agency funnel editor)
-  if (pathname.match(/^\/control\/[^/]+\//) && !pathname.startsWith('/control/funnels/')) {
-    return <>{children}</>
-  }
-
+  // All hooks must be before any conditional return
   // Load profile
   useEffect(() => {
     fetch('/api/profile')
@@ -215,6 +207,15 @@ export default function AdminLayout({ children }) {
     setToast(msg)
     setTimeout(() => setToast(''), 1500)
   }, [])
+
+  const activeKey = getActiveKey(pathname)
+  const activeGroup = getGroupForKey(activeKey)
+  const hasPins = pinnedGroups.size > 0
+
+  // Pass through to client-level layout (but not agency funnel editor)
+  if (pathname.match(/^\/control\/[^/]+\//) && !pathname.startsWith('/control/funnels/')) {
+    return <>{children}</>
+  }
 
   function pinGroup(groupId) {
     setPinnedGroups(prev => new Set([...prev, groupId]))
