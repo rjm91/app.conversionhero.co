@@ -305,7 +305,95 @@ async function main() {
   }
   console.log(`✓ ${adRows.length} ad daily rows created`)
 
-  // ── 5. Summary ──
+  // ── 5. Create funnels (HVAC + Generator) ──
+  // Delete existing demo funnels first
+  const { data: existingFunnels } = await supabase
+    .from('client_funnels')
+    .select('id')
+    .eq('client_id', CLIENT_ID)
+  if (existingFunnels?.length) {
+    const funnelIds = existingFunnels.map(f => f.id)
+    await supabase.from('client_funnel_steps').delete().in('funnel_id', funnelIds)
+    await supabase.from('client_funnels').delete().eq('client_id', CLIENT_ID)
+  }
+
+  const demoBranding = {
+    logoUrl: 'https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/synergy-logo.svg',
+    primaryColor: '#1e40af',
+    primaryColorHover: '#1e3a8a',
+    primaryColorLight: '#dbeafe',
+  }
+
+  const funnelDefs = [
+    {
+      slug: 'demo-hvac-quote',
+      name: 'Comfort Pro — HVAC Second Opinion',
+      service: 'hvac',
+      config: {
+        headline: {
+          eyebrow: 'Nashville & Middle TN Homeowners:',
+          title: "Don't Buy A New HVAC System Without a Free Second Opinion From Comfort Pro",
+        },
+        footer: { companyName: 'Comfort Pro HVAC', privacyUrl: '#', termsUrl: '#' },
+        steps: [],
+      },
+    },
+    {
+      slug: 'demo-generator-quote',
+      name: 'Comfort Pro — Whole-Home Generator',
+      service: 'generator',
+      config: {
+        headline: {
+          eyebrow: 'Nashville & Middle TN Homeowners:',
+          title: 'Get A Free Quote For A Whole-Home Backup Generator',
+        },
+        footer: { companyName: 'Comfort Pro HVAC', privacyUrl: '#', termsUrl: '#' },
+        steps: [],
+      },
+    },
+  ]
+
+  for (const def of funnelDefs) {
+    const { data: funnel, error: fErr } = await supabase.from('client_funnels').insert({
+      client_id: CLIENT_ID,
+      slug: def.slug,
+      name: def.name,
+      service: def.service,
+      status: 'live',
+      branding: demoBranding,
+      tracking: {},
+    }).select('id').single()
+
+    if (fErr) { console.error(`Funnel insert error (${def.slug}):`, fErr); continue }
+
+    // Insert survey step (step 1) and thank-you step (step 2)
+    const { error: stepsErr } = await supabase.from('client_funnel_steps').insert([
+      {
+        funnel_id: funnel.id,
+        step_order: 1,
+        step_type: 'survey',
+        slug: null,
+        name: def.name + ' — Survey',
+        config: { headline: def.config.headline, footer: def.config.footer, steps: def.config.steps },
+      },
+      {
+        funnel_id: funnel.id,
+        step_order: 2,
+        step_type: 'thank_you',
+        slug: 'thanks',
+        name: 'Thank You',
+        config: {
+          title: "We've Got Your Info!",
+          message: 'A Comfort Pro specialist will reach out to you shortly.',
+          cta: { label: null, href: null },
+        },
+      },
+    ])
+    if (stepsErr) console.error(`Steps insert error (${def.slug}):`, stepsErr)
+    else console.log(`✓ Funnel created: ${def.name} (/f/${def.slug})`)
+  }
+
+  // ── 6. Summary ──
   const totalSpend = campaignRows.reduce((s, r) => s + r.cost, 0)
   const totalConv = campaignRows.reduce((s, r) => s + r.conversions, 0)
   const soldCount = leadConfigs.filter(l => l.sale === 'Sold').length
