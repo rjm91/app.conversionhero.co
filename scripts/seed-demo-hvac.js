@@ -53,14 +53,18 @@ async function main() {
   const cities = ['Nashville', 'Franklin', 'Murfreesboro', 'Brentwood', 'Hendersonville', 'Mount Juliet', 'Gallatin', 'Lebanon', 'Smyrna', 'Spring Hill']
   const streets = ['Oak St', 'Maple Dr', 'Cedar Ln', 'Pine Ave', 'Elm Blvd', 'Hickory Ct', 'Walnut Way', 'Birch Rd', 'Willow Creek Dr', 'Magnolia Pl']
 
+  // CH lead targets per campaign (Google conv will be 1-2 less than these)
+  // 90001: 7 CH leads → Google 6    90002: 6 CH leads → Google 5
+  // 90003: 5 CH leads → Google 4    90005: 3 CH leads → Google 2
+  // null camp = organic/direct leads (show on leads page, not in ads CH column)
   const leadConfigs = [
     // Sold customers (8) — spread across 60 days
     { daysBack: 58, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 8500, camp: '90001' },
     { daysBack: 55, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 12000, camp: '90002' },
-    { daysBack: 48, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 6800, camp: '90001' },
+    { daysBack: 48, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 6800, camp: null },
     { daysBack: 42, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 15500, camp: '90003' },
     { daysBack: 35, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 9200, camp: '90002' },
-    { daysBack: 22, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 7400, camp: '90002' },
+    { daysBack: 22, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 7400, camp: null },
     { daysBack: 14, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 11000, camp: '90001' },
     { daysBack: 10, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 8900, camp: '90003' },
     // Appt complete but not sold yet (4)
@@ -70,13 +74,13 @@ async function main() {
     { daysBack: 8, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null, camp: '90005' },
     // Appt set / confirmed (5)
     { daysBack: 9, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90001' },
-    { daysBack: 7, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 7, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: null },
     { daysBack: 5, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90003' },
     { daysBack: 4, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90005' },
     { daysBack: 3, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90001' },
     // Contacted / Working (6)
     { daysBack: 12, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
-    { daysBack: 11, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 11, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: null },
     { daysBack: 7, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
     { daysBack: 6, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90005' },
     { daysBack: 4, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
@@ -84,15 +88,15 @@ async function main() {
     // New leads (7)
     { daysBack: 5, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
     { daysBack: 4, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
-    { daysBack: 3, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
-    { daysBack: 2, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90005' },
-    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
-    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
-    { daysBack: 0, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 3, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 2, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 0, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: null },
     // Lost / disqualified (3)
-    { daysBack: 40, status: 'Lost', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
-    { daysBack: 25, status: 'Disqualified', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
-    { daysBack: 15, status: 'Out of Area', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 40, status: 'Lost', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 25, status: 'Disqualified', appt: 'NA', sale: 'NA', amount: null, camp: null },
+    { daysBack: 15, status: 'Out of Area', appt: 'NA', sale: 'NA', amount: null, camp: null },
   ]
 
   // Delete existing demo leads
@@ -119,11 +123,11 @@ async function main() {
       sale_status: cfg.sale,
       sale_amount: cfg.amount,
       appt_date: cfg.appt !== 'NA' ? daysAgo(cfg.daysBack - 2) : null,
-      utm_source: 'google',
-      utm_medium: 'cpc',
-      utm_campaign: cfg.camp,
-      utm_adgroup: `${cfg.camp}0${rand(1, 2)}`,
-      utm_content: `${cfg.camp}0${rand(1, 2)}0${rand(1, 2)}`,
+      utm_source: cfg.camp ? 'google' : pick(['google', 'direct', 'yelp', null]),
+      utm_medium: cfg.camp ? 'cpc' : pick(['organic', 'referral', null]),
+      utm_campaign: cfg.camp || null,
+      utm_adgroup: cfg.camp ? `${cfg.camp}0${rand(1, 2)}` : null,
+      utm_content: cfg.camp ? `${cfg.camp}0${rand(1, 2)}0${rand(1, 2)}` : null,
       created_at: ts(cfg.daysBack),
     })
   }
@@ -174,7 +178,16 @@ async function main() {
   const adGroupRows = []
   const adRows = []
 
+  // Google-reported conversions per campaign (CH leads are 1-2 more per campaign)
+  // 90001: 7 CH → 6 Google | 90002: 6 CH → 5 Google | 90003: 5 CH → 4 Google | 90005: 3 CH → 2 Google
+  const googleConvTargets = { '90001': 6, '90002': 5, '90003': 4, '90004': 0, '90005': 2 }
+
   for (const camp of campaigns) {
+    // Pre-pick which days get a Google conversion (deterministic count, random placement)
+    const targetConv = googleConvTargets[camp.id] || 0
+    const convDays = new Set()
+    while (convDays.size < targetConv) { convDays.add(rand(5, 55)) } // spread across middle of range
+
     // Generate daily rows for 60 days
     for (let d = 0; d <= 60; d++) {
       const date = daysAgo(60 - d)
@@ -182,7 +195,7 @@ async function main() {
       // Paused campaigns: no spend
       const dailyCost = isActive ? Math.max(0, camp.avgDaily + (Math.random() * 20 - 10)) : 0
       const dailyClicks = isActive ? Math.round(dailyCost / (2.5 + Math.random())) : 0
-      const dailyConv = isActive && dailyCost > 30 ? (Math.random() < 0.15 ? 1 : 0) : 0
+      const dailyConv = convDays.has(d) ? 1 : 0
 
       campaignRows.push({
         client_id: CLIENT_ID,
