@@ -339,6 +339,12 @@ export default function YouTubeAdsPage() {
   }
 
   function getChLeads(row) {
+    // Demo account: CH = Google conv + 1 or 2
+    if (clientId === 'ch1000') {
+      const g = Number(row.conversions) || 0
+      if (g === 0) return 0
+      return g + (g > 3 ? 2 : 1)
+    }
     if (view === 'ads') {
       return chAdAttr[row.ad_id] || 0
     }
