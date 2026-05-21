@@ -666,10 +666,10 @@ export default function YouTubeAdsPage() {
                   <th onClick={() => toggleSort('cpc')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">CPC{arrow('cpc')}</th>
                   <th onClick={() => toggleSort('conversions')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Conv.{arrow('conversions')}</th>
                   <th onClick={() => toggleSort('cost_per_conversion')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost / Conv.{arrow('cost_per_conversion')}</th>
-                  <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Conv. (CH){arrow('chConv')}
                   </th>
-                  <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-transparent cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Cost / Conv. (CH){arrow('chCost')}
                   </th>
                 </tr>
@@ -727,10 +727,10 @@ export default function YouTubeAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent ">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] ">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -753,8 +753,8 @@ export default function YouTubeAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent ">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-transparent">
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] ">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
