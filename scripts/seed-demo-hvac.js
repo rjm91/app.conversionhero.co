@@ -54,32 +54,45 @@ async function main() {
   const streets = ['Oak St', 'Maple Dr', 'Cedar Ln', 'Pine Ave', 'Elm Blvd', 'Hickory Ct', 'Walnut Way', 'Birch Rd', 'Willow Creek Dr', 'Magnolia Pl']
 
   const leadConfigs = [
-    // Sold customers (5) — spread across 60 days
-    { daysBack: 55, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 8500 },
-    { daysBack: 48, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 12000 },
-    { daysBack: 35, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 6800 },
-    { daysBack: 22, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 15500 },
-    { daysBack: 10, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 9200 },
-    // Appt complete but not sold (2)
-    { daysBack: 30, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null },
-    { daysBack: 18, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null },
-    // Appt set / confirmed (3)
-    { daysBack: 8, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null },
-    { daysBack: 5, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null },
-    { daysBack: 3, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null },
-    // Contacted / Working (3)
-    { daysBack: 12, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 7, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 4, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null },
-    // New leads (4)
-    { daysBack: 3, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 2, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 0, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null },
+    // Sold customers (8) — spread across 60 days
+    { daysBack: 58, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 8500, camp: '90001' },
+    { daysBack: 55, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 12000, camp: '90002' },
+    { daysBack: 48, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 6800, camp: '90001' },
+    { daysBack: 42, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 15500, camp: '90003' },
+    { daysBack: 35, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 9200, camp: '90002' },
+    { daysBack: 22, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 7400, camp: '90002' },
+    { daysBack: 14, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 11000, camp: '90001' },
+    { daysBack: 10, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'Sold', amount: 8900, camp: '90003' },
+    // Appt complete but not sold yet (4)
+    { daysBack: 30, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 20, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 16, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 8, status: 'Contacted / Working', appt: 'Appt Complete', sale: 'NA', amount: null, camp: '90005' },
+    // Appt set / confirmed (5)
+    { daysBack: 9, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 7, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 5, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 4, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90005' },
+    { daysBack: 3, status: 'Appt Set', appt: 'Appt Confirmed', sale: 'NA', amount: null, camp: '90001' },
+    // Contacted / Working (6)
+    { daysBack: 12, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 11, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 7, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 6, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90005' },
+    { daysBack: 4, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 2, status: 'Contacted / Working', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    // New leads (7)
+    { daysBack: 5, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 4, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 3, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
+    { daysBack: 2, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90005' },
+    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 1, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 0, status: 'New / Not Yet Contacted', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
     // Lost / disqualified (3)
-    { daysBack: 40, status: 'Lost', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 25, status: 'Disqualified', appt: 'NA', sale: 'NA', amount: null },
-    { daysBack: 15, status: 'Out of Area', appt: 'NA', sale: 'NA', amount: null },
+    { daysBack: 40, status: 'Lost', appt: 'NA', sale: 'NA', amount: null, camp: '90001' },
+    { daysBack: 25, status: 'Disqualified', appt: 'NA', sale: 'NA', amount: null, camp: '90002' },
+    { daysBack: 15, status: 'Out of Area', appt: 'NA', sale: 'NA', amount: null, camp: '90003' },
   ]
 
   // Delete existing demo leads
@@ -108,9 +121,9 @@ async function main() {
       appt_date: cfg.appt !== 'NA' ? daysAgo(cfg.daysBack - 2) : null,
       utm_source: 'google',
       utm_medium: 'cpc',
-      utm_campaign: pick(['90001', '90002', '90003', '90005']),
-      utm_adgroup: pick(['9000101', '9000102', '9000201', '9000301']),
-      utm_content: pick(['900010101', '900010201', '900020101', '900030101']),
+      utm_campaign: cfg.camp,
+      utm_adgroup: `${cfg.camp}0${rand(1, 2)}`,
+      utm_content: `${cfg.camp}0${rand(1, 2)}0${rand(1, 2)}`,
       created_at: ts(cfg.daysBack),
     })
   }
