@@ -108,7 +108,9 @@ async function main() {
       appt_date: cfg.appt !== 'NA' ? daysAgo(cfg.daysBack - 2) : null,
       utm_source: 'google',
       utm_medium: 'cpc',
-      utm_campaign: pick([`${CLIENT_ID} - HVAC Repair`, `${CLIENT_ID} - AC Replacement`, `${CLIENT_ID} - Furnace Install`]),
+      utm_campaign: pick(['90001', '90002', '90003', '90005']),
+      utm_adgroup: pick(['9000101', '9000102', '9000201', '9000301']),
+      utm_content: pick(['900010101', '900010201', '900020101', '900030101']),
       created_at: ts(cfg.daysBack),
     })
   }
