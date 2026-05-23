@@ -61,12 +61,13 @@ function formatAssemblyTranscript(transcript) {
 
 // ── Fetch YouTube captions by scraping the watch page ──
 async function fetchYouTubeCaptions(videoId) {
-  // Fetch the YouTube watch page
+  // Fetch the YouTube watch page with consent cookie to bypass cookie walls
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
   const res = await fetch(watchUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
+      'Cookie': 'CONSENT=PENDING+999; SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMwODI5LjA3X3AxGgJlbiACGgYIgJnZpwY',
     },
   })
 
@@ -78,22 +79,33 @@ async function fetchYouTubeCaptions(videoId) {
   const titleMatch = html.match(/<title>(.+?)<\/title>/)
   let title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : null
 
-  // Extract ytInitialPlayerResponse from the page
-  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/)
-  if (!playerMatch) {
-    // Try alternative pattern
-    const altMatch = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\});/)
-    if (!altMatch) throw new Error('Could not extract player response')
-    var playerJson = altMatch[1]
-  } else {
-    var playerJson = playerMatch[1]
+  // Extract ytInitialPlayerResponse — use brace-matching for reliable JSON extraction
+  const marker = 'ytInitialPlayerResponse'
+  const markerIdx = html.indexOf(marker)
+  if (markerIdx === -1) throw new Error('Could not find player response in page')
+
+  const jsonStart = html.indexOf('{', markerIdx)
+  if (jsonStart === -1) throw new Error('Could not find player response JSON')
+
+  // Find the matching closing brace by counting depth
+  let depth = 0
+  let jsonEnd = jsonStart
+  for (let i = jsonStart; i < html.length && i < jsonStart + 500000; i++) {
+    if (html[i] === '{') depth++
+    else if (html[i] === '}') {
+      depth--
+      if (depth === 0) { jsonEnd = i; break }
+    }
   }
 
   let player
   try {
-    player = JSON.parse(playerJson)
+    player = JSON.parse(html.substring(jsonStart, jsonEnd + 1))
   } catch {
-    throw new Error('Could not parse player response')
+    // Fallback: try regex approach
+    const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/)
+    if (!playerMatch) throw new Error('Could not parse player response')
+    player = JSON.parse(playerMatch[1])
   }
 
   // Get video title from player response if not found in HTML
