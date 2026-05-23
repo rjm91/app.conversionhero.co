@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AssemblyAI } from 'assemblyai'
 import { Innertube } from 'youtubei.js'
+
+// Allow longer execution for audio download + transcription
+export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >10s)
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -129,9 +133,13 @@ async function handleYouTube(req) {
 
     if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
 
-    // Download audio and transcribe via AssemblyAI in background
-    transcribeYouTubeAudio(row.id, yt, videoId).catch(err => {
-      console.error('YouTube audio transcription error:', err)
+    // Download audio and transcribe via AssemblyAI after response is sent
+    after(async () => {
+      try {
+        await transcribeYouTubeAudio(row.id, videoId)
+      } catch (err) {
+        console.error('YouTube audio transcription error:', err)
+      }
     })
 
     return NextResponse.json({ id: row.id, status: 'processing' })
@@ -144,8 +152,9 @@ async function handleYouTube(req) {
 }
 
 // Download YouTube audio and transcribe via AssemblyAI
-async function transcribeYouTubeAudio(recordId, yt, videoId) {
+async function transcribeYouTubeAudio(recordId, videoId) {
   try {
+    const yt = await Innertube.create()
     const info = await yt.getInfo(videoId)
 
     // Choose best audio-only format
@@ -231,7 +240,13 @@ async function handleFileUpload(req) {
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
 
   const buffer = Buffer.from(await file.arrayBuffer())
-  transcribeFile(row.id, buffer).catch(err => console.error('Transcription error:', err))
+  after(async () => {
+    try {
+      await transcribeFile(row.id, buffer)
+    } catch (err) {
+      console.error('Transcription error:', err)
+    }
+  })
 
   return NextResponse.json({ id: row.id, status: 'processing' })
 }
