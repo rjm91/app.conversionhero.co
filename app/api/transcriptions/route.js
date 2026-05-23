@@ -93,7 +93,7 @@ async function handleYouTube(req) {
   if (!videoId) return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
 
   try {
-    const yt = await Innertube.create({ retrieve_player: false })
+    const yt = await Innertube.create({ generate_session_locally: true })
     const info = await yt.getInfo(videoId)
 
     const videoTitle = info.basic_info?.title || url
@@ -135,7 +135,7 @@ async function handleYouTube(req) {
     }
 
     // No captions — download audio and transcribe via AssemblyAI (synchronous)
-    const ytFull = await Innertube.create()
+    const ytFull = await Innertube.create({ generate_session_locally: true })
     const fullInfo = await ytFull.getInfo(videoId)
 
     const stream = await fullInfo.download({ type: 'audio', quality: 'best' })
