@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AssemblyAI } from 'assemblyai'
+import ytdl from '@distube/ytdl-core'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -28,7 +29,7 @@ export async function GET() {
 export async function POST(req) {
   const contentType = req.headers.get('content-type') || ''
 
-  let sourceType, sourceUrl, fileName, title, audioUrl
+  let sourceType, sourceUrl, fileName, title, audioUrl, videoTitle
 
   if (contentType.includes('multipart/form-data')) {
     // File upload
@@ -52,12 +53,26 @@ export async function POST(req) {
 
     sourceType = 'youtube'
     sourceUrl = url
-    title = body.title || url
 
-    // AssemblyAI can't directly fetch YouTube — we need to extract audio URL
-    // Use a lightweight approach: youtube-dl compatible URL extraction
-    // For now, use AssemblyAI's built-in support if available, otherwise extract via yt-dlp
-    audioUrl = url
+    // Extract audio URL and video info using ytdl-core
+    try {
+      const info = await ytdl.getInfo(url)
+      videoTitle = info.videoDetails.title
+      title = videoTitle
+
+      // Get audio-only format
+      const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio', filter: 'audioonly' })
+      if (!audioFormat?.url) {
+        // Fallback: get any format with audio
+        const anyAudio = info.formats.find(f => f.hasAudio && f.url)
+        if (!anyAudio) throw new Error('No audio stream found for this video')
+        audioUrl = anyAudio.url
+      } else {
+        audioUrl = audioFormat.url
+      }
+    } catch (err) {
+      return NextResponse.json({ error: `Failed to extract audio: ${err.message}` }, { status: 400 })
+    }
   }
 
   // Create DB record
@@ -76,36 +91,19 @@ export async function POST(req) {
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
 
   // Start transcription (don't await — let it process)
-  transcribeAsync(row.id, audioUrl, sourceType).catch(err => {
+  transcribeAsync(row.id, audioUrl).catch(err => {
     console.error('Transcription error:', err)
   })
 
   return NextResponse.json({ id: row.id, status: 'processing' })
 }
 
-async function transcribeAsync(recordId, audioUrl, sourceType) {
+async function transcribeAsync(recordId, audioUrl) {
   const client = getAssemblyClient()
 
   try {
-    // For YouTube URLs, we need to get the actual audio stream
-    let finalUrl = audioUrl
-    if (sourceType === 'youtube') {
-      // Use yt-dlp to extract audio URL (must be installed on system)
-      // Fallback: try direct URL with AssemblyAI
-      const { execSync } = await import('child_process')
-      try {
-        finalUrl = execSync(
-          `yt-dlp -f bestaudio --get-url "${audioUrl}"`,
-          { timeout: 30000, encoding: 'utf-8' }
-        ).trim()
-      } catch {
-        // If yt-dlp not available, try the URL directly (works for some services)
-        finalUrl = audioUrl
-      }
-    }
-
     const transcript = await client.transcripts.transcribe({
-      audio_url: finalUrl,
+      audio_url: audioUrl,
     })
 
     if (transcript.status === 'error') {
