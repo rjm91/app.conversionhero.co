@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AssemblyAI } from 'assemblyai'
-import { Innertube } from 'youtubei.js'
 
-// Allow longer execution for audio download + transcription
 export const maxDuration = 300
 
 const supabase = createClient(
@@ -61,6 +59,96 @@ function formatAssemblyTranscript(transcript) {
   return lines.length ? lines.join('\n') : transcript.text
 }
 
+// ── Fetch YouTube captions by scraping the watch page ──
+async function fetchYouTubeCaptions(videoId) {
+  // Fetch the YouTube watch page
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
+  const res = await fetch(watchUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+  })
+
+  if (!res.ok) throw new Error(`YouTube returned ${res.status}`)
+
+  const html = await res.text()
+
+  // Extract video title
+  const titleMatch = html.match(/<title>(.+?)<\/title>/)
+  let title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : null
+
+  // Extract ytInitialPlayerResponse from the page
+  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/)
+  if (!playerMatch) {
+    // Try alternative pattern
+    const altMatch = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\});/)
+    if (!altMatch) throw new Error('Could not extract player response')
+    var playerJson = altMatch[1]
+  } else {
+    var playerJson = playerMatch[1]
+  }
+
+  let player
+  try {
+    player = JSON.parse(playerJson)
+  } catch {
+    throw new Error('Could not parse player response')
+  }
+
+  // Get video title from player response if not found in HTML
+  if (!title) {
+    title = player?.videoDetails?.title || null
+  }
+
+  // Get duration
+  const durationSec = player?.videoDetails?.lengthSeconds
+    ? parseInt(player.videoDetails.lengthSeconds, 10)
+    : null
+
+  // Find caption tracks
+  const captions = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks
+  if (!captions?.length) {
+    return { title, durationSec, transcript: null }
+  }
+
+  // Prefer English, then auto-generated English, then first available
+  let captionTrack = captions.find(c => c.languageCode === 'en' && !c.kind)
+    || captions.find(c => c.languageCode === 'en')
+    || captions[0]
+
+  if (!captionTrack?.baseUrl) {
+    return { title, durationSec, transcript: null }
+  }
+
+  // Fetch the caption XML
+  const captionUrl = captionTrack.baseUrl + '&fmt=json3'
+  const captionRes = await fetch(captionUrl)
+  if (!captionRes.ok) throw new Error(`Caption fetch failed: ${captionRes.status}`)
+
+  const captionData = await captionRes.json()
+
+  if (!captionData?.events?.length) {
+    return { title, durationSec, transcript: null }
+  }
+
+  // Format caption events into timestamped transcript
+  const lines = []
+  for (const event of captionData.events) {
+    if (!event.segs) continue
+    const text = event.segs.map(s => s.utf8 || '').join('').trim()
+    if (!text || text === '\n') continue
+    const startSec = (event.tStartMs || 0) / 1000
+    lines.push(`[${formatSec(startSec)}] ${text}`)
+  }
+
+  return {
+    title,
+    durationSec,
+    transcript: lines.length ? lines.join('\n') : null,
+  }
+}
+
 // GET — list all transcriptions
 export async function GET() {
   const { data, error } = await supabase
@@ -93,34 +181,13 @@ async function handleYouTube(req) {
   if (!videoId) return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
 
   try {
-    const yt = await Innertube.create({ generate_session_locally: true })
-    const info = await yt.getInfo(videoId)
-
-    const videoTitle = info.basic_info?.title || url
-    const durationSec = info.basic_info?.duration || null
-
-    // Try to get captions via InnerTube API (fast, free)
-    let transcript = null
-    try {
-      const transcriptInfo = await info.getTranscript()
-      const txBody = transcriptInfo?.transcript?.content?.body
-      if (txBody?.initial_segments?.length) {
-        const lines = txBody.initial_segments.map(seg => {
-          const startMs = Number(seg.start_ms || 0)
-          const text = seg.snippet?.text || ''
-          return `[${formatMs(startMs)}] ${text}`
-        })
-        transcript = lines.join('\n')
-      }
-    } catch {
-      // Captions not available via InnerTube
-    }
+    const { title, durationSec, transcript } = await fetchYouTubeCaptions(videoId)
 
     if (transcript) {
       const { data: row, error: dbErr } = await supabase
         .from('agency_transcriptions')
         .insert({
-          title: videoTitle,
+          title: title || url,
           source_type: 'youtube',
           source_url: url,
           status: 'completed',
@@ -134,68 +201,20 @@ async function handleYouTube(req) {
       return NextResponse.json({ id: row.id, status: 'completed' })
     }
 
-    // No captions — download audio and transcribe via AssemblyAI (synchronous)
-    const ytFull = await Innertube.create({ generate_session_locally: true })
-    const fullInfo = await ytFull.getInfo(videoId)
-
-    const stream = await fullInfo.download({ type: 'audio', quality: 'best' })
-    const chunks = []
-    for await (const chunk of stream) {
-      chunks.push(chunk)
-    }
-    const buffer = Buffer.concat(chunks)
-
-    const client = getAssemblyClient()
-    const audioUrl = await client.files.upload(buffer)
-    const result = await client.transcripts.transcribe({ audio_url: audioUrl })
-
-    if (result.status === 'error') {
-      const { data: row } = await supabase.from('agency_transcriptions').insert({
-        title: videoTitle,
-        source_type: 'youtube',
-        source_url: url,
-        status: 'error',
-        error_message: result.error || 'Transcription failed',
-        assemblyai_id: result.id,
-        duration_seconds: durationSec,
-      }).select('id').single()
-      return NextResponse.json({ id: row?.id, status: 'error', error: result.error }, { status: 500 })
-    }
-
-    const formattedTranscript = formatAssemblyTranscript(result)
-
-    const { data: row, error: dbErr } = await supabase
-      .from('agency_transcriptions')
-      .insert({
-        title: videoTitle,
-        source_type: 'youtube',
-        source_url: url,
-        status: 'completed',
-        transcript: formattedTranscript,
-        duration_seconds: result.audio_duration ? Math.round(result.audio_duration) : durationSec,
-        assemblyai_id: result.id,
-      })
-      .select('id')
-      .single()
-
-    if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-    return NextResponse.json({ id: row.id, status: 'completed' })
+    // No captions found — tell user to upload
+    return NextResponse.json({
+      error: 'No captions available for this video. Please download the video and use the Upload tab for speech-to-text transcription.'
+    }, { status: 400 })
 
   } catch (err) {
     const msg = err.message || ''
-    let userError = `Failed to process video: ${msg}`
-
-    if (msg.includes('login') || msg.includes('Sign in') || msg.includes('age')) {
-      userError = 'This video requires YouTube login or is age-restricted. Please download the video and use the Upload tab instead.'
-    } else if (msg.includes('private') || msg.includes('unavailable')) {
-      userError = 'This video is private or unavailable. Please download the video and use the Upload tab instead.'
-    }
-
-    return NextResponse.json({ error: userError }, { status: 400 })
+    return NextResponse.json({
+      error: `Failed to process video: ${msg}`
+    }, { status: 400 })
   }
 }
 
-// ── File upload handler (synchronous) ──
+// ── File upload handler (synchronous via AssemblyAI) ──
 async function handleFileUpload(req) {
   const formData = await req.formData()
   const file = formData.get('file')
