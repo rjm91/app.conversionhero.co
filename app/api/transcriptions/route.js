@@ -182,9 +182,16 @@ async function handleYouTube(req) {
     return NextResponse.json({ id: row.id, status: 'completed' })
 
   } catch (err) {
-    return NextResponse.json({
-      error: `Failed to process video: ${err.message}`
-    }, { status: 400 })
+    const msg = err.message || ''
+    let userError = `Failed to process video: ${msg}`
+
+    if (msg.includes('login') || msg.includes('Sign in') || msg.includes('age')) {
+      userError = 'This video requires YouTube login or is age-restricted. Please download the video and use the Upload tab instead.'
+    } else if (msg.includes('private') || msg.includes('unavailable')) {
+      userError = 'This video is private or unavailable. Please download the video and use the Upload tab instead.'
+    }
+
+    return NextResponse.json({ error: userError }, { status: 400 })
   }
 }
 
