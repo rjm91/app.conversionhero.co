@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AssemblyAI } from 'assemblyai'
 import { Innertube } from 'youtubei.js'
 
 // Allow longer execution for audio download + transcription
-export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >10s)
+export const maxDuration = 300
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -30,7 +29,6 @@ function formatMs(ms) {
   return formatSec(Math.floor(ms / 1000))
 }
 
-// Extract YouTube video ID from various URL formats
 function extractVideoId(url) {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
@@ -41,6 +39,26 @@ function extractVideoId(url) {
     if (m) return m[1]
   }
   return null
+}
+
+function formatAssemblyTranscript(transcript) {
+  const lines = []
+  if (transcript.words?.length) {
+    let currentLine = []
+    let lineStart = transcript.words[0].start
+    for (const word of transcript.words) {
+      currentLine.push(word.text)
+      if (currentLine.length >= 10) {
+        lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
+        currentLine = []
+        lineStart = word.end
+      }
+    }
+    if (currentLine.length) {
+      lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
+    }
+  }
+  return lines.length ? lines.join('\n') : transcript.text
 }
 
 // GET — list all transcriptions
@@ -81,13 +99,13 @@ async function handleYouTube(req) {
     const videoTitle = info.basic_info?.title || url
     const durationSec = info.basic_info?.duration || null
 
-    // Try to get captions via InnerTube API
+    // Try to get captions via InnerTube API (fast, free)
     let transcript = null
     try {
       const transcriptInfo = await info.getTranscript()
-      const body = transcriptInfo?.transcript?.content?.body
-      if (body?.initial_segments?.length) {
-        const lines = body.initial_segments.map(seg => {
+      const txBody = transcriptInfo?.transcript?.content?.body
+      if (txBody?.initial_segments?.length) {
+        const lines = txBody.initial_segments.map(seg => {
           const startMs = Number(seg.start_ms || 0)
           const text = seg.snippet?.text || ''
           return `[${formatMs(startMs)}] ${text}`
@@ -95,11 +113,10 @@ async function handleYouTube(req) {
         transcript = lines.join('\n')
       }
     } catch {
-      // Captions not available via InnerTube either
+      // Captions not available via InnerTube
     }
 
     if (transcript) {
-      // Save completed transcription directly
       const { data: row, error: dbErr } = await supabase
         .from('agency_transcriptions')
         .insert({
@@ -117,32 +134,52 @@ async function handleYouTube(req) {
       return NextResponse.json({ id: row.id, status: 'completed' })
     }
 
-    // No captions available — download audio and send to AssemblyAI
-    // Create DB record first (will process in background)
+    // No captions — download audio and transcribe via AssemblyAI (synchronous)
+    const ytFull = await Innertube.create()
+    const fullInfo = await ytFull.getInfo(videoId)
+
+    const stream = await fullInfo.download({ type: 'audio', quality: 'best' })
+    const chunks = []
+    for await (const chunk of stream) {
+      chunks.push(chunk)
+    }
+    const buffer = Buffer.concat(chunks)
+
+    const client = getAssemblyClient()
+    const audioUrl = await client.files.upload(buffer)
+    const result = await client.transcripts.transcribe({ audio_url: audioUrl })
+
+    if (result.status === 'error') {
+      const { data: row } = await supabase.from('agency_transcriptions').insert({
+        title: videoTitle,
+        source_type: 'youtube',
+        source_url: url,
+        status: 'error',
+        error_message: result.error || 'Transcription failed',
+        assemblyai_id: result.id,
+        duration_seconds: durationSec,
+      }).select('id').single()
+      return NextResponse.json({ id: row?.id, status: 'error', error: result.error }, { status: 500 })
+    }
+
+    const formattedTranscript = formatAssemblyTranscript(result)
+
     const { data: row, error: dbErr } = await supabase
       .from('agency_transcriptions')
       .insert({
         title: videoTitle,
         source_type: 'youtube',
         source_url: url,
-        status: 'processing',
-        duration_seconds: durationSec,
+        status: 'completed',
+        transcript: formattedTranscript,
+        duration_seconds: result.audio_duration ? Math.round(result.audio_duration) : durationSec,
+        assemblyai_id: result.id,
       })
       .select('id')
       .single()
 
     if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-
-    // Download audio and transcribe via AssemblyAI after response is sent
-    after(async () => {
-      try {
-        await transcribeYouTubeAudio(row.id, videoId)
-      } catch (err) {
-        console.error('YouTube audio transcription error:', err)
-      }
-    })
-
-    return NextResponse.json({ id: row.id, status: 'processing' })
+    return NextResponse.json({ id: row.id, status: 'completed' })
 
   } catch (err) {
     return NextResponse.json({
@@ -151,154 +188,52 @@ async function handleYouTube(req) {
   }
 }
 
-// Download YouTube audio and transcribe via AssemblyAI
-async function transcribeYouTubeAudio(recordId, videoId) {
-  try {
-    const yt = await Innertube.create()
-    const info = await yt.getInfo(videoId)
-
-    // Choose best audio-only format
-    const format = info.chooseFormat({ type: 'audio', quality: 'best' })
-    if (!format) throw new Error('No audio format available for this video')
-
-    // Download audio as buffer
-    const stream = await info.download({ type: 'audio', quality: 'best' })
-    const chunks = []
-    for await (const chunk of stream) {
-      chunks.push(chunk)
-    }
-    const buffer = Buffer.concat(chunks)
-
-    // Upload to AssemblyAI and transcribe
-    const client = getAssemblyClient()
-    const audioUrl = await client.files.upload(buffer)
-    const transcript = await client.transcripts.transcribe({ audio_url: audioUrl })
-
-    if (transcript.status === 'error') {
-      await supabase.from('agency_transcriptions').update({
-        status: 'error',
-        error_message: transcript.error || 'Transcription failed',
-        assemblyai_id: transcript.id,
-        updated_at: new Date().toISOString(),
-      }).eq('id', recordId)
-      return
-    }
-
-    // Format transcript with timestamps
-    const lines = []
-    if (transcript.words?.length) {
-      let currentLine = []
-      let lineStart = transcript.words[0].start
-      for (const word of transcript.words) {
-        currentLine.push(word.text)
-        if (currentLine.length >= 10) {
-          lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
-          currentLine = []
-          lineStart = word.end
-        }
-      }
-      if (currentLine.length) {
-        lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
-      }
-    }
-
-    await supabase.from('agency_transcriptions').update({
-      status: 'completed',
-      transcript: lines.length ? lines.join('\n') : transcript.text,
-      duration_seconds: transcript.audio_duration ? Math.round(transcript.audio_duration) : null,
-      assemblyai_id: transcript.id,
-      updated_at: new Date().toISOString(),
-    }).eq('id', recordId)
-
-  } catch (err) {
-    await supabase.from('agency_transcriptions').update({
-      status: 'error',
-      error_message: err.message || 'Unknown error',
-      updated_at: new Date().toISOString(),
-    }).eq('id', recordId)
-  }
-}
-
-// ── File upload handler ──
+// ── File upload handler (synchronous) ──
 async function handleFileUpload(req) {
   const formData = await req.formData()
   const file = formData.get('file')
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
   const title = file.name.replace(/\.[^.]+$/, '')
-
-  const { data: row, error: dbErr } = await supabase
-    .from('agency_transcriptions')
-    .insert({
-      title,
-      source_type: 'upload',
-      file_name: file.name,
-      status: 'processing',
-    })
-    .select('id')
-    .single()
-  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-
   const buffer = Buffer.from(await file.arrayBuffer())
-  after(async () => {
-    try {
-      await transcribeFile(row.id, buffer)
-    } catch (err) {
-      console.error('Transcription error:', err)
-    }
-  })
-
-  return NextResponse.json({ id: row.id, status: 'processing' })
-}
-
-// File upload transcription via AssemblyAI
-async function transcribeFile(recordId, buffer) {
-  const client = getAssemblyClient()
 
   try {
+    const client = getAssemblyClient()
     const audioUrl = await client.files.upload(buffer)
-    const transcript = await client.transcripts.transcribe({ audio_url: audioUrl })
+    const result = await client.transcripts.transcribe({ audio_url: audioUrl })
 
-    if (transcript.status === 'error') {
-      await supabase.from('agency_transcriptions').update({
+    if (result.status === 'error') {
+      const { data: row } = await supabase.from('agency_transcriptions').insert({
+        title,
+        source_type: 'upload',
+        file_name: file.name,
         status: 'error',
-        error_message: transcript.error || 'Transcription failed',
-        assemblyai_id: transcript.id,
-        updated_at: new Date().toISOString(),
-      }).eq('id', recordId)
-      return
+        error_message: result.error || 'Transcription failed',
+        assemblyai_id: result.id,
+      }).select('id').single()
+      return NextResponse.json({ id: row?.id, status: 'error', error: result.error }, { status: 500 })
     }
 
-    const lines = []
-    if (transcript.words?.length) {
-      let currentLine = []
-      let lineStart = transcript.words[0].start
-      for (const word of transcript.words) {
-        currentLine.push(word.text)
-        if (currentLine.length >= 10) {
-          lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
-          currentLine = []
-          lineStart = word.end
-        }
-      }
-      if (currentLine.length) {
-        lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
-      }
-    }
+    const formattedTranscript = formatAssemblyTranscript(result)
 
-    await supabase.from('agency_transcriptions').update({
-      status: 'completed',
-      transcript: lines.length ? lines.join('\n') : transcript.text,
-      duration_seconds: transcript.audio_duration ? Math.round(transcript.audio_duration) : null,
-      assemblyai_id: transcript.id,
-      updated_at: new Date().toISOString(),
-    }).eq('id', recordId)
+    const { data: row, error: dbErr } = await supabase
+      .from('agency_transcriptions')
+      .insert({
+        title,
+        source_type: 'upload',
+        file_name: file.name,
+        status: 'completed',
+        transcript: formattedTranscript,
+        duration_seconds: result.audio_duration ? Math.round(result.audio_duration) : null,
+        assemblyai_id: result.id,
+      })
+      .select('id')
+      .single()
+
+    if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+    return NextResponse.json({ id: row.id, status: 'completed' })
 
   } catch (err) {
-    await supabase.from('agency_transcriptions').update({
-      status: 'error',
-      error_message: err.message || 'Unknown error',
-      updated_at: new Date().toISOString(),
-    }).eq('id', recordId)
+    return NextResponse.json({ error: err.message || 'Transcription failed' }, { status: 500 })
   }
 }
