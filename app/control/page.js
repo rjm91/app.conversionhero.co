@@ -458,14 +458,13 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
 
 /* ─── Accordion Pipeline Component ─── */
 function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange }) {
+  const { title, count, columns, summaryMap, rows } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
 
   useColumnResize(tableRef, collapsed, rows.length)
 
   const toggle = useCallback(() => setCollapsed(c => !c), [])
-
-  const { title, count, columns, summaryMap, rows } = pipeline
   const titleColspan = 5
 
   return (
