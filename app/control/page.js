@@ -63,6 +63,11 @@ function fmtDate(d) {
 
 const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads']
 
+/* ─── Status dropdown options ─── */
+const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
+const APPT_STATUSES = ['NA', 'Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
+const SALE_STATUSES = ['NA', 'Proposal Sent', 'Sold', 'Sale Lost']
+
 /* ─── Stage badge color map ─── */
 const STAGE_COLORS = {
   green: 'bg-emerald-500/15 text-emerald-400',
@@ -224,9 +229,9 @@ function buildPipelines(clientsWithData, agencyLeads) {
     const funnel = l.agency_funnels?.name || ''
     return [
       fmtDate(l.created_at),
-      { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
-      { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
-      { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
+      { select: true, leadId: l.id, field: 'lead_status', value: l.lead_status || '', options: LEAD_STATUSES, color: statusColor(l.lead_status) },
+      { select: true, leadId: l.id, field: 'appt_status', value: l.appt_status || '', options: APPT_STATUSES, color: statusColor(l.appt_status) },
+      { select: true, leadId: l.id, field: 'sale_status', value: l.sale_status || '', options: SALE_STATUSES, color: statusColor(l.sale_status) },
       [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
       l.company || funnel || '—',
       l.email || '—',
@@ -300,9 +305,30 @@ function buildPipelines(clientsWithData, agencyLeads) {
 }
 
 /* ─── Cell renderer ─── */
-function CellContent({ cell }) {
+function CellContent({ cell, onStatusChange }) {
   if (cell === null || cell === undefined) return null
   if (typeof cell === 'string') return cell
+
+  if (cell.select) {
+    const colorCls = STAGE_COLORS[cell.color] || STAGE_COLORS.gray
+    return (
+      <select
+        value={cell.value}
+        onClick={e => e.stopPropagation()}
+        onChange={e => {
+          e.stopPropagation()
+          onStatusChange?.(cell.leadId, cell.field, e.target.value)
+        }}
+        className={`appearance-none cursor-pointer px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border-0 outline-none ${colorCls} bg-transparent`}
+        style={{ backgroundImage: 'none' }}
+      >
+        <option value="" className="bg-[#1a1f36] text-gray-400">—</option>
+        {cell.options.map(opt => (
+          <option key={opt} value={opt} className="bg-[#1a1f36] text-gray-300">{opt}</option>
+        ))}
+      </select>
+    )
+  }
 
   if (cell.badge) {
     return (
@@ -423,7 +449,7 @@ function useColumnResize(tableRef, isCollapsed) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
 
@@ -498,7 +524,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
                         key={ci}
                         className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04] overflow-hidden text-ellipsis"
                       >
-                        <CellContent cell={cell} />
+                        <CellContent cell={cell} onStatusChange={onStatusChange} />
                       </td>
                     ))}
                   </tr>
@@ -599,6 +625,8 @@ export default function ControlPage() {
   const [preset, setPreset] = useState('all')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
+  const [agencyLeads, setAgencyLeads] = useState([])
+  const [clientsData, setClientsData] = useState([])
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
@@ -636,10 +664,12 @@ export default function ControlPage() {
       fetch('/api/agency-leads', { cache: 'no-store' }).then(r => r.json()),
     ])
 
-    const agencyLeads = agencyLeadsRes.leads || []
+    const fetchedLeads = agencyLeadsRes.leads || []
+    setAgencyLeads(fetchedLeads)
+    setClientsData(clientsWithData)
 
     // Step 3: Build pipelines from enriched data
-    const result = buildPipelines(clientsWithData, agencyLeads)
+    const result = buildPipelines(clientsWithData, fetchedLeads)
     setPipelines(result)
     setLoading(false)
   }, [])
@@ -662,6 +692,32 @@ export default function ControlPage() {
   function handleCustomChange(s, e) {
     setCustomStart(s)
     setCustomEnd(e)
+  }
+
+  async function handleStatusChange(leadId, field, value) {
+    // Optimistic update: update local state immediately
+    const updated = agencyLeads.map(l =>
+      l.id === leadId ? { ...l, [field]: value || null } : l
+    )
+    setAgencyLeads(updated)
+    setPipelines(buildPipelines(clientsData, updated))
+
+    // Persist to API
+    try {
+      const res = await fetch(`/api/agency-leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const synced = updated.map(l => l.id === leadId ? json.lead : l)
+        setAgencyLeads(synced)
+        setPipelines(buildPipelines(clientsData, synced))
+      }
+    } catch (err) {
+      console.error('[Control] status update failed:', err)
+    }
   }
 
   return (
@@ -697,6 +753,7 @@ export default function ControlPage() {
               id={key}
               pipeline={pipelines[key]}
               defaultCollapsed={i !== 0}
+              onStatusChange={key !== 'clients' ? handleStatusChange : undefined}
             />
           ))}
         </div>
