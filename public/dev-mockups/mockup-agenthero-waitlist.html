@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Hero — Coming Soon</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    background: #0a0e1a;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* Animated gradient background */
+  .bg-gradient {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -20%, rgba(56, 100, 220, 0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgba(99, 55, 220, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 40% at 20% 80%, rgba(34, 197, 94, 0.1) 0%, transparent 50%);
+  }
+
+  /* Grid pattern overlay */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 60px 24px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Logo / Brand */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .brand-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    box-shadow: 0 4px 24px rgba(99, 55, 220, 0.4);
+  }
+
+  .brand-text {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .brand-text span {
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: rgba(99, 55, 220, 0.15);
+    border: 1px solid rgba(99, 55, 220, 0.3);
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #a78bfa;
+    margin-bottom: 32px;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Headline */
+  h1 {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+
+  h1 .gradient {
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    line-height: 1.7;
+    color: #94a3b8;
+    max-width: 540px;
+    margin-bottom: 44px;
+  }
+
+  /* Email form */
+  .waitlist-form {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 16px;
+  }
+
+  .waitlist-form input {
+    flex: 1;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .waitlist-form input::placeholder { color: #64748b; }
+
+  .waitlist-form input:focus {
+    border-color: rgba(99, 55, 220, 0.6);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .waitlist-form button {
+    padding: 16px 28px;
+    background: linear-gradient(135deg, #3b82f6, #7c3aed);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px rgba(99, 55, 220, 0.35);
+  }
+
+  .waitlist-form button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(99, 55, 220, 0.5);
+  }
+
+  .form-note {
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 64px;
+  }
+
+  /* Feature pills */
+  .features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 64px;
+  }
+
+  .feature-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    font-size: 14px;
+    color: #cbd5e1;
+  }
+
+  .feature-pill .icon {
+    font-size: 16px;
+  }
+
+  /* Stats */
+  .stats {
+    display: flex;
+    gap: 48px;
+    margin-bottom: 48px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  /* Footer */
+  .footer {
+    color: #334155;
+    font-size: 13px;
+  }
+
+  .footer a {
+    color: #475569;
+    text-decoration: none;
+  }
+
+  /* Success state (hidden by default) */
+  .success-msg {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 12px;
+    color: #22c55e;
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    max-width: 480px;
+    width: 100%;
+  }
+
+  .success-msg.show { display: flex; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    h1 { font-size: 36px; letter-spacing: -1px; }
+    .subtitle { font-size: 16px; }
+    .waitlist-form { flex-direction: column; }
+    .waitlist-form button { width: 100%; }
+    .stats { gap: 32px; }
+    .stat-value { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-gradient"></div>
+<div class="bg-grid"></div>
+
+<div class="container">
+
+  <div class="brand">
+    <div class="brand-icon">AH</div>
+    <div class="brand-text"><span>Agent Hero</span></div>
+  </div>
+
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Coming Soon — Early Access
+  </div>
+
+  <h1>The AI-Powered<br><span class="gradient">Agency Platform</span></h1>
+
+  <p class="subtitle">
+    Agent Hero gives agencies the AI tools to generate more leads, close more deals, and scale operations — all from one platform built for growth.
+  </p>
+
+  <div class="success-msg" id="successMsg">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    You're on the list! We'll be in touch soon.
+  </div>
+
+  <form class="waitlist-form" id="waitlistForm" onsubmit="handleSubmit(event)">
+    <input type="email" placeholder="Enter your email" required />
+    <button type="submit">Join Waitlist</button>
+  </form>
+
+  <p class="form-note">No spam. We'll only email you when it's time.</p>
+
+  <div class="features">
+    <div class="feature-pill"><span class="icon">&#9889;</span> AI Lead Generation</div>
+    <div class="feature-pill"><span class="icon">&#128200;</span> Ad Campaign Tracking</div>
+    <div class="feature-pill"><span class="icon">&#129302;</span> AI Agent Assistant</div>
+    <div class="feature-pill"><span class="icon">&#128232;</span> Funnel Builder</div>
+    <div class="feature-pill"><span class="icon">&#128197;</span> CRM & Calendar</div>
+    <div class="feature-pill"><span class="icon">&#128187;</span> Client Dashboards</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">3x</div>
+      <div class="stat-label">More Conversions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">50%</div>
+      <div class="stat-label">Less Manual Work</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">1</div>
+      <div class="stat-label">Platform For Everything</div>
+    </div>
+  </div>
+
+  <div class="footer">&copy; 2026 Agent Hero &mdash; <a href="#">Privacy</a></div>
+
+</div>
+
+<script>
+function handleSubmit(e) {
+  e.preventDefault();
+  const form = document.getElementById('waitlistForm');
+  const msg = document.getElementById('successMsg');
+  form.style.display = 'none';
+  msg.classList.add('show');
+}
+</script>
+
+</body>
+</html>

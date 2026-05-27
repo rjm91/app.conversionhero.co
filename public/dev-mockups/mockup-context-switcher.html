@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context Switcher Mockup — ConversionAgent</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Sleek scrollbars */
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+  * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #fff; }
+
+  /* ─── Top Nav ─── */
+  .topnav {
+    height: 48px;
+    background: #0c0e18;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    padding-right: 12px;
+    gap: 4px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  /* ─── Context Switcher ─── */
+  .ctx-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    height: 100%;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    min-width: 200px;
+  }
+  .ctx-switcher:hover { background: rgba(255,255,255,0.03); }
+
+  .ctx-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .ctx-icon.agency { background: #2563eb; color: #fff; }
+  .ctx-icon.clients { background: #7c3aed; color: #fff; }
+
+  .ctx-info { display: flex; flex-direction: column; line-height: 1.2; }
+  .ctx-mode { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .ctx-name { font-size: 13px; font-weight: 600; color: #fff; }
+
+  .ctx-arrow { color: #64748b; font-size: 10px; margin-left: auto; }
+
+  /* Dropdown */
+  .ctx-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 260px;
+    background: #1a1f36;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 6px;
+    margin-top: 4px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    z-index: 200;
+  }
+  .ctx-dropdown.open { display: block; }
+
+  .ctx-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .ctx-option:hover { background: rgba(255,255,255,0.05); }
+  .ctx-option.active { background: rgba(37, 99, 235, 0.15); }
+
+  .ctx-option .opt-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .ctx-option .opt-icon.agency { background: #2563eb; color: #fff; }
+  .ctx-option .opt-icon.clients { background: #7c3aed; color: #fff; }
+
+  .ctx-option .opt-info { display: flex; flex-direction: column; }
+  .ctx-option .opt-name { font-size: 13px; font-weight: 600; color: #fff; }
+  .ctx-option .opt-desc { font-size: 11px; color: #64748b; }
+
+  .ctx-option .opt-check {
+    margin-left: auto;
+    color: #3b82f6;
+    font-size: 16px;
+    display: none;
+  }
+  .ctx-option.active .opt-check { display: block; }
+
+  .ctx-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 4px 8px;
+  }
+
+  /* ─── Nav Tabs ─── */
+  .nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    text-decoration: none;
+  }
+  .nav-tab:hover { color: #fff; background: rgba(255,255,255,0.04); }
+  .nav-tab.active { background: #2563eb; color: #fff; }
+
+  .nav-tab svg { width: 16px; height: 16px; }
+  .nav-tab .arrow { font-size: 8px; opacity: 0.5; margin-left: 2px; }
+
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* ─── Page Content ─── */
+  .page { padding: 32px 40px; }
+
+  .page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .page-subtitle { font-size: 14px; color: #64748b; margin-bottom: 28px; }
+
+  /* KPI Cards */
+  .kpi-row {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .kpi-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .kpi-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+  .kpi-card {
+    background: #1a1f36;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .kpi-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .kpi-value.green { color: #22c55e; }
+  .kpi-value.blue { color: #3b82f6; }
+  .kpi-value.purple { color: #a78bfa; }
+  .kpi-value.orange { color: #f59e0b; }
+  .kpi-value.white { color: #fff; }
+  .kpi-trend { font-size: 12px; color: #22c55e; margin-top: 4px; }
+  .kpi-trend.down { color: #ef4444; }
+
+  /* Section header */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+  .section-link { font-size: 13px; color: #3b82f6; font-weight: 500; cursor: pointer; text-decoration: none; }
+  .section-link:hover { text-decoration: underline; }
+
+  /* Client cards (agency view) */
+  .client-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .client-card {
+    background: #1a1f36;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .client-card-header { display: flex; align-items: center; justify-content: space-between; }
+  .client-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .client-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  .client-card-name { font-size: 15px; font-weight: 600; }
+  .client-card-meta { font-size: 12px; color: #64748b; }
+  .client-card-link { font-size: 13px; color: #3b82f6; font-weight: 500; text-decoration: none; margin-top: auto; }
+
+  /* ─── Clients Mode: Table ─── */
+  .table-wrap {
+    background: #1a1f36;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 36px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+  }
+  td {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: #cbd5e1;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .td-client { display: flex; align-items: center; gap: 10px; }
+  .td-client-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .td-client-name { font-weight: 600; color: #fff; }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .status-dot.green { background: #22c55e; }
+  .status-dot.yellow { background: #f59e0b; }
+  .status-dot.red { background: #ef4444; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .status-badge.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  .status-badge.active .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+  }
+  .status-badge.paused {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+  }
+  .status-badge.paused .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag.up { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+  .tag.down { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+  .tag.flat { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+  /* ─── Leads table (clients mode) ─── */
+  .lead-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(99, 55, 220, 0.12);
+    color: #a78bfa;
+  }
+
+  /* ─── View Toggle ─── */
+  .view-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 20px 0 0;
+    padding: 16px;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 12px;
+  }
+  .view-toggle.show { display: flex; }
+  .toggle-label { font-size: 13px; color: #94a3b8; }
+  .toggle-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover { background: rgba(255,255,255,0.1); }
+  .toggle-btn.active { background: #2563eb; border-color: #2563eb; }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Mode label on page */
+  .mode-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .mode-indicator.agency { background: rgba(37, 99, 235, 0.12); color: #60a5fa; }
+  .mode-indicator.clients { background: rgba(124, 58, 237, 0.12); color: #a78bfa; }
+
+  /* Recent leads row for clients mode */
+  .lead-row { display: flex; align-items: center; gap: 12px; }
+  .lead-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2a2f45;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  /* ─── Accordion ─── */
+  .accordion {
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    background: #1a1f36;
+    overflow: hidden;
+  }
+
+  .accordion .table-wrap {
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+  }
+
+  /* Accordion header row (first tr in thead) */
+  .acc-header-row {
+    cursor: pointer;
+    user-select: none;
+  }
+  .acc-header-row:hover td { background: rgba(255,255,255,0.03); }
+
+  .acc-title-cell {
+    padding: 14px 20px !important;
+    background: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    white-space: nowrap;
+  }
+
+  .accordion-arrow {
+    font-size: 12px;
+    color: #64748b;
+    transition: transform 0.2s;
+    display: inline-block;
+    margin-right: 8px;
+  }
+  .accordion.collapsed .accordion-arrow { transform: rotate(-90deg); }
+
+  .accordion-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .accordion-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.08);
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* Summary values in the header row */
+  .acc-header-row td {
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #94a3b8;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .acc-header-row .sv { color: #e2e8f0; }
+  .acc-header-row .sv-green { color: #22c55e; }
+  .acc-header-row .sv-blue { color: #60a5fa; }
+
+  /* When collapsed, hide column headers and data rows */
+  .accordion.collapsed .col-headers { display: none; }
+  .accordion.collapsed tbody { display: none; }
+
+  /* ─── Stage Badges ─── */
+  .stage-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .stage-badge.proposal { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-badge.negotiation { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .stage-badge.onboarding { background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .stage-badge.completed { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .stage-badge.upcoming { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-badge.new-lead { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .stage-badge.contacted { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-badge.qualified { background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .stage-badge.replied { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .stage-badge.outreach { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-badge.researching { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .stage-badge.discovery { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .stage-badge.campaign-build { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+  /* ─── Resizable Columns ─── */
+  th { position: relative; }
+  td { overflow: hidden; text-overflow: ellipsis; }
+  .col-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 25%;
+    bottom: 25%;
+    width: 7px;
+    cursor: col-resize;
+    z-index: 10;
+    border-right: 1px solid rgba(255,255,255,0.15);
+  }
+  .col-resize-handle:hover,
+  .col-resize-handle.active {
+    border-right-color: rgba(59,130,246,0.7);
+  }
+  body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .kpi-row.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-row.cols-5 { grid-template-columns: repeat(2, 1fr); }
+    .client-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- AGENCY MODE                                        -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="agencyView" class="view active">
+
+  <!-- Top Nav — Agency -->
+  <div class="topnav">
+    <div class="ctx-switcher" onclick="toggleDropdown('agency')">
+      <div class="ctx-icon agency">CA</div>
+      <div class="ctx-info">
+        <span class="ctx-mode">Agency</span>
+        <span class="ctx-name">ConversionAgent</span>
+      </div>
+      <span class="ctx-arrow">&#9662;</span>
+
+      <div class="ctx-dropdown" id="dropdown-agency">
+        <div class="ctx-option active" onclick="switchTo('agency')">
+          <div class="opt-icon agency">CA</div>
+          <div class="opt-info">
+            <span class="opt-name">Agency</span>
+            <span class="opt-desc">Pipeline, sales, operations</span>
+          </div>
+          <span class="opt-check">&#10003;</span>
+        </div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-option" onclick="switchTo('clients')">
+          <div class="opt-icon clients">CL</div>
+          <div class="opt-info">
+            <span class="opt-name">Clients</span>
+            <span class="opt-desc">All client KPIs, leads, tasks</span>
+          </div>
+          <span class="opt-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-tab active">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+      Sales <span class="arrow">&#9662;</span>
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Management <span class="arrow">&#9662;</span>
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Admin <span class="arrow">&#9662;</span>
+    </div>
+
+    <div class="nav-right">
+      <div class="avatar">RM</div>
+    </div>
+  </div>
+
+  <!-- Agency Dashboard Content -->
+  <div class="page">
+    <div class="mode-indicator agency">Agency Mode</div>
+    <h1 class="page-title">Agency Control Center</h1>
+    <p class="page-subtitle">Your agency pipeline at a glance. Click any section to expand.</p>
+
+    <!-- ═══ ACCORDION: Active Clients ═══ -->
+    <div class="accordion" id="acc-clients">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table style="min-width: 1200px;">
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-clients')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Active Clients</span>
+                <span class="accordion-count">4</span>
+              </td>
+              <td class="sv-green">$333,800</td>
+              <td class="sv">14</td>
+              <td class="sv">$12,400</td>
+              <td class="sv">247</td>
+              <td>$50.20</td>
+              <td class="sv">102</td>
+              <td>$121.57</td>
+              <td class="sv">36</td>
+              <td>$344.44</td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Cash Collected</th>
+              <th>Campaigns</th>
+              <th>Total Ad Spend</th>
+              <th>Leads</th>
+              <th>Cost Per Lead</th>
+              <th>Completed Appts</th>
+              <th>Cost Per Appt</th>
+              <th>Customers</th>
+              <th>CAC</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>3/10/2026</td>
+                <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+                <td><div class="td-client"><div class="td-client-icon" style="background: rgba(34,197,94,0.15);">&#10052;</div><span class="td-client-name">Comfort Pro HVAC</span></div></td>
+                <td>HVAC</td>
+                <td>Nashville, TN</td>
+                <td style="color: #22c55e; font-weight: 600;">$124,500</td>
+                <td>5</td>
+                <td>$4,200</td>
+                <td style="font-weight: 600;">87</td>
+                <td>$48.28</td>
+                <td>34</td>
+                <td>$123.53</td>
+                <td style="font-weight: 600;">12</td>
+                <td>$350.00</td>
+                <td><a class="section-link" style="white-space: nowrap;">View Dashboard &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>1/15/2026</td>
+                <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+                <td><div class="td-client"><div class="td-client-icon" style="background: rgba(96,165,250,0.15);">&#9878;</div><span class="td-client-name">Pederson Funeral Home</span></div></td>
+                <td>Funeral</td>
+                <td>Rockford, MI</td>
+                <td style="color: #22c55e; font-weight: 600;">$89,200</td>
+                <td>3</td>
+                <td>$2,800</td>
+                <td style="font-weight: 600;">42</td>
+                <td>$66.67</td>
+                <td>18</td>
+                <td>$155.56</td>
+                <td style="font-weight: 600;">7</td>
+                <td>$400.00</td>
+                <td><a class="section-link" style="white-space: nowrap;">View Dashboard &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>4/02/2026</td>
+                <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+                <td><div class="td-client"><div class="td-client-icon" style="background: rgba(167,139,250,0.15);">&#128187;</div><span class="td-client-name">ShieldTech</span></div></td>
+                <td>E-comm</td>
+                <td>Phoenix, AZ</td>
+                <td style="color: #22c55e; font-weight: 600;">$67,800</td>
+                <td>4</td>
+                <td>$3,100</td>
+                <td style="font-weight: 600;">63</td>
+                <td>$49.21</td>
+                <td>28</td>
+                <td>$110.71</td>
+                <td style="font-weight: 600;">9</td>
+                <td>$344.44</td>
+                <td><a class="section-link" style="white-space: nowrap;">View Dashboard &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>2/20/2026</td>
+                <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+                <td><div class="td-client"><div class="td-client-icon" style="background: rgba(34,197,94,0.15);">&#10052;</div><span class="td-client-name">Synergy Home</span></div></td>
+                <td>HVAC</td>
+                <td>Lexington, KY</td>
+                <td style="color: #22c55e; font-weight: 600;">$52,300</td>
+                <td>2</td>
+                <td>$2,300</td>
+                <td style="font-weight: 600;">55</td>
+                <td>$41.82</td>
+                <td>22</td>
+                <td>$104.55</td>
+                <td style="font-weight: 600;">8</td>
+                <td>$287.50</td>
+                <td><a class="section-link" style="white-space: nowrap;">View Dashboard &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCORDION: Onboarding ═══ -->
+    <div class="accordion collapsed" id="acc-onboarding">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-onboarding')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Onboarding</span>
+                <span class="accordion-count">2</span>
+              </td>
+              <td></td>
+              <td class="sv-green">$4,800/mo</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Deal Value</th>
+              <th>Service</th>
+              <th>Started</th>
+              <th>Next Milestone</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>5/24/2026</td>
+                <td><span class="stage-badge onboarding">Account Setup</span></td>
+                <td style="color: #fff; font-weight: 500;">BrightSmile Dental</td>
+                <td>Dental</td>
+                <td>Portland, OR</td>
+                <td>Dr. Amy Lin</td>
+                <td style="font-weight: 600;">$2,400/mo</td>
+                <td>Google Ads + Funnels</td>
+                <td>May 24</td>
+                <td>Ad account access</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/18/2026</td>
+                <td><span class="stage-badge campaign-build">Campaign Build</span></td>
+                <td style="color: #fff; font-weight: 500;">Summit HVAC</td>
+                <td>HVAC</td>
+                <td>Atlanta, GA</td>
+                <td>David Chen</td>
+                <td style="font-weight: 600;">$2,400/mo</td>
+                <td>Google Ads</td>
+                <td>May 18</td>
+                <td>Launch campaigns</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCORDION: Sales ═══ -->
+    <div class="accordion collapsed" id="acc-sales">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-sales')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Sales</span>
+                <span class="accordion-count">4</span>
+              </td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="sv-green">$11,200/mo</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Lead Status</th>
+              <th>Appt Status</th>
+              <th>Sale Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Funnel</th>
+              <th>Deal Value</th>
+              <th>Service</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>5/18/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td><span class="stage-badge proposal">Proposal Sent</span></td>
+                <td style="color: #fff; font-weight: 500;">GreenScape Lawn</td>
+                <td>Lawn Care</td>
+                <td>Austin, TX</td>
+                <td>Mike Torres</td>
+                <td>mike@greenscape.com</td>
+                <td>5129874532</td>
+                <td>—</td>
+                <td style="font-weight: 600;">$3,200/mo</td>
+                <td>Google Ads + SEO</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/14/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td><span class="stage-badge negotiation">Negotiation</span></td>
+                <td style="color: #fff; font-weight: 500;">Elite Plumbing Co</td>
+                <td>Plumbing</td>
+                <td>Orlando, FL</td>
+                <td>Donna Park</td>
+                <td>donna@eliteplumb.com</td>
+                <td>4073216789</td>
+                <td>—</td>
+                <td style="font-weight: 600;">$2,800/mo</td>
+                <td>Google Ads</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/22/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td><span class="stage-badge proposal">Proposal Sent</span></td>
+                <td style="color: #fff; font-weight: 500;">FastTrack Auto</td>
+                <td>Auto Repair</td>
+                <td>Houston, TX</td>
+                <td>Carlos Reyes</td>
+                <td>carlos@fasttrack.com</td>
+                <td>7135559012</td>
+                <td>—</td>
+                <td style="font-weight: 600;">$2,600/mo</td>
+                <td>Google Ads + Funnels</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/20/2026</td>
+                <td><span class="stage-badge contacted">Contacted</span></td>
+                <td><span class="stage-badge upcoming">Appt Set</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Peak Roofing</td>
+                <td>Roofing</td>
+                <td>Raleigh, NC</td>
+                <td>Jason Miles</td>
+                <td>jason@peakroof.com</td>
+                <td>9195553847</td>
+                <td>—</td>
+                <td style="font-weight: 600;">$2,600/mo</td>
+                <td>Full Service</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCORDION: Appointments ═══ -->
+    <div class="accordion collapsed" id="acc-appts">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-appts')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Appointments</span>
+                <span class="accordion-count">5</span>
+              </td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="sv">2 Complete, 3 Upcoming</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Lead Status</th>
+              <th>Appt Status</th>
+              <th>Sale Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Funnel</th>
+              <th>Type</th>
+              <th>Date & Time</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>5/18/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td><span class="stage-badge proposal">Proposal Sent</span></td>
+                <td style="color: #fff; font-weight: 500;">GreenScape Lawn</td>
+                <td>Lawn Care</td>
+                <td>Austin, TX</td>
+                <td>Mike Torres</td>
+                <td>mike@greenscape.com</td>
+                <td>5129874532</td>
+                <td>—</td>
+                <td>Discovery Call</td>
+                <td>May 23, 10:00 AM</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/14/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td><span class="stage-badge negotiation">Negotiation</span></td>
+                <td style="color: #fff; font-weight: 500;">Elite Plumbing Co</td>
+                <td>Plumbing</td>
+                <td>Orlando, FL</td>
+                <td>Donna Park</td>
+                <td>donna@eliteplumb.com</td>
+                <td>4073216789</td>
+                <td>—</td>
+                <td>Proposal Review</td>
+                <td>May 24, 2:00 PM</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/20/2026</td>
+                <td><span class="stage-badge contacted">Contacted</span></td>
+                <td><span class="stage-badge upcoming">Appt Set</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">BrightSmile Dental</td>
+                <td>Dental</td>
+                <td>Portland, OR</td>
+                <td>Dr. Amy Lin</td>
+                <td>amy@brightsmile.com</td>
+                <td>5035558812</td>
+                <td>—</td>
+                <td>Onboarding Kickoff</td>
+                <td>May 27, 11:00 AM</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/22/2026</td>
+                <td><span class="stage-badge contacted">Contacted</span></td>
+                <td><span class="stage-badge upcoming">Appt Set</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">FastTrack Auto</td>
+                <td>Auto Repair</td>
+                <td>Houston, TX</td>
+                <td>Carlos Reyes</td>
+                <td>carlos@fasttrack.com</td>
+                <td>7135559012</td>
+                <td>—</td>
+                <td>Discovery Call</td>
+                <td>May 28, 3:00 PM</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/20/2026</td>
+                <td><span class="stage-badge new-lead">New</span></td>
+                <td><span class="stage-badge upcoming">Appt Set</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Peak Roofing</td>
+                <td>Roofing</td>
+                <td>Raleigh, NC</td>
+                <td>Jason Miles</td>
+                <td>jason@peakroof.com</td>
+                <td>9195553847</td>
+                <td>—</td>
+                <td>Follow Up</td>
+                <td>May 29, 10:30 AM</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCORDION: Leads ═══ -->
+    <div class="accordion collapsed" id="acc-leads">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-leads')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Leads</span>
+                <span class="accordion-count">8</span>
+              </td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="sv">3 New, 1 Contacted, 1 Qualified</td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Lead Status</th>
+              <th>Appt Status</th>
+              <th>Sale Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Funnel</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>5/26/2026</td>
+                <td><span class="stage-badge new-lead">New</span></td>
+                <td>—</td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">FastTrack Auto</td>
+                <td>Auto Repair</td>
+                <td>Houston, TX</td>
+                <td>Carlos Reyes</td>
+                <td>carlos@fasttrack.com</td>
+                <td>7135559012</td>
+                <td>—</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/26/2026</td>
+                <td><span class="stage-badge new-lead">New</span></td>
+                <td>—</td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Peak Roofing</td>
+                <td>Roofing</td>
+                <td>Raleigh, NC</td>
+                <td>Jason Miles</td>
+                <td>jason@peakroof.com</td>
+                <td>9195553847</td>
+                <td>—</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/25/2026</td>
+                <td><span class="stage-badge new-lead">New</span></td>
+                <td>—</td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Zenith Wellness</td>
+                <td>Wellness</td>
+                <td>San Diego, CA</td>
+                <td>Rachel Kim</td>
+                <td>rachel@zenithwell.com</td>
+                <td>6195554201</td>
+                <td>—</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/23/2026</td>
+                <td><span class="stage-badge contacted">Contacted</span></td>
+                <td><span class="stage-badge upcoming">Appt Set</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Apex Electric</td>
+                <td>Electrical</td>
+                <td>Memphis, TN</td>
+                <td>Tom Bradley</td>
+                <td>tom@apexelec.com</td>
+                <td>9015557643</td>
+                <td>—</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/21/2026</td>
+                <td><span class="stage-badge qualified">Qualified</span></td>
+                <td><span class="stage-badge completed">Appt Complete</span></td>
+                <td>—</td>
+                <td style="color: #fff; font-weight: 500;">Prestige Homes</td>
+                <td>Real Estate</td>
+                <td>Scottsdale, AZ</td>
+                <td>Sandra Wells</td>
+                <td>sandra@prestige.com</td>
+                <td>4805551290</td>
+                <td>—</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCORDION: Prospects ═══ -->
+    <div class="accordion collapsed" id="acc-prospects">
+      <div class="table-wrap" style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr class="acc-header-row" onclick="toggleAccordion('acc-prospects')">
+              <td colspan="5" class="acc-title-cell">
+                <span class="accordion-arrow">&#9662;</span>
+                <span class="accordion-title">Prospects</span>
+                <span class="accordion-count">12</span>
+              </td>
+              <td></td>
+              <td class="sv">2 Replied, 2 Outreach, 1 Research</td>
+              <td></td>
+            </tr>
+            <tr class="col-headers">
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Company Name</th>
+              <th>Industry</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Last Activity</th>
+              <th></th>
+            </tr>
+          </thead>
+            <tbody>
+              <tr>
+                <td>5/25/2026</td>
+                <td><span class="stage-badge replied">Replied</span></td>
+                <td style="color: #fff; font-weight: 500;">Summit HVAC</td>
+                <td>HVAC</td>
+                <td>Atlanta, GA</td>
+                <td>David Chen</td>
+                <td>Today — wants to chat</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/24/2026</td>
+                <td><span class="stage-badge replied">Replied</span></td>
+                <td style="color: #fff; font-weight: 500;">Keystone Legal</td>
+                <td>Legal</td>
+                <td>Dallas, TX</td>
+                <td>Maria Gonzalez</td>
+                <td>Yesterday — interested</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/24/2026</td>
+                <td><span class="stage-badge outreach">Outreach Sent</span></td>
+                <td style="color: #fff; font-weight: 500;">Riverside Dental</td>
+                <td>Dental</td>
+                <td>Tampa, FL</td>
+                <td>Dr. Patel</td>
+                <td>May 24 — email sent</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/23/2026</td>
+                <td><span class="stage-badge outreach">Outreach Sent</span></td>
+                <td style="color: #fff; font-weight: 500;">ProBuild Contractors</td>
+                <td>Construction</td>
+                <td>Denver, CO</td>
+                <td>Steve Rawlings</td>
+                <td>May 23 — LinkedIn msg</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+              <tr>
+                <td>5/22/2026</td>
+                <td><span class="stage-badge researching">Researching</span></td>
+                <td style="color: #fff; font-weight: 500;">ClearView Windows</td>
+                <td>Home Services</td>
+                <td>Charlotte, NC</td>
+                <td>—</td>
+                <td>Identified May 22</td>
+                <td><a class="section-link" style="white-space: nowrap;">View &rarr;</a></td>
+              </tr>
+            </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- CLIENTS MODE                                       -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="clientsView" class="view">
+
+  <!-- Top Nav — Clients -->
+  <div class="topnav">
+    <div class="ctx-switcher" onclick="toggleDropdown('clients')">
+      <div class="ctx-icon clients">CL</div>
+      <div class="ctx-info">
+        <span class="ctx-mode">Clients</span>
+        <span class="ctx-name">All Clients</span>
+      </div>
+      <span class="ctx-arrow">&#9662;</span>
+
+      <div class="ctx-dropdown" id="dropdown-clients">
+        <div class="ctx-option" onclick="switchTo('agency')">
+          <div class="opt-icon agency">CA</div>
+          <div class="opt-info">
+            <span class="opt-name">Agency</span>
+            <span class="opt-desc">Pipeline, sales, operations</span>
+          </div>
+          <span class="opt-check">&#10003;</span>
+        </div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-option active" onclick="switchTo('clients')">
+          <div class="opt-icon clients">CL</div>
+          <div class="opt-info">
+            <span class="opt-name">Clients</span>
+            <span class="opt-desc">All client KPIs, leads, tasks</span>
+          </div>
+          <span class="opt-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-tab active">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+      Overview
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      All Leads <span class="arrow">&#9662;</span>
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+      Campaigns <span class="arrow">&#9662;</span>
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      Tasks <span class="arrow">&#9662;</span>
+    </div>
+    <div class="nav-tab">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Performance <span class="arrow">&#9662;</span>
+    </div>
+
+    <div class="nav-right">
+      <div class="avatar">RM</div>
+    </div>
+  </div>
+
+  <!-- Clients Dashboard Content -->
+  <div class="page">
+    <div class="mode-indicator clients">Clients Mode</div>
+    <h1 class="page-title">Client Overview</h1>
+    <p class="page-subtitle">Aggregate performance across all active clients.</p>
+
+    <div class="kpi-row cols-5">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Leads (All Clients)</div>
+        <div class="kpi-value white">247</div>
+        <div class="kpi-trend">+18% vs last month</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Ad Spend</div>
+        <div class="kpi-value orange">$12.4k</div>
+        <div class="kpi-trend">+5% vs last month</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Cost Per Lead</div>
+        <div class="kpi-value green">$50.20</div>
+        <div class="kpi-trend">-12% vs last month</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Campaigns</div>
+        <div class="kpi-value blue">14</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Open Tasks</div>
+        <div class="kpi-value purple">23</div>
+      </div>
+    </div>
+
+    <!-- Client Performance Table -->
+    <div class="section-header">
+      <span class="section-title">Client Performance</span>
+      <a class="section-link">Export Report &rarr;</a>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Leads (MTD)</th>
+            <th>Ad Spend</th>
+            <th>CPL</th>
+            <th>Campaigns</th>
+            <th>Trend</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="td-client">
+                <div class="td-client-icon" style="background: rgba(34,197,94,0.15);">&#10052;</div>
+                <span class="td-client-name">Comfort Pro HVAC</span>
+              </div>
+            </td>
+            <td>87</td>
+            <td>$4,200</td>
+            <td>$48.28</td>
+            <td>5</td>
+            <td><span class="tag up">+22%</span></td>
+            <td><span class="status-badge active"><span class="badge-dot"></span>Healthy</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-client">
+                <div class="td-client-icon" style="background: rgba(96,165,250,0.15);">&#9878;</div>
+                <span class="td-client-name">Pederson Funeral Home</span>
+              </div>
+            </td>
+            <td>42</td>
+            <td>$2,800</td>
+            <td>$66.67</td>
+            <td>3</td>
+            <td><span class="tag flat">0%</span></td>
+            <td><span class="status-badge paused"><span class="badge-dot"></span>Needs Review</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-client">
+                <div class="td-client-icon" style="background: rgba(167,139,250,0.15);">&#128187;</div>
+                <span class="td-client-name">ShieldTech</span>
+              </div>
+            </td>
+            <td>63</td>
+            <td>$3,100</td>
+            <td>$49.21</td>
+            <td>4</td>
+            <td><span class="tag up">+15%</span></td>
+            <td><span class="status-badge active"><span class="badge-dot"></span>Healthy</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-client">
+                <div class="td-client-icon" style="background: rgba(34,197,94,0.15);">&#10052;</div>
+                <span class="td-client-name">Synergy Home</span>
+              </div>
+            </td>
+            <td>55</td>
+            <td>$2,300</td>
+            <td>$41.82</td>
+            <td>2</td>
+            <td><span class="tag up">+31%</span></td>
+            <td><span class="status-badge active"><span class="badge-dot"></span>Healthy</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Leads Across All Clients -->
+    <div class="section-header">
+      <span class="section-title">Recent Leads (All Clients)</span>
+      <a class="section-link">View All Leads &rarr;</a>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Lead</th>
+            <th>Client</th>
+            <th>Source</th>
+            <th>Campaign</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="lead-row">
+                <div class="lead-avatar">JD</div>
+                <span style="color: #fff; font-weight: 500;">James Davis</span>
+              </div>
+            </td>
+            <td>Comfort Pro HVAC</td>
+            <td><span class="lead-source">Google Ads</span></td>
+            <td>AC Repair - Nashville</td>
+            <td><span class="status-dot green"></span>New</td>
+            <td>Today, 2:14 PM</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="lead-row">
+                <div class="lead-avatar">SM</div>
+                <span style="color: #fff; font-weight: 500;">Sarah Mitchell</span>
+              </div>
+            </td>
+            <td>ShieldTech</td>
+            <td><span class="lead-source">Meta Ads</span></td>
+            <td>Security Cameras - AZ</td>
+            <td><span class="status-dot green"></span>New</td>
+            <td>Today, 1:45 PM</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="lead-row">
+                <div class="lead-avatar">RB</div>
+                <span style="color: #fff; font-weight: 500;">Robert Brown</span>
+              </div>
+            </td>
+            <td>Synergy Home</td>
+            <td><span class="lead-source">Google Ads</span></td>
+            <td>Generator Install - KY</td>
+            <td><span class="status-dot yellow"></span>Contacted</td>
+            <td>Today, 11:30 AM</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="lead-row">
+                <div class="lead-avatar">LW</div>
+                <span style="color: #fff; font-weight: 500;">Linda Walker</span>
+              </div>
+            </td>
+            <td>Pederson Funeral Home</td>
+            <td><span class="lead-source">Google Ads</span></td>
+            <td>Pre-Planning - MI</td>
+            <td><span class="status-dot green"></span>New</td>
+            <td>Yesterday, 4:22 PM</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- Interactive toggle (for mockup preview)            -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<script>
+/* ─── Resizable Columns ─── */
+function initTableResize(table) {
+  if (table.dataset.resizeInit) return;
+  table.dataset.resizeInit = '1';
+
+  const ths = Array.from(table.querySelectorAll('thead th'));
+  if (!ths.length) return;
+
+  // Capture natural widths
+  const widths = ths.map(th => th.getBoundingClientRect().width);
+
+  // Create a colgroup with explicit col widths — this is the only thing controlling column size
+  const colgroup = document.createElement('colgroup');
+  widths.forEach(w => {
+    const col = document.createElement('col');
+    col.style.width = w + 'px';
+    colgroup.appendChild(col);
+  });
+  table.insertBefore(colgroup, table.firstChild);
+
+  // Remove any width from th/td so colgroup is the single source of truth
+  ths.forEach(th => { th.style.width = ''; th.style.minWidth = ''; });
+  table.style.tableLayout = 'fixed';
+  // Set total table width so columns don't redistribute
+  table.style.width = widths.reduce((a, b) => a + b, 0) + 'px';
+
+  const cols = Array.from(colgroup.querySelectorAll('col'));
+
+  ths.forEach((th, i) => {
+    if (i === ths.length - 1) return;
+
+    const handle = document.createElement('div');
+    handle.className = 'col-resize-handle';
+    th.appendChild(handle);
+
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startColW = parseFloat(cols[i].style.width);
+      const startTableW = parseFloat(table.style.width);
+      handle.classList.add('active');
+      document.body.classList.add('col-resizing');
+
+      function onMove(ev) {
+        const dx = ev.pageX - startX;
+        const newW = Math.max(40, startColW + dx);
+        const delta = newW - startColW;
+        cols[i].style.width = newW + 'px';
+        // Grow/shrink total table width so other columns stay untouched
+        table.style.width = (startTableW + delta) + 'px';
+      }
+      function onUp() {
+        handle.classList.remove('active');
+        document.body.classList.remove('col-resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+function initResizableColumns() {
+  document.querySelectorAll('table').forEach(table => {
+    if (table.offsetParent !== null) {
+      // Skip if column headers are hidden (accordion collapsed)
+      const colHeaders = table.querySelector('.col-headers');
+      if (colHeaders && colHeaders.offsetParent === null) return;
+      initTableResize(table);
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initResizableColumns, 100);
+});
+if (document.readyState !== 'loading') {
+  setTimeout(initResizableColumns, 100);
+}
+
+function toggleAccordion(id) {
+  const acc = document.getElementById(id);
+  const isCollapsed = acc.classList.contains('collapsed');
+
+  if (isCollapsed) {
+    acc.classList.remove('collapsed');
+    // Init resize handles on newly visible tables
+    setTimeout(() => {
+      acc.querySelectorAll('table').forEach(initTableResize);
+    }, 50);
+  } else {
+    acc.classList.add('collapsed');
+  }
+}
+
+function switchTo(mode) {
+  document.getElementById('agencyView').classList.toggle('active', mode === 'agency');
+  document.getElementById('clientsView').classList.toggle('active', mode === 'clients');
+
+  // Update floating toggle
+  const btnA = document.getElementById('btn-agency');
+  const btnC = document.getElementById('btn-clients');
+  if (mode === 'agency') {
+    btnA.style.background = '#2563eb'; btnA.style.color = '#fff'; btnA.style.border = 'none';
+    btnC.style.background = 'rgba(255,255,255,0.05)'; btnC.style.color = '#94a3b8'; btnC.style.border = '1px solid rgba(255,255,255,0.1)';
+  } else {
+    btnC.style.background = '#7c3aed'; btnC.style.color = '#fff'; btnC.style.border = 'none';
+    btnA.style.background = 'rgba(255,255,255,0.05)'; btnA.style.color = '#94a3b8'; btnA.style.border = '1px solid rgba(255,255,255,0.1)';
+  }
+
+  // Close any open dropdown
+  document.querySelectorAll('.ctx-dropdown').forEach(d => d.classList.remove('open'));
+}
+
+function toggleDropdown(mode) {
+  const dd = document.getElementById('dropdown-' + mode);
+  const isOpen = dd.classList.contains('open');
+  document.querySelectorAll('.ctx-dropdown').forEach(d => d.classList.remove('open'));
+  if (!isOpen) dd.classList.add('open');
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.ctx-switcher')) {
+    document.querySelectorAll('.ctx-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+</script>
+
+</body>
+</html>
