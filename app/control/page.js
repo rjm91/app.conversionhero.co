@@ -381,18 +381,8 @@ function CellContent({ cell, onStatusChange }) {
 
 /* ─── Column Resize Hook ─── */
 function useColumnResize(tableRef, isCollapsed, rowCount) {
-  const initialized = useRef(false)
-  const prevRowCount = useRef(0)
-
-  // Reset when rows change from 0 to >0 (data arrived) or section re-expands
-  if (isCollapsed) initialized.current = false
-  if (rowCount !== prevRowCount.current) {
-    prevRowCount.current = rowCount
-    initialized.current = false
-  }
-
   useEffect(() => {
-    if (isCollapsed || initialized.current) return
+    if (isCollapsed) return
     const table = tableRef.current
     if (!table) return
 
@@ -401,6 +391,10 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
 
     const ths = Array.from(colHeaderRow.querySelectorAll('th'))
     if (!ths.length) return
+
+    // Skip if already set up with same column count
+    if (table.querySelector('.col-resize-handle') && table.dataset.resizeCols === String(ths.length)) return
+    table.dataset.resizeCols = String(ths.length)
 
     const widths = ths.map(th => th.getBoundingClientRect().width)
 
@@ -459,8 +453,6 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
         document.addEventListener('mouseup', onUp)
       })
     })
-
-    initialized.current = true
   }, [isCollapsed, tableRef, rowCount])
 }
 
