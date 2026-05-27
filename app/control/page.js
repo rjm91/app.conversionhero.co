@@ -240,9 +240,15 @@ function buildPipelines(clientsWithData, agencyLeads) {
   }
 
   // ── Waterfall: each lead appears in only its furthest pipeline stage ──
-  const salesLeads = remainingLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  // Sales: has sale_status OR appt is Confirmed/Complete (ready for sale stage)
+  const salesLeads = remainingLeads.filter(l =>
+    (l.sale_status && l.sale_status !== 'NA') ||
+    l.appt_status === 'Appt Confirmed' ||
+    l.appt_status === 'Appt Complete'
+  )
   const salesIds = new Set(salesLeads.map(l => l.id))
 
+  // Appointments: lead_status is Appt Set, or has other appt_status (Lost, Disqualified, etc)
   const apptLeads = remainingLeads.filter(l => !salesIds.has(l.id) && (
     (l.appt_status && l.appt_status !== 'NA') || l.lead_status === 'Appt Set'
   ))
