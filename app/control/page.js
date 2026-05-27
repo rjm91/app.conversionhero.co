@@ -380,8 +380,16 @@ function CellContent({ cell, onStatusChange }) {
 }
 
 /* ─── Column Resize Hook ─── */
-function useColumnResize(tableRef, isCollapsed) {
+function useColumnResize(tableRef, isCollapsed, rowCount) {
   const initialized = useRef(false)
+  const prevRowCount = useRef(0)
+
+  // Reset when rows change from 0 to >0 (data arrived) or section re-expands
+  if (isCollapsed) initialized.current = false
+  if (rowCount !== prevRowCount.current) {
+    prevRowCount.current = rowCount
+    initialized.current = false
+  }
 
   useEffect(() => {
     if (isCollapsed || initialized.current) return
@@ -453,7 +461,7 @@ function useColumnResize(tableRef, isCollapsed) {
     })
 
     initialized.current = true
-  }, [isCollapsed, tableRef])
+  }, [isCollapsed, tableRef, rowCount])
 }
 
 /* ─── Accordion Pipeline Component ─── */
@@ -461,7 +469,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
 
-  useColumnResize(tableRef, collapsed)
+  useColumnResize(tableRef, collapsed, rows.length)
 
   const toggle = useCallback(() => setCollapsed(c => !c), [])
 
