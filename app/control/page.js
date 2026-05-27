@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabase'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -586,57 +585,31 @@ export default function ControlPage() {
       end = range.end
     }
 
-    // Build date-filtered queries for payments, campaigns, leads
-    let paymentsQuery = supabase.from('client_payments').select('client_id, amount, date_created')
-    if (start) paymentsQuery = paymentsQuery.gte('date_created', start)
-    if (end) paymentsQuery = paymentsQuery.lte('date_created', end + 'T23:59:59')
+    // Fetch all pipeline data from server-side API (bypasses RLS)
+    const params = new URLSearchParams()
+    if (start) params.set('start', start)
+    if (end) params.set('end', end)
 
-    let campaignsQuery = supabase.from('client_yt_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date')
-    if (start) campaignsQuery = campaignsQuery.gte('date', start)
-    if (end) campaignsQuery = campaignsQuery.lte('date', end)
-
-    let leadsQuery = supabase.from('client_lead').select('client_id, lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, industry, city, state, created_at, appt_date, appt_type')
-    if (start) leadsQuery = leadsQuery.gte('created_at', start)
-    if (end) leadsQuery = leadsQuery.lte('created_at', end + 'T23:59:59')
-
-    const [
-      clientRes,
-      paymentRes,
-      campaignRes,
-      leadRes,
-    ] = await Promise.all([
-      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at'),
-      paymentsQuery,
-      campaignsQuery,
-      leadsQuery,
-    ])
-
-    const clients = clientRes.data
-    const payments = paymentRes.data
-    const campaignData = campaignRes.data
-    const leadData = leadRes.data
-
-    // Fetch billing for onboarding clients
-    const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
-    let billingData = []
-    if (onboardingIds.length > 0) {
-      const { data: billing } = await supabase
-        .from('client_billing')
-        .select('client_id, retainer_amount, monthly_budget')
-        .in('client_id', onboardingIds)
-      billingData = billing || []
+    const res = await fetch(`/api/agency/pipeline?${params}`)
+    if (!res.ok) {
+      console.error('[Control] pipeline API error:', res.status)
+      setLoading(false)
+      return
     }
 
+    const { clients, payments, campaigns, leads, billing } = await res.json()
+
+    // Attach billing to clients
     const enrichedClients = (clients || []).map(c => ({
       ...c,
-      client_billing: billingData.filter(b => b.client_id === c.client_id),
+      client_billing: (billing || []).filter(b => b.client_id === c.client_id),
     }))
 
     const result = buildPipelines(
       enrichedClients,
       payments || [],
-      campaignData || [],
-      leadData || [],
+      campaigns || [],
+      leads || [],
     )
     setPipelines(result)
     setLoading(false)
