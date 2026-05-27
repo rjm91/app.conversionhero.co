@@ -169,15 +169,15 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
     const retainer = billing ? (Number(billing.retainer_amount) || Number(billing.monthly_budget) || 0) : 0
     return [
       fmtDate(c.created_at),
-      { stage: c.onboarding_stage || 'Account Setup', color: 'purple' },
+      { stage: 'Onboarding', color: 'purple' },
       c.client_name,
       c.industry || '—',
       c.city && c.state ? `${c.city}, ${c.state}` : '—',
-      c.contact_name || '—',
+      '—',
       { value: retainer > 0 ? `$${retainer.toLocaleString()}/mo` : '—', bold: true },
-      c.service_type || '—',
+      '—',
       fmtDate(c.created_at),
-      c.next_milestone || '—',
+      '—',
       { link: 'View →', href: `/control/${c.client_id}/dashboard` },
     ]
   })
@@ -198,18 +198,13 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
   const activeSalesDeals = salesDeals.filter(d => d.stage && !['Closed Won', 'Closed Lost'].includes(d.stage))
   const salesRows = activeSalesDeals.map(d => [
     fmtDate(d.created_at),
-    { stage: d.lead_status || 'New', color: statusColor(d.lead_status || 'New') },
-    { stage: d.appt_status || '—', color: statusColor(d.appt_status) },
-    { stage: d.sale_status || d.stage || '—', color: statusColor(d.sale_status || d.stage) },
-    d.company || d.prospect || '—',
-    d.industry || '—',
-    d.location || '—',
+    { stage: d.stage || 'Prospect', color: statusColor(d.stage) },
     d.prospect || '—',
+    d.company || '—',
     d.email || '—',
     d.phone || '—',
-    '—',
-    { value: d.value ? `$${Number(d.value).toLocaleString()}/mo` : '—', bold: true },
-    d.service || '—',
+    { value: d.value ? fmt$(Number(d.value)) : '—', bold: true },
+    d.notes || '—',
     { link: 'View →' },
   ])
   const totalSalesValue = activeSalesDeals.reduce((s, d) => s + (Number(d.value) || 0), 0)
@@ -217,8 +212,8 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
   const salesPipeline = {
     title: 'Sales',
     count: activeSalesDeals.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Deal Value','Service',''],
-    summaryMap: totalSalesValue > 0 ? { 11: { value: `$${totalSalesValue.toLocaleString()}/mo`, color: 'green' } } : {},
+    columns: ['Submitted','Stage','Prospect','Company','Email','Phone','Deal Value','Notes',''],
+    summaryMap: totalSalesValue > 0 ? { 6: { value: fmt$(totalSalesValue), color: 'green' } } : {},
     rows: salesRows,
   }
 
@@ -283,34 +278,24 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
     rows: leadRows,
   }
 
-  // ── Prospects (sales_deals in early stages) ──
-  const prospectDeals = salesDeals.filter(d => {
-    const stage = (d.stage || '').toLowerCase()
-    return stage.includes('prospect') || stage.includes('research') || stage.includes('outreach') || stage === 'new' || stage === ''
-  })
+  // ── Prospects (sales_deals with 'Prospect' stage) ──
+  const prospectDeals = salesDeals.filter(d => d.stage === 'Prospect')
   const prospectRows = prospectDeals.map(d => [
     fmtDate(d.created_at),
-    { stage: d.stage || 'New', color: statusColor(d.stage) },
-    d.company || d.prospect || '—',
-    d.industry || '—',
-    d.location || '—',
+    { stage: 'Prospect', color: 'blue' },
     d.prospect || '—',
-    d.last_activity || '—',
+    d.company || '—',
+    d.email || '—',
+    d.phone || '—',
+    d.notes || '—',
     { link: 'View →' },
   ])
-  // Stage summary
-  const prospectStageCounts = {}
-  prospectDeals.forEach(d => {
-    const st = d.stage || 'New'
-    prospectStageCounts[st] = (prospectStageCounts[st] || 0) + 1
-  })
-  const prospectSummaryParts = Object.entries(prospectStageCounts).slice(0, 3).map(([k, v]) => `${v} ${k}`)
 
   const prospectsPipeline = {
     title: 'Prospects',
     count: prospectDeals.length,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Last Activity',''],
-    summaryMap: prospectSummaryParts.length ? { 6: { value: prospectSummaryParts.join(', ') } } : {},
+    columns: ['Submitted','Stage','Prospect','Company','Email','Phone','Notes',''],
+    summaryMap: {},
     rows: prospectRows,
   }
 
@@ -659,23 +644,12 @@ export default function ControlPage() {
       leadRes,
       salesRes,
     ] = await Promise.all([
-      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, contact_name, service_type, onboarding_stage, next_milestone'),
+      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, updated_at'),
       paymentsQuery,
       campaignsQuery,
       leadsQuery,
-      supabase.from('sales_deals').select('*'),
+      fetch('/api/sales-deals').then(r => r.json()).then(data => ({ data: data?.deals || [], error: null })).catch(e => ({ data: [], error: e })),
     ])
-
-    // Debug logging — check browser console
-    console.log('[Control] client:', clientRes.data?.length, 'rows, error:', clientRes.error)
-    console.log('[Control] payments:', paymentRes.data?.length, 'rows, error:', paymentRes.error)
-    console.log('[Control] campaigns:', campaignRes.data?.length, 'rows, error:', campaignRes.error)
-    console.log('[Control] leads:', leadRes.data?.length, 'rows, error:', leadRes.error)
-    console.log('[Control] sales_deals:', salesRes.data?.length, 'rows, error:', salesRes.error)
-    if (clientRes.data?.length) {
-      console.log('[Control] client statuses:', [...new Set(clientRes.data.map(c => c.status))])
-      console.log('[Control] first client:', clientRes.data[0])
-    }
 
     const clients = clientRes.data
     const payments = paymentRes.data
