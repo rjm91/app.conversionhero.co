@@ -535,7 +535,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                     {row.map((cell, ci) => (
                       <td
                         key={ci}
-                        className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04] overflow-hidden text-ellipsis"
+                        className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04]"
                       >
                         <CellContent cell={cell} onStatusChange={onStatusChange} />
                       </td>
