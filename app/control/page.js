@@ -61,7 +61,7 @@ function fmtDate(d) {
   return `${dt.getMonth() + 1}/${dt.getDate()}/${dt.getFullYear()}`
 }
 
-const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads', 'prospects']
+const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads']
 
 /* ─── Stage badge color map ─── */
 const STAGE_COLORS = {
@@ -90,14 +90,17 @@ function statusColor(status) {
 }
 
 /* ─── Build pipeline data from Supabase results ─── */
-function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
+function buildPipelines(clients, payments, campaigns, leads) {
+  // Exclude partial submissions globally
+  const validLeads = leads.filter(l => l.lead_status !== 'in_progress')
+
   // ── Active Clients ──
   const activeClients = clients.filter(c => c.status === 'Active')
   const clientRows = activeClients.map(c => {
     const cid = c.client_id
     const clientPayments = payments.filter(p => p.client_id === cid)
     const clientCampaigns = campaigns.filter(ca => ca.client_id === cid)
-    const clientLeads = leads.filter(l => l.client_id === cid && l.lead_status !== 'in_progress')
+    const clientLeads = validLeads.filter(l => l.client_id === cid)
 
     const cashCollected = clientPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
     const uniqueCampaigns = new Set(clientCampaigns.map(ca => ca.campaign_id)).size
@@ -134,12 +137,12 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
   })
 
   // Summary totals for Active Clients
-  const totalCash = activeClients.reduce((s, c) => {
-    return s + payments.filter(p => p.client_id === c.client_id).reduce((ss, p) => ss + (Number(p.amount) || 0), 0)
-  }, 0)
-  const totalCampaigns = new Set(campaigns.filter(ca => activeClients.some(c => c.client_id === ca.client_id)).map(ca => ca.campaign_id)).size
-  const totalAdSpend = campaigns.filter(ca => activeClients.some(c => c.client_id === ca.client_id)).reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
-  const allActiveLeads = leads.filter(l => activeClients.some(c => c.client_id === l.client_id) && l.lead_status !== 'in_progress')
+  const activeIds = new Set(activeClients.map(c => c.client_id))
+  const totalCash = payments.filter(p => activeIds.has(p.client_id)).reduce((s, p) => s + (Number(p.amount) || 0), 0)
+  const activeCampaigns = campaigns.filter(ca => activeIds.has(ca.client_id))
+  const totalCampaigns = new Set(activeCampaigns.map(ca => ca.campaign_id)).size
+  const totalAdSpend = activeCampaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
+  const allActiveLeads = validLeads.filter(l => activeIds.has(l.client_id))
   const totalLeads = allActiveLeads.length
   const totalAppts = allActiveLeads.filter(l => l.appt_status === 'Appt Complete').length
   const totalCustomers = allActiveLeads.filter(l => l.sale_status === 'Sold').length
@@ -194,44 +197,39 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
     rows: onboardingRows,
   }
 
-  // ── Sales (from sales_deals) ──
-  const activeSalesDeals = salesDeals.filter(d => d.stage && !['Closed Won', 'Closed Lost'].includes(d.stage))
-  const salesRows = activeSalesDeals.map(d => [
-    fmtDate(d.created_at),
-    { stage: d.stage || 'Prospect', color: statusColor(d.stage) },
-    d.prospect || '—',
-    d.company || '—',
-    d.email || '—',
-    d.phone || '—',
-    { value: d.value ? fmt$(Number(d.value)) : '—', bold: true },
-    d.notes || '—',
-    { link: 'View →' },
-  ])
-  const totalSalesValue = activeSalesDeals.reduce((s, d) => s + (Number(d.value) || 0), 0)
+  // Helper to build a lead row
+  function leadRow(l) {
+    return [
+      fmtDate(l.created_at),
+      { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
+      { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
+      { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
+      [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
+      l.company || '—',
+      l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
+      l.email || '—',
+      l.phone || '—',
+    ]
+  }
+
+  // ── Sales: leads where sale_status is set (not NA, not empty) ──
+  const salesLeads = validLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  const salesRows = salesLeads.map(l => [...leadRow(l), { link: 'View →' }])
+  const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
+  const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
 
   const salesPipeline = {
     title: 'Sales',
-    count: activeSalesDeals.length,
-    columns: ['Submitted','Stage','Prospect','Company','Email','Phone','Deal Value','Notes',''],
-    summaryMap: totalSalesValue > 0 ? { 6: { value: fmt$(totalSalesValue), color: 'green' } } : {},
+    count: salesLeads.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone',''],
+    summaryMap: { 3: { value: `${soldCount} Sold, ${proposalCount} Proposal Sent` } },
     rows: salesRows,
   }
 
-  // ── Appointments (leads with appt_status set) ──
-  const apptLeads = leads.filter(l => l.appt_status && l.appt_status !== 'NA' && l.lead_status !== 'in_progress')
-  const apptRows = apptLeads.slice(0, 50).map(l => [
-    fmtDate(l.created_at),
-    { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
-    { stage: l.appt_status, color: statusColor(l.appt_status) },
-    { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
-    l.company || '—',
-    l.industry || '—',
-    l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
-    [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
-    l.email || '—',
-    l.phone || '—',
-    '—',
-    l.appt_type || '—',
+  // ── Appointments: leads where appt_status is set (not NA, not empty) ──
+  const apptLeads = validLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
+  const apptRows = apptLeads.map(l => [
+    ...leadRow(l),
     l.appt_date ? fmtDate(l.appt_date) : '—',
     { link: 'View →' },
   ])
@@ -241,30 +239,16 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Type','Date & Time',''],
-    summaryMap: { 11: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone','Appt Date',''],
+    summaryMap: { 2: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
 
-  // ── Leads ──
-  const allLeads = leads.filter(l => l.lead_status !== 'in_progress')
-  const leadRows = allLeads.slice(0, 50).map(l => [
-    fmtDate(l.created_at),
-    { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
-    { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
-    { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
-    l.company || '—',
-    l.industry || '—',
-    l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
-    [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
-    l.email || '—',
-    l.phone || '—',
-    '—',
-    { link: 'View →' },
-  ])
+  // ── Leads: all valid leads ──
+  const leadRows = validLeads.map(l => [...leadRow(l), { link: 'View →' }])
   // Count statuses for summary
   const leadStatusCounts = {}
-  allLeads.forEach(l => {
+  validLeads.forEach(l => {
     const st = l.lead_status || 'Unknown'
     leadStatusCounts[st] = (leadStatusCounts[st] || 0) + 1
   })
@@ -272,31 +256,10 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
 
   const leadsPipeline = {
     title: 'Leads',
-    count: allLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel',''],
-    summaryMap: leadSummaryParts.length ? { 10: { value: leadSummaryParts.join(', ') } } : {},
+    count: validLeads.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone',''],
+    summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
-  }
-
-  // ── Prospects (sales_deals with 'Prospect' stage) ──
-  const prospectDeals = salesDeals.filter(d => d.stage === 'Prospect')
-  const prospectRows = prospectDeals.map(d => [
-    fmtDate(d.created_at),
-    { stage: 'Prospect', color: 'blue' },
-    d.prospect || '—',
-    d.company || '—',
-    d.email || '—',
-    d.phone || '—',
-    d.notes || '—',
-    { link: 'View →' },
-  ])
-
-  const prospectsPipeline = {
-    title: 'Prospects',
-    count: prospectDeals.length,
-    columns: ['Submitted','Stage','Prospect','Company','Email','Phone','Notes',''],
-    summaryMap: {},
-    rows: prospectRows,
   }
 
   return {
@@ -305,7 +268,6 @@ function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
     sales: salesPipeline,
     appointments: appointmentsPipeline,
     leads: leadsPipeline,
-    prospects: prospectsPipeline,
   }
 }
 
@@ -642,20 +604,17 @@ export default function ControlPage() {
       paymentRes,
       campaignRes,
       leadRes,
-      salesRes,
     ] = await Promise.all([
-      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, updated_at'),
+      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at'),
       paymentsQuery,
       campaignsQuery,
       leadsQuery,
-      fetch('/api/sales-deals').then(r => r.json()).then(data => ({ data: data?.deals || [], error: null })).catch(e => ({ data: [], error: e })),
     ])
 
     const clients = clientRes.data
     const payments = paymentRes.data
     const campaignData = campaignRes.data
     const leadData = leadRes.data
-    const salesDeals = salesRes.data
 
     // Fetch billing for onboarding clients
     const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
@@ -678,7 +637,6 @@ export default function ControlPage() {
       payments || [],
       campaignData || [],
       leadData || [],
-      salesDeals || [],
     )
     setPipelines(result)
     setLoading(false)
