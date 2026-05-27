@@ -329,7 +329,7 @@ function CellContent({ cell, onStatusChange }) {
           e.stopPropagation()
           onStatusChange?.(cell.leadId, cell.field, e.target.value)
         }}
-        className={`appearance-none cursor-pointer px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border-0 outline-none ${colorCls} bg-transparent`}
+        className={`appearance-none cursor-pointer px-3 py-1 rounded-full text-[11px] font-semibold border-0 outline-none ${colorCls} bg-transparent`}
         style={{ backgroundImage: 'none' }}
       >
         <option value="" className="bg-[#1a1f36] text-gray-400">—</option>
@@ -351,7 +351,7 @@ function CellContent({ cell, onStatusChange }) {
 
   if (cell.stage) {
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${STAGE_COLORS[cell.color] || STAGE_COLORS.gray}`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${STAGE_COLORS[cell.color] || STAGE_COLORS.gray}`}>
         {cell.stage}
       </span>
     )
