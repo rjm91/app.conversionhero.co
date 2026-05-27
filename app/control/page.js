@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../../lib/supabase'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -88,25 +89,56 @@ function statusColor(status) {
   return 'blue'
 }
 
-/* ─── Build pipeline data from Supabase results ─── */
-function buildPipelines(clients, payments, campaigns, leads) {
-  // Exclude partial submissions globally
-  const validLeads = leads.filter(l => l.lead_status !== 'in_progress')
+/* ─── Fetch data for one client (same pattern as the working dashboard page) ─── */
+async function fetchClientData(clientId, start, end) {
+  // Leads
+  let leadsQ = supabase
+    .from('client_lead')
+    .select('lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, city, state, created_at, appt_date')
+    .eq('client_id', clientId)
+    .neq('lead_status', 'in_progress')
+  if (start) leadsQ = leadsQ.gte('created_at', start)
+  if (end) leadsQ = leadsQ.lte('created_at', end + 'T23:59:59-12:00')
 
-  // ── Active Clients ──
-  const activeClients = clients.filter(c => c.status === 'Active')
+  // Campaigns
+  let campsQ = supabase
+    .from('client_yt_campaigns')
+    .select('campaign_id, cost')
+    .eq('client_id', clientId)
+  if (start) campsQ = campsQ.gte('date', start)
+  if (end) campsQ = campsQ.lte('date', end)
+
+  // Payments
+  let paysQ = supabase
+    .from('client_payments')
+    .select('amount, date_created')
+    .eq('client_id', clientId)
+  if (start) paysQ = paysQ.gte('date_created', start)
+  if (end) paysQ = paysQ.lte('date_created', end + 'T23:59:59-12:00')
+
+  const [{ data: leads }, { data: campaigns }, { data: payments }] = await Promise.all([
+    leadsQ, campsQ, paysQ,
+  ])
+
+  return {
+    leads: leads || [],
+    campaigns: campaigns || [],
+    payments: payments || [],
+  }
+}
+
+/* ─── Build pipeline data ─── */
+function buildPipelines(clientsWithData) {
+  const activeClients = clientsWithData.filter(c => c.status === 'Active')
+
+  // ── Active Clients rows ──
   const clientRows = activeClients.map(c => {
-    const cid = c.client_id
-    const clientPayments = payments.filter(p => p.client_id === cid)
-    const clientCampaigns = campaigns.filter(ca => ca.client_id === cid)
-    const clientLeads = validLeads.filter(l => l.client_id === cid)
-
-    const cashCollected = clientPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    const uniqueCampaigns = new Set(clientCampaigns.map(ca => ca.campaign_id)).size
-    const adSpend = clientCampaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
-    const leadCount = clientLeads.length
-    const appts = clientLeads.filter(l => l.appt_status === 'Appt Complete').length
-    const customers = clientLeads.filter(l => l.sale_status === 'Sold').length
+    const cashCollected = c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    const uniqueCampaigns = new Set(c._campaigns.map(ca => ca.campaign_id)).size
+    const adSpend = c._campaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
+    const leadCount = c._leads.length
+    const appts = c._leads.filter(l => l.appt_status === 'Appt Complete').length
+    const customers = c._leads.filter(l => l.sale_status === 'Sold').length
     const cpl = leadCount > 0 ? adSpend / leadCount : 0
     const cpa = appts > 0 ? adSpend / appts : 0
     const cac = customers > 0 ? adSpend / customers : 0
@@ -131,20 +163,19 @@ function buildPipelines(clients, payments, campaigns, leads) {
       appts > 0 ? fmt$(cpa) : '—',
       { value: String(customers), bold: true },
       customers > 0 ? fmt$(cac) : '—',
-      { link: 'View Dashboard →', href: `/control/${cid}/dashboard` },
+      { link: 'View Dashboard →', href: `/control/${c.client_id}/dashboard` },
     ]
   })
 
-  // Summary totals for Active Clients
-  const activeIds = new Set(activeClients.map(c => c.client_id))
-  const totalCash = payments.filter(p => activeIds.has(p.client_id)).reduce((s, p) => s + (Number(p.amount) || 0), 0)
-  const activeCampaigns = campaigns.filter(ca => activeIds.has(ca.client_id))
-  const totalCampaigns = new Set(activeCampaigns.map(ca => ca.campaign_id)).size
-  const totalAdSpend = activeCampaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
-  const allActiveLeads = validLeads.filter(l => activeIds.has(l.client_id))
-  const totalLeads = allActiveLeads.length
-  const totalAppts = allActiveLeads.filter(l => l.appt_status === 'Appt Complete').length
-  const totalCustomers = allActiveLeads.filter(l => l.sale_status === 'Sold').length
+  // Summary totals
+  let totalCash = 0, totalAdSpend = 0, totalCampaignIds = new Set(), totalLeads = 0, totalAppts = 0, totalCustomers = 0
+  activeClients.forEach(c => {
+    totalCash += c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    c._campaigns.forEach(ca => { totalCampaignIds.add(ca.campaign_id); totalAdSpend += (Number(ca.cost) || 0) })
+    totalLeads += c._leads.length
+    totalAppts += c._leads.filter(l => l.appt_status === 'Appt Complete').length
+    totalCustomers += c._leads.filter(l => l.sale_status === 'Sold').length
+  })
 
   const clientsPipeline = {
     title: 'Active Clients',
@@ -152,7 +183,7 @@ function buildPipelines(clients, payments, campaigns, leads) {
     columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appts','Cost Per Appt','Customers','CAC',''],
     summaryMap: {
       5: { value: fmt$(totalCash), color: 'green' },
-      6: { value: String(totalCampaigns) },
+      6: { value: String(totalCampaignIds.size) },
       7: { value: fmt$(totalAdSpend) },
       8: { value: String(totalLeads) },
       9: { value: totalLeads > 0 ? fmt$(totalAdSpend / totalLeads) : '—', dim: true },
@@ -165,36 +196,27 @@ function buildPipelines(clients, payments, campaigns, leads) {
   }
 
   // ── Onboarding ──
-  const onboardingClients = clients.filter(c => c.status === 'Onboarding')
-  const onboardingRows = onboardingClients.map(c => {
-    const billing = c.client_billing?.[0]
-    const retainer = billing ? (Number(billing.retainer_amount) || Number(billing.monthly_budget) || 0) : 0
-    return [
-      fmtDate(c.created_at),
-      { stage: 'Onboarding', color: 'purple' },
-      c.client_name,
-      c.industry || '—',
-      c.city && c.state ? `${c.city}, ${c.state}` : '—',
-      '—',
-      { value: retainer > 0 ? `$${retainer.toLocaleString()}/mo` : '—', bold: true },
-      '—',
-      fmtDate(c.created_at),
-      '—',
-      { link: 'View →', href: `/control/${c.client_id}/dashboard` },
-    ]
-  })
-  const totalOnboardVal = onboardingClients.reduce((s, c) => {
-    const billing = c.client_billing?.[0]
-    return s + (billing ? (Number(billing.retainer_amount) || Number(billing.monthly_budget) || 0) : 0)
-  }, 0)
+  const onboardingClients = clientsWithData.filter(c => c.status === 'Onboarding')
+  const onboardingRows = onboardingClients.map(c => [
+    fmtDate(c.created_at),
+    { stage: 'Onboarding', color: 'purple' },
+    c.client_name,
+    c.industry || '—',
+    c.city && c.state ? `${c.city}, ${c.state}` : '—',
+    '—', '—', '—', fmtDate(c.created_at), '—',
+    { link: 'View →', href: `/control/${c.client_id}/dashboard` },
+  ])
 
   const onboardingPipeline = {
     title: 'Onboarding',
     count: onboardingClients.length,
     columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Deal Value','Service','Started','Next Milestone',''],
-    summaryMap: totalOnboardVal > 0 ? { 6: { value: `$${totalOnboardVal.toLocaleString()}/mo`, color: 'green' } } : {},
+    summaryMap: {},
     rows: onboardingRows,
   }
+
+  // Gather ALL leads across all clients
+  const allLeads = clientsWithData.flatMap(c => c._leads.map(l => ({ ...l, _clientName: c.client_name })))
 
   // Helper to build a lead row
   function leadRow(l) {
@@ -204,7 +226,7 @@ function buildPipelines(clients, payments, campaigns, leads) {
       { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
       { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
       [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
-      l.company || '—',
+      l.company || l._clientName || '—',
       l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
       l.email || '—',
       l.phone || '—',
@@ -212,7 +234,7 @@ function buildPipelines(clients, payments, campaigns, leads) {
   }
 
   // ── Sales: leads where sale_status is set (not NA, not empty) ──
-  const salesLeads = validLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  const salesLeads = allLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
   const salesRows = salesLeads.map(l => [...leadRow(l), { link: 'View →' }])
   const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
@@ -226,7 +248,7 @@ function buildPipelines(clients, payments, campaigns, leads) {
   }
 
   // ── Appointments: leads where appt_status is set (not NA, not empty) ──
-  const apptLeads = validLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
+  const apptLeads = allLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
   const apptRows = apptLeads.map(l => [
     ...leadRow(l),
     l.appt_date ? fmtDate(l.appt_date) : '—',
@@ -243,11 +265,10 @@ function buildPipelines(clients, payments, campaigns, leads) {
     rows: apptRows,
   }
 
-  // ── Leads: all valid leads ──
-  const leadRows = validLeads.map(l => [...leadRow(l), { link: 'View →' }])
-  // Count statuses for summary
+  // ── Leads: all leads ──
+  const leadRows = allLeads.map(l => [...leadRow(l), { link: 'View →' }])
   const leadStatusCounts = {}
-  validLeads.forEach(l => {
+  allLeads.forEach(l => {
     const st = l.lead_status || 'Unknown'
     leadStatusCounts[st] = (leadStatusCounts[st] || 0) + 1
   })
@@ -255,7 +276,7 @@ function buildPipelines(clients, payments, campaigns, leads) {
 
   const leadsPipeline = {
     title: 'Leads',
-    count: validLeads.length,
+    count: allLeads.length,
     columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
@@ -585,40 +606,29 @@ export default function ControlPage() {
       end = range.end
     }
 
-    // Fetch all pipeline data from server-side API (bypasses RLS)
-    const params = new URLSearchParams()
-    if (start) params.set('start', start)
-    if (end) params.set('end', end)
+    // Step 1: Get all clients (this works — we've seen 4 clients load)
+    const { data: clients, error: clientErr } = await supabase
+      .from('client')
+      .select('client_id, client_name, industry, city, state, status, created_at')
 
-    let data
-    try {
-      const res = await fetch(`/api/agency/pipeline?${params}`)
-      if (!res.ok) {
-        console.error('[Control] pipeline API error:', res.status, await res.text())
-        setLoading(false)
-        return
-      }
-      data = await res.json()
-    } catch (err) {
-      console.error('[Control] pipeline fetch failed:', err)
+    if (clientErr) {
+      console.error('[Control] client query error:', clientErr)
       setLoading(false)
       return
     }
 
-    const { clients, payments, campaigns, leads, billing } = data
-
-    // Attach billing to clients
-    const enrichedClients = (clients || []).map(c => ({
-      ...c,
-      client_billing: (billing || []).filter(b => b.client_id === c.client_id),
-    }))
-
-    const result = buildPipelines(
-      enrichedClients,
-      payments || [],
-      campaigns || [],
-      leads || [],
+    // Step 2: For each client, fetch leads/campaigns/payments in parallel
+    // This is the SAME query pattern the working dashboard page uses:
+    //   supabase.from('client_lead').select(...).eq('client_id', clientId)
+    const clientsWithData = await Promise.all(
+      (clients || []).map(async (c) => {
+        const { leads, campaigns, payments } = await fetchClientData(c.client_id, start, end)
+        return { ...c, _leads: leads, _campaigns: campaigns, _payments: payments }
+      })
     )
+
+    // Step 3: Build pipelines from enriched data
+    const result = buildPipelines(clientsWithData)
     setPipelines(result)
     setLoading(false)
   }, [])
@@ -631,13 +641,10 @@ export default function ControlPage() {
 
   function handlePresetChange(key) {
     setPreset(key)
-    if (key === 'custom') {
-      // Set defaults for custom if not already set
-      if (!customStart || !customEnd) {
-        const range = getDateRange('30d')
-        setCustomStart(range.start)
-        setCustomEnd(range.end)
-      }
+    if (key === 'custom' && (!customStart || !customEnd)) {
+      const range = getDateRange('30d')
+      setCustomStart(range.start)
+      setCustomEnd(range.end)
     }
   }
 
@@ -670,7 +677,7 @@ export default function ControlPage() {
       {loading ? (
         <div className="mt-12 text-center text-gray-500">Loading pipeline data...</div>
       ) : !pipelines ? (
-        <div className="mt-12 text-center text-gray-500">Failed to load pipeline data. Check browser console for details.</div>
+        <div className="mt-12 text-center text-gray-500">Failed to load data. Check console.</div>
       ) : (
         <div className="mt-6">
           {PIPELINE_ORDER.map((key, i) => (
