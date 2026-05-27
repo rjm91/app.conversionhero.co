@@ -590,14 +590,22 @@ export default function ControlPage() {
     if (start) params.set('start', start)
     if (end) params.set('end', end)
 
-    const res = await fetch(`/api/agency/pipeline?${params}`)
-    if (!res.ok) {
-      console.error('[Control] pipeline API error:', res.status)
+    let data
+    try {
+      const res = await fetch(`/api/agency/pipeline?${params}`)
+      if (!res.ok) {
+        console.error('[Control] pipeline API error:', res.status, await res.text())
+        setLoading(false)
+        return
+      }
+      data = await res.json()
+    } catch (err) {
+      console.error('[Control] pipeline fetch failed:', err)
       setLoading(false)
       return
     }
 
-    const { clients, payments, campaigns, leads, billing } = await res.json()
+    const { clients, payments, campaigns, leads, billing } = data
 
     // Attach billing to clients
     const enrichedClients = (clients || []).map(c => ({
@@ -661,6 +669,8 @@ export default function ControlPage() {
 
       {loading ? (
         <div className="mt-12 text-center text-gray-500">Loading pipeline data...</div>
+      ) : !pipelines ? (
+        <div className="mt-12 text-center text-gray-500">Failed to load pipeline data. Check browser console for details.</div>
       ) : (
         <div className="mt-6">
           {PIPELINE_ORDER.map((key, i) => (
