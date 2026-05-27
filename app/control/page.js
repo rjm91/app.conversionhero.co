@@ -65,8 +65,8 @@ const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads
 
 /* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
-const APPT_STATUSES = ['NA', 'Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
-const SALE_STATUSES = ['NA', 'Proposal Sent', 'Sold', 'Sale Lost']
+const APPT_STATUSES = ['Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
+const SALE_STATUSES = ['Proposal Sent', 'Sold', 'Sale Lost']
 
 function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
 
