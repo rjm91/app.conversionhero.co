@@ -148,15 +148,10 @@ function buildPipelines(clientsWithData, agencyLeads) {
     const cpa = appts > 0 ? adSpend / appts : 0
     const cac = customers > 0 ? adSpend / customers : 0
 
-    const icons = { 'HVAC': '❄️', 'Funeral': '⚶', 'E-comm': '💻', 'Dental': '🦷', 'Legal': '⚖️', 'Auto': '🚗' }
-    const icon = icons[c.industry] || '🏢'
-    const iconColors = { 'HVAC': 'rgba(34,197,94,0.15)', 'Funeral': 'rgba(96,165,250,0.15)', 'E-comm': 'rgba(167,139,250,0.15)' }
-    const iconBg = iconColors[c.industry] || 'rgba(96,165,250,0.15)'
-
     return [
       fmtDate(c.created_at),
       { badge: 'Active', color: 'green' },
-      { client: c.client_name, icon, iconBg },
+      c.client_name,
       c.industry || '—',
       c.city && c.state ? `${c.city}, ${c.state}` : (c.city || c.state || '—'),
       { value: fmt$(cashCollected), color: 'green' },
