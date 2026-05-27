@@ -1,8 +1,57 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabase'
+import { createClient } from '../../lib/supabase-browser'
+
+/* ─── Date range presets ─── */
+const DATE_PRESETS = [
+  { label: 'Today', key: 'today' },
+  { label: 'Last 7 Days', key: '7d' },
+  { label: 'Last 14 Days', key: '14d' },
+  { label: 'Last 30 Days', key: '30d' },
+  { label: 'Last 90 Days', key: '90d' },
+  { label: 'This Year', key: 'ytd' },
+  { label: 'Last Year', key: 'ly' },
+  { label: 'All Time', key: 'all' },
+  { label: 'Custom', key: 'custom' },
+]
+
+function getDateRange(preset) {
+  const now = new Date()
+  const end = now.toISOString().split('T')[0]
+  let start
+
+  switch (preset) {
+    case 'today':
+      start = end
+      break
+    case '7d':
+      start = new Date(now - 7 * 86400000).toISOString().split('T')[0]
+      break
+    case '14d':
+      start = new Date(now - 14 * 86400000).toISOString().split('T')[0]
+      break
+    case '30d':
+      start = new Date(now - 30 * 86400000).toISOString().split('T')[0]
+      break
+    case '90d':
+      start = new Date(now - 90 * 86400000).toISOString().split('T')[0]
+      break
+    case 'ytd':
+      start = `${now.getFullYear()}-01-01`
+      break
+    case 'ly': {
+      const y = now.getFullYear() - 1
+      return { start: `${y}-01-01`, end: `${y}-12-31` }
+    }
+    case 'all':
+      return { start: null, end: null }
+    default:
+      start = new Date(now - 30 * 86400000).toISOString().split('T')[0]
+  }
+  return { start, end }
+}
 
 /* ─── Formatting helpers ─── */
 function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
@@ -488,71 +537,209 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
   )
 }
 
+/* ─── Date Range Picker ─── */
+function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCustomChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const activeLabel = DATE_PRESETS.find(p => p.key === preset)?.label || 'Last 30 Days'
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-[13px] font-medium text-gray-300 hover:bg-white/[0.08] transition"
+      >
+        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        {activeLabel}
+        {preset === 'custom' && customStart && customEnd && (
+          <span className="text-gray-500 text-[11px] ml-1">({customStart} — {customEnd})</span>
+        )}
+        <span className="text-[8px] opacity-50 ml-0.5">&#9662;</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[200px] z-50 shadow-xl">
+          {DATE_PRESETS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => {
+                onPresetChange(p.key)
+                if (p.key !== 'custom') setOpen(false)
+              }}
+              className={`w-full text-left px-3 py-2 text-[13px] rounded-lg transition ${
+                preset === p.key ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          {preset === 'custom' && (
+            <div className="border-t border-white/[0.06] mt-1.5 pt-2 px-2 pb-1 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] text-gray-500 w-10">From</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={e => onCustomChange(e.target.value, customEnd)}
+                  className="flex-1 bg-white/[0.06] border border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-300 outline-none focus:border-blue-500/50"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] text-gray-500 w-10">To</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={e => onCustomChange(customStart, e.target.value)}
+                  className="flex-1 bg-white/[0.06] border border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-300 outline-none focus:border-blue-500/50"
+                />
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="mt-1 py-1.5 bg-blue-600 text-white text-[12px] font-medium rounded-lg hover:bg-blue-500 transition"
+              >
+                Apply
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Main Page ─── */
 export default function ControlPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [pipelines, setPipelines] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [preset, setPreset] = useState('30d')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+
+  const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
+    setLoading(true)
+
+    // Resolve date range
+    let start, end
+    if (datePreset === 'custom') {
+      start = cStart || null
+      end = cEnd || null
+    } else {
+      const range = getDateRange(datePreset)
+      start = range.start
+      end = range.end
+    }
+
+    // Build date-filtered queries for payments, campaigns, leads
+    let paymentsQuery = supabase.from('client_payments').select('client_id, amount, date_created')
+    if (start) paymentsQuery = paymentsQuery.gte('date_created', start)
+    if (end) paymentsQuery = paymentsQuery.lte('date_created', end + 'T23:59:59')
+
+    let campaignsQuery = supabase.from('client_yt_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date')
+    if (start) campaignsQuery = campaignsQuery.gte('date', start)
+    if (end) campaignsQuery = campaignsQuery.lte('date', end)
+
+    let leadsQuery = supabase.from('client_lead').select('client_id, lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, industry, city, state, created_at, appt_date, appt_type')
+    if (start) leadsQuery = leadsQuery.gte('created_at', start)
+    if (end) leadsQuery = leadsQuery.lte('created_at', end + 'T23:59:59')
+
+    const [
+      { data: clients, error: clientErr },
+      { data: payments },
+      { data: campaignData },
+      { data: leadData },
+      { data: salesDeals },
+    ] = await Promise.all([
+      supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, contact_name, service_type, onboarding_stage, next_milestone'),
+      paymentsQuery,
+      campaignsQuery,
+      leadsQuery,
+      supabase.from('sales_deals').select('*'),
+    ])
+
+    if (clientErr) {
+      console.error('Supabase client query error:', clientErr)
+    }
+
+    // Fetch billing for onboarding clients
+    const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
+    let billingData = []
+    if (onboardingIds.length > 0) {
+      const { data: billing } = await supabase
+        .from('client_billing')
+        .select('client_id, retainer_amount, monthly_budget')
+        .in('client_id', onboardingIds)
+      billingData = billing || []
+    }
+
+    const enrichedClients = (clients || []).map(c => ({
+      ...c,
+      client_billing: billingData.filter(b => b.client_id === c.client_id),
+    }))
+
+    const result = buildPipelines(
+      enrichedClients,
+      payments || [],
+      campaignData || [],
+      leadData || [],
+      salesDeals || [],
+    )
+    setPipelines(result)
+    setLoading(false)
+  }, [supabase])
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
     if (!stored) { router.push('/login'); return }
+    fetchData(preset, customStart, customEnd)
+  }, [router, preset, customStart, customEnd, fetchData])
 
-    async function fetchAll() {
-      setLoading(true)
-      const [
-        { data: clients },
-        { data: payments },
-        { data: campaignData },
-        { data: leadData },
-        { data: salesDeals },
-      ] = await Promise.all([
-        supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, contact_name, service_type, onboarding_stage, next_milestone'),
-        supabase.from('client_payments').select('client_id, amount, date_created'),
-        supabase.from('client_yt_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date'),
-        supabase.from('client_lead').select('client_id, lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, industry, city, state, created_at, appt_date, appt_type'),
-        supabase.from('sales_deals').select('*'),
-      ])
-
-      // Also fetch billing for onboarding clients
-      const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
-      let billingData = []
-      if (onboardingIds.length > 0) {
-        const { data: billing } = await supabase
-          .from('client_billing')
-          .select('client_id, retainer_amount, monthly_budget')
-          .in('client_id', onboardingIds)
-        billingData = billing || []
+  function handlePresetChange(key) {
+    setPreset(key)
+    if (key === 'custom') {
+      // Set defaults for custom if not already set
+      if (!customStart || !customEnd) {
+        const range = getDateRange('30d')
+        setCustomStart(range.start)
+        setCustomEnd(range.end)
       }
-
-      // Attach billing to clients
-      const enrichedClients = (clients || []).map(c => ({
-        ...c,
-        client_billing: billingData.filter(b => b.client_id === c.client_id),
-      }))
-
-      const result = buildPipelines(
-        enrichedClients,
-        payments || [],
-        campaignData || [],
-        leadData || [],
-        salesDeals || [],
-      )
-      setPipelines(result)
-      setLoading(false)
     }
+  }
 
-    fetchAll()
-  }, [router])
+  function handleCustomChange(s, e) {
+    setCustomStart(s)
+    setCustomEnd(e)
+  }
 
   return (
     <div className="p-8">
-      <div className="mb-1">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide bg-blue-600/10 text-blue-400 mb-3">
-          Agency Mode
-        </span>
-        <h1 className="text-2xl font-bold text-white">Agency Control Center</h1>
-        <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide bg-blue-600/10 text-blue-400 mb-3">
+            Agency Mode
+          </span>
+          <h1 className="text-2xl font-bold text-white">Agency Control Center</h1>
+          <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
+        </div>
+        <div className="pt-6">
+          <DateRangePicker
+            preset={preset}
+            onPresetChange={handlePresetChange}
+            customStart={customStart}
+            customEnd={customEnd}
+            onCustomChange={handleCustomChange}
+          />
+        </div>
       </div>
 
       {loading ? (
