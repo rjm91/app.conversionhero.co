@@ -748,6 +748,10 @@ export default function ControlPage() {
         setSelectedLead(json.lead)
         setDrawerSaveSuccess(true)
         setTimeout(() => setDrawerSaveSuccess(false), 1800)
+        // Prompt to create client when marking as Sold via drawer
+        if (selectedLead.sale_status !== 'Sold' && json.lead.sale_status === 'Sold') {
+          setCreateClientLead(json.lead)
+        }
       }
     } catch (err) {
       console.error('[Control] drawer save failed:', err)
@@ -824,6 +828,10 @@ export default function ControlPage() {
         const synced = updated.map(l => l.id === leadId ? json.lead : l)
         setAgencyLeads(synced)
         setPipelines(buildPipelines(clientsData, synced))
+        // Prompt to create client when marking as Sold
+        if (field === 'sale_status' && value === 'Sold') {
+          setCreateClientLead(json.lead)
+        }
       }
     } catch (err) {
       console.error('[Control] status update failed:', err)
