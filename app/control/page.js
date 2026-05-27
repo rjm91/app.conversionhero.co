@@ -257,7 +257,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const onlyLeads = remainingLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
 
   // ── Sales ──
-  const salesRows = salesLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
+  const salesRows = salesLeads.map(l => { const r = [...agencyLeadRow(l), { link: 'View →' }]; r._lead = l; return r })
   const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
 
@@ -270,11 +270,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   }
 
   // ── Appointments (excluding leads already in Sales) ──
-  const apptRows = apptLeads.map(l => [
-    ...agencyLeadRow(l),
-    l.appt_date ? fmtDate(l.appt_date) : '—',
-    { link: 'View →' },
-  ])
+  const apptRows = apptLeads.map(l => { const r = [...agencyLeadRow(l), l.appt_date ? fmtDate(l.appt_date) : '—', { link: 'View →' }]; r._lead = l; return r })
   const completeAppts = apptLeads.filter(l => l.appt_status === 'Appt Complete').length
   const upcomingAppts = apptLeads.filter(l => l.appt_status === 'Appt Set' || l.appt_status === 'Appt Confirmed').length
 
@@ -287,7 +283,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   }
 
   // ── Leads (only those not in Sales or Appointments) ──
-  const leadRows = onlyLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
+  const leadRows = onlyLeads.map(l => { const r = [...agencyLeadRow(l), { link: 'View →' }]; r._lead = l; return r })
   const leadStatusCounts = {}
   onlyLeads.forEach(l => {
     const st = l.lead_status || 'Unknown'
@@ -457,7 +453,7 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick }) {
   const { title, count, columns, summaryMap, rows } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
@@ -525,7 +521,11 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 </tr>
               ) : (
                 rows.map((row, ri) => (
-                  <tr key={ri} className="hover:bg-white/[0.02] transition-colors">
+                  <tr
+                    key={ri}
+                    className={`hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRowClick && row._lead && onRowClick(row._lead)}
+                  >
                     {row.map((cell, ci) => (
                       <td
                         key={ci}
@@ -634,6 +634,11 @@ export default function ControlPage() {
   const [customEnd, setCustomEnd] = useState('')
   const [agencyLeads, setAgencyLeads] = useState([])
   const [clientsData, setClientsData] = useState([])
+  const [selectedLead, setSelectedLead] = useState(null)
+  const [drawerSaving, setDrawerSaving] = useState(false)
+  const [drawerSaveSuccess, setDrawerSaveSuccess] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
@@ -701,6 +706,61 @@ export default function ControlPage() {
     setCustomEnd(e)
   }
 
+  async function handleDrawerSave() {
+    if (!selectedLead) return
+    setDrawerSaving(true)
+    setDrawerSaveSuccess(false)
+    const payload = {
+      first_name: selectedLead.first_name,
+      last_name: selectedLead.last_name,
+      email: selectedLead.email,
+      phone: selectedLead.phone,
+      company: selectedLead.company,
+      lead_status: selectedLead.lead_status,
+      appt_status: selectedLead.appt_status,
+      sale_status: selectedLead.sale_status,
+      sale_amount: selectedLead.sale_amount,
+      appt_date: selectedLead.appt_date,
+      appt_time: selectedLead.appt_time,
+      ch_notes: selectedLead.ch_notes,
+    }
+    try {
+      const res = await fetch(`/api/agency-leads/${selectedLead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const updated = agencyLeads.map(l => l.id === selectedLead.id ? json.lead : l)
+        setAgencyLeads(updated)
+        setPipelines(buildPipelines(clientsData, updated))
+        setSelectedLead(json.lead)
+        setDrawerSaveSuccess(true)
+        setTimeout(() => setDrawerSaveSuccess(false), 1800)
+      }
+    } catch (err) {
+      console.error('[Control] drawer save failed:', err)
+    }
+    setDrawerSaving(false)
+  }
+
+  async function handleDrawerDelete() {
+    if (!selectedLead) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/agency-leads/${selectedLead.id}`, { method: 'DELETE' })
+      const updated = agencyLeads.filter(l => l.id !== selectedLead.id)
+      setAgencyLeads(updated)
+      setPipelines(buildPipelines(clientsData, updated))
+      setSelectedLead(null)
+      setConfirmDelete(false)
+    } catch (err) {
+      console.error('[Control] drawer delete failed:', err)
+    }
+    setDeleting(false)
+  }
+
   async function handleStatusChange(leadId, field, value) {
     // Optimistic update: update local state immediately
     const updated = agencyLeads.map(l =>
@@ -761,9 +821,209 @@ export default function ControlPage() {
               pipeline={pipelines[key]}
               defaultCollapsed={i !== 0}
               onStatusChange={key !== 'clients' ? handleStatusChange : undefined}
+              onRowClick={key !== 'clients' && key !== 'onboarding' ? (lead) => { setSelectedLead(lead); setConfirmDelete(false) } : undefined}
             />
           ))}
         </div>
+      )}
+
+      {/* ─── Lead Detail Drawer ─── */}
+      {selectedLead && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setSelectedLead(null)} />
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-white/5">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+              <div>
+                <h2 className="font-semibold text-white">{selectedLead.first_name} {selectedLead.last_name}</h2>
+                <p className="text-xs text-gray-400">{selectedLead.agency_funnels?.name || 'Agency Lead'}</p>
+              </div>
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="text-gray-400 hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-white/10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Contact</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">First Name</label>
+                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.first_name || ''} onChange={e => setSelectedLead(p => ({ ...p, first_name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Last Name</label>
+                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.last_name || ''} onChange={e => setSelectedLead(p => ({ ...p, last_name: e.target.value }))} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-400 mb-1 block">Email</label>
+                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.email || ''} onChange={e => setSelectedLead(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Phone</label>
+                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.phone || ''} onChange={e => setSelectedLead(p => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Company</label>
+                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.company || ''} onChange={e => setSelectedLead(p => ({ ...p, company: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Status</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Lead Status</label>
+                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                      value={selectedLead.lead_status || ''} onChange={e => setSelectedLead(p => ({ ...p, lead_status: e.target.value }))}>
+                      <option value="">—</option>
+                      {LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Appt Status</label>
+                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                      value={selectedLead.appt_status || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_status: e.target.value }))}>
+                      <option value="">—</option>
+                      {APPT_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Sale Status</label>
+                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                      value={selectedLead.sale_status || ''} onChange={e => {
+                        const val = e.target.value
+                        setSelectedLead(p => ({
+                          ...p,
+                          sale_status: val,
+                          ...(val === 'Sold' && {
+                            lead_status: 'Appt Set',
+                            appt_status: 'Appt Complete',
+                          }),
+                        }))
+                      }}>
+                      <option value="">—</option>
+                      {SALE_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Sale Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full text-sm border border-white/10 rounded-lg pl-6 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                        value={selectedLead.sale_amount ?? ''}
+                        onChange={e => setSelectedLead(p => ({ ...p, sale_amount: e.target.value === '' ? null : Number(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Appt Date</label>
+                    <input type="date" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.appt_date || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_date: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Appt Time</label>
+                    <input type="time" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                      value={selectedLead.appt_time || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_time: e.target.value }))} />
+                  </div>
+                </div>
+                {(selectedLead.selected_date || selectedLead.selected_time) && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    Lead requested: {[selectedLead.selected_date, selectedLead.selected_time].filter(Boolean).join(' • ')}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Notes</p>
+                <textarea rows={4} className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white/5 text-white placeholder-gray-500"
+                  placeholder="Add notes about this lead..."
+                  value={selectedLead.ch_notes || ''} onChange={e => setSelectedLead(p => ({ ...p, ch_notes: e.target.value }))} />
+              </div>
+
+              {selectedLead.meta && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Source</p>
+                  <pre className="bg-white/5 rounded-lg p-3 text-[11px] text-gray-300 overflow-x-auto">
+{JSON.stringify(selectedLead.meta, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400">
+                Submitted {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleString() : '—'}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 border-t border-white/5 flex items-center justify-end gap-2">
+              {drawerSaveSuccess && (
+                <span className="text-xs text-green-400 mr-auto">Saved ✓</span>
+              )}
+              {confirmDelete ? (
+                <>
+                  <span className="text-xs text-red-400 mr-auto">Delete this lead?</span>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDrawerDelete}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-60"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="px-4 py-2 text-sm font-medium text-red-400 bg-white/5 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition mr-auto"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setSelectedLead(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleDrawerSave}
+                    disabled={drawerSaving}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+                  >
+                    {drawerSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
