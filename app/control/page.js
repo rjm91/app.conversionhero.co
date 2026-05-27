@@ -128,7 +128,7 @@ async function fetchClientData(clientId, start, end) {
 }
 
 /* ─── Build pipeline data ─── */
-function buildPipelines(clientsWithData) {
+function buildPipelines(clientsWithData, agencyLeads) {
   const activeClients = clientsWithData.filter(c => c.status === 'Active')
 
   // ── Active Clients rows ──
@@ -215,42 +215,39 @@ function buildPipelines(clientsWithData) {
     rows: onboardingRows,
   }
 
-  // Gather ALL leads across all clients
-  const allLeads = clientsWithData.flatMap(c => c._leads.map(l => ({ ...l, _clientName: c.client_name })))
-
-  // Helper to build a lead row
-  function leadRow(l) {
+  // ── Agency Leads (from agency_leads table) for Sales / Appointments / Leads pipelines ──
+  function agencyLeadRow(l) {
+    const funnel = l.agency_funnels?.name || ''
     return [
       fmtDate(l.created_at),
       { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
       { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
       { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
       [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
-      l.company || l._clientName || '—',
-      l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
+      l.company || funnel || '—',
       l.email || '—',
       l.phone || '—',
     ]
   }
 
-  // ── Sales: leads where sale_status is set (not NA, not empty) ──
-  const salesLeads = allLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
-  const salesRows = salesLeads.map(l => [...leadRow(l), { link: 'View →' }])
+  // ── Sales: agency leads where sale_status is set (not NA, not empty) ──
+  const salesLeads = agencyLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  const salesRows = salesLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
   const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
 
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone',''],
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone',''],
     summaryMap: { 3: { value: `${soldCount} Sold, ${proposalCount} Proposal Sent` } },
     rows: salesRows,
   }
 
-  // ── Appointments: leads where appt_status is set (not NA, not empty) ──
-  const apptLeads = allLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
+  // ── Appointments: agency leads where appt_status is set (not NA, not empty) ──
+  const apptLeads = agencyLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
   const apptRows = apptLeads.map(l => [
-    ...leadRow(l),
+    ...agencyLeadRow(l),
     l.appt_date ? fmtDate(l.appt_date) : '—',
     { link: 'View →' },
   ])
@@ -260,15 +257,15 @@ function buildPipelines(clientsWithData) {
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone','Appt Date',''],
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone','Appt Date',''],
     summaryMap: { 2: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
 
-  // ── Leads: all leads ──
-  const leadRows = allLeads.map(l => [...leadRow(l), { link: 'View →' }])
+  // ── Leads: all agency leads ──
+  const leadRows = agencyLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
   const leadStatusCounts = {}
-  allLeads.forEach(l => {
+  agencyLeads.forEach(l => {
     const st = l.lead_status || 'Unknown'
     leadStatusCounts[st] = (leadStatusCounts[st] || 0) + 1
   })
@@ -276,8 +273,8 @@ function buildPipelines(clientsWithData) {
 
   const leadsPipeline = {
     title: 'Leads',
-    count: allLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Location','Email','Phone',''],
+    count: agencyLeads.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
   }
@@ -617,18 +614,21 @@ export default function ControlPage() {
       return
     }
 
-    // Step 2: For each client, fetch leads/campaigns/payments in parallel
-    // This is the SAME query pattern the working dashboard page uses:
-    //   supabase.from('client_lead').select(...).eq('client_id', clientId)
-    const clientsWithData = await Promise.all(
-      (clients || []).map(async (c) => {
-        const { leads, campaigns, payments } = await fetchClientData(c.client_id, start, end)
-        return { ...c, _leads: leads, _campaigns: campaigns, _payments: payments }
-      })
-    )
+    // Step 2: Fetch per-client data AND agency leads in parallel
+    const [clientsWithData, agencyLeadsRes] = await Promise.all([
+      Promise.all(
+        (clients || []).map(async (c) => {
+          const { leads, campaigns, payments } = await fetchClientData(c.client_id, start, end)
+          return { ...c, _leads: leads, _campaigns: campaigns, _payments: payments }
+        })
+      ),
+      fetch('/api/agency-leads', { cache: 'no-store' }).then(r => r.json()),
+    ])
+
+    const agencyLeads = agencyLeadsRes.leads || []
 
     // Step 3: Build pipelines from enriched data
-    const result = buildPipelines(clientsWithData)
+    const result = buildPipelines(clientsWithData, agencyLeads)
     setPipelines(result)
     setLoading(false)
   }, [])
