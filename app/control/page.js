@@ -215,6 +215,10 @@ function buildPipelines(clientsWithData, agencyLeads) {
     rows: onboardingRows,
   }
 
+  // Exclude agency leads that already appear as Active Clients or Onboarding
+  const clientNames = new Set(clientsWithData.map(c => (c.client_name || '').toLowerCase().trim()))
+  const remainingLeads = agencyLeads.filter(l => !clientNames.has((l.company || '').toLowerCase().trim()))
+
   // ── Agency Leads (from agency_leads table) for Sales / Appointments / Leads pipelines ──
   function agencyLeadRow(l) {
     const funnel = l.agency_funnels?.name || ''
@@ -231,13 +235,13 @@ function buildPipelines(clientsWithData, agencyLeads) {
   }
 
   // ── Waterfall: each lead appears in only its furthest pipeline stage ──
-  const salesLeads = agencyLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  const salesLeads = remainingLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
   const salesIds = new Set(salesLeads.map(l => l.id))
 
-  const apptLeads = agencyLeads.filter(l => !salesIds.has(l.id) && l.appt_status && l.appt_status !== 'NA')
+  const apptLeads = remainingLeads.filter(l => !salesIds.has(l.id) && l.appt_status && l.appt_status !== 'NA')
   const apptIds = new Set(apptLeads.map(l => l.id))
 
-  const onlyLeads = agencyLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
+  const onlyLeads = remainingLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
 
   // ── Sales ──
   const salesRows = salesLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
