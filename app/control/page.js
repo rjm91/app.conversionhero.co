@@ -2,83 +2,14 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { supabase } from '../../lib/supabase'
 
-/* ─── Static pipeline data (replace with Supabase queries later) ─── */
-const PIPELINES = {
-  clients: {
-    title: 'Active Clients',
-    count: 4,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appts','Cost Per Appt','Customers','CAC',''],
-    summaryMap: { 5: { value: '$333,800', color: 'green' }, 6: { value: '14' }, 7: { value: '$12,400' }, 8: { value: '247' }, 9: { value: '$50.20', dim: true }, 10: { value: '102' }, 11: { value: '$121.57', dim: true }, 12: { value: '36' }, 13: { value: '$344.44', dim: true } },
-    rows: [
-      ['3/10/2026', { badge: 'Active', color: 'green' }, { client: 'Comfort Pro HVAC', icon: '❄️', iconBg: 'rgba(34,197,94,0.15)' }, 'HVAC', 'Nashville, TN', { value: '$124,500', color: 'green' }, '5', '$4,200', { value: '87', bold: true }, '$48.28', '34', '$123.53', { value: '12', bold: true }, '$350.00', { link: 'View Dashboard →' }],
-      ['1/15/2026', { badge: 'Active', color: 'green' }, { client: 'Pederson Funeral Home', icon: '⚶', iconBg: 'rgba(96,165,250,0.15)' }, 'Funeral', 'Rockford, MI', { value: '$89,200', color: 'green' }, '3', '$2,800', { value: '42', bold: true }, '$66.67', '18', '$155.56', { value: '7', bold: true }, '$400.00', { link: 'View Dashboard →' }],
-      ['4/02/2026', { badge: 'Active', color: 'green' }, { client: 'ShieldTech', icon: '💻', iconBg: 'rgba(167,139,250,0.15)' }, 'E-comm', 'Phoenix, AZ', { value: '$67,800', color: 'green' }, '4', '$3,100', { value: '63', bold: true }, '$49.21', '28', '$110.71', { value: '9', bold: true }, '$344.44', { link: 'View Dashboard →' }],
-      ['2/20/2026', { badge: 'Active', color: 'green' }, { client: 'Synergy Home', icon: '❄️', iconBg: 'rgba(34,197,94,0.15)' }, 'HVAC', 'Lexington, KY', { value: '$52,300', color: 'green' }, '2', '$2,300', { value: '55', bold: true }, '$41.82', '22', '$104.55', { value: '8', bold: true }, '$287.50', { link: 'View Dashboard →' }],
-    ],
-  },
-  onboarding: {
-    title: 'Onboarding',
-    count: 2,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Deal Value','Service','Started','Next Milestone',''],
-    summaryMap: { 6: { value: '$4,800/mo', color: 'green' } },
-    rows: [
-      ['5/24/2026', { stage: 'Account Setup', color: 'purple' }, 'BrightSmile Dental', 'Dental', 'Portland, OR', 'Dr. Amy Lin', { value: '$2,400/mo', bold: true }, 'Google Ads + Funnels', 'May 24', 'Ad account access', { link: 'View →' }],
-      ['5/18/2026', { stage: 'Campaign Build', color: 'blue' }, 'Summit HVAC', 'HVAC', 'Atlanta, GA', 'David Chen', { value: '$2,400/mo', bold: true }, 'Google Ads', 'May 18', 'Launch campaigns', { link: 'View →' }],
-    ],
-  },
-  sales: {
-    title: 'Sales',
-    count: 4,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Deal Value','Service',''],
-    summaryMap: { 11: { value: '$11,200/mo', color: 'green' } },
-    rows: [
-      ['5/18/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, { stage: 'Proposal Sent', color: 'blue' }, 'GreenScape Lawn', 'Lawn Care', 'Austin, TX', 'Mike Torres', 'mike@greenscape.com', '5129874532', '—', { value: '$3,200/mo', bold: true }, 'Google Ads + SEO', { link: 'View →' }],
-      ['5/14/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, { stage: 'Negotiation', color: 'yellow' }, 'Elite Plumbing Co', 'Plumbing', 'Orlando, FL', 'Donna Park', 'donna@eliteplumb.com', '4073216789', '—', { value: '$2,800/mo', bold: true }, 'Google Ads', { link: 'View →' }],
-      ['5/22/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, { stage: 'Proposal Sent', color: 'blue' }, 'FastTrack Auto', 'Auto Repair', 'Houston, TX', 'Carlos Reyes', 'carlos@fasttrack.com', '7135559012', '—', { value: '$2,600/mo', bold: true }, 'Google Ads + Funnels', { link: 'View →' }],
-      ['5/20/2026', { stage: 'Contacted', color: 'blue' }, { stage: 'Appt Set', color: 'blue' }, '—', 'Peak Roofing', 'Roofing', 'Raleigh, NC', 'Jason Miles', 'jason@peakroof.com', '9195553847', '—', { value: '$2,600/mo', bold: true }, 'Full Service', { link: 'View →' }],
-    ],
-  },
-  appointments: {
-    title: 'Appointments',
-    count: 5,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Type','Date & Time',''],
-    summaryMap: { 11: { value: '2 Complete, 3 Upcoming' } },
-    rows: [
-      ['5/18/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, { stage: 'Proposal Sent', color: 'blue' }, 'GreenScape Lawn', 'Lawn Care', 'Austin, TX', 'Mike Torres', 'mike@greenscape.com', '5129874532', '—', 'Discovery Call', 'May 23, 10:00 AM', { link: 'View →' }],
-      ['5/14/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, { stage: 'Negotiation', color: 'yellow' }, 'Elite Plumbing Co', 'Plumbing', 'Orlando, FL', 'Donna Park', 'donna@eliteplumb.com', '4073216789', '—', 'Proposal Review', 'May 24, 2:00 PM', { link: 'View →' }],
-      ['5/20/2026', { stage: 'Contacted', color: 'blue' }, { stage: 'Appt Set', color: 'blue' }, '—', 'BrightSmile Dental', 'Dental', 'Portland, OR', 'Dr. Amy Lin', 'amy@brightsmile.com', '5035558812', '—', 'Onboarding Kickoff', 'May 27, 11:00 AM', { link: 'View →' }],
-      ['5/22/2026', { stage: 'Contacted', color: 'blue' }, { stage: 'Appt Set', color: 'blue' }, '—', 'FastTrack Auto', 'Auto Repair', 'Houston, TX', 'Carlos Reyes', 'carlos@fasttrack.com', '7135559012', '—', 'Discovery Call', 'May 28, 3:00 PM', { link: 'View →' }],
-      ['5/20/2026', { stage: 'New', color: 'green' }, { stage: 'Appt Set', color: 'blue' }, '—', 'Peak Roofing', 'Roofing', 'Raleigh, NC', 'Jason Miles', 'jason@peakroof.com', '9195553847', '—', 'Follow Up', 'May 29, 10:30 AM', { link: 'View →' }],
-    ],
-  },
-  leads: {
-    title: 'Leads',
-    count: 8,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel',''],
-    summaryMap: { 10: { value: '3 New, 1 Contacted, 1 Qualified' } },
-    rows: [
-      ['5/26/2026', { stage: 'New', color: 'green' }, '—', '—', 'FastTrack Auto', 'Auto Repair', 'Houston, TX', 'Carlos Reyes', 'carlos@fasttrack.com', '7135559012', '—', { link: 'View →' }],
-      ['5/26/2026', { stage: 'New', color: 'green' }, '—', '—', 'Peak Roofing', 'Roofing', 'Raleigh, NC', 'Jason Miles', 'jason@peakroof.com', '9195553847', '—', { link: 'View →' }],
-      ['5/25/2026', { stage: 'New', color: 'green' }, '—', '—', 'Zenith Wellness', 'Wellness', 'San Diego, CA', 'Rachel Kim', 'rachel@zenithwell.com', '6195554201', '—', { link: 'View →' }],
-      ['5/23/2026', { stage: 'Contacted', color: 'blue' }, { stage: 'Appt Set', color: 'blue' }, '—', 'Apex Electric', 'Electrical', 'Memphis, TN', 'Tom Bradley', 'tom@apexelec.com', '9015557643', '—', { link: 'View →' }],
-      ['5/21/2026', { stage: 'Qualified', color: 'purple' }, { stage: 'Appt Complete', color: 'green' }, '—', 'Prestige Homes', 'Real Estate', 'Scottsdale, AZ', 'Sandra Wells', 'sandra@prestige.com', '4805551290', '—', { link: 'View →' }],
-    ],
-  },
-  prospects: {
-    title: 'Prospects',
-    count: 12,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Last Activity',''],
-    summaryMap: { 6: { value: '2 Replied, 2 Outreach, 1 Research' } },
-    rows: [
-      ['5/25/2026', { stage: 'Replied', color: 'green' }, 'Summit HVAC', 'HVAC', 'Atlanta, GA', 'David Chen', 'Today — wants to chat', { link: 'View →' }],
-      ['5/24/2026', { stage: 'Replied', color: 'green' }, 'Keystone Legal', 'Legal', 'Dallas, TX', 'Maria Gonzalez', 'Yesterday — interested', { link: 'View →' }],
-      ['5/24/2026', { stage: 'Outreach Sent', color: 'blue' }, 'Riverside Dental', 'Dental', 'Tampa, FL', 'Dr. Patel', 'May 24 — email sent', { link: 'View →' }],
-      ['5/23/2026', { stage: 'Outreach Sent', color: 'blue' }, 'ProBuild Contractors', 'Construction', 'Denver, CO', 'Steve Rawlings', 'May 23 — LinkedIn msg', { link: 'View →' }],
-      ['5/22/2026', { stage: 'Researching', color: 'gray' }, 'ClearView Windows', 'Home Services', 'Charlotte, NC', '—', 'Identified May 22', { link: 'View →' }],
-    ],
-  },
+/* ─── Formatting helpers ─── */
+function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
+function fmtDate(d) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return `${dt.getMonth() + 1}/${dt.getDate()}/${dt.getFullYear()}`
 }
 
 const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads', 'prospects']
@@ -95,6 +26,253 @@ const STAGE_COLORS = {
 const SUMMARY_COLORS = {
   green: 'text-emerald-400',
   blue: 'text-blue-400',
+}
+
+/* ─── Map lead/appt/sale statuses to badge colors ─── */
+function statusColor(status) {
+  if (!status || status === '—' || status === 'NA') return 'gray'
+  const s = status.toLowerCase()
+  if (s.includes('sold') || s.includes('complete') || s.includes('active') || s === 'new') return 'green'
+  if (s.includes('qualified') || s.includes('account setup') || s.includes('campaign build')) return 'purple'
+  if (s.includes('proposal') || s.includes('contacted') || s.includes('set') || s.includes('outreach') || s.includes('appt confirmed')) return 'blue'
+  if (s.includes('negotiation')) return 'yellow'
+  if (s.includes('lost') || s.includes('disqualified')) return 'gray'
+  return 'blue'
+}
+
+/* ─── Build pipeline data from Supabase results ─── */
+function buildPipelines(clients, payments, campaigns, leads, salesDeals) {
+  // ── Active Clients ──
+  const activeClients = clients.filter(c => c.status === 'Active')
+  const clientRows = activeClients.map(c => {
+    const cid = c.client_id
+    const clientPayments = payments.filter(p => p.client_id === cid)
+    const clientCampaigns = campaigns.filter(ca => ca.client_id === cid)
+    const clientLeads = leads.filter(l => l.client_id === cid && l.lead_status !== 'in_progress')
+
+    const cashCollected = clientPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    const uniqueCampaigns = new Set(clientCampaigns.map(ca => ca.campaign_id)).size
+    const adSpend = clientCampaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
+    const leadCount = clientLeads.length
+    const appts = clientLeads.filter(l => l.appt_status === 'Appt Complete').length
+    const customers = clientLeads.filter(l => l.sale_status === 'Sold').length
+    const cpl = leadCount > 0 ? adSpend / leadCount : 0
+    const cpa = appts > 0 ? adSpend / appts : 0
+    const cac = customers > 0 ? adSpend / customers : 0
+
+    const icons = { 'HVAC': '❄️', 'Funeral': '⚶', 'E-comm': '💻', 'Dental': '🦷', 'Legal': '⚖️', 'Auto': '🚗' }
+    const icon = icons[c.industry] || '🏢'
+    const iconColors = { 'HVAC': 'rgba(34,197,94,0.15)', 'Funeral': 'rgba(96,165,250,0.15)', 'E-comm': 'rgba(167,139,250,0.15)' }
+    const iconBg = iconColors[c.industry] || 'rgba(96,165,250,0.15)'
+
+    return [
+      fmtDate(c.created_at),
+      { badge: 'Active', color: 'green' },
+      { client: c.client_name, icon, iconBg },
+      c.industry || '—',
+      c.city && c.state ? `${c.city}, ${c.state}` : (c.city || c.state || '—'),
+      { value: fmt$(cashCollected), color: 'green' },
+      String(uniqueCampaigns),
+      fmt$(adSpend),
+      { value: String(leadCount), bold: true },
+      leadCount > 0 ? fmt$(cpl) : '—',
+      String(appts),
+      appts > 0 ? fmt$(cpa) : '—',
+      { value: String(customers), bold: true },
+      customers > 0 ? fmt$(cac) : '—',
+      { link: 'View Dashboard →', href: `/control/${cid}/dashboard` },
+    ]
+  })
+
+  // Summary totals for Active Clients
+  const totalCash = activeClients.reduce((s, c) => {
+    return s + payments.filter(p => p.client_id === c.client_id).reduce((ss, p) => ss + (Number(p.amount) || 0), 0)
+  }, 0)
+  const totalCampaigns = new Set(campaigns.filter(ca => activeClients.some(c => c.client_id === ca.client_id)).map(ca => ca.campaign_id)).size
+  const totalAdSpend = campaigns.filter(ca => activeClients.some(c => c.client_id === ca.client_id)).reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
+  const allActiveLeads = leads.filter(l => activeClients.some(c => c.client_id === l.client_id) && l.lead_status !== 'in_progress')
+  const totalLeads = allActiveLeads.length
+  const totalAppts = allActiveLeads.filter(l => l.appt_status === 'Appt Complete').length
+  const totalCustomers = allActiveLeads.filter(l => l.sale_status === 'Sold').length
+
+  const clientsPipeline = {
+    title: 'Active Clients',
+    count: activeClients.length,
+    columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appts','Cost Per Appt','Customers','CAC',''],
+    summaryMap: {
+      5: { value: fmt$(totalCash), color: 'green' },
+      6: { value: String(totalCampaigns) },
+      7: { value: fmt$(totalAdSpend) },
+      8: { value: String(totalLeads) },
+      9: { value: totalLeads > 0 ? fmt$(totalAdSpend / totalLeads) : '—', dim: true },
+      10: { value: String(totalAppts) },
+      11: { value: totalAppts > 0 ? fmt$(totalAdSpend / totalAppts) : '—', dim: true },
+      12: { value: String(totalCustomers) },
+      13: { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', dim: true },
+    },
+    rows: clientRows,
+  }
+
+  // ── Onboarding ──
+  const onboardingClients = clients.filter(c => c.status === 'Onboarding')
+  const onboardingRows = onboardingClients.map(c => {
+    const billing = c.client_billing?.[0]
+    const retainer = billing ? (Number(billing.retainer_amount) || Number(billing.monthly_budget) || 0) : 0
+    return [
+      fmtDate(c.created_at),
+      { stage: c.onboarding_stage || 'Account Setup', color: 'purple' },
+      c.client_name,
+      c.industry || '—',
+      c.city && c.state ? `${c.city}, ${c.state}` : '—',
+      c.contact_name || '—',
+      { value: retainer > 0 ? `$${retainer.toLocaleString()}/mo` : '—', bold: true },
+      c.service_type || '—',
+      fmtDate(c.created_at),
+      c.next_milestone || '—',
+      { link: 'View →', href: `/control/${c.client_id}/dashboard` },
+    ]
+  })
+  const totalOnboardVal = onboardingClients.reduce((s, c) => {
+    const billing = c.client_billing?.[0]
+    return s + (billing ? (Number(billing.retainer_amount) || Number(billing.monthly_budget) || 0) : 0)
+  }, 0)
+
+  const onboardingPipeline = {
+    title: 'Onboarding',
+    count: onboardingClients.length,
+    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Deal Value','Service','Started','Next Milestone',''],
+    summaryMap: totalOnboardVal > 0 ? { 6: { value: `$${totalOnboardVal.toLocaleString()}/mo`, color: 'green' } } : {},
+    rows: onboardingRows,
+  }
+
+  // ── Sales (from sales_deals) ──
+  const activeSalesDeals = salesDeals.filter(d => d.stage && !['Closed Won', 'Closed Lost'].includes(d.stage))
+  const salesRows = activeSalesDeals.map(d => [
+    fmtDate(d.created_at),
+    { stage: d.lead_status || 'New', color: statusColor(d.lead_status || 'New') },
+    { stage: d.appt_status || '—', color: statusColor(d.appt_status) },
+    { stage: d.sale_status || d.stage || '—', color: statusColor(d.sale_status || d.stage) },
+    d.company || d.prospect || '—',
+    d.industry || '—',
+    d.location || '—',
+    d.prospect || '—',
+    d.email || '—',
+    d.phone || '—',
+    '—',
+    { value: d.value ? `$${Number(d.value).toLocaleString()}/mo` : '—', bold: true },
+    d.service || '—',
+    { link: 'View →' },
+  ])
+  const totalSalesValue = activeSalesDeals.reduce((s, d) => s + (Number(d.value) || 0), 0)
+
+  const salesPipeline = {
+    title: 'Sales',
+    count: activeSalesDeals.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Deal Value','Service',''],
+    summaryMap: totalSalesValue > 0 ? { 11: { value: `$${totalSalesValue.toLocaleString()}/mo`, color: 'green' } } : {},
+    rows: salesRows,
+  }
+
+  // ── Appointments (leads with appt_status set) ──
+  const apptLeads = leads.filter(l => l.appt_status && l.appt_status !== 'NA' && l.lead_status !== 'in_progress')
+  const apptRows = apptLeads.slice(0, 50).map(l => [
+    fmtDate(l.created_at),
+    { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
+    { stage: l.appt_status, color: statusColor(l.appt_status) },
+    { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
+    l.company || '—',
+    l.industry || '—',
+    l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
+    [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
+    l.email || '—',
+    l.phone || '—',
+    '—',
+    l.appt_type || '—',
+    l.appt_date ? fmtDate(l.appt_date) : '—',
+    { link: 'View →' },
+  ])
+  const completeAppts = apptLeads.filter(l => l.appt_status === 'Appt Complete').length
+  const upcomingAppts = apptLeads.filter(l => l.appt_status === 'Appt Set' || l.appt_status === 'Appt Confirmed').length
+
+  const appointmentsPipeline = {
+    title: 'Appointments',
+    count: apptLeads.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel','Type','Date & Time',''],
+    summaryMap: { 11: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
+    rows: apptRows,
+  }
+
+  // ── Leads ──
+  const allLeads = leads.filter(l => l.lead_status !== 'in_progress')
+  const leadRows = allLeads.slice(0, 50).map(l => [
+    fmtDate(l.created_at),
+    { stage: l.lead_status || '—', color: statusColor(l.lead_status) },
+    { stage: l.appt_status || '—', color: statusColor(l.appt_status) },
+    { stage: l.sale_status || '—', color: statusColor(l.sale_status) },
+    l.company || '—',
+    l.industry || '—',
+    l.city && l.state ? `${l.city}, ${l.state}` : (l.city || l.state || '—'),
+    [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
+    l.email || '—',
+    l.phone || '—',
+    '—',
+    { link: 'View →' },
+  ])
+  // Count statuses for summary
+  const leadStatusCounts = {}
+  allLeads.forEach(l => {
+    const st = l.lead_status || 'Unknown'
+    leadStatusCounts[st] = (leadStatusCounts[st] || 0) + 1
+  })
+  const leadSummaryParts = Object.entries(leadStatusCounts).slice(0, 3).map(([k, v]) => `${v} ${k}`)
+
+  const leadsPipeline = {
+    title: 'Leads',
+    count: allLeads.length,
+    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Company Name','Industry','Location','Contact','Email','Phone','Funnel',''],
+    summaryMap: leadSummaryParts.length ? { 10: { value: leadSummaryParts.join(', ') } } : {},
+    rows: leadRows,
+  }
+
+  // ── Prospects (sales_deals in early stages) ──
+  const prospectDeals = salesDeals.filter(d => {
+    const stage = (d.stage || '').toLowerCase()
+    return stage.includes('prospect') || stage.includes('research') || stage.includes('outreach') || stage === 'new' || stage === ''
+  })
+  const prospectRows = prospectDeals.map(d => [
+    fmtDate(d.created_at),
+    { stage: d.stage || 'New', color: statusColor(d.stage) },
+    d.company || d.prospect || '—',
+    d.industry || '—',
+    d.location || '—',
+    d.prospect || '—',
+    d.last_activity || '—',
+    { link: 'View →' },
+  ])
+  // Stage summary
+  const prospectStageCounts = {}
+  prospectDeals.forEach(d => {
+    const st = d.stage || 'New'
+    prospectStageCounts[st] = (prospectStageCounts[st] || 0) + 1
+  })
+  const prospectSummaryParts = Object.entries(prospectStageCounts).slice(0, 3).map(([k, v]) => `${v} ${k}`)
+
+  const prospectsPipeline = {
+    title: 'Prospects',
+    count: prospectDeals.length,
+    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Last Activity',''],
+    summaryMap: prospectSummaryParts.length ? { 6: { value: prospectSummaryParts.join(', ') } } : {},
+    rows: prospectRows,
+  }
+
+  return {
+    clients: clientsPipeline,
+    onboarding: onboardingPipeline,
+    sales: salesPipeline,
+    appointments: appointmentsPipeline,
+    leads: leadsPipeline,
+    prospects: prospectsPipeline,
+  }
 }
 
 /* ─── Cell renderer ─── */
@@ -158,10 +336,8 @@ function useColumnResize(tableRef, isCollapsed) {
     const ths = Array.from(colHeaderRow.querySelectorAll('th'))
     if (!ths.length) return
 
-    // Capture natural widths
     const widths = ths.map(th => th.getBoundingClientRect().width)
 
-    // Create colgroup
     const existing = table.querySelector('colgroup')
     if (existing) existing.remove()
 
@@ -181,7 +357,6 @@ function useColumnResize(tableRef, isCollapsed) {
 
     ths.forEach((th, i) => {
       if (i === ths.length - 1) return
-      // Don't add duplicate handles
       if (th.querySelector('.col-resize-handle')) return
 
       const handle = document.createElement('div')
@@ -240,7 +415,6 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
         <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: columns.length > 10 ? '1200px' : undefined }}>
           <thead>
-            {/* Header row with title + summary values */}
             <tr
               className="cursor-pointer select-none group"
               onClick={toggle}
@@ -270,7 +444,6 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
               })}
             </tr>
 
-            {/* Column headers — hidden when collapsed */}
             {!collapsed && (
               <tr className="col-headers">
                 {columns.map((col, i) => (
@@ -285,21 +458,28 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
             )}
           </thead>
 
-          {/* Data rows — hidden when collapsed */}
           {!collapsed && (
             <tbody>
-              {rows.map((row, ri) => (
-                <tr key={ri} className="hover:bg-white/[0.02] transition-colors">
-                  {row.map((cell, ci) => (
-                    <td
-                      key={ci}
-                      className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04] overflow-hidden text-ellipsis"
-                    >
-                      <CellContent cell={cell} />
-                    </td>
-                  ))}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="py-8 px-5 text-center text-gray-500 text-sm">
+                    No data yet
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((row, ri) => (
+                  <tr key={ri} className="hover:bg-white/[0.02] transition-colors">
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04] overflow-hidden text-ellipsis"
+                      >
+                        <CellContent cell={cell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           )}
         </table>
@@ -311,10 +491,58 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true }) {
 /* ─── Main Page ─── */
 export default function ControlPage() {
   const router = useRouter()
+  const [pipelines, setPipelines] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
-    if (!stored) router.push('/login')
+    if (!stored) { router.push('/login'); return }
+
+    async function fetchAll() {
+      setLoading(true)
+      const [
+        { data: clients },
+        { data: payments },
+        { data: campaignData },
+        { data: leadData },
+        { data: salesDeals },
+      ] = await Promise.all([
+        supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, contact_name, service_type, onboarding_stage, next_milestone'),
+        supabase.from('client_payments').select('client_id, amount, date_created'),
+        supabase.from('client_yt_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date'),
+        supabase.from('client_lead').select('client_id, lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, industry, city, state, created_at, appt_date, appt_type'),
+        supabase.from('sales_deals').select('*'),
+      ])
+
+      // Also fetch billing for onboarding clients
+      const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
+      let billingData = []
+      if (onboardingIds.length > 0) {
+        const { data: billing } = await supabase
+          .from('client_billing')
+          .select('client_id, retainer_amount, monthly_budget')
+          .in('client_id', onboardingIds)
+        billingData = billing || []
+      }
+
+      // Attach billing to clients
+      const enrichedClients = (clients || []).map(c => ({
+        ...c,
+        client_billing: billingData.filter(b => b.client_id === c.client_id),
+      }))
+
+      const result = buildPipelines(
+        enrichedClients,
+        payments || [],
+        campaignData || [],
+        leadData || [],
+        salesDeals || [],
+      )
+      setPipelines(result)
+      setLoading(false)
+    }
+
+    fetchAll()
   }, [router])
 
   return (
@@ -327,16 +555,20 @@ export default function ControlPage() {
         <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
       </div>
 
-      <div className="mt-6">
-        {PIPELINE_ORDER.map((key, i) => (
-          <PipelineAccordion
-            key={key}
-            id={key}
-            pipeline={PIPELINES[key]}
-            defaultCollapsed={i !== 0}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div className="mt-12 text-center text-gray-500">Loading pipeline data...</div>
+      ) : (
+        <div className="mt-6">
+          {PIPELINE_ORDER.map((key, i) => (
+            <PipelineAccordion
+              key={key}
+              id={key}
+              pipeline={pipelines[key]}
+              defaultCollapsed={i !== 0}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
