@@ -63,10 +63,12 @@ function fmtDate(d) {
 
 const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads']
 
-/* ─── Status dropdown options ─── */
+/* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
 const APPT_STATUSES = ['NA', 'Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
 const SALE_STATUSES = ['NA', 'Proposal Sent', 'Sold', 'Sale Lost']
+
+function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
 
 /* ─── Stage badge color map ─── */
 const STAGE_COLORS = {
@@ -180,7 +182,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const clientsPipeline = {
     title: 'Active Clients',
     count: activeClients.length,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appts','Cost Per Appt','Customers','CAC',''],
+    columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appointments','Cost Per Appointment','Customers','CAC',''],
     summaryMap: {
       5: { value: fmt$(totalCash), color: 'green' },
       6: { value: String(totalCampaignIds.size) },
@@ -259,7 +261,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone',''],
     summaryMap: { 3: { value: `${soldCount} Sold, ${proposalCount} Proposal Sent` } },
     rows: salesRows,
   }
@@ -272,7 +274,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone','Appt Date',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone','Appointment Date',''],
     summaryMap: { 2: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
@@ -289,7 +291,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const leadsPipeline = {
     title: 'Leads',
     count: onlyLeads.length,
-    columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
   }
@@ -323,7 +325,7 @@ function CellContent({ cell, onStatusChange }) {
       >
         <option value="" className="bg-[#1a1f36] text-gray-400">—</option>
         {cell.options.map(opt => (
-          <option key={opt} value={opt} className="bg-[#1a1f36] text-gray-300">{opt}</option>
+          <option key={opt} value={opt} className="bg-[#1a1f36] text-gray-300">{displayStatus(opt)}</option>
         ))}
       </select>
     )
@@ -882,15 +884,15 @@ export default function ControlPage() {
                     <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
                       value={selectedLead.lead_status || ''} onChange={e => setSelectedLead(p => ({ ...p, lead_status: e.target.value }))}>
                       <option value="">—</option>
-                      {LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
+                      {LEAD_STATUSES.map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appt Status</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Appointment Status</label>
                     <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
                       value={selectedLead.appt_status || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_status: e.target.value }))}>
                       <option value="">—</option>
-                      {APPT_STATUSES.map(s => <option key={s}>{s}</option>)}
+                      {APPT_STATUSES.map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
                     </select>
                   </div>
                   <div>
@@ -933,12 +935,12 @@ export default function ControlPage() {
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appt Date</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Appointment Date</label>
                     <input type="date" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                       value={selectedLead.appt_date || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_date: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appt Time</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Appointment Time</label>
                     <input type="time" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                       value={selectedLead.appt_time || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_time: e.target.value }))} />
                   </div>
