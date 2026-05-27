@@ -243,7 +243,9 @@ function buildPipelines(clientsWithData, agencyLeads) {
   const salesLeads = remainingLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
   const salesIds = new Set(salesLeads.map(l => l.id))
 
-  const apptLeads = remainingLeads.filter(l => !salesIds.has(l.id) && l.appt_status && l.appt_status !== 'NA')
+  const apptLeads = remainingLeads.filter(l => !salesIds.has(l.id) && (
+    (l.appt_status && l.appt_status !== 'NA') || l.lead_status === 'Appt Set'
+  ))
   const apptIds = new Set(apptLeads.map(l => l.id))
 
   const onlyLeads = remainingLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
