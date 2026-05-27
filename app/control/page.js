@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '../../lib/supabase-browser'
+import { supabase } from '../../lib/supabase'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -619,10 +619,9 @@ function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCus
 /* ─── Main Page ─── */
 export default function ControlPage() {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
   const [pipelines, setPipelines] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [preset, setPreset] = useState('30d')
+  const [preset, setPreset] = useState('all')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
 
@@ -654,11 +653,11 @@ export default function ControlPage() {
     if (end) leadsQuery = leadsQuery.lte('created_at', end + 'T23:59:59')
 
     const [
-      { data: clients, error: clientErr },
-      { data: payments },
-      { data: campaignData },
-      { data: leadData },
-      { data: salesDeals },
+      clientRes,
+      paymentRes,
+      campaignRes,
+      leadRes,
+      salesRes,
     ] = await Promise.all([
       supabase.from('client').select('client_id, client_name, industry, city, state, status, created_at, contact_name, service_type, onboarding_stage, next_milestone'),
       paymentsQuery,
@@ -667,9 +666,22 @@ export default function ControlPage() {
       supabase.from('sales_deals').select('*'),
     ])
 
-    if (clientErr) {
-      console.error('Supabase client query error:', clientErr)
+    // Debug logging — check browser console
+    console.log('[Control] client:', clientRes.data?.length, 'rows, error:', clientRes.error)
+    console.log('[Control] payments:', paymentRes.data?.length, 'rows, error:', paymentRes.error)
+    console.log('[Control] campaigns:', campaignRes.data?.length, 'rows, error:', campaignRes.error)
+    console.log('[Control] leads:', leadRes.data?.length, 'rows, error:', leadRes.error)
+    console.log('[Control] sales_deals:', salesRes.data?.length, 'rows, error:', salesRes.error)
+    if (clientRes.data?.length) {
+      console.log('[Control] client statuses:', [...new Set(clientRes.data.map(c => c.status))])
+      console.log('[Control] first client:', clientRes.data[0])
     }
+
+    const clients = clientRes.data
+    const payments = paymentRes.data
+    const campaignData = campaignRes.data
+    const leadData = leadRes.data
+    const salesDeals = salesRes.data
 
     // Fetch billing for onboarding clients
     const onboardingIds = (clients || []).filter(c => c.status === 'Onboarding').map(c => c.client_id)
@@ -696,7 +708,7 @@ export default function ControlPage() {
     )
     setPipelines(result)
     setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     const stored = localStorage.getItem('ca_user')
