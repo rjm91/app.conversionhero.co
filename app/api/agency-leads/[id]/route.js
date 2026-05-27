@@ -19,6 +19,7 @@ const EDITABLE = [
   'first_name', 'last_name', 'email', 'phone', 'company',
   'lead_status', 'appt_status', 'sale_status',
   'sale_amount', 'appt_date', 'appt_time', 'ch_notes',
+  'onboarding_status',
 ]
 
 export async function PATCH(request, { params }) {

@@ -67,6 +67,7 @@ const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
 const APPT_STATUSES = ['Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
 const SALE_STATUSES = ['Proposal Sent', 'Sold', 'Sale Lost']
+const ONBOARDING_STATUSES = ['Account Setup', 'Campaign Build', 'Review / QA', 'Ready to Launch']
 
 function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
 
@@ -197,31 +198,11 @@ function buildPipelines(clientsWithData, agencyLeads) {
     rows: clientRows,
   }
 
-  // ── Onboarding ──
-  const onboardingClients = clientsWithData.filter(c => c.status === 'Onboarding')
-  const onboardingRows = onboardingClients.map(c => [
-    fmtDate(c.created_at),
-    { stage: 'Onboarding', color: 'purple' },
-    c.client_name,
-    c.industry || '—',
-    c.city && c.state ? `${c.city}, ${c.state}` : '—',
-    '—', '—', '—', fmtDate(c.created_at), '—',
-    { link: 'View →', href: `/control/${c.client_id}/dashboard` },
-  ])
-
-  const onboardingPipeline = {
-    title: 'Onboarding',
-    count: onboardingClients.length,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Contact','Deal Value','Service','Started','Next Milestone',''],
-    summaryMap: {},
-    rows: onboardingRows,
-  }
-
-  // Exclude agency leads that already appear as Active Clients or Onboarding
+  // Exclude agency leads that already appear as Active Clients
   const clientNames = new Set(clientsWithData.map(c => (c.client_name || '').toLowerCase().trim()))
   const remainingLeads = agencyLeads.filter(l => !clientNames.has((l.company || '').toLowerCase().trim()))
 
-  // ── Agency Leads (from agency_leads table) for Sales / Appointments / Leads pipelines ──
+  // ── Agency Leads (from agency_leads table) for all pipeline sections below Active Clients ──
   function agencyLeadRow(l) {
     const funnel = l.agency_funnels?.name || ''
     return [
@@ -237,32 +218,60 @@ function buildPipelines(clientsWithData, agencyLeads) {
   }
 
   // ── Waterfall: each lead appears in only its furthest pipeline stage ──
-  // Sales: has sale_status OR appt is Confirmed/Complete (ready for sale stage)
-  const salesLeads = remainingLeads.filter(l =>
+  // Onboarding: sale_status = 'Sold' (deal closed, now onboarding as client)
+  const onboardingLeads = remainingLeads.filter(l => l.sale_status === 'Sold')
+  const onboardingIds = new Set(onboardingLeads.map(l => l.id))
+
+  // Sales: has sale_status (not Sold) OR appt is Confirmed/Complete
+  const salesLeads = remainingLeads.filter(l => !onboardingIds.has(l.id) && (
     (l.sale_status && l.sale_status !== 'NA') ||
     l.appt_status === 'Appt Confirmed' ||
     l.appt_status === 'Appt Complete'
-  )
+  ))
   const salesIds = new Set(salesLeads.map(l => l.id))
 
   // Appointments: lead_status is Appt Set, or has other appt_status (Lost, Disqualified, etc)
-  const apptLeads = remainingLeads.filter(l => !salesIds.has(l.id) && (
+  const apptLeads = remainingLeads.filter(l => !onboardingIds.has(l.id) && !salesIds.has(l.id) && (
     (l.appt_status && l.appt_status !== 'NA') || l.lead_status === 'Appt Set'
   ))
   const apptIds = new Set(apptLeads.map(l => l.id))
 
-  const onlyLeads = remainingLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
+  const onlyLeads = remainingLeads.filter(l => !onboardingIds.has(l.id) && !salesIds.has(l.id) && !apptIds.has(l.id))
+
+  // ── Onboarding ──
+  const onboardingRows = onboardingLeads.map(l => {
+    const funnel = l.agency_funnels?.name || ''
+    const r = [
+      fmtDate(l.created_at),
+      { select: true, leadId: l.id, field: 'onboarding_status', value: l.onboarding_status || '', options: ONBOARDING_STATUSES, color: statusColor(l.onboarding_status) },
+      [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
+      l.company || funnel || '—',
+      l.email || '—',
+      l.phone || '—',
+      l.sale_amount ? fmt$(l.sale_amount) : '—',
+      { link: 'View →' },
+    ]
+    r._lead = l
+    return r
+  })
+
+  const onboardingPipeline = {
+    title: 'Onboarding',
+    count: onboardingLeads.length,
+    columns: ['Submitted','Onboarding Status','Contact','Company','Email','Phone','Deal Value',''],
+    summaryMap: {},
+    rows: onboardingRows,
+  }
 
   // ── Sales ──
   const salesRows = salesLeads.map(l => { const r = [...agencyLeadRow(l), { link: 'View →' }]; r._lead = l; return r })
-  const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
 
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
     columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone',''],
-    summaryMap: { 3: { value: `${soldCount} Sold, ${proposalCount} Proposal Sent` } },
+    summaryMap: proposalCount ? { 3: { value: `${proposalCount} Proposal Sent` } } : {},
     rows: salesRows,
   }
 
@@ -636,6 +645,9 @@ export default function ControlPage() {
   const [drawerSaveSuccess, setDrawerSaveSuccess] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [createClientLead, setCreateClientLead] = useState(null)
+  const [clientSaving, setClientSaving] = useState(false)
+  const [clientError, setClientError] = useState(null)
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
@@ -720,6 +732,7 @@ export default function ControlPage() {
       appt_date: selectedLead.appt_date,
       appt_time: selectedLead.appt_time,
       ch_notes: selectedLead.ch_notes,
+      onboarding_status: selectedLead.onboarding_status,
     }
     try {
       const res = await fetch(`/api/agency-leads/${selectedLead.id}`, {
@@ -756,6 +769,39 @@ export default function ControlPage() {
       console.error('[Control] drawer delete failed:', err)
     }
     setDeleting(false)
+  }
+
+  function openCreateClient(lead) {
+    setClientError(null)
+    setCreateClientLead(lead)
+  }
+
+  async function handleCreateClient() {
+    setClientSaving(true)
+    setClientError(null)
+    try {
+      const payload = {
+        client_name: document.getElementById('create-client-name')?.value || '',
+        industry: document.getElementById('create-client-industry')?.value || '',
+        city: document.getElementById('create-client-city')?.value || '',
+        state: document.getElementById('create-client-state')?.value || '',
+      }
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create client')
+      setCreateClientLead(null)
+      // Refetch all data so the lead moves from Onboarding to Active Clients via dedup
+      fetchData(preset, customStart, customEnd)
+      setSelectedLead(null)
+    } catch (err) {
+      setClientError(err.message)
+    } finally {
+      setClientSaving(false)
+    }
   }
 
   async function handleStatusChange(leadId, field, value) {
@@ -818,7 +864,7 @@ export default function ControlPage() {
               pipeline={pipelines[key]}
               defaultCollapsed={i !== 0}
               onStatusChange={key !== 'clients' ? handleStatusChange : undefined}
-              onRowClick={key !== 'clients' && key !== 'onboarding' ? (lead) => { setSelectedLead(lead); setConfirmDelete(false) } : undefined}
+              onRowClick={key !== 'clients' ? (lead) => { setSelectedLead(lead); setConfirmDelete(false) } : undefined}
             />
           ))}
         </div>
@@ -931,6 +977,30 @@ export default function ControlPage() {
                 </div>
               </div>
 
+              {selectedLead.sale_status === 'Sold' && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Onboarding</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Onboarding Status</label>
+                      <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                        value={selectedLead.onboarding_status || ''} onChange={e => setSelectedLead(p => ({ ...p, onboarding_status: e.target.value }))}>
+                        <option value="">—</option>
+                        {ONBOARDING_STATUSES.map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={() => openCreateClient(selectedLead)}
+                        className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+                      >
+                        Create Client
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -1018,6 +1088,75 @@ export default function ControlPage() {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Create Client Modal */}
+      {createClientLead && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setCreateClientLead(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-white">Create Client from Lead</h3>
+              <p className="text-sm text-gray-400">
+                This will create a new active client record for <span className="text-white font-medium">{createClientLead.company || `${createClientLead.first_name} ${createClientLead.last_name}`}</span>.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Client Name</label>
+                  <input
+                    type="text"
+                    defaultValue={createClientLead.company || `${createClientLead.first_name} ${createClientLead.last_name}`}
+                    id="create-client-name"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Industry</label>
+                  <input
+                    type="text"
+                    defaultValue={createClientLead.meta?.industry || ''}
+                    id="create-client-industry"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">City</label>
+                    <input
+                      type="text"
+                      defaultValue={createClientLead.meta?.city || ''}
+                      id="create-client-city"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">State</label>
+                    <input
+                      type="text"
+                      defaultValue={createClientLead.meta?.state || ''}
+                      id="create-client-state"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setCreateClientLead(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateClient}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+                >
+                  Create Client
+                </button>
+              </div>
             </div>
           </div>
         </>
