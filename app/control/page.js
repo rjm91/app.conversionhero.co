@@ -230,8 +230,16 @@ function buildPipelines(clientsWithData, agencyLeads) {
     ]
   }
 
-  // ── Sales: agency leads where sale_status is set (not NA, not empty) ──
+  // ── Waterfall: each lead appears in only its furthest pipeline stage ──
   const salesLeads = agencyLeads.filter(l => l.sale_status && l.sale_status !== 'NA')
+  const salesIds = new Set(salesLeads.map(l => l.id))
+
+  const apptLeads = agencyLeads.filter(l => !salesIds.has(l.id) && l.appt_status && l.appt_status !== 'NA')
+  const apptIds = new Set(apptLeads.map(l => l.id))
+
+  const onlyLeads = agencyLeads.filter(l => !salesIds.has(l.id) && !apptIds.has(l.id))
+
+  // ── Sales ──
   const salesRows = salesLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
   const soldCount = salesLeads.filter(l => l.sale_status === 'Sold').length
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Proposal Sent').length
@@ -244,8 +252,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
     rows: salesRows,
   }
 
-  // ── Appointments: agency leads where appt_status is set (not NA, not empty) ──
-  const apptLeads = agencyLeads.filter(l => l.appt_status && l.appt_status !== 'NA')
+  // ── Appointments (excluding leads already in Sales) ──
   const apptRows = apptLeads.map(l => [
     ...agencyLeadRow(l),
     l.appt_date ? fmtDate(l.appt_date) : '—',
@@ -262,10 +269,10 @@ function buildPipelines(clientsWithData, agencyLeads) {
     rows: apptRows,
   }
 
-  // ── Leads: all agency leads ──
-  const leadRows = agencyLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
+  // ── Leads (only those not in Sales or Appointments) ──
+  const leadRows = onlyLeads.map(l => [...agencyLeadRow(l), { link: 'View →' }])
   const leadStatusCounts = {}
-  agencyLeads.forEach(l => {
+  onlyLeads.forEach(l => {
     const st = l.lead_status || 'Unknown'
     leadStatusCounts[st] = (leadStatusCounts[st] || 0) + 1
   })
@@ -273,7 +280,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
 
   const leadsPipeline = {
     title: 'Leads',
-    count: agencyLeads.length,
+    count: onlyLeads.length,
     columns: ['Submitted','Lead Status','Appt Status','Sale Status','Contact','Company','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
