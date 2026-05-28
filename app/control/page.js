@@ -391,6 +391,9 @@ function CellContent({ cell, onStatusChange }) {
   }
 
   if (cell.link) {
+    if (cell.href) {
+      return <a href={cell.href} onClick={e => e.stopPropagation()} className="text-blue-400 font-medium text-[13px] whitespace-nowrap cursor-pointer hover:text-blue-300">{cell.link}</a>
+    }
     return <span className="text-blue-400 font-medium text-[13px] whitespace-nowrap cursor-pointer hover:text-blue-300">{cell.link}</span>
   }
 
