@@ -658,6 +658,7 @@ const emptyTask = { title: '', priority: 'medium', assignee: '', due_date: '' }
 function ProjectsSection() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [projectsOpen, setProjectsOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState(new Set(['active']))
   const [expandedProjectId, setExpandedProjectId] = useState(null)
   const [expandedTasks, setExpandedTasks] = useState([])
@@ -783,43 +784,62 @@ function ProjectsSection() {
     await patchTask(task.id, { status: next })
   }
 
+  const activeCount = (grouped.active || []).length
+  const onHoldCount = (grouped.on_hold || []).length
+  const completedCount = (grouped.completed || []).length
+  const totalTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).length, 0)
+  const doneTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).filter(t => t.status === 'done').length, 0)
+
   return (
     <>
-      <div className="mt-10 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">Projects</h2>
-          <button onClick={() => setCreating(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            New Project
+      {/* Top-level Projects accordion */}
+      <div className="bg-[#171B33] rounded-2xl border border-white/5 mt-4 overflow-hidden">
+        <button onClick={() => setProjectsOpen(o => !o)}
+          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition">
+          <svg className={`w-4 h-4 text-gray-400 transition-transform ${projectsOpen ? 'rotate-90' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          <span className="text-[15px] font-bold text-white">Projects</span>
+          <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
+          <div className="flex-1" />
+          {!loading && (
+            <div className="flex items-center gap-5 text-[13px] text-gray-400">
+              <span><span className="text-green-400 font-bold">{activeCount}</span> Active</span>
+              <span><span className="text-yellow-400 font-bold">{onHoldCount}</span> On Hold</span>
+              <span><span className="text-indigo-400 font-bold">{completedCount}</span> Completed</span>
+              {totalTasks > 0 && <span><span className="text-white font-bold">{doneTasks}/{totalTasks}</span> Tasks Done</span>}
+            </div>
+          )}
+          <button onClick={e => { e.stopPropagation(); setCreating(true) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition ml-3">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            New
           </button>
-        </div>
+        </button>
 
-        {loading ? (
-          <div className="text-sm text-gray-500">Loading projects...</div>
-        ) : projects.length === 0 ? (
-          <div className="text-sm text-gray-500">No projects found.</div>
-        ) : (
-        <div className="flex flex-col gap-3">
-          {PROJ_STATUS_ORDER.map(status => {
-            const group = grouped[status] || []
-            if (group.length === 0) return null
-            const sm = PROJ_STATUS_META[status]
-            const isOpen = openGroups.has(status)
-            return (
-              <div key={status} className="bg-[#171B33] rounded-xl border border-white/5 overflow-hidden">
-                <button onClick={() => toggleGroup(status)}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition">
-                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  <div className={`w-2.5 h-2.5 rounded-full ${sm.dot}`} />
-                  <span className="text-sm font-bold text-white flex-1 text-left">{sm.label}</span>
-                  <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{group.length} project{group.length !== 1 ? 's' : ''}</span>
-                </button>
+        {projectsOpen && (
+          <div className="border-t border-white/5">
+            {loading ? (
+              <div className="px-5 py-4 text-sm text-gray-500">Loading projects...</div>
+            ) : projects.length === 0 ? (
+              <div className="px-5 py-4 text-sm text-gray-500">No projects yet. Click New to create one.</div>
+            ) : (
+              PROJ_STATUS_ORDER.map(status => {
+                const group = grouped[status] || []
+                if (group.length === 0) return null
+                const sm = PROJ_STATUS_META[status]
+                const isOpen = openGroups.has(status)
+                return (
+                  <div key={status}>
+                    <button onClick={() => toggleGroup(status)}
+                      className="w-full flex items-center gap-3 px-5 py-3 pl-10 hover:bg-white/[0.02] transition border-b border-white/[0.03]">
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      <div className={`w-2 h-2 rounded-full ${sm.dot}`} />
+                      <span className="text-sm font-semibold text-white flex-1 text-left">{sm.label}</span>
+                      <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{group.length}</span>
+                    </button>
 
-                {isOpen && (
-                  <div className="border-t border-white/5">
-                    {group.map(p => {
+                    {isOpen && group.map(p => {
                       const tasks_ = p.project_tasks || []
                       const done_ = tasks_.filter(t => t.status === 'done').length
                       const pct_ = tasks_.length ? Math.round((done_ / tasks_.length) * 100) : 0
@@ -827,7 +847,7 @@ function ProjectsSection() {
                       const isExpanded = expandedProjectId === p.id
                       return (
                         <div key={p.id}>
-                          <div className={`flex items-center gap-3 px-5 py-3 pl-14 cursor-pointer transition border-b border-white/[0.03] hover:bg-white/[0.02] ${isExpanded ? 'bg-blue-500/[0.04]' : ''}`}
+                          <div className={`flex items-center gap-3 px-5 py-3 pl-[72px] cursor-pointer transition border-b border-white/[0.03] hover:bg-white/[0.02] ${isExpanded ? 'bg-blue-500/[0.04]' : ''}`}
                             onClick={() => toggleProject(p)}>
                             <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">{p.name}</span>
                             <div className="flex items-center gap-2 flex-shrink-0">
@@ -855,9 +875,9 @@ function ProjectsSection() {
                           {isExpanded && (
                             <div className="bg-black/15">
                               {tasksLoading ? (
-                                <p className="px-14 py-4 text-xs text-gray-400">Loading tasks...</p>
+                                <p className="pl-24 py-4 text-xs text-gray-400">Loading tasks...</p>
                               ) : expandedTasks.length === 0 && !addingTaskFor ? (
-                                <div className="px-14 py-4 flex items-center gap-3">
+                                <div className="pl-24 py-4 flex items-center gap-3">
                                   <span className="text-xs text-gray-400">No tasks yet</span>
                                   <button onClick={() => { setAddingTaskFor(p.id); setTaskForm(emptyTask) }}
                                     className="text-xs text-gray-400 border border-dashed border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
@@ -868,7 +888,7 @@ function ProjectsSection() {
                                 <>
                                   {expandedTasks.map(task => (
                                     <div key={task.id}
-                                      className={`flex items-center gap-3 px-5 py-2.5 pl-20 border-b border-white/[0.03] hover:bg-white/5 transition cursor-pointer ${task.status === 'done' ? 'opacity-60' : ''}`}
+                                      className={`flex items-center gap-3 px-5 py-2.5 pl-24 border-b border-white/[0.03] hover:bg-white/5 transition cursor-pointer ${task.status === 'done' ? 'opacity-60' : ''}`}
                                       onClick={() => setEditingTask(task)}>
                                       <button onClick={e => { e.stopPropagation(); cycleTaskStatus(task) }}
                                         className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${task.status === 'done' ? 'bg-green-500 border-green-500' : task.status === 'in_progress' ? 'border-blue-500' : 'border-white/20'}`}>
@@ -882,7 +902,7 @@ function ProjectsSection() {
                                     </div>
                                   ))}
                                   {addingTaskFor === p.id ? (
-                                    <div className="px-20 py-3">
+                                    <div className="pl-24 pr-5 py-3">
                                       <input autoFocus placeholder="Task title"
                                         className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                                         value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
@@ -895,7 +915,7 @@ function ProjectsSection() {
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="px-20 py-2">
+                                    <div className="pl-24 py-2">
                                       <button onClick={() => { setAddingTaskFor(p.id); setTaskForm(emptyTask) }}
                                         className="text-[11px] text-gray-400 border border-dashed border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
                                         + Add task
@@ -910,11 +930,10 @@ function ProjectsSection() {
                       )
                     })}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                )
+              })
+            )}
+          </div>
         )}
       </div>
 
