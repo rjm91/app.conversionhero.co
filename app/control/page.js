@@ -67,7 +67,7 @@ const SALES_PIPELINE_KEYS = ['onboarding', 'sales', 'appointments', 'leads']
 /* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
 const APPT_STATUSES = ['Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
-const SALE_STATUSES = ['Agreement Sent', 'Sold', 'Sale Lost']
+const SALE_STATUSES = ['Agreement Sent', 'Agreement Signed', 'Invoice Sent', 'Invoice Paid', 'Sold', 'Sale Lost']
 const ONBOARDING_STATUSES = ['Account Setup', 'Campaign Build', 'Review / QA', 'Ready to Launch']
 
 function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
@@ -92,7 +92,8 @@ function statusColor(status) {
   const s = status.toLowerCase()
   if (s.includes('sold') || s.includes('complete') || s.includes('active') || s === 'new') return 'green'
   if (s.includes('qualified') || s.includes('account setup') || s.includes('campaign build')) return 'purple'
-  if (s.includes('agreement') || s.includes('proposal') || s.includes('contacted') || s.includes('set') || s.includes('outreach') || s.includes('appt confirmed')) return 'blue'
+  if (s.includes('invoice paid')) return 'green'
+  if (s.includes('agreement') || s.includes('invoice') || s.includes('proposal') || s.includes('contacted') || s.includes('set') || s.includes('outreach') || s.includes('appt confirmed')) return 'blue'
   if (s.includes('negotiation')) return 'yellow'
   if (s.includes('lost') || s.includes('disqualified')) return 'gray'
   return 'blue'
