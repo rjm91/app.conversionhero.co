@@ -62,6 +62,7 @@ function fmtDate(d) {
 }
 
 const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads']
+const SALES_PIPELINE_KEYS = ['onboarding', 'sales', 'appointments', 'leads']
 
 /* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
@@ -459,7 +460,7 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested }) {
   const { title, count, columns, summaryMap, rows } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
@@ -470,7 +471,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
   const titleColspan = 5
 
   return (
-    <div className="mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden">
+    <div className={nested ? 'border-b border-white/[0.04]' : 'mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden'}>
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
         <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: columns.length > 10 ? '1200px' : undefined }}>
           <thead>
@@ -1122,6 +1123,7 @@ export default function ControlPage() {
   const router = useRouter()
   const [pipelines, setPipelines] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [salesPipelineOpen, setSalesPipelineOpen] = useState(false)
   const [preset, setPreset] = useState('all')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -1352,16 +1354,64 @@ export default function ControlPage() {
         <div className="mt-12 text-center text-gray-500">Failed to load data. Check console.</div>
       ) : (
         <div className="mt-6">
-          {PIPELINE_ORDER.map((key, i) => (
-            <PipelineAccordion
-              key={key}
-              id={key}
-              pipeline={pipelines[key]}
-              defaultCollapsed={i !== 0}
-              onStatusChange={key !== 'clients' ? handleStatusChange : undefined}
-              onRowClick={key !== 'clients' ? (lead) => { setSelectedLead(lead); setConfirmDelete(false) } : undefined}
-            />
-          ))}
+          {/* Active Clients — standalone */}
+          <PipelineAccordion
+            id="clients"
+            pipeline={pipelines.clients}
+            defaultCollapsed={false}
+          />
+
+          {/* Sales Pipeline — wraps Onboarding, Sales, Appointments, Leads */}
+          {(() => {
+            const totalLeads = SALES_PIPELINE_KEYS.reduce((s, k) => s + (pipelines[k]?.count || 0), 0)
+            const onbCount = pipelines.onboarding?.count || 0
+            const salCount = pipelines.sales?.count || 0
+            const apptCount = pipelines.appointments?.count || 0
+            const leadCount = pipelines.leads?.count || 0
+            const pipelineValue = agencyLeads
+              .filter(l => l.sale_amount && l.sale_status !== 'Sale Lost')
+              .reduce((s, l) => s + (Number(l.sale_amount) || 0), 0)
+            return (
+              <div className="mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden">
+                <div
+                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition select-none"
+                  onClick={() => setSalesPipelineOpen(o => !o)}
+                >
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${salesPipelineOpen ? 'rotate-90' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  <span className="text-[15px] font-bold text-white">Sales Pipeline</span>
+                  <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400">
+                    {totalLeads}
+                  </span>
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-5 text-[13px] text-gray-400">
+                    <span><span className="text-white font-bold">{leadCount}</span> Leads</span>
+                    <span><span className="text-blue-400 font-bold">{apptCount}</span> Appointments</span>
+                    <span><span className="text-yellow-400 font-bold">{salCount}</span> In Sales</span>
+                    <span><span className="text-green-400 font-bold">{onbCount}</span> Onboarding</span>
+                    {pipelineValue > 0 && <span><span className="text-emerald-400 font-bold">{fmt$(pipelineValue)}</span> Pipeline Value</span>}
+                  </div>
+                </div>
+
+                {salesPipelineOpen && (
+                  <div className="border-t border-white/[0.06]">
+                    {SALES_PIPELINE_KEYS.map(key => (
+                      <PipelineAccordion
+                        key={key}
+                        id={key}
+                        pipeline={pipelines[key]}
+                        defaultCollapsed={true}
+                        onStatusChange={handleStatusChange}
+                        onRowClick={(lead) => { setSelectedLead(lead); setConfirmDelete(false) }}
+                        nested
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           <ProjectsSection />
         </div>
       )}
