@@ -895,7 +895,7 @@ function ProjectsSection() {
                       <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       <div className={`w-2 h-2 rounded-full ${sm.dot}`} />
-                      <span className="text-sm font-semibold text-white flex-1 text-left">{sm.label}</span>
+                      <span className="text-sm font-semibold text-white text-left">{sm.label}</span>
                       <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{group.length}</span>
                     </button>
 
