@@ -712,6 +712,10 @@ function ProjectsSection() {
   const [taskForm, setTaskForm] = useState(emptyTask)
   const [taskSaving, setTaskSaving] = useState(false)
 
+  // Inline rename
+  const [editingNameId, setEditingNameId] = useState(null)
+  const [editingNameVal, setEditingNameVal] = useState('')
+
   // Edit task panel
   const [editingTask, setEditingTask] = useState(null)
   const [taskSaveMsg, setTaskSaveMsg] = useState(null)
@@ -813,6 +817,14 @@ function ProjectsSection() {
     setProjects(prev => prev.map(p => p.id === expandedProjectId ? { ...p, project_tasks: (p.project_tasks || []).filter(t => t.id !== taskId) } : p))
   }
 
+  async function saveInlineName(projectId) {
+    const trimmed = editingNameVal.trim()
+    if (trimmed && trimmed !== projects.find(p => p.id === projectId)?.name) {
+      await patchProject(projectId, { name: trimmed })
+    }
+    setEditingNameId(null)
+  }
+
   async function cycleTaskStatus(task) {
     const next = PROJ_TASK_STATUS[(PROJ_TASK_STATUS.indexOf(task.status) + 1) % PROJ_TASK_STATUS.length]
     await patchTask(task.id, { status: next })
@@ -895,7 +907,23 @@ function ProjectsSection() {
                         <div key={p.id}>
                           <div className={`flex items-center gap-3 px-5 py-3 pl-[72px] cursor-pointer transition border-b border-white/[0.03] hover:bg-white/[0.02] ${isExpanded ? 'bg-blue-500/[0.04]' : ''}`}
                             onClick={() => toggleProject(p)}>
-                            <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">{p.name}</span>
+                            {editingNameId === p.id ? (
+                              <input
+                                autoFocus
+                                className="text-sm font-semibold text-white flex-1 min-w-0 bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500"
+                                value={editingNameVal}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => setEditingNameVal(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveInlineName(p.id); if (e.key === 'Escape') setEditingNameId(null) }}
+                                onBlur={() => saveInlineName(p.id)}
+                              />
+                            ) : (
+                              <span
+                                className="text-sm font-semibold text-white flex-1 min-w-0 truncate hover:text-blue-300 transition"
+                                onDoubleClick={e => { e.stopPropagation(); setEditingNameId(p.id); setEditingNameVal(p.name) }}
+                                title="Double-click to rename"
+                              >{p.name}</span>
+                            )}
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pm.cls}`}>{pm.label}</span>
                               <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-gray-400">{PROJ_TYPE_LABELS[p.type] || p.type}</span>
