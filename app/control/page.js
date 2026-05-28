@@ -139,8 +139,13 @@ async function fetchClientData(clientId, start, end) {
 }
 
 /* ─── Build pipeline data ─── */
-function buildPipelines(clientsWithData, agencyLeads, showDemo = false) {
-  const activeClients = clientsWithData.filter(c => c.status === 'Active' || (showDemo && c.status === 'Demo'))
+function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFilter = 'active') {
+  const activeClients = clientsWithData.filter(c => {
+    if (c.status === 'Demo' && !showDemo) return false
+    if (clientFilter === 'active') return c.status === 'Active' || c.status === 'Demo'
+    if (clientFilter === 'inactive') return c.status === 'Past' || c.status === 'Inactive'
+    return true // 'all'
+  })
 
   // ── Active Clients rows ──
   const clientRows = activeClients.map(c => {
@@ -156,7 +161,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false) {
 
     return [
       fmtDate(c.created_at),
-      c.status === 'Demo' ? { badge: 'Demo', color: 'yellow' } : { badge: 'Active', color: 'green' },
+      c.status === 'Demo' ? { badge: 'Demo', color: 'yellow' } : c.status === 'Past' || c.status === 'Inactive' ? { badge: c.status, color: 'gray' } : { badge: 'Active', color: 'green' },
       c.client_name,
       c.industry || '—',
       c.city && c.state ? `${c.city}, ${c.state}` : (c.city || c.state || '—'),
@@ -184,7 +189,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false) {
   })
 
   const clientsPipeline = {
-    title: 'Active Clients',
+    title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
     columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appointments','Cost Per Appointment','Customers','CAC',''],
     summaryMap: {
@@ -1213,6 +1218,7 @@ export default function ControlPage() {
   const [clientSaving, setClientSaving] = useState(false)
   const [clientError, setClientError] = useState(null)
   const [showDemo, setShowDemo] = useState(false)
+  const [clientFilter, setClientFilter] = useState('active')
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
@@ -1255,7 +1261,7 @@ export default function ControlPage() {
     setClientsData(clientsWithData)
 
     // Step 3: Build pipelines from enriched data
-    const result = buildPipelines(clientsWithData, fetchedLeads, showDemo)
+    const result = buildPipelines(clientsWithData, fetchedLeads, showDemo, clientFilter)
     setPipelines(result)
     setLoading(false)
   }, [])
@@ -1266,12 +1272,12 @@ export default function ControlPage() {
     fetchData(preset, customStart, customEnd)
   }, [router, preset, customStart, customEnd, fetchData])
 
-  // Rebuild pipelines when showDemo toggles
+  // Rebuild pipelines when showDemo or clientFilter toggles
   useEffect(() => {
     if (clientsData.length > 0) {
-      setPipelines(buildPipelines(clientsData, agencyLeads, showDemo))
+      setPipelines(buildPipelines(clientsData, agencyLeads, showDemo, clientFilter))
     }
-  }, [showDemo])
+  }, [showDemo, clientFilter])
 
   function handlePresetChange(key) {
     setPreset(key)
@@ -1316,7 +1322,7 @@ export default function ControlPage() {
         const json = await res.json()
         const updated = agencyLeads.map(l => l.id === selectedLead.id ? json.lead : l)
         setAgencyLeads(updated)
-        setPipelines(buildPipelines(clientsData, updated, showDemo))
+        setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
         setSelectedLead(json.lead)
         setDrawerSaveSuccess(true)
         setTimeout(() => setDrawerSaveSuccess(false), 1800)
@@ -1338,7 +1344,7 @@ export default function ControlPage() {
       await fetch(`/api/agency-leads/${selectedLead.id}`, { method: 'DELETE' })
       const updated = agencyLeads.filter(l => l.id !== selectedLead.id)
       setAgencyLeads(updated)
-      setPipelines(buildPipelines(clientsData, updated, showDemo))
+      setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
       setSelectedLead(null)
       setConfirmDelete(false)
     } catch (err) {
@@ -1399,7 +1405,7 @@ export default function ControlPage() {
       l.id === leadId ? { ...l, ...cascadeUpdates } : l
     )
     setAgencyLeads(updated)
-    setPipelines(buildPipelines(clientsData, updated, showDemo))
+    setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
 
     // Persist to API
     try {
@@ -1412,7 +1418,7 @@ export default function ControlPage() {
         const json = await res.json()
         const synced = updated.map(l => l.id === leadId ? json.lead : l)
         setAgencyLeads(synced)
-        setPipelines(buildPipelines(clientsData, synced, showDemo))
+        setPipelines(buildPipelines(clientsData, synced, showDemo, clientFilter))
         // Prompt to create client when marking as Sold
         if (field === 'sale_status' && value === 'Sold') {
           setCreateClientLead(json.lead)
@@ -1443,6 +1449,16 @@ export default function ControlPage() {
             </div>
             Demo accounts
           </button>
+          <select
+            value={clientFilter}
+            onChange={e => setClientFilter(e.target.value)}
+            className="appearance-none px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-[13px] font-medium text-gray-300 hover:bg-white/[0.08] transition cursor-pointer outline-none"
+            style={{ backgroundImage: 'none' }}
+          >
+            <option value="active" className="bg-[#1a1f36] text-gray-300">Active Clients</option>
+            <option value="inactive" className="bg-[#1a1f36] text-gray-300">Inactive Clients</option>
+            <option value="all" className="bg-[#1a1f36] text-gray-300">All Clients</option>
+          </select>
           <DateRangePicker
             preset={preset}
             onPresetChange={handlePresetChange}
