@@ -139,8 +139,8 @@ async function fetchClientData(clientId, start, end) {
 }
 
 /* ─── Build pipeline data ─── */
-function buildPipelines(clientsWithData, agencyLeads) {
-  const activeClients = clientsWithData.filter(c => c.status === 'Active')
+function buildPipelines(clientsWithData, agencyLeads, showDemo = false) {
+  const activeClients = clientsWithData.filter(c => c.status === 'Active' || (showDemo && c.status === 'Demo'))
 
   // ── Active Clients rows ──
   const clientRows = activeClients.map(c => {
@@ -156,7 +156,7 @@ function buildPipelines(clientsWithData, agencyLeads) {
 
     return [
       fmtDate(c.created_at),
-      { badge: 'Active', color: 'green' },
+      c.status === 'Demo' ? { badge: 'Demo', color: 'yellow' } : { badge: 'Active', color: 'green' },
       c.client_name,
       c.industry || '—',
       c.city && c.state ? `${c.city}, ${c.state}` : (c.city || c.state || '—'),
@@ -1212,6 +1212,7 @@ export default function ControlPage() {
   const [createClientLead, setCreateClientLead] = useState(null)
   const [clientSaving, setClientSaving] = useState(false)
   const [clientError, setClientError] = useState(null)
+  const [showDemo, setShowDemo] = useState(false)
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
@@ -1254,7 +1255,7 @@ export default function ControlPage() {
     setClientsData(clientsWithData)
 
     // Step 3: Build pipelines from enriched data
-    const result = buildPipelines(clientsWithData, fetchedLeads)
+    const result = buildPipelines(clientsWithData, fetchedLeads, showDemo)
     setPipelines(result)
     setLoading(false)
   }, [])
@@ -1264,6 +1265,13 @@ export default function ControlPage() {
     if (!stored) { router.push('/login'); return }
     fetchData(preset, customStart, customEnd)
   }, [router, preset, customStart, customEnd, fetchData])
+
+  // Rebuild pipelines when showDemo toggles
+  useEffect(() => {
+    if (clientsData.length > 0) {
+      setPipelines(buildPipelines(clientsData, agencyLeads, showDemo))
+    }
+  }, [showDemo])
 
   function handlePresetChange(key) {
     setPreset(key)
@@ -1308,7 +1316,7 @@ export default function ControlPage() {
         const json = await res.json()
         const updated = agencyLeads.map(l => l.id === selectedLead.id ? json.lead : l)
         setAgencyLeads(updated)
-        setPipelines(buildPipelines(clientsData, updated))
+        setPipelines(buildPipelines(clientsData, updated, showDemo))
         setSelectedLead(json.lead)
         setDrawerSaveSuccess(true)
         setTimeout(() => setDrawerSaveSuccess(false), 1800)
@@ -1330,7 +1338,7 @@ export default function ControlPage() {
       await fetch(`/api/agency-leads/${selectedLead.id}`, { method: 'DELETE' })
       const updated = agencyLeads.filter(l => l.id !== selectedLead.id)
       setAgencyLeads(updated)
-      setPipelines(buildPipelines(clientsData, updated))
+      setPipelines(buildPipelines(clientsData, updated, showDemo))
       setSelectedLead(null)
       setConfirmDelete(false)
     } catch (err) {
@@ -1391,7 +1399,7 @@ export default function ControlPage() {
       l.id === leadId ? { ...l, ...cascadeUpdates } : l
     )
     setAgencyLeads(updated)
-    setPipelines(buildPipelines(clientsData, updated))
+    setPipelines(buildPipelines(clientsData, updated, showDemo))
 
     // Persist to API
     try {
@@ -1404,7 +1412,7 @@ export default function ControlPage() {
         const json = await res.json()
         const synced = updated.map(l => l.id === leadId ? json.lead : l)
         setAgencyLeads(synced)
-        setPipelines(buildPipelines(clientsData, synced))
+        setPipelines(buildPipelines(clientsData, synced, showDemo))
         // Prompt to create client when marking as Sold
         if (field === 'sale_status' && value === 'Sold') {
           setCreateClientLead(json.lead)
@@ -1425,7 +1433,16 @@ export default function ControlPage() {
           <h1 className="text-2xl font-bold text-white">Agency Control Center</h1>
           <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
         </div>
-        <div className="pt-6">
+        <div className="pt-6 flex items-center gap-4">
+          <button
+            onClick={() => setShowDemo(d => !d)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition ${showDemo ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-white/10 bg-white/[0.04] text-gray-500 hover:text-gray-300'}`}
+          >
+            <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${showDemo ? 'border-yellow-400 bg-yellow-400' : 'border-gray-500'}`}>
+              {showDemo && <svg className="w-2 h-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+            </div>
+            Demo accounts
+          </button>
           <DateRangePicker
             preset={preset}
             onPresetChange={handlePresetChange}
