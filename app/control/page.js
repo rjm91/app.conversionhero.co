@@ -196,6 +196,14 @@ function buildPipelines(clientsWithData, agencyLeads) {
       12: { value: String(totalCustomers) },
       13: { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', dim: true },
     },
+    headerStats: [
+      { value: fmt$(totalCash), label: 'Revenue', color: 'text-emerald-400' },
+      { value: String(totalCampaignIds.size), label: 'Campaigns', color: 'text-white' },
+      { value: fmt$(totalAdSpend), label: 'Ad Spend', color: 'text-white' },
+      { value: String(totalLeads), label: 'Leads', color: totalLeads > 0 ? 'text-white' : 'text-gray-500' },
+      { value: String(totalAppts), label: 'Appts', color: totalAppts > 0 ? 'text-white' : 'text-gray-500' },
+      { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-white' : 'text-gray-500' },
+    ],
     rows: clientRows,
   }
 
@@ -461,7 +469,7 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
 
 /* ─── Accordion Pipeline Component ─── */
 function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested }) {
-  const { title, count, columns, summaryMap, rows } = pipeline
+  const { title, count, columns, summaryMap, rows, headerStats } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
 
@@ -479,29 +487,54 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
               className="cursor-pointer select-none group"
               onClick={toggle}
             >
-              <td
-                colSpan={Math.min(titleColspan, columns.length)}
-                className="py-3.5 px-5 border-b border-white/[0.06] whitespace-nowrap"
-              >
-                <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 mr-2 ${collapsed ? '-rotate-90' : ''}`}>
-                  ▾
-                </span>
-                <span className="text-[15px] font-bold text-white">{title}</span>
-                <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 ml-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400 align-middle">
-                  {count}
-                </span>
-              </td>
-              {columns.slice(titleColspan).map((_, i) => {
-                const colIdx = titleColspan + i
-                const summary = summaryMap[colIdx]
-                if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06]" />
-                const colorCls = summary.color ? (SUMMARY_COLORS[summary.color] || 'text-gray-300') : (summary.dim ? 'text-gray-500' : 'text-gray-200')
-                return (
-                  <td key={colIdx} className={`py-3.5 px-4 border-b border-white/[0.06] text-[13px] font-bold whitespace-nowrap ${colorCls}`}>
-                    {summary.value}
+              {headerStats ? (
+                <td colSpan={columns.length} className="py-3.5 px-5 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}>
+                      ▾
+                    </span>
+                    <span className="text-[15px] font-bold text-white">{title}</span>
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400">
+                      {count}
+                    </span>
+                    <div className="flex-1" />
+                    <div className="flex items-center">
+                      {headerStats.map((stat, si) => (
+                        <div key={si} className={`flex flex-col items-center px-3.5 min-w-[70px] ${si < headerStats.length - 1 ? 'border-r border-white/5' : ''}`}>
+                          <span className={`text-[15px] font-extrabold leading-tight ${stat.color}`}>{stat.value}</span>
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">{stat.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </td>
+              ) : (
+                <>
+                  <td
+                    colSpan={Math.min(titleColspan, columns.length)}
+                    className="py-3.5 px-5 border-b border-white/[0.06] whitespace-nowrap"
+                  >
+                    <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 mr-2 ${collapsed ? '-rotate-90' : ''}`}>
+                      ▾
+                    </span>
+                    <span className="text-[15px] font-bold text-white">{title}</span>
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 ml-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400 align-middle">
+                      {count}
+                    </span>
                   </td>
-                )
-              })}
+                  {columns.slice(titleColspan).map((_, i) => {
+                    const colIdx = titleColspan + i
+                    const summary = summaryMap[colIdx]
+                    if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06]" />
+                    const colorCls = summary.color ? (SUMMARY_COLORS[summary.color] || 'text-gray-300') : (summary.dim ? 'text-gray-500' : 'text-gray-200')
+                    return (
+                      <td key={colIdx} className={`py-3.5 px-4 border-b border-white/[0.06] text-[13px] font-bold whitespace-nowrap ${colorCls}`}>
+                        {summary.value}
+                      </td>
+                    )
+                  })}
+                </>
+              )}
             </tr>
 
             {!collapsed && (
@@ -803,11 +836,23 @@ function ProjectsSection() {
           <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
           <div className="flex-1" />
           {!loading && (
-            <div className="flex items-center gap-5 text-[13px] text-gray-400">
-              <span><span className="text-green-400 font-bold">{activeCount}</span> Active</span>
-              <span><span className="text-yellow-400 font-bold">{onHoldCount}</span> On Hold</span>
-              <span><span className="text-indigo-400 font-bold">{completedCount}</span> Completed</span>
-              {totalTasks > 0 && <span><span className="text-white font-bold">{doneTasks}/{totalTasks}</span> Tasks Done</span>}
+            <div className="flex items-center">
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                <span className="text-[15px] font-extrabold leading-tight text-green-400">{activeCount}</span>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Active</span>
+              </div>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                <span className="text-[15px] font-extrabold leading-tight text-yellow-400">{onHoldCount}</span>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">On Hold</span>
+              </div>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                <span className="text-[15px] font-extrabold leading-tight text-indigo-400">{completedCount}</span>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Completed</span>
+              </div>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px]">
+                <span className="text-[15px] font-extrabold leading-tight text-white">{doneTasks}/{totalTasks}</span>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Tasks Done</span>
+              </div>
             </div>
           )}
           <button onClick={e => { e.stopPropagation(); setCreating(true) }}
@@ -1384,12 +1429,27 @@ export default function ControlPage() {
                     {totalLeads}
                   </span>
                   <div className="flex-1" />
-                  <div className="flex items-center gap-5 text-[13px] text-gray-400">
-                    <span><span className="text-white font-bold">{leadCount}</span> Leads</span>
-                    <span><span className="text-blue-400 font-bold">{apptCount}</span> Appointments</span>
-                    <span><span className="text-yellow-400 font-bold">{salCount}</span> In Sales</span>
-                    <span><span className="text-green-400 font-bold">{onbCount}</span> Onboarding</span>
-                    {pipelineValue > 0 && <span><span className="text-emerald-400 font-bold">{fmt$(pipelineValue)}</span> Pipeline Value</span>}
+                  <div className="flex items-center">
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                      <span className="text-[15px] font-extrabold leading-tight text-white">{leadCount}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Leads</span>
+                    </div>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                      <span className="text-[15px] font-extrabold leading-tight text-blue-400">{apptCount}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Appts</span>
+                    </div>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                      <span className="text-[15px] font-extrabold leading-tight text-yellow-400">{salCount}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">In Sales</span>
+                    </div>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+                      <span className="text-[15px] font-extrabold leading-tight text-green-400">{onbCount}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Onboarding</span>
+                    </div>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px]">
+                      <span className="text-[15px] font-extrabold leading-tight text-emerald-400">{fmt$(pipelineValue)}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Pipeline</span>
+                    </div>
                   </div>
                 </div>
 
