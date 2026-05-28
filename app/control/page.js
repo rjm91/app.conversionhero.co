@@ -1372,9 +1372,22 @@ export default function ControlPage() {
   }
 
   async function handleStatusChange(leadId, field, value) {
+    // Auto-cascade: fill in earlier pipeline defaults when a later status is set
+    const lead = agencyLeads.find(l => l.id === leadId)
+    const cascadeUpdates = { [field]: value || null }
+    if (lead) {
+      if (field === 'sale_status' && value && value !== 'Sale Lost') {
+        if (!lead.lead_status) cascadeUpdates.lead_status = 'Appt Set'
+        if (!lead.appt_status) cascadeUpdates.appt_status = 'Appt Complete'
+      }
+      if (field === 'appt_status' && value) {
+        if (!lead.lead_status) cascadeUpdates.lead_status = 'Appt Set'
+      }
+    }
+
     // Optimistic update: update local state immediately
     const updated = agencyLeads.map(l =>
-      l.id === leadId ? { ...l, [field]: value || null } : l
+      l.id === leadId ? { ...l, ...cascadeUpdates } : l
     )
     setAgencyLeads(updated)
     setPipelines(buildPipelines(clientsData, updated))
@@ -1384,7 +1397,7 @@ export default function ControlPage() {
       const res = await fetch(`/api/agency-leads/${leadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify(cascadeUpdates),
       })
       if (res.ok) {
         const json = await res.json()
