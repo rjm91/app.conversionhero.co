@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agency Control Center — Collapsed View Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0b14; --sidebar-bg: #0c0e18; --surface: #111528; --surface2: #171B33;
+      --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+      --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+      --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171;
+      --orange: #fb923c; --indigo: #818cf8; --emerald: #10b981;
+      --radius: 12px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+    /* Sidebar */
+    .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 14px; flex-shrink: 0; }
+    .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 20px; }
+    .sidebar-avatar { width: 30px; height: 30px; border-radius: 8px; background: var(--blue); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+    .sidebar-brand span { font-weight: 600; font-size: 14px; }
+    .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 8px; text-decoration: none; margin-bottom: 1px; }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .nav-item.active { color: #fff; background: var(--blue); font-weight: 600; }
+
+    /* Main */
+    .main { flex: 1; padding: 28px 36px; overflow-y: auto; }
+
+    /* Header */
+    .page-header { margin-bottom: 28px; }
+    .mode-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(59,130,246,0.1); color: var(--blue); margin-bottom: 12px; }
+    .page-header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+    .page-header .sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+    .header-row { display: flex; align-items: flex-start; justify-content: space-between; }
+    .date-picker { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid var(--border2); border-radius: 10px; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 24px; }
+    .date-picker:hover { border-color: rgba(255,255,255,0.18); }
+    .date-icon { width: 16px; height: 16px; opacity: 0.5; }
+
+    /* Accordion rows */
+    .accordion-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: all 0.15s ease;
+    }
+    .accordion-row:hover { border-color: rgba(255,255,255,0.1); }
+
+    .row-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chevron {
+      width: 16px; height: 16px;
+      color: var(--dim);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .chevron.open { transform: rotate(90deg); }
+
+    .row-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .row-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.06);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .row-spacer { flex: 1; }
+
+    .row-metrics {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--dim);
+    }
+    .row-metrics .metric-value { font-weight: 700; }
+
+    .metric-green .metric-value { color: var(--green); }
+    .metric-blue .metric-value { color: var(--blue); }
+    .metric-yellow .metric-value { color: var(--yellow); }
+    .metric-indigo .metric-value { color: var(--indigo); }
+    .metric-white .metric-value { color: var(--text); }
+    .metric-emerald .metric-value { color: var(--emerald); }
+    .metric-dim .metric-value { color: var(--dim); }
+
+    /* Metric pills — compact stat badges */
+    .metric-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .metric-pill .pill-value { font-weight: 700; font-size: 13px; }
+
+    .pill-green .pill-value { color: var(--green); }
+    .pill-blue .pill-value { color: var(--blue); }
+    .pill-yellow .pill-value { color: var(--yellow); }
+    .pill-indigo .pill-value { color: var(--indigo); }
+    .pill-white .pill-value { color: var(--text); }
+    .pill-emerald .pill-value { color: var(--emerald); }
+    .pill-dim { background: transparent; }
+
+    /* Active Clients special metrics row */
+    .client-metrics {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .client-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 14px;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      min-width: 70px;
+    }
+    .client-stat:last-child { border-right: none; }
+    .client-stat .stat-value { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.2; }
+    .client-stat .stat-value.green { color: var(--green); }
+    .client-stat .stat-value.dim { color: var(--dim); font-size: 13px; }
+    .client-stat .stat-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-top: 2px; }
+
+    /* Action button */
+    .btn-new-sm {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 14px; background: var(--blue); color: #fff;
+      border: none; border-radius: 8px; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn-new-sm:hover { background: #2563eb; }
+
+    /* Divider */
+    .section-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.04);
+      margin: 8px 0;
+    }
+
+    /* Version labels */
+    .version-label {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 16px;
+    }
+    .v-a { background: rgba(59,130,246,0.1); color: var(--blue); }
+    .v-b { background: rgba(52,204,147,0.1); color: var(--green); }
+
+    .mockup-section { margin-bottom: 48px; }
+    .mockup-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .mockup-section .desc { font-size: 13px; color: var(--dim); margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-avatar">CA</div>
+      <span>ConversionAgent</span>
+    </div>
+    <a class="nav-item active">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Sales
+    </a>
+    <a class="nav-item">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+      Tools
+    </a>
+    <a class="nav-item">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Admin
+    </a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- ═══════ OPTION A: Metric Pills ═══════ -->
+    <div class="mockup-section">
+      <span class="version-label v-a">Option A — Metric Pills</span>
+      <h2>Compact metric pills on each row</h2>
+      <p class="desc">Metrics are presented as small rounded pill badges. Clean and scannable. Each pill has a highlighted value + label.</p>
+
+      <div class="header-row">
+        <div class="page-header">
+          <div class="mode-tag">Agency Mode</div>
+          <h1>Agency Control Center</h1>
+          <p class="sub">Your agency pipeline at a glance. Click any section to expand.</p>
+        </div>
+        <div class="date-picker">
+          <svg class="date-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke-width="2"/></svg>
+          All Time
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <!-- Active Clients -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Active Clients</span>
+          <span class="row-count">4</span>
+          <div class="row-spacer"></div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill pill-green"><span class="pill-value">$160,555</span> Revenue</span>
+            <span class="metric-pill pill-white"><span class="pill-value">28</span> Campaigns</span>
+            <span class="metric-pill"><span class="pill-value">$17,094</span> Ad Spend</span>
+            <span class="metric-pill pill-dim"><span class="pill-value">0</span> Leads</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Pipeline -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Sales Pipeline</span>
+          <span class="row-count">2</span>
+          <div class="row-spacer"></div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill"><span class="pill-value">1</span> Leads</span>
+            <span class="metric-pill pill-blue"><span class="pill-value">0</span> Appts</span>
+            <span class="metric-pill pill-yellow"><span class="pill-value">1</span> In Sales</span>
+            <span class="metric-pill pill-green"><span class="pill-value">0</span> Onboarding</span>
+            <span class="metric-pill pill-emerald"><span class="pill-value">$3,000</span> Pipeline</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Projects</span>
+          <span class="row-count">6</span>
+          <div class="row-spacer"></div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill pill-green"><span class="pill-value">2</span> Active</span>
+            <span class="metric-pill pill-yellow"><span class="pill-value">1</span> On Hold</span>
+            <span class="metric-pill pill-indigo"><span class="pill-value">3</span> Completed</span>
+            <span class="metric-pill pill-white"><span class="pill-value">0/6</span> Tasks</span>
+          </div>
+          <button class="btn-new-sm">+ New</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ OPTION B: Stat Columns ═══════ -->
+    <div class="mockup-section">
+      <span class="version-label v-b">Option B — Stat Columns</span>
+      <h2>Vertical stat columns with labels</h2>
+      <p class="desc">Metrics are stacked vertically (value over label) like a mini dashboard row. Gives more visual weight to the numbers.</p>
+
+      <!-- Active Clients -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Active Clients</span>
+          <span class="row-count">4</span>
+          <div class="row-spacer"></div>
+          <div class="client-metrics">
+            <div class="client-stat">
+              <span class="stat-value green">$160,555</span>
+              <span class="stat-label">Revenue</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value">28</span>
+              <span class="stat-label">Campaigns</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value">$17,094</span>
+              <span class="stat-label">Ad Spend</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value dim">0</span>
+              <span class="stat-label">Leads</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value dim">0</span>
+              <span class="stat-label">Appts</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value dim">0</span>
+              <span class="stat-label">Customers</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Pipeline -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Sales Pipeline</span>
+          <span class="row-count">2</span>
+          <div class="row-spacer"></div>
+          <div class="client-metrics">
+            <div class="client-stat">
+              <span class="stat-value">1</span>
+              <span class="stat-label">Leads</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--blue)">0</span>
+              <span class="stat-label">Appts</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--yellow)">1</span>
+              <span class="stat-label">In Sales</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--green)">0</span>
+              <span class="stat-label">Onboarding</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--emerald)">$3,000</span>
+              <span class="stat-label">Pipeline</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Projects</span>
+          <span class="row-count">6</span>
+          <div class="row-spacer"></div>
+          <div class="client-metrics">
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--green)">2</span>
+              <span class="stat-label">Active</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--yellow)">1</span>
+              <span class="stat-label">On Hold</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value" style="color:var(--indigo)">3</span>
+              <span class="stat-label">Completed</span>
+            </div>
+            <div class="client-stat">
+              <span class="stat-value">0/6</span>
+              <span class="stat-label">Tasks Done</span>
+            </div>
+          </div>
+          <button class="btn-new-sm" style="margin-left:10px;">+ New</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ OPTION C: Hybrid ═══════ -->
+    <div class="mockup-section">
+      <span class="version-label" style="background:rgba(251,146,60,0.1);color:var(--orange);">Option C — Hybrid</span>
+      <h2>Hero metric + secondary pills</h2>
+      <p class="desc">The most important metric is large and prominent. Supporting stats are smaller pills. Draws the eye to what matters most per section.</p>
+
+      <!-- Active Clients -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Active Clients</span>
+          <span class="row-count">4</span>
+          <div class="row-spacer"></div>
+          <span style="font-size:20px; font-weight:800; color:var(--green); margin-right:16px;">$160,555</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill pill-white"><span class="pill-value">28</span> Campaigns</span>
+            <span class="metric-pill"><span class="pill-value">$17,094</span> Spend</span>
+            <span class="metric-pill pill-dim"><span class="pill-value">0</span> Leads</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Pipeline -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Sales Pipeline</span>
+          <span class="row-count">2</span>
+          <div class="row-spacer"></div>
+          <span style="font-size:20px; font-weight:800; color:var(--emerald); margin-right:16px;">$3,000</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill"><span class="pill-value">1</span> Leads</span>
+            <span class="metric-pill pill-blue"><span class="pill-value">0</span> Appts</span>
+            <span class="metric-pill pill-yellow"><span class="pill-value">1</span> In Sales</span>
+            <span class="metric-pill pill-green"><span class="pill-value">0</span> Onboarding</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="accordion-row">
+        <div class="row-header">
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+          <span class="row-title">Projects</span>
+          <span class="row-count">6</span>
+          <div class="row-spacer"></div>
+          <span style="font-size:20px; font-weight:800; color:var(--text); margin-right:16px;">0/6</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="metric-pill pill-green"><span class="pill-value">2</span> Active</span>
+            <span class="metric-pill pill-yellow"><span class="pill-value">1</span> On Hold</span>
+            <span class="metric-pill pill-indigo"><span class="pill-value">3</span> Done</span>
+          </div>
+          <button class="btn-new-sm" style="margin-left:10px;">+ New</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
