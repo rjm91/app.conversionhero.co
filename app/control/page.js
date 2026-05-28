@@ -684,9 +684,14 @@ function ProjectsSection() {
   useEffect(() => { loadProjects() }, [])
 
   async function loadProjects() {
-    const res = await fetch('/api/projects')
-    const json = await res.json()
-    setProjects(json.projects || [])
+    try {
+      const res = await fetch('/api/projects')
+      const json = await res.json()
+      console.log('[ProjectsSection] loaded', json.projects?.length, 'projects')
+      setProjects(json.projects || [])
+    } catch (err) {
+      console.error('[ProjectsSection] fetch error:', err)
+    }
     setLoading(false)
   }
 
@@ -778,8 +783,6 @@ function ProjectsSection() {
     await patchTask(task.id, { status: next })
   }
 
-  if (loading) return <div className="text-sm text-gray-500 mt-4">Loading projects...</div>
-
   return (
     <>
       <div className="mt-10 mb-6">
@@ -792,6 +795,11 @@ function ProjectsSection() {
           </button>
         </div>
 
+        {loading ? (
+          <div className="text-sm text-gray-500">Loading projects...</div>
+        ) : projects.length === 0 ? (
+          <div className="text-sm text-gray-500">No projects found.</div>
+        ) : (
         <div className="flex flex-col gap-3">
           {PROJ_STATUS_ORDER.map(status => {
             const group = grouped[status] || []
@@ -907,6 +915,7 @@ function ProjectsSection() {
             )
           })}
         </div>
+        )}
       </div>
 
       {/* Edit project drawer */}
