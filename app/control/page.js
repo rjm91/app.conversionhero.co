@@ -859,11 +859,11 @@ function ProjectsSection() {
           <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
           {urgentCount > 0 && (
             <span className="relative flex items-center gap-1.5 ml-1" title={`${urgentCount} urgent project${urgentCount > 1 ? 's' : ''}`}>
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-60" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500" />
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-pink-500" />
               </span>
-              <span className="text-[11px] font-bold text-orange-400">{urgentCount}</span>
+              <span className="text-[11px] font-bold text-pink-400">{urgentCount}</span>
             </span>
           )}
           <div className="flex-1" />
