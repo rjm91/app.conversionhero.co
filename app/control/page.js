@@ -843,6 +843,7 @@ function ProjectsSection() {
   const activeCount = (grouped.active || []).length
   const onHoldCount = (grouped.on_hold || []).length
   const completedCount = (grouped.completed || []).length
+  const urgentCount = projects.filter(p => (p.priority === 'high' || p.priority === 'critical') && p.status === 'active').length
   const totalTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).length, 0)
   const doneTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).filter(t => t.status === 'done').length, 0)
 
@@ -856,6 +857,15 @@ function ProjectsSection() {
             fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           <span className="text-[15px] font-bold text-white">Projects</span>
           <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
+          {urgentCount > 0 && (
+            <span className="relative flex items-center gap-1.5 ml-1" title={`${urgentCount} urgent project${urgentCount > 1 ? 's' : ''}`}>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500" />
+              </span>
+              <span className="text-[11px] font-bold text-orange-400">{urgentCount}</span>
+            </span>
+          )}
           <div className="flex-1" />
           {!loading && (
             <div className="flex items-center">
