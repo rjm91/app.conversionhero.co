@@ -1502,7 +1502,7 @@ export default function ControlPage() {
           <PipelineAccordion
             id="clients"
             pipeline={pipelines.clients}
-            defaultCollapsed={false}
+            defaultCollapsed={true}
           />
 
           {/* Sales Pipeline — wraps Onboarding, Sales, Appointments, Leads */}
