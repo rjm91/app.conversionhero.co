@@ -843,7 +843,8 @@ function ProjectsSection() {
   const activeCount = (grouped.active || []).length
   const onHoldCount = (grouped.on_hold || []).length
   const completedCount = (grouped.completed || []).length
-  const urgentCount = projects.filter(p => (p.priority === 'high' || p.priority === 'critical') && p.status === 'active').length
+  const criticalCount = projects.filter(p => p.priority === 'critical' && p.status === 'active').length
+  const highCount = projects.filter(p => p.priority === 'high' && p.status === 'active').length
   const totalTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).length, 0)
   const doneTasks = projects.reduce((sum, p) => sum + (p.project_tasks || []).filter(t => t.status === 'done').length, 0)
 
@@ -857,13 +858,22 @@ function ProjectsSection() {
             fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           <span className="text-[15px] font-bold text-white">Projects</span>
           <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
-          {urgentCount > 0 && (
-            <span className="relative flex items-center gap-1.5 ml-1" title={`${urgentCount} urgent project${urgentCount > 1 ? 's' : ''}`}>
+          {criticalCount > 0 && (
+            <span className="flex items-center gap-1.5 ml-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+              </span>
+              <span className="text-[11px] font-bold text-red-400">Critical {criticalCount}</span>
+            </span>
+          )}
+          {highCount > 0 && (
+            <span className="flex items-center gap-1.5 ml-2">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-pink-500" />
               </span>
-              <span className="text-[11px] font-bold text-pink-400">{urgentCount}</span>
+              <span className="text-[11px] font-bold text-pink-400">High {highCount}</span>
             </span>
           )}
           <div className="flex-1" />
