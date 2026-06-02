@@ -67,7 +67,7 @@ const SALES_PIPELINE_KEYS = ['onboarding', 'sales', 'appointments', 'leads']
 /* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
 const APPT_STATUSES = ['Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
-const SALE_STATUSES = ['Agreement Pending', 'Agreement Sent', 'Agreement Signed', 'Invoice Sent', 'Invoice Paid', 'Sold', 'Sale Lost']
+const SALE_STATUSES = ['Agreement Pending', 'Agreement Drafted', 'Agreement Sent', 'Agreement Signed', 'Invoice Sent', 'Invoice Paid', 'Sold', 'Sale Lost']
 const ONBOARDING_STATUSES = ['Account Setup', 'Campaign Build', 'Review / QA', 'Ready to Launch']
 
 function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
@@ -1897,6 +1897,16 @@ export default function ControlPage() {
                   </div>
                 </div>
               </div>
+
+              {selectedLead.sale_status && (
+                <button
+                  onClick={() => router.push(`/control/agreement/${selectedLead.id}`)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white transition"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  {selectedLead.meta?.agreement ? 'Open Agreement' : 'Build Agreement'}
+                </button>
+              )}
 
               {selectedLead.sale_status === 'Sold' && (
                 <div>
