@@ -274,19 +274,19 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const onboardingPipeline = {
     title: 'Onboarding',
     count: onboardingLeads.length,
-    columns: ['Submitted','Onboarding Status','Contact','Company','Email','Phone','Deal Value',''],
+    columns: ['Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Deal Value',''],
     summaryMap: {},
     rows: onboardingRows,
   }
 
   // ── Sales ──
-  const salesRows = salesLeads.map(l => { const r = [...agencyLeadRow(l), { link: 'View →' }]; r._lead = l; return r })
+  const salesRows = salesLeads.map(l => { const r = [...agencyLeadRow(l), l.appt_date ? fmtDate(l.appt_date) : '—', { link: 'View →' }]; r._lead = l; return r })
   const proposalCount = salesLeads.filter(l => l.sale_status === 'Agreement Sent').length
 
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
     summaryMap: proposalCount ? { 3: { value: `${proposalCount} Agreement Sent` } } : {},
     rows: salesRows,
   }
@@ -299,7 +299,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone','Appointment Date',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
     summaryMap: { 2: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
@@ -316,7 +316,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const leadsPipeline = {
     title: 'Leads',
     count: onlyLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact','Company','Email','Phone',''],
+    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
   }
