@@ -494,7 +494,7 @@ function Collapse({ open, children }) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction }) {
   const { title, count, columns, summaryMap, rows, headerStats } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
@@ -550,6 +550,10 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                   </td>
                   {columns.slice(titleColspan).map((_, i) => {
                     const colIdx = titleColspan + i
+                    const isLast = colIdx === columns.length - 1
+                    if (isLast && headerAction) {
+                      return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06] text-right">{headerAction}</td>
+                    }
                     const summary = summaryMap[colIdx]
                     if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06]" />
                     const colorCls = summary.color ? (SUMMARY_COLORS[summary.color] || 'text-gray-300') : (summary.dim ? 'text-gray-500' : 'text-gray-200')
@@ -1259,6 +1263,61 @@ export default function ControlPage() {
   const [showDemo, setShowDemo] = useState(false)
   const [clientFilter, setClientFilter] = useState('active')
 
+  // Manual create: New Lead + Schedule Appointment modals
+  const emptyLead = { first_name: '', last_name: '', email: '', phone: '', company: '' }
+  const emptyAppt = { first_name: '', last_name: '', email: '', phone: '', company: '', appt_date: '', appt_time: '' }
+  const [createLeadOpen, setCreateLeadOpen] = useState(false)
+  const [newLead, setNewLead] = useState(emptyLead)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [newAppt, setNewAppt] = useState(emptyAppt)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createError, setCreateError] = useState(null)
+
+  // Create a lead (and optionally set appointment fields), then refresh pipelines
+  async function createLead(fields, apptFields) {
+    setCreateSaving(true)
+    setCreateError(null)
+    try {
+      const res = await fetch('/api/agency-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...fields, notify: false }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create lead')
+      let lead = json.lead
+      if (apptFields) {
+        const res2 = await fetch(`/api/agency-leads/${lead.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appt_status: 'Appt Set', ...apptFields }),
+        })
+        const json2 = await res2.json()
+        if (res2.ok && json2.lead) lead = json2.lead
+      }
+      const updated = [lead, ...agencyLeads]
+      setAgencyLeads(updated)
+      setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
+      return true
+    } catch (err) {
+      setCreateError(err.message)
+      return false
+    } finally {
+      setCreateSaving(false)
+    }
+  }
+
+  async function submitNewLead() {
+    const ok = await createLead(newLead)
+    if (ok) { setCreateLeadOpen(false); setNewLead(emptyLead) }
+  }
+
+  async function submitSchedule() {
+    const { appt_date, appt_time, ...contact } = newAppt
+    const ok = await createLead(contact, { appt_date, appt_time })
+    if (ok) { setScheduleOpen(false); setNewAppt(emptyAppt) }
+  }
+
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
     setLoading(true)
 
@@ -1579,6 +1638,25 @@ export default function ControlPage() {
                         onStatusChange={handleStatusChange}
                         onRowClick={(lead) => { setSelectedLead(lead); setConfirmDelete(false) }}
                         nested
+                        headerAction={
+                          key === 'leads' ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); setCreateError(null); setNewLead(emptyLead); setCreateLeadOpen(true) }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition whitespace-nowrap"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                              New
+                            </button>
+                          ) : key === 'appointments' ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); setCreateError(null); setNewAppt(emptyAppt); setScheduleOpen(true) }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition whitespace-nowrap"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                              Schedule
+                            </button>
+                          ) : undefined
+                        }
                       />
                     ))}
                   </div>
@@ -1588,6 +1666,122 @@ export default function ControlPage() {
           })()}
 
           <ProjectsSection />
+        </div>
+      )}
+
+      {/* ─── New Lead modal ─── */}
+      {createLeadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setCreateLeadOpen(false)} />
+          <div className="relative w-full max-w-md bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-white">New Lead</h2>
+              <button onClick={() => setCreateLeadOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">First name</label>
+                  <input autoFocus value={newLead.first_name} onChange={e => setNewLead(p => ({ ...p, first_name: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Last name</label>
+                  <input value={newLead.last_name} onChange={e => setNewLead(p => ({ ...p, last_name: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Email</label>
+                <input type="email" value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Phone</label>
+                <input value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Company</label>
+                <input value={newLead.company} onChange={e => setNewLead(p => ({ ...p, company: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+            </div>
+            {createError && <p className="text-xs text-red-400 mt-3">{createError}</p>}
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setCreateLeadOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
+              <button onClick={submitNewLead} disabled={createSaving || !(newLead.first_name.trim() || newLead.last_name.trim() || newLead.email.trim() || newLead.company.trim())}
+                className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {createSaving ? 'Creating…' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Schedule Appointment modal ─── */}
+      {scheduleOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setScheduleOpen(false)} />
+          <div className="relative w-full max-w-md bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-white">Schedule Appointment</h2>
+              <button onClick={() => setScheduleOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Date</label>
+                  <input type="date" autoFocus value={newAppt.appt_date} onChange={e => setNewAppt(p => ({ ...p, appt_date: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Time</label>
+                  <input type="time" value={newAppt.appt_time} onChange={e => setNewAppt(p => ({ ...p, appt_time: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">First name <span className="text-gray-600">(optional)</span></label>
+                  <input value={newAppt.first_name} onChange={e => setNewAppt(p => ({ ...p, first_name: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Last name <span className="text-gray-600">(optional)</span></label>
+                  <input value={newAppt.last_name} onChange={e => setNewAppt(p => ({ ...p, last_name: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Email <span className="text-gray-600">(optional)</span></label>
+                <input type="email" value={newAppt.email} onChange={e => setNewAppt(p => ({ ...p, email: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Phone <span className="text-gray-600">(optional)</span></label>
+                <input value={newAppt.phone} onChange={e => setNewAppt(p => ({ ...p, phone: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Company <span className="text-gray-600">(optional)</span></label>
+                <input value={newAppt.company} onChange={e => setNewAppt(p => ({ ...p, company: e.target.value }))}
+                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              </div>
+            </div>
+            {createError && <p className="text-xs text-red-400 mt-3">{createError}</p>}
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setScheduleOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
+              <button onClick={submitSchedule} disabled={createSaving || !newAppt.appt_date}
+                className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {createSaving ? 'Scheduling…' : 'Schedule'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
