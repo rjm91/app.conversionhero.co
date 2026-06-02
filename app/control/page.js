@@ -205,8 +205,8 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
     },
     headerStats: [
       { value: fmt$(totalCash), label: 'Revenue', color: 'text-emerald-400' },
-      { value: String(totalCampaignIds.size), label: 'Campaigns', color: 'text-white' },
-      { value: fmt$(totalAdSpend), label: 'Ad Spend', color: 'text-white' },
+      { value: String(totalCampaignIds.size), label: 'Campaigns', color: totalCampaignIds.size > 0 ? 'text-white' : 'text-gray-500' },
+      { value: fmt$(totalAdSpend), label: 'Ad Spend', color: totalAdSpend > 0 ? 'text-white' : 'text-gray-500' },
       { value: String(totalLeads), label: 'Leads', color: totalLeads > 0 ? 'text-white' : 'text-gray-500' },
       { value: String(totalAppts), label: 'Appts', color: totalAppts > 0 ? 'text-white' : 'text-gray-500' },
       { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-white' : 'text-gray-500' },
@@ -896,19 +896,19 @@ function ProjectsSection() {
           {!loading && (
             <div className="flex items-center">
               <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className="text-[15px] font-extrabold leading-tight text-green-400">{activeCount}</span>
+                <span className={`text-[15px] font-extrabold leading-tight ${activeCount > 0 ? 'text-white' : 'text-gray-500'}`}>{activeCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Active</span>
               </div>
               <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className="text-[15px] font-extrabold leading-tight text-yellow-400">{onHoldCount}</span>
+                <span className={`text-[15px] font-extrabold leading-tight ${onHoldCount > 0 ? 'text-white' : 'text-gray-500'}`}>{onHoldCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">On Hold</span>
               </div>
               <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className="text-[15px] font-extrabold leading-tight text-indigo-400">{completedCount}</span>
+                <span className={`text-[15px] font-extrabold leading-tight ${completedCount > 0 ? 'text-white' : 'text-gray-500'}`}>{completedCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Completed</span>
               </div>
               <div className="flex flex-col items-center px-3.5 min-w-[70px]">
-                <span className="text-[15px] font-extrabold leading-tight text-white">{doneTasks}/{totalTasks}</span>
+                <span className={`text-[15px] font-extrabold leading-tight ${doneTasks > 0 ? 'text-white' : 'text-gray-500'}`}>{doneTasks}/{totalTasks}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Tasks Done</span>
               </div>
             </div>
@@ -1546,19 +1546,19 @@ export default function ControlPage() {
                   <div className="flex-1" />
                   <div className="flex items-center">
                     <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className="text-[15px] font-extrabold leading-tight text-white">{leadCount}</span>
+                      <span className={`text-[15px] font-extrabold leading-tight ${leadCount > 0 ? 'text-white' : 'text-gray-500'}`}>{leadCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Leads</span>
                     </div>
                     <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className="text-[15px] font-extrabold leading-tight text-blue-400">{apptCount}</span>
+                      <span className={`text-[15px] font-extrabold leading-tight ${apptCount > 0 ? 'text-white' : 'text-gray-500'}`}>{apptCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Appts</span>
                     </div>
                     <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className="text-[15px] font-extrabold leading-tight text-yellow-400">{salCount}</span>
+                      <span className={`text-[15px] font-extrabold leading-tight ${salCount > 0 ? 'text-white' : 'text-gray-500'}`}>{salCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">In Sales</span>
                     </div>
                     <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className="text-[15px] font-extrabold leading-tight text-green-400">{onbCount}</span>
+                      <span className={`text-[15px] font-extrabold leading-tight ${onbCount > 0 ? 'text-white' : 'text-gray-500'}`}>{onbCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Onboarding</span>
                     </div>
                     <div className="flex flex-col items-center px-3.5 min-w-[70px]">
