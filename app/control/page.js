@@ -494,7 +494,7 @@ function Collapse({ open, children }) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction, selectable, onDeleteLeads }) {
   const { title, count, columns, summaryMap, rows, headerStats } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
@@ -503,6 +503,28 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
 
   const toggle = useCallback(() => setCollapsed(c => !c), [])
   const titleColspan = 5
+
+  // ── Row selection (checkbox column) ──
+  const [checked, setChecked] = useState(() => new Set())
+  const [deleting, setDeleting] = useState(false)
+  const selectableIds = useMemo(() => rows.filter(r => r._lead).map(r => r._lead.id), [rows])
+  const allChecked = selectableIds.length > 0 && selectableIds.every(id => checked.has(id))
+  function toggleAll(e) {
+    e.stopPropagation()
+    setChecked(allChecked ? new Set() : new Set(selectableIds))
+  }
+  function toggleRow(id, e) {
+    e.stopPropagation()
+    setChecked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  async function handleDelete(e) {
+    e.stopPropagation()
+    if (!onDeleteLeads || checked.size === 0) return
+    if (!window.confirm(`Delete ${checked.size} record${checked.size > 1 ? 's' : ''}? This can't be undone.`)) return
+    setDeleting(true)
+    try { await onDeleteLeads([...checked]); setChecked(new Set()) } finally { setDeleting(false) }
+  }
+  const colSpanAll = columns.length + (selectable ? 1 : 0)
 
   return (
     <div className={nested ? 'border-b border-white/[0.04]' : 'mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden'}>
@@ -536,6 +558,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 </td>
               ) : (
                 <>
+                  {selectable && <td className="w-10 px-4 border-b border-white/[0.06]" />}
                   <td
                     colSpan={Math.min(titleColspan, columns.length)}
                     className="py-3.5 px-5 border-b border-white/[0.06] whitespace-nowrap"
@@ -551,8 +574,18 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                   {columns.slice(titleColspan).map((_, i) => {
                     const colIdx = titleColspan + i
                     const isLast = colIdx === columns.length - 1
-                    if (isLast && headerAction) {
-                      return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06] text-right">{headerAction}</td>
+                    if (isLast && (headerAction || selectable)) {
+                      return (
+                        <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06] text-right">
+                          {selectable && checked.size > 0 ? (
+                            <button onClick={handleDelete} disabled={deleting}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition whitespace-nowrap disabled:opacity-50">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              {deleting ? 'Deleting…' : `Delete ${checked.size}`}
+                            </button>
+                          ) : (headerAction || null)}
+                        </td>
+                      )
                     }
                     const summary = summaryMap[colIdx]
                     if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06]" />
@@ -569,6 +602,12 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
 
             {!collapsed && (
               <tr className="col-headers">
+                {selectable && (
+                  <th className="w-10 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                    <input type="checkbox" checked={allChecked} onChange={toggleAll}
+                      className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer align-middle" />
+                  </th>
+                )}
                 {columns.map((col, i) => (
                   <th
                     key={i}
@@ -585,7 +624,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="py-8 px-5 text-center text-gray-500 text-sm">
+                  <td colSpan={colSpanAll} className="py-8 px-5 text-center text-gray-500 text-sm">
                     No data yet
                   </td>
                 </tr>
@@ -593,9 +632,17 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 rows.map((row, ri) => (
                   <tr
                     key={ri}
-                    className={`hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''}`}
+                    className={`hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''} ${row._lead && checked.has(row._lead.id) ? 'bg-red-500/[0.06]' : ''}`}
                     onClick={() => onRowClick && row._lead && onRowClick(row._lead)}
                   >
+                    {selectable && (
+                      <td className="px-4 py-3.5 border-b border-white/[0.04]" onClick={e => e.stopPropagation()}>
+                        {row._lead && (
+                          <input type="checkbox" checked={checked.has(row._lead.id)} onChange={e => toggleRow(row._lead.id, e)}
+                            className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer align-middle" />
+                        )}
+                      </td>
+                    )}
                     {row.map((cell, ci) => (
                       <td
                         key={ci}
@@ -1312,6 +1359,14 @@ export default function ControlPage() {
     if (ok) { setCreateLeadOpen(false); setNewLead(emptyLead) }
   }
 
+  // Bulk-delete leads selected via the accordion checkboxes
+  async function deleteLeads(ids) {
+    await Promise.all(ids.map(id => fetch(`/api/agency-leads/${id}`, { method: 'DELETE' })))
+    const updated = agencyLeads.filter(l => !ids.includes(l.id))
+    setAgencyLeads(updated)
+    setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
+  }
+
   async function submitSchedule() {
     const { appt_date, appt_time, ...contact } = newAppt
     const ok = await createLead(contact, { appt_date, appt_time })
@@ -1638,6 +1693,8 @@ export default function ControlPage() {
                         onStatusChange={handleStatusChange}
                         onRowClick={(lead) => { setSelectedLead(lead); setConfirmDelete(false) }}
                         nested
+                        selectable
+                        onDeleteLeads={deleteLeads}
                         headerAction={
                           key === 'leads' ? (
                             <button
