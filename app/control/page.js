@@ -477,6 +477,21 @@ function useColumnResize(tableRef, isCollapsed, rowCount) {
   }, [isCollapsed, tableRef, rowCount])
 }
 
+/* ─── Smooth collapse wrapper (animates any content height via grid-rows) ─── */
+function Collapse({ open, children }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateRows: open ? '1fr' : '0fr',
+        transition: 'grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      <div style={{ overflow: 'hidden', minHeight: 0 }}>{children}</div>
+    </div>
+  )
+}
+
 /* ─── Accordion Pipeline Component ─── */
 function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested }) {
   const { title, count, columns, summaryMap, rows, headerStats } = pipeline
@@ -904,7 +919,7 @@ function ProjectsSection() {
           </button>
         </button>
 
-        {projectsOpen && (
+        <Collapse open={projectsOpen}>
           <div className="border-t border-white/5">
             {loading ? (
               <div className="px-5 py-4 text-sm text-gray-500">Loading projects...</div>
@@ -1038,7 +1053,7 @@ function ProjectsSection() {
               })
             )}
           </div>
-        )}
+        </Collapse>
       </div>
 
       {/* Edit project drawer */}
@@ -1552,7 +1567,7 @@ export default function ControlPage() {
                   </div>
                 </div>
 
-                {salesPipelineOpen && (
+                <Collapse open={salesPipelineOpen}>
                   <div className="border-t border-white/[0.06]">
                     {SALES_PIPELINE_KEYS.map(key => (
                       <PipelineAccordion
@@ -1566,7 +1581,7 @@ export default function ControlPage() {
                       />
                     ))}
                   </div>
-                )}
+                </Collapse>
               </div>
             )
           })()}
