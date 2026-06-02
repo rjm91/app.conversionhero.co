@@ -1310,13 +1310,10 @@ export default function ControlPage() {
   const [showDemo, setShowDemo] = useState(false)
   const [clientFilter, setClientFilter] = useState('active')
 
-  // Manual create: New Lead + Schedule Appointment modals
-  const emptyLead = { first_name: '', last_name: '', email: '', phone: '', company: '' }
-  const emptyAppt = { first_name: '', last_name: '', email: '', phone: '', company: '', appt_date: '', appt_time: '' }
-  const [createLeadOpen, setCreateLeadOpen] = useState(false)
-  const [newLead, setNewLead] = useState(emptyLead)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
-  const [newAppt, setNewAppt] = useState(emptyAppt)
+  // Manual create: unified New (lead, optionally with appointment) modal
+  const emptyNew = { first_name: '', last_name: '', email: '', phone: '', company: '', withAppt: false, appt_date: '', appt_time: '' }
+  const [newOpen, setNewOpen] = useState(false)
+  const [newRecord, setNewRecord] = useState(emptyNew)
   const [createSaving, setCreateSaving] = useState(false)
   const [createError, setCreateError] = useState(null)
 
@@ -1354,9 +1351,11 @@ export default function ControlPage() {
     }
   }
 
-  async function submitNewLead() {
-    const ok = await createLead(newLead)
-    if (ok) { setCreateLeadOpen(false); setNewLead(emptyLead) }
+  async function submitNew() {
+    const { withAppt, appt_date, appt_time, ...contact } = newRecord
+    const apptFields = withAppt && appt_date ? { appt_date, appt_time } : null
+    const ok = await createLead(contact, apptFields)
+    if (ok) { setNewOpen(false); setNewRecord(emptyNew) }
   }
 
   // Bulk-delete leads selected via the accordion checkboxes
@@ -1365,12 +1364,6 @@ export default function ControlPage() {
     const updated = agencyLeads.filter(l => !ids.includes(l.id))
     setAgencyLeads(updated)
     setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
-  }
-
-  async function submitSchedule() {
-    const { appt_date, appt_time, ...contact } = newAppt
-    const ok = await createLead(contact, { appt_date, appt_time })
-    if (ok) { setScheduleOpen(false); setNewAppt(emptyAppt) }
   }
 
   const fetchData = useCallback(async (datePreset, cStart, cEnd) => {
@@ -1680,6 +1673,13 @@ export default function ControlPage() {
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Pipeline</span>
                     </div>
                   </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); setCreateError(null); setNewRecord(emptyNew); setNewOpen(true) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition ml-3 whitespace-nowrap"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    New
+                  </button>
                 </div>
 
                 <Collapse open={salesPipelineOpen}>
@@ -1695,25 +1695,6 @@ export default function ControlPage() {
                         nested
                         selectable
                         onDeleteLeads={deleteLeads}
-                        headerAction={
-                          key === 'leads' ? (
-                            <button
-                              onClick={e => { e.stopPropagation(); setCreateError(null); setNewLead(emptyLead); setCreateLeadOpen(true) }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition whitespace-nowrap"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                              New
-                            </button>
-                          ) : key === 'appointments' ? (
-                            <button
-                              onClick={e => { e.stopPropagation(); setCreateError(null); setNewAppt(emptyAppt); setScheduleOpen(true) }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition whitespace-nowrap"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                              Schedule
-                            </button>
-                          ) : undefined
-                        }
                       />
                     ))}
                   </div>
@@ -1726,14 +1707,14 @@ export default function ControlPage() {
         </div>
       )}
 
-      {/* ─── New Lead modal ─── */}
-      {createLeadOpen && (
+      {/* ─── New record modal (lead, optionally with appointment) ─── */}
+      {newOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setCreateLeadOpen(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setNewOpen(false)} />
           <div className="relative w-full max-w-md bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-bold text-white">New Lead</h2>
-              <button onClick={() => setCreateLeadOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+              <button onClick={() => setNewOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -1741,101 +1722,69 @@ export default function ControlPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">First name</label>
-                  <input autoFocus value={newLead.first_name} onChange={e => setNewLead(p => ({ ...p, first_name: e.target.value }))}
+                  <input autoFocus value={newRecord.first_name} onChange={e => setNewRecord(p => ({ ...p, first_name: e.target.value }))}
                     className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Last name</label>
-                  <input value={newLead.last_name} onChange={e => setNewLead(p => ({ ...p, last_name: e.target.value }))}
+                  <input value={newRecord.last_name} onChange={e => setNewRecord(p => ({ ...p, last_name: e.target.value }))}
                     className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">Email</label>
-                <input type="email" value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))}
+                <input type="email" value={newRecord.email} onChange={e => setNewRecord(p => ({ ...p, email: e.target.value }))}
                   className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
               </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Phone</label>
-                <input value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Phone</label>
+                  <input value={newRecord.phone} onChange={e => setNewRecord(p => ({ ...p, phone: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Company</label>
+                  <input value={newRecord.company} onChange={e => setNewRecord(p => ({ ...p, company: e.target.value }))}
+                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Company</label>
-                <input value={newLead.company} onChange={e => setNewLead(p => ({ ...p, company: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-              </div>
-            </div>
-            {createError && <p className="text-xs text-red-400 mt-3">{createError}</p>}
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setCreateLeadOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
-              <button onClick={submitNewLead} disabled={createSaving || !(newLead.first_name.trim() || newLead.last_name.trim() || newLead.email.trim() || newLead.company.trim())}
-                className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                {createSaving ? 'Creating…' : 'Create Lead'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* ─── Schedule Appointment modal ─── */}
-      {scheduleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setScheduleOpen(false)} />
-          <div className="relative w-full max-w-md bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold text-white">Schedule Appointment</h2>
-              <button onClick={() => setScheduleOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Date</label>
-                  <input type="date" autoFocus value={newAppt.appt_date} onChange={e => setNewAppt(p => ({ ...p, appt_date: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Time</label>
-                  <input type="time" value={newAppt.appt_time} onChange={e => setNewAppt(p => ({ ...p, appt_time: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">First name <span className="text-gray-600">(optional)</span></label>
-                  <input value={newAppt.first_name} onChange={e => setNewAppt(p => ({ ...p, first_name: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Last name <span className="text-gray-600">(optional)</span></label>
-                  <input value={newAppt.last_name} onChange={e => setNewAppt(p => ({ ...p, last_name: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Email <span className="text-gray-600">(optional)</span></label>
-                <input type="email" value={newAppt.email} onChange={e => setNewAppt(p => ({ ...p, email: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Phone <span className="text-gray-600">(optional)</span></label>
-                <input value={newAppt.phone} onChange={e => setNewAppt(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Company <span className="text-gray-600">(optional)</span></label>
-                <input value={newAppt.company} onChange={e => setNewAppt(p => ({ ...p, company: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+              {/* Optional appointment */}
+              <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={newRecord.withAppt} onChange={e => setNewRecord(p => ({ ...p, withAppt: e.target.checked }))}
+                    className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer" />
+                  <span className="text-sm text-white font-medium">Schedule an appointment</span>
+                </label>
+                {newRecord.withAppt && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Date</label>
+                      <input type="date" value={newRecord.appt_date} onChange={e => setNewRecord(p => ({ ...p, appt_date: e.target.value }))}
+                        className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Time</label>
+                      <input type="time" value={newRecord.appt_time} onChange={e => setNewRecord(p => ({ ...p, appt_time: e.target.value }))}
+                        className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            {createError && <p className="text-xs text-red-400 mt-3">{createError}</p>}
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setScheduleOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
-              <button onClick={submitSchedule} disabled={createSaving || !newAppt.appt_date}
+
+            <p className="text-[11px] text-gray-500 mt-3">
+              {newRecord.withAppt
+                ? <>Will be added to <span className="text-blue-400 font-medium">Appointments</span> (status: Appt Set).</>
+                : <>Will be added to <span className="text-blue-400 font-medium">Leads</span> (status: New / Not Yet Contacted).</>}
+            </p>
+            {createError && <p className="text-xs text-red-400 mt-2">{createError}</p>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setNewOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
+              <button onClick={submitNew}
+                disabled={createSaving || !(newRecord.first_name.trim() || newRecord.last_name.trim() || newRecord.email.trim() || newRecord.company.trim()) || (newRecord.withAppt && !newRecord.appt_date)}
                 className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                {createSaving ? 'Scheduling…' : 'Schedule'}
+                {createSaving ? 'Saving…' : (newRecord.withAppt ? 'Create & Schedule' : 'Create Lead')}
               </button>
             </div>
           </div>
