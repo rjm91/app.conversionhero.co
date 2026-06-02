@@ -264,6 +264,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
       l.company || funnel || '—',
       l.email || '—',
       l.phone || '—',
+      l.appt_date ? fmtDate(l.appt_date) : '—',
       l.sale_amount ? fmt$(l.sale_amount) : '—',
       { link: 'View →' },
     ]
@@ -274,7 +275,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const onboardingPipeline = {
     title: 'Onboarding',
     count: onboardingLeads.length,
-    columns: ['Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Deal Value',''],
+    columns: ['Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Appointment Date','Deal Value',''],
     summaryMap: {},
     rows: onboardingRows,
   }
