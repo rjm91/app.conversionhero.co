@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { buildAgreementEmailHtml, defaultTermsText } from '../../../../lib/agreement-email.js'
+import AgentPanel from '../../../../components/AgentPanel'
 
 /* ─── Package data (from pricing page) ─── */
 const PACKAGES = [
@@ -490,6 +491,8 @@ export default function AgreementBuilderPage() {
           {toast}
         </div>
       )}
+
+      <AgentPanel mode="agency" />
     </div>
   )
 }
