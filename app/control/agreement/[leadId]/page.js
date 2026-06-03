@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { buildAgreementEmailHtml } from '../../../../lib/agreement-email.js'
+import { buildAgreementEmailHtml, defaultTermsText } from '../../../../lib/agreement-email.js'
 
 /* ─── Package data (from pricing page) ─── */
 const PACKAGES = [
@@ -21,6 +21,23 @@ const emptyForm = {
   setupFee: '', adOn: false, adPct: '', notes: '',
 }
 
+/* ─── Collapsible section (accordion) ─── */
+function Section({ title, open, onToggle, children }) {
+  return (
+    <div className="rounded-2xl border border-white/10 overflow-hidden" style={{ background: '#12161f' }}>
+      <div role="button" onClick={onToggle} className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-white/[0.02] transition">
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        <h2 className="text-sm font-bold text-white uppercase tracking-wide">{title}</h2>
+      </div>
+      <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows 260ms cubic-bezier(0.4,0,0.2,1)' }}>
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          <div className="px-5 pb-5">{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AgreementBuilderPage() {
   const { leadId } = useParams()
   const router = useRouter()
@@ -30,12 +47,19 @@ export default function AgreementBuilderPage() {
   const [lead, setLead] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [sending, setSending] = useState(false)
   const [statusLabel, setStatusLabel] = useState('Draft')
   const [toast, setToast] = useState(null)
-  const [emailOpen, setEmailOpen] = useState(false)
-  const [emailSubject, setEmailSubject] = useState('')
-  const [emailMessage, setEmailMessage] = useState('')
-  const [sending, setSending] = useState(false)
+
+  // Email overrides: null = use the live default, otherwise the edited value.
+  const [emailSubject, setEmailSubject] = useState(null)
+  const [emailMessage, setEmailMessage] = useState(null)
+  const [emailTerms, setEmailTerms] = useState(null)
+
+  const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, email: true })
+  const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
+
+  function flash(msg, ms = 2800) { setToast(msg); setTimeout(() => setToast(null), ms) }
 
   // Load the lead + any existing agreement draft
   useEffect(() => {
@@ -62,7 +86,11 @@ export default function AgreementBuilderPage() {
           adPct: ag.adPct ?? '',
           notes: ag.notes || '',
         })
+        setEmailSubject(ag.emailSubject ?? null)
+        setEmailMessage(ag.emailMessage ?? null)
+        setEmailTerms(ag.emailTerms ?? null)
         if (l.sale_status === 'Agreement Sent') setStatusLabel('Agreement Sent')
+        else if (l.sale_status === 'Agreement Viewed') setStatusLabel('Agreement Viewed')
         else if (l.sale_status === 'Agreement Drafted' || ag.packageId) setStatusLabel('Agreement Drafted')
       } catch {
         if (active) setNotFound(true)
@@ -81,52 +109,16 @@ export default function AgreementBuilderPage() {
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  async function persist(saleStatus, label, doneMsg) {
-    if (!lead) return
-    setSaving(true)
-    try {
-      const agreement = {
-        packageId: form.packageId,
-        billing: form.billing,
-        customPrice: form.customPrice,
-        setupFee: form.setupFee,
-        adOn: form.adOn,
-        adPct: form.adPct,
-        notes: form.notes,
-        monthly: Math.round(monthly),
-        status: label,
-        updated_at: new Date().toISOString(),
-      }
-      const [first_name, ...rest] = (form.contact || '').trim().split(/\s+/)
-      const payload = {
-        company: form.company,
-        first_name: first_name || null,
-        last_name: rest.join(' ') || null,
-        email: form.email,
-        phone: form.phone,
-        sale_status: saleStatus,
-        meta: { ...(lead.meta || {}), agreement },
-      }
-      const res = await fetch(`/api/agency-leads/${lead.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Save failed')
-      setLead(json.lead)
-      setStatusLabel(label)
-      setToast(doneMsg)
-      setTimeout(() => setToast(null), 2500)
-    } catch (err) {
-      setToast(err.message)
-      setTimeout(() => setToast(null), 3000)
-    } finally {
-      setSaving(false)
-    }
+  const customer = { company: form.company, contact: form.contact, email: form.email, phone: form.phone }
+  const agreementData = { packageName: pkg?.name, videos: pkg?.videos, monthly: Math.round(monthly), setupFee: setup, adOn: form.adOn, adPct: form.adPct }
+
+  function defaultMessageText() {
+    return `Hi ${(form.contact || '').split(' ')[0] || 'there'},\n\nThanks for the time today. Here's the agreement we put together — ${pkg?.name || 'your package'} at ${money(monthly)}/mo${setup ? ` plus a one-time ${money(setup)} setup fee` : ''}. Click below to review and get started.\n\n— ConversionHero`
   }
 
-  const saveDraft = () => persist('Agreement Drafted', 'Agreement Drafted', 'Draft saved')
+  const subjectVal = emailSubject !== null ? emailSubject : 'Your ConversionHero agreement & invoice'
+  const messageVal = emailMessage !== null ? emailMessage : defaultMessageText()
+  const termsVal   = emailTerms   !== null ? emailTerms   : defaultTermsText({ customer, agreement: agreementData })
 
   function lineItems() {
     const items = []
@@ -135,45 +127,73 @@ export default function AgreementBuilderPage() {
     return items
   }
 
-  function openSend() {
-    if (!pkg) { setToast('Pick a package first.'); setTimeout(() => setToast(null), 2500); return }
-    if (!form.email) { setToast('Add a client email first.'); setTimeout(() => setToast(null), 2500); return }
-    setEmailSubject('Your Conversion Hero agreement & invoice')
-    setEmailMessage(`Hi ${(form.contact || '').split(' ')[0] || 'there'},\n\nThanks for the time today. Here's the agreement we put together — ${pkg.name} at ${money(monthly)}/mo${setup ? ` plus a one-time ${money(setup)} setup fee` : ''}. Click below to review and get started.\n\n— Conversion Hero`)
-    setEmailOpen(true)
+  function agreementMeta(status) {
+    return {
+      packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
+      billing: form.billing, customPrice: form.customPrice,
+      setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
+      monthly: Math.round(monthly),
+      emailSubject, emailMessage, emailTerms,
+      status, updated_at: new Date().toISOString(),
+    }
+  }
+
+  async function saveDraft() {
+    if (!lead) return
+    setSaving(true)
+    try {
+      const [first_name, ...rest] = (form.contact || '').trim().split(/\s+/)
+      const res = await fetch(`/api/agency-leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company: form.company,
+          first_name: first_name || null,
+          last_name: rest.join(' ') || null,
+          email: form.email,
+          phone: form.phone,
+          sale_status: 'Agreement Drafted',
+          meta: { ...(lead.meta || {}), agreement: agreementMeta('Agreement Drafted') },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Save failed')
+      setLead(json.lead)
+      setStatusLabel('Agreement Drafted')
+      flash('Draft saved')
+    } catch (err) {
+      flash(err.message, 3500)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function doSend() {
     if (!lead) return
+    if (!pkg) { flash('Pick a package first.'); return }
+    if (!form.email) { flash('Add a client email first.'); return }
+    if (!window.confirm(`Send this invoice & agreement to ${form.email}?`)) return
     setSending(true)
     try {
-      const agreement = {
-        packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
-        billing: form.billing, customPrice: form.customPrice,
-        setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
-        monthly: Math.round(monthly), status: 'Agreement Sent', updated_at: new Date().toISOString(),
-      }
       const res = await fetch('/api/agreements/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           leadId: lead.id,
-          subject: emailSubject,
-          message: emailMessage,
-          customer: { company: form.company, contact: form.contact, email: form.email, phone: form.phone },
+          subject: subjectVal,
+          message: messageVal,
+          terms: termsVal,
+          customer,
           lines: lineItems(),
-          agreement,
+          agreement: agreementMeta('Agreement Sent'),
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Send failed')
       setStatusLabel('Agreement Sent')
-      setEmailOpen(false)
-      setToast('Invoice sent to ' + form.email)
-      setTimeout(() => setToast(null), 3500)
+      flash('Invoice sent to ' + form.email, 3500)
     } catch (err) {
-      setToast(err.message)
-      setTimeout(() => setToast(null), 5000)
+      flash(err.message, 5000)
     } finally {
       setSending(false)
     }
@@ -193,9 +213,24 @@ export default function AgreementBuilderPage() {
 
   const statusBadgeCls = statusLabel === 'Agreement Sent'
     ? 'bg-blue-500/20 text-blue-300'
-    : statusLabel === 'Agreement Drafted'
-      ? 'bg-amber-500/20 text-amber-300'
-      : 'bg-gray-700 text-gray-300'
+    : statusLabel === 'Agreement Viewed'
+      ? 'bg-violet-500/20 text-violet-300'
+      : statusLabel === 'Agreement Drafted'
+        ? 'bg-amber-500/20 text-amber-300'
+        : 'bg-gray-700 text-gray-300'
+
+  const inputCls = 'w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500'
+  const ResetLink = ({ onClick, show }) => show
+    ? <button onClick={onClick} className="text-[11px] text-blue-400 hover:text-blue-300">Reset to default</button>
+    : null
+
+  const previewHtml = buildAgreementEmailHtml({
+    message: messageVal,
+    link: '#preview',
+    lines: lineItems(),
+    total: setup + monthly,
+    termsText: termsVal,
+  })
 
   return (
     <div className="min-h-screen text-gray-200" style={{ background: 'linear-gradient(135deg, #0a0e1a 0%, #0f1117 50%, #0a0e1a 100%)' }}>
@@ -212,48 +247,43 @@ export default function AgreementBuilderPage() {
             <p className="text-sm font-semibold text-white">{form.company || form.contact || '—'}</p>
           </div>
         </div>
-        <p className="text-sm text-gray-500 mb-8">Fill out the deal terms — saves as a draft, then sends for signature.</p>
+        <p className="text-sm text-gray-500 mb-8">Fill out the deal terms — the email preview at the bottom is exactly what your client receives.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* LEFT: FORM */}
-          <div className="lg:col-span-3 space-y-6">
+          {/* LEFT: FORM + EMAIL + PREVIEW */}
+          <div className="lg:col-span-3 space-y-4">
             {/* Client & Deal */}
-            <div className="rounded-2xl border border-white/10 p-5" style={{ background: '#12161f' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wide">Client &amp; Deal</h2>
-                <span className="text-xs text-gray-500">Date: <span className="text-gray-300 font-medium">{today}</span></span>
-              </div>
+            <Section title="Client & Deal" open={open.client} onToggle={() => toggle('client')}>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500">Company</label>
-                  <input value={form.company} onChange={e => set('company', e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                  <input value={form.company} onChange={e => set('company', e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Contact name</label>
-                  <input value={form.contact} onChange={e => set('contact', e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                  <input value={form.contact} onChange={e => set('contact', e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Email</label>
-                  <input value={form.email} onChange={e => set('email', e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                  <input value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Phone</label>
-                  <input value={form.phone} onChange={e => set('phone', e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                  <input value={form.phone} onChange={e => set('phone', e.target.value)} className={inputCls} />
                 </div>
               </div>
-            </div>
+              <p className="text-[11px] text-gray-500 mt-3">Date: <span className="text-gray-400">{today}</span></p>
+            </Section>
 
             {/* Package */}
-            <div className="rounded-2xl border border-white/10 p-5" style={{ background: '#12161f' }}>
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wide">Package</h2>
+            <Section title="Package" open={open.package} onToggle={() => toggle('package')}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-500">YouTube Advertising included in every package.</p>
                 <div className="inline-flex items-center bg-gray-900/70 rounded-full p-1 text-xs">
                   <button onClick={() => set('billing', 'monthly')} className={`px-3 py-1 rounded-full font-semibold ${form.billing === 'monthly' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Monthly</button>
                   <button onClick={() => set('billing', 'annual')} className={`px-3 py-1 rounded-full font-semibold ${form.billing === 'annual' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Annual <span className="text-green-400">−15%</span></button>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mb-4">YouTube Advertising included in every package.</p>
-
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {PACKAGES.map(p => {
                   const selected = form.packageId === p.id
@@ -270,7 +300,6 @@ export default function AgreementBuilderPage() {
                   )
                 })}
               </div>
-
               {pkg?.custom && (
                 <div className="mt-3 p-3 rounded-lg bg-yellow-900/15 border border-yellow-500/20">
                   <label className="text-xs text-yellow-400 font-semibold">Synergy Hero is custom — enter monthly price</label>
@@ -281,11 +310,10 @@ export default function AgreementBuilderPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </Section>
 
             {/* Fees */}
-            <div className="rounded-2xl border border-white/10 p-5" style={{ background: '#12161f' }}>
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-4">Fees</h2>
+            <Section title="Fees" open={open.fees} onToggle={() => toggle('fees')}>
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm text-white font-medium">Setup fee</p>
@@ -312,24 +340,65 @@ export default function AgreementBuilderPage() {
                 <div className="pl-1 pb-2">
                   <div className="flex items-center gap-1">
                     <input type="number" value={form.adPct} onChange={e => set('adPct', e.target.value)} className="w-20 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white text-right focus:outline-none focus:border-blue-500" />
-                    <span className="text-gray-400 text-sm">% of ad spend</span>
+                    <span className="text-gray-400 text-sm">% of ad spend (kicks in over $10k/mo)</span>
                   </div>
                 </div>
               )}
-            </div>
+            </Section>
 
             {/* Special terms */}
-            <div className="rounded-2xl border border-white/10 p-5" style={{ background: '#12161f' }}>
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-3">Special terms <span className="text-gray-600 normal-case font-normal">(optional)</span></h2>
+            <Section title="Special terms (optional)" open={open.special} onToggle={() => toggle('special')}>
               <textarea rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. 30-day cancellation, performance guarantee…" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+            </Section>
+
+            {/* Email (editable) */}
+            <Section title="Email" open={open.email} onToggle={() => toggle('email')}>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-500">Subject</label>
+                    <ResetLink show={emailSubject !== null} onClick={() => setEmailSubject(null)} />
+                  </div>
+                  <input value={subjectVal} onChange={e => setEmailSubject(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-500">Message</label>
+                    <ResetLink show={emailMessage !== null} onClick={() => setEmailMessage(null)} />
+                  </div>
+                  <textarea rows={6} value={messageVal} onChange={e => setEmailMessage(e.target.value)} className={`${inputCls} leading-relaxed`} />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-500">Agreement terms</label>
+                    <ResetLink show={emailTerms !== null} onClick={() => setEmailTerms(null)} />
+                  </div>
+                  <textarea rows={16} value={termsVal} onChange={e => setEmailTerms(e.target.value)} className={`${inputCls} leading-relaxed font-mono text-[12px]`} />
+                  <p className="text-[11px] text-gray-500 mt-1">Edit freely. Lines like “3. Fees” become section headings; lines starting with “- ” become bullets. Invoice amounts &amp; the Pay button are filled automatically.</p>
+                </div>
+              </div>
+            </Section>
+
+            {/* Live email preview */}
+            <div>
+              <p className="text-xs font-bold text-white uppercase tracking-wide mb-2 px-1">Email Preview — exactly what your client receives</p>
+              <div className="rounded-2xl border border-white/10 overflow-hidden bg-white">
+                <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600 space-y-0.5">
+                  <div><span className="text-gray-400">From:</span> ConversionHero &lt;notifications@send.conversionhero.co&gt;</div>
+                  <div><span className="text-gray-400">To:</span> {form.email || '—'}</div>
+                  <div><span className="text-gray-400">Subject:</span> <span className="text-gray-800 font-medium">{subjectVal || '—'}</span></div>
+                </div>
+                <iframe title="Email preview" className="w-full bg-white" style={{ height: 620, border: 'none' }} srcDoc={previewHtml} />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1.5 px-1">The “Review &amp; Pay” button links to the live QuickBooks invoice once sent.</p>
             </div>
           </div>
 
-          {/* RIGHT: PREVIEW */}
+          {/* RIGHT: SUMMARY + ACTIONS */}
           <div className="lg:col-span-2">
             <div className="rounded-2xl border border-white/10 p-5 sticky top-6" style={{ background: '#0d1119' }}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wide">Agreement Preview</h2>
+                <h2 className="text-sm font-bold text-white uppercase tracking-wide">Agreement Summary</h2>
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusBadgeCls}`}>{statusLabel}</span>
               </div>
 
@@ -357,80 +426,17 @@ export default function AgreementBuilderPage() {
               </div>
 
               <div className="mt-5 space-y-2">
-                <button onClick={openSend} disabled={saving || sending} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
-                  Review &amp; Send →
+                <button onClick={doSend} disabled={saving || sending} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
+                  {sending ? 'Sending…' : 'Send Invoice →'}
                 </button>
-                <button onClick={saveDraft} disabled={saving} className="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition disabled:opacity-50">
-                  Save Draft
+                <button onClick={saveDraft} disabled={saving || sending} className="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition disabled:opacity-50">
+                  {saving ? 'Saving…' : 'Save Draft'}
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Email preview modal */}
-      {emailOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => !sending && setEmailOpen(false)} />
-          <div className="relative w-full max-w-3xl bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-white">Review &amp; Send</h2>
-              <button onClick={() => !sending && setEmailOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500">To</label>
-                <div className="mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-gray-300">{form.email || '—'}</div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Subject</label>
-                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Message</label>
-                <textarea rows={6} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 leading-relaxed" />
-              </div>
-
-              {/* Full email preview — a true mirror of what the client receives */}
-              <div>
-                <label className="text-xs text-gray-500">Preview — exactly what your client receives</label>
-                <div className="mt-1 rounded-lg border border-white/10 overflow-hidden bg-white">
-                  <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600 space-y-0.5">
-                    <div><span className="text-gray-400">From:</span> ConversionHero &lt;notifications@send.conversionhero.co&gt;</div>
-                    <div><span className="text-gray-400">To:</span> {form.email || '—'}</div>
-                    <div><span className="text-gray-400">Subject:</span> <span className="text-gray-800 font-medium">{emailSubject || '—'}</span></div>
-                  </div>
-                  <iframe
-                    title="Email preview"
-                    className="w-full bg-white"
-                    style={{ height: 440, border: 'none' }}
-                    srcDoc={buildAgreementEmailHtml({
-                      message: emailMessage,
-                      link: '#preview',
-                      lines: lineItems(),
-                      total: setup + monthly,
-                      customer: { company: form.company, contact: form.contact, email: form.email, phone: form.phone },
-                      agreement: { packageName: pkg?.name, videos: pkg?.videos, monthly: Math.round(monthly), setupFee: setup, adOn: form.adOn, adPct: form.adPct },
-                    })}
-                  />
-                </div>
-                <p className="text-[11px] text-gray-500 mt-1.5">The “Review &amp; Pay” button links to the live QuickBooks invoice once sent.{form.adOn && form.adPct ? ` Ad-spend commission (${Number(form.adPct)}%) is billed monthly off actuals.` : ''}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setEmailOpen(false)} disabled={sending} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition disabled:opacity-50">Cancel</button>
-              <button onClick={doSend} disabled={sending} className="px-4 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
-                {sending ? 'Sending…' : 'Send Invoice →'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-lg bg-[#171B33] border border-white/10 text-sm text-white shadow-2xl z-50">

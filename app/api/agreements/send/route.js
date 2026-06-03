@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { findOrCreateCustomer, findOrCreateItem, createInvoice, getInvoiceLink } from '../../../../lib/quickbooks.js'
-import { buildAgreementEmailHtml } from '../../../../lib/agreement-email.js'
+import { buildAgreementEmailHtml, defaultTermsText } from '../../../../lib/agreement-email.js'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ async function sendEmail({ to, subject, html }) {
 
 export async function POST(request) {
   try {
-    const { leadId, subject, message, customer, lines, agreement } = await request.json()
+    const { leadId, subject, message, terms, customer, lines, agreement } = await request.json()
     if (!leadId) return NextResponse.json({ error: 'Missing leadId' }, { status: 400 })
     if (!customer?.email) return NextResponse.json({ error: 'Customer email is required to send.' }, { status: 400 })
     if (!Array.isArray(lines) || lines.length === 0) return NextResponse.json({ error: 'No line items to invoice.' }, { status: 400 })
@@ -59,10 +59,11 @@ export async function POST(request) {
     // tracking endpoint (records the view) before redirecting to QuickBooks.
     const origin = new URL(request.url).origin
     const buttonLink = link ? `${origin}/api/agreements/track/${leadId}` : null
+    const termsText = terms || defaultTermsText({ customer, agreement })
     await sendEmail({
       to: customer.email,
-      subject: subject || 'Your Conversion Hero agreement & invoice',
-      html: buildAgreementEmailHtml({ message, link: buttonLink, lines, total, customer, agreement }),
+      subject: subject || 'Your ConversionHero agreement & invoice',
+      html: buildAgreementEmailHtml({ message, link: buttonLink, lines, total, termsText }),
     })
 
     // 5. Update the deal: status + invoice details on meta
