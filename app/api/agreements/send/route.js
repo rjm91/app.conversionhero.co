@@ -14,18 +14,23 @@ function db() {
   )
 }
 
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, cc, subject, html }) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) throw new Error('RESEND_API_KEY not set')
+  const payload = {
+    from: 'ConversionHero <notifications@send.conversionhero.co>',
+    to,
+    subject,
+    html,
+  }
+  const ccList = (Array.isArray(cc) ? cc : [])
+    .map(e => String(e).trim())
+    .filter(e => e && e.toLowerCase() !== String(to).toLowerCase())
+  if (ccList.length) payload.cc = ccList
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: 'Conversion Hero <notifications@send.conversionhero.co>',
-      to,
-      subject,
-      html,
-    }),
+    body: JSON.stringify(payload),
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(json?.message || `Email failed (${res.status})`)
@@ -35,7 +40,7 @@ async function sendEmail({ to, subject, html }) {
 
 export async function POST(request) {
   try {
-    const { leadId, subject, message, terms, customer, lines, agreement } = await request.json()
+    const { leadId, subject, message, terms, cc, customer, lines, agreement } = await request.json()
     if (!leadId) return NextResponse.json({ error: 'Missing leadId' }, { status: 400 })
     if (!customer?.email) return NextResponse.json({ error: 'Customer email is required to send.' }, { status: 400 })
     if (!Array.isArray(lines) || lines.length === 0) return NextResponse.json({ error: 'No line items to invoice.' }, { status: 400 })
@@ -62,6 +67,7 @@ export async function POST(request) {
     const termsText = terms || defaultTermsText({ customer, agreement })
     await sendEmail({
       to: customer.email,
+      cc,
       subject: subject || 'Your ConversionHero agreement & invoice',
       html: buildAgreementEmailHtml({ message, link: buttonLink, lines, total, termsText }),
     })

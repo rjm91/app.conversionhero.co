@@ -55,6 +55,16 @@ export default function AgreementBuilderPage() {
   const [emailSubject, setEmailSubject] = useState(null)
   const [emailMessage, setEmailMessage] = useState(null)
   const [emailTerms, setEmailTerms] = useState(null)
+  const [emailCc, setEmailCc] = useState(null)
+  const [senderEmail, setSenderEmail] = useState('')
+
+  // The logged-in app user (sender) — CC'd by default.
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('ca_user') || '{}')
+      if (u.email) setSenderEmail(u.email)
+    } catch {}
+  }, [])
 
   const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, email: true })
   const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
@@ -89,6 +99,7 @@ export default function AgreementBuilderPage() {
         setEmailSubject(ag.emailSubject ?? null)
         setEmailMessage(ag.emailMessage ?? null)
         setEmailTerms(ag.emailTerms ?? null)
+        setEmailCc(ag.emailCc ?? null)
         if (l.sale_status === 'Agreement Sent') setStatusLabel('Agreement Sent')
         else if (l.sale_status === 'Agreement Viewed') setStatusLabel('Agreement Viewed')
         else if (l.sale_status === 'Agreement Drafted' || ag.packageId) setStatusLabel('Agreement Drafted')
@@ -119,6 +130,8 @@ export default function AgreementBuilderPage() {
   const subjectVal = emailSubject !== null ? emailSubject : 'Your ConversionHero agreement & invoice'
   const messageVal = emailMessage !== null ? emailMessage : defaultMessageText()
   const termsVal   = emailTerms   !== null ? emailTerms   : defaultTermsText({ customer, agreement: agreementData })
+  const ccVal      = emailCc      !== null ? emailCc      : senderEmail
+  const ccList     = ccVal.split(',').map(s => s.trim()).filter(Boolean)
 
   function lineItems() {
     const items = []
@@ -133,7 +146,7 @@ export default function AgreementBuilderPage() {
       billing: form.billing, customPrice: form.customPrice,
       setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
       monthly: Math.round(monthly),
-      emailSubject, emailMessage, emailTerms,
+      emailSubject, emailMessage, emailTerms, emailCc,
       status, updated_at: new Date().toISOString(),
     }
   }
@@ -183,6 +196,7 @@ export default function AgreementBuilderPage() {
           subject: subjectVal,
           message: messageVal,
           terms: termsVal,
+          cc: ccList,
           customer,
           lines: lineItems(),
           agreement: agreementMeta('Agreement Sent'),
@@ -356,6 +370,14 @@ export default function AgreementBuilderPage() {
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-500">CC</label>
+                    <ResetLink show={emailCc !== null} onClick={() => setEmailCc(null)} />
+                  </div>
+                  <input value={ccVal} onChange={e => setEmailCc(e.target.value)} placeholder="you@conversionhero.co, finance@client.com" className={inputCls} />
+                  <p className="text-[11px] text-gray-500 mt-1">You're CC'd by default. Separate multiple emails with commas (e.g. the client's partner or finance person).</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
                     <label className="text-xs text-gray-500">Subject</label>
                     <ResetLink show={emailSubject !== null} onClick={() => setEmailSubject(null)} />
                   </div>
@@ -386,6 +408,7 @@ export default function AgreementBuilderPage() {
                 <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600 space-y-0.5">
                   <div><span className="text-gray-400">From:</span> ConversionHero &lt;notifications@send.conversionhero.co&gt;</div>
                   <div><span className="text-gray-400">To:</span> {form.email || '—'}</div>
+                  {ccList.length > 0 && <div><span className="text-gray-400">Cc:</span> {ccList.join(', ')}</div>}
                   <div><span className="text-gray-400">Subject:</span> <span className="text-gray-800 font-medium">{subjectVal || '—'}</span></div>
                 </div>
                 <iframe title="Email preview" className="w-full bg-white" style={{ height: 620, border: 'none' }} srcDoc={previewHtml} />
