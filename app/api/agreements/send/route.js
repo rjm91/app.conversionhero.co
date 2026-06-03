@@ -33,7 +33,33 @@ async function sendEmail({ to, subject, html }) {
   return json
 }
 
-function buildEmailHtml({ message, link, lines, total }) {
+function buildTermsHtml({ customer, agreement }) {
+  const company = customer.company || customer.contact || 'Client'
+  const pkg = agreement.packageName || 'selected'
+  const videos = agreement.videos != null ? agreement.videos : 'the contracted number of'
+  const monthly = agreement.monthly
+  const setup = Number(agreement.setupFee) || 0
+  const adPct = Number(agreement.adPct) || 15
+  const sec = (n, title, inner) => `
+    <p style="margin:14px 0 3px;font-size:13px;font-weight:700;color:#111827;">${n}. ${title}</p>
+    <div style="font-size:13px;color:#4b5563;line-height:1.6;">${inner}</div>`
+  const adClause = agreement.adOn
+    ? `<li>Ad-spend commission: in any month where managed ad spend exceeds $10,000, a ${adPct}% commission applies to the full ad spend for that month, billed monthly. Months at or under $10,000 incur no commission.</li>`
+    : ''
+  return `
+  <div style="margin:22px 0;padding:18px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa;">
+    <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#111827;">Service Agreement &amp; Terms</p>
+    ${sec(1, 'Parties', `This agreement is between ConversionHero, LLC (&ldquo;Provider,&rdquo; 3300 N Scottsdale Rd, Scottsdale, AZ 85251) and <strong>${company}</strong> (&ldquo;Client&rdquo;).`)}
+    ${sec(2, 'Services / Deliverable', `Provider will produce <strong>${videos} short-form videos per month</strong> under the <strong>${pkg}</strong> package and manage Client&rsquo;s YouTube advertising using those videos as ad creative. Weekly check-in calls (up to 1 hour) and advertising consulting are available on an as-needed basis. The deliverable is the production of the videos and management of advertising; Provider does not guarantee any specific number of leads, sales, or revenue.`)}
+    ${sec(3, 'Fees', `<ul style="margin:4px 0;padding-left:18px;"><li>Setup fee: ${money(setup)}, one-time, due on the first invoice.</li><li>Monthly fee: ${money(monthly)}/month for the ${pkg} package, billed monthly.</li>${adClause}</ul>`)}
+    ${sec(4, 'Term', `Four (4) month minimum commitment beginning on the date of first payment. After the initial term it continues month-to-month until either party cancels.`)}
+    ${sec(5, 'Refunds', `All fees are non-refundable once paid, including if Client cancels mid-month. Client remains responsible for any outstanding ad-account and commission balances.`)}
+    ${sec(6, 'Exclusivity', `Leads and campaign assets generated through Provider&rsquo;s marketing efforts are exclusive to Client.`)}
+    ${sec(7, 'Payment Authorization &amp; Acceptance', `By paying the invoice associated with this agreement, Client (a) authorizes ConversionHero, LLC to charge the payment method on file for the setup fee, recurring monthly fee, and any applicable ad-spend commission, and (b) confirms Client has read, understood, and agrees to all terms herein.`)}
+  </div>`
+}
+
+function buildEmailHtml({ message, link, lines, total, customer, agreement }) {
   const rows = lines.map(l => `
     <tr>
       <td style="padding:8px 0;color:#374151;font-size:14px;">${l.description || l.name}</td>
@@ -53,7 +79,9 @@ function buildEmailHtml({ message, link, lines, total }) {
         <td style="padding:12px 0;color:#111827;font-size:15px;font-weight:700;text-align:right;">${money(total)}</td>
       </tr>
     </table>
-    <div style="text-align:center;margin:24px 0;">${button}</div>
+    ${customer && agreement ? buildTermsHtml({ customer, agreement }) : ''}
+    <p style="font-size:12px;color:#6b7280;text-align:center;margin:0 0 14px;line-height:1.5;">By clicking <strong>Review &amp; Pay</strong> and paying this invoice, you authorize the charges above and agree to the Service Agreement &amp; Terms.</p>
+    <div style="text-align:center;margin:8px 0 24px;">${button}</div>
     <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Conversion Hero · Powered by QuickBooks secure payments</p>
   </div>`
 }
@@ -84,7 +112,7 @@ export async function POST(request) {
     await sendEmail({
       to: customer.email,
       subject: subject || 'Your Conversion Hero agreement & invoice',
-      html: buildEmailHtml({ message, link, lines, total }),
+      html: buildEmailHtml({ message, link, lines, total, customer, agreement }),
     })
 
     // 5. Update the deal: status + invoice details on meta

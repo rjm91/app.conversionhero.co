@@ -147,7 +147,8 @@ export default function AgreementBuilderPage() {
     setSending(true)
     try {
       const agreement = {
-        packageId: form.packageId, billing: form.billing, customPrice: form.customPrice,
+        packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
+        billing: form.billing, customPrice: form.customPrice,
         setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
         monthly: Math.round(monthly), status: 'Agreement Sent', updated_at: new Date().toISOString(),
       }
