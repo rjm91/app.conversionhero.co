@@ -140,6 +140,15 @@ export default function AgentPanel({ mode = 'client' }) {
   }, [rect])
 
   async function applyProposal(messageIndex, proposalIndex, proposal) {
+    // Agreement proposals fill the on-screen builder via a window event
+    // instead of writing to the database.
+    if (proposal.action === 'agreement') {
+      window.dispatchEvent(new CustomEvent('agreement:apply', { detail: proposal.fields }))
+      setMessages(m => m.map((msg, i) => i === messageIndex
+        ? { ...msg, proposals: msg.proposals.map((p, j) => j === proposalIndex ? { ...p, _status: 'applied' } : p) }
+        : msg))
+      return
+    }
     setMessages(m => m.map((msg, i) => i === messageIndex
       ? { ...msg, proposals: msg.proposals.map((p, j) => j === proposalIndex ? { ...p, _status: 'applying' } : p) }
       : msg))
@@ -221,7 +230,8 @@ export default function AgentPanel({ mode = 'client' }) {
     return null
   })()
 
-  const pageLabel = pathname.includes('/scripts') ? 'Scripts'
+  const pageLabel = pathname.includes('/agreement') ? 'Agreement Builder'
+    : pathname.includes('/scripts') ? 'Scripts'
     : pathname.includes('/assets') ? 'Assets'
     : pathname.includes('/library') ? 'Library'
     : pathname.includes('/contacts') ? 'Leads'
@@ -395,6 +405,7 @@ function ProposalCard({ proposal, onAccept, onReject }) {
   const [expanded, setExpanded] = useState(false)
   const status = proposal._status
   const isUpdate = proposal.action === 'updateScript'
+  const isAgreement = proposal.action === 'agreement'
   const fields = proposal.fields || {}
   const diff = proposal.diff || {}
 
@@ -408,8 +419,8 @@ function ProposalCard({ proposal, onAccept, onReject }) {
     <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#161922]">
       <div className="px-3 py-2 border-b border-gray-100 dark:border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isUpdate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-            {isUpdate ? 'UPDATE' : 'CREATE'}
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isAgreement ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' : isUpdate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+            {isAgreement ? 'AGREEMENT' : isUpdate ? 'UPDATE' : 'CREATE'}
           </span>
           <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{proposal.summary}</p>
         </div>

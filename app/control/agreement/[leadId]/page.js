@@ -171,6 +171,30 @@ export default function AgreementBuilderPage() {
     setForm(f => (f.revStart === iso ? f : { ...f, revStart: iso }))
   }, [form.term, revStartManual])
 
+  // Fill the builder from an accepted agent proposal (dispatched by AgentPanel).
+  useEffect(() => {
+    function onApply(e) {
+      const f = e.detail || {}
+      const keys = ['packageId', 'customName', 'customScope', 'customPrice', 'billing', 'setupFee', 'adOn', 'adPct', 'revOn', 'revPct', 'term', 'termCustom', 'notes']
+      setForm(prev => {
+        const next = { ...prev }
+        for (const k of keys) if (f[k] !== undefined && f[k] !== null) next[k] = f[k]
+        if (f.revStart) next.revStart = f.revStart
+        else if (typeof f.revStartDays === 'number') {
+          const d = new Date(); d.setDate(d.getDate() + f.revStartDays)
+          next.revStart = d.toISOString().split('T')[0]
+        }
+        return next
+      })
+      if (f.revStart || typeof f.revStartDays === 'number') setRevStartManual(true)
+      setOpen(o => ({ ...o, package: true, fees: true }))
+      setToast('Agreement filled from chat — review & send')
+      setTimeout(() => setToast(null), 3000)
+    }
+    window.addEventListener('agreement:apply', onApply)
+    return () => window.removeEventListener('agreement:apply', onApply)
+  }, [])
+
   function defaultMessageText() {
     return `Hi ${(form.contact || '').split(' ')[0] || 'there'},\n\nThanks for the time today. Here's the agreement we put together — ${pkg?.name || 'your package'} at ${money(monthly)}/mo${setup ? ` plus a one-time ${money(setup)} setup fee` : ''}. Click below to review and get started.\n\n— ConversionHero`
   }
