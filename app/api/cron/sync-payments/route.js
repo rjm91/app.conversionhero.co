@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { qbQuery, isQBConnected } from '../../../../lib/quickbooks'
+import { syncAgreementPaidStatuses } from '../../../../lib/agreements'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -84,7 +85,10 @@ export async function GET() {
     await supabase.from('client_payments').delete().eq('merchant', 'QBO')
     if (rows.length) await supabase.from('client_payments').insert(rows)
 
-    return NextResponse.json({ synced: rows.length, total: invoices.length })
+    // Advance any sent/viewed agreement invoices that are now paid.
+    const agreementResult = await syncAgreementPaidStatuses(supabase).catch(() => ({ paid: 0 }))
+
+    return NextResponse.json({ synced: rows.length, total: invoices.length, agreementsPaid: agreementResult.paid })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

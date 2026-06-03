@@ -108,11 +108,14 @@ export async function POST(request) {
     const link = await getInvoiceLink(invoice.Id)
     const total = invoice.TotalAmt
 
-    // 4. Email the client via Resend
+    // 4. Email the client via Resend. The Pay button routes through our
+    // tracking endpoint (records the view) before redirecting to QuickBooks.
+    const origin = new URL(request.url).origin
+    const buttonLink = link ? `${origin}/api/agreements/track/${leadId}` : null
     await sendEmail({
       to: customer.email,
       subject: subject || 'Your Conversion Hero agreement & invoice',
-      html: buildEmailHtml({ message, link, lines, total, customer, agreement }),
+      html: buildEmailHtml({ message, link: buttonLink, lines, total, customer, agreement }),
     })
 
     // 5. Update the deal: status + invoice details on meta

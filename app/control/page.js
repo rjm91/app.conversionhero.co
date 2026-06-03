@@ -67,7 +67,7 @@ const SALES_PIPELINE_KEYS = ['onboarding', 'sales', 'appointments', 'leads']
 /* ─── Status dropdown options (values = DB values, labels = display) ─── */
 const LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Lost', 'Disqualified', 'Out of Area']
 const APPT_STATUSES = ['Appt Confirmed', 'Appt Complete', 'Appt Lost', 'Appt Disqualified']
-const SALE_STATUSES = ['Agreement Pending', 'Agreement Drafted', 'Agreement Sent', 'Agreement Signed', 'Invoice Sent', 'Invoice Paid', 'Sold', 'Sale Lost']
+const SALE_STATUSES = ['Agreement Pending', 'Agreement Drafted', 'Agreement Sent', 'Agreement Viewed', 'Agreement Signed', 'Invoice Sent', 'Invoice Paid', 'Sold', 'Sale Lost']
 const ONBOARDING_STATUSES = ['Account Setup', 'Campaign Build', 'Review / QA', 'Ready to Launch']
 
 function displayStatus(s) { return (s || '').replace(/Appt/g, 'Appointment') }
@@ -1390,6 +1390,10 @@ export default function ControlPage() {
       setLoading(false)
       return
     }
+
+    // Refresh agreement statuses (paid invoices) before loading leads. Guarded
+    // so a QuickBooks hiccup never blocks the dashboard.
+    await fetch('/api/agreements/sync-status', { cache: 'no-store' }).catch(() => {})
 
     // Step 2: Fetch per-client data AND agency leads in parallel
     const [clientsWithData, agencyLeadsRes] = await Promise.all([
