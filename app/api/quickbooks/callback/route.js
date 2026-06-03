@@ -59,8 +59,9 @@ export async function GET(request) {
     }
 
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+    const sb = db()
 
-    const { error: dbErr } = await db().from('qb_tokens').upsert({
+    const { error: dbErr } = await sb.from('qb_tokens').upsert({
       realm_id:                realmId,
       access_token:            tokens.access_token,
       refresh_token:           tokens.refresh_token,
@@ -69,6 +70,11 @@ export async function GET(request) {
     }, { onConflict: 'realm_id' })
 
     if (dbErr) return fail(request, `Saving token failed: ${dbErr.message}`)
+
+    // Verify it actually persisted (write succeeded but row missing => silent issue)
+    const { data: check, error: checkErr } = await sb.from('qb_tokens').select('realm_id').eq('realm_id', realmId)
+    if (checkErr) return fail(request, `Readback failed: ${checkErr.message}`)
+    if (!check || check.length === 0) return fail(request, `Wrote token but readback found 0 rows (realm …${String(realmId).slice(-4)})`)
 
     // Fire-and-forget: refresh synced data (never block the redirect)
     const origin = new URL(request.url).origin
