@@ -20,6 +20,7 @@ export default function PaymentsPage() {
   const [clients,  setClients]    = useState([])
   const [loading,     setLoading]     = useState(true)
   const [qbConnected, setQbConnected] = useState(null)
+  const [qbBanner,    setQbBanner]    = useState(null)
 
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
@@ -44,6 +45,9 @@ export default function PaymentsPage() {
   useEffect(() => {
     loadPayments()
     fetch('/api/quickbooks/status').then(r => r.json()).then(d => setQbConnected(d.connected))
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('qb') === 'error') setQbBanner({ type: 'error', text: sp.get('msg') || 'QuickBooks connection failed.' })
+    else if (sp.get('qb') === 'connected') setQbBanner({ type: 'ok', text: 'QuickBooks connected.' })
   }, [])
 
 
@@ -159,6 +163,12 @@ export default function PaymentsPage() {
           </a>
         )}
       </div>
+
+      {qbBanner && (
+        <div className={`mb-6 px-4 py-3 rounded-lg text-sm border ${qbBanner.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-green-500/10 border-green-500/30 text-green-300'}`}>
+          {qbBanner.type === 'error' ? 'QuickBooks connection failed: ' : ''}{qbBanner.text}
+        </div>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
