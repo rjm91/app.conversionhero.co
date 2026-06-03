@@ -10,14 +10,17 @@ const PACKAGES = [
   { id: 'starter', name: 'Starter',      icon: '🚀', price: 1550, videos: 13, cadence: '3–4 per week', filming: 'Done-With-You', blurb: 'Build momentum' },
   { id: 'growth',  name: 'Growth',       icon: '⚡', price: 2450, videos: 21, cadence: '4–6 per week', filming: 'Done-With-You', blurb: 'Most Popular', popular: true },
   { id: 'pro',     name: 'Pro',          icon: '💎', price: 3750, videos: 34, cadence: '7–9 per week', filming: 'Done-For-You',  blurb: 'Full automation' },
-  { id: 'hero',    name: 'Synergy Hero', icon: '👑', price: null, videos: 55, cadence: '2 per day',    filming: 'Done-For-You',  blurb: 'The best of the best', custom: true },
+  { id: 'custom',  name: 'Custom',       icon: '✨', price: null, videos: null, cadence: '',           filming: 'Done-For-You',  blurb: 'Build your own', custom: true },
 ]
+
+const CUSTOM_EMOJIS = ['✨','👑','🔥','💎','🚀','⭐','🎯','📈','🏆','💼','🎬','📹','🦾','🌟','⚡','💡']
 
 function money(n) { return '$' + Math.round(n || 0).toLocaleString() }
 
 const emptyForm = {
   company: '', contact: '', email: '', phone: '',
   packageId: 'growth', billing: 'monthly', customPrice: '',
+  customName: '', customVideos: '', customIcon: '✨',
   setupFee: '', adOn: false, adPct: '', notes: '',
 }
 
@@ -68,6 +71,7 @@ export default function AgreementBuilderPage() {
 
   const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, email: true })
   const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
+  const [emojiOpen, setEmojiOpen] = useState(false)
 
   function flash(msg, ms = 2800) { setToast(msg); setTimeout(() => setToast(null), ms) }
 
@@ -88,9 +92,12 @@ export default function AgreementBuilderPage() {
           contact: [l.first_name, l.last_name].filter(Boolean).join(' '),
           email: l.email || '',
           phone: l.phone || '',
-          packageId: ag.packageId || 'growth',
+          packageId: ag.packageId === 'hero' ? 'custom' : (ag.packageId || 'growth'),
           billing: ag.billing || 'monthly',
           customPrice: ag.customPrice ?? '',
+          customName: ag.customName ?? '',
+          customVideos: ag.customVideos ?? '',
+          customIcon: ag.customIcon ?? '✨',
           setupFee: ag.setupFee ?? '',
           adOn: ag.adOn ?? false,
           adPct: ag.adPct ?? '',
@@ -112,7 +119,10 @@ export default function AgreementBuilderPage() {
     return () => { active = false }
   }, [leadId])
 
-  const pkg = PACKAGES.find(p => p.id === form.packageId) || null
+  const rawPkg = PACKAGES.find(p => p.id === form.packageId) || null
+  const pkg = rawPkg && rawPkg.custom
+    ? { ...rawPkg, name: form.customName || 'Custom', videos: Number(form.customVideos) || 0, icon: form.customIcon || '✨', cadence: '' }
+    : rawPkg
   const basePrice = pkg?.custom ? Number(form.customPrice || 0) : (pkg?.price || 0)
   const monthly = form.billing === 'annual' ? basePrice * 0.85 : basePrice
   const setup = Number(form.setupFee || 0)
@@ -136,7 +146,7 @@ export default function AgreementBuilderPage() {
   function lineItems() {
     const items = []
     if (setup > 0) items.push({ name: 'Setup Fee', description: 'One-time setup fee', amount: setup })
-    if (pkg && basePrice > 0) items.push({ name: pkg.name, description: `${pkg.name} — first month (${pkg.videos} videos/mo, ${pkg.cadence})`, amount: Math.round(monthly) })
+    if (pkg && basePrice > 0) items.push({ name: pkg.name, description: `${pkg.name} — first month (${pkg.videos} videos/mo${pkg.cadence ? `, ${pkg.cadence}` : ''})`, amount: Math.round(monthly) })
     return items
   }
 
@@ -144,6 +154,7 @@ export default function AgreementBuilderPage() {
     return {
       packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
       billing: form.billing, customPrice: form.customPrice,
+      customName: form.customName, customVideos: form.customVideos, customIcon: form.customIcon,
       setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
       monthly: Math.round(monthly),
       emailSubject, emailMessage, emailTerms, emailCc,
@@ -301,26 +312,57 @@ export default function AgreementBuilderPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {PACKAGES.map(p => {
                   const selected = form.packageId === p.id
+                  const dIcon = p.custom ? (form.customIcon || '✨') : p.icon
+                  const dName = p.custom ? (form.customName || 'Custom') : p.name
+                  const dVideos = p.custom ? (form.customVideos || '—') : p.videos
+                  const dPrice = p.custom ? (form.customPrice ? money(form.customPrice) : 'Custom') : money(p.price)
                   return (
                     <div key={p.id} onClick={() => set('packageId', p.id)}
-                      className={`rounded-xl border p-3 relative cursor-pointer transition ${selected ? 'border-blue-500 ring-1 ring-blue-500' : p.custom ? 'border-yellow-500/20 hover:border-white/25' : 'border-white/10 hover:border-white/25'}`}
+                      className={`rounded-xl border p-3 relative cursor-pointer transition ${selected ? 'border-blue-500 ring-1 ring-blue-500' : p.custom ? 'border-violet-500/30 hover:border-white/25' : 'border-white/10 hover:border-white/25'}`}
                       style={{ background: '#0d1119' }}>
                       {p.popular && <span className="absolute -top-2 right-2 text-[9px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">POPULAR</span>}
-                      <div className="text-lg mb-1">{p.icon}</div>
-                      <p className={`text-sm font-bold ${p.custom ? 'text-yellow-400' : 'text-white'}`}>{p.name}</p>
-                      <p className="text-[11px] text-gray-500 mb-2">{p.videos} videos/mo</p>
-                      <p className={`text-base font-extrabold ${p.custom ? 'text-yellow-400' : 'text-white'}`}>{p.custom ? "Let's Talk" : money(p.price)}</p>
+                      {p.custom && <span className="absolute -top-2 right-2 text-[9px] font-bold bg-violet-600 text-white px-2 py-0.5 rounded-full">CUSTOM</span>}
+                      <div className="text-lg mb-1">{dIcon}</div>
+                      <p className={`text-sm font-bold ${p.custom ? 'text-violet-300' : 'text-white'}`}>{dName}</p>
+                      <p className="text-[11px] text-gray-500 mb-2">{dVideos} videos/mo</p>
+                      <p className={`text-base font-extrabold ${p.custom ? 'text-violet-300' : 'text-white'}`}>{dPrice}</p>
                     </div>
                   )
                 })}
               </div>
               {pkg?.custom && (
-                <div className="mt-3 p-3 rounded-lg bg-yellow-900/15 border border-yellow-500/20">
-                  <label className="text-xs text-yellow-400 font-semibold">Synergy Hero is custom — enter monthly price</label>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-gray-400">$</span>
-                    <input type="number" value={form.customPrice} onChange={e => set('customPrice', e.target.value)} placeholder="0" className="w-32 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
-                    <span className="text-gray-500 text-sm">/mo</span>
+                <div className="mt-3 p-3 rounded-lg bg-violet-900/10 border border-violet-500/20 space-y-3">
+                  <p className="text-xs text-violet-300 font-semibold">Build a custom package</p>
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <label className="text-xs text-gray-500 block mb-1">Icon</label>
+                      <button type="button" onClick={() => setEmojiOpen(o => !o)} className="w-11 h-[38px] rounded-lg bg-gray-900/60 border border-white/10 text-xl flex items-center justify-center hover:border-blue-500">{form.customIcon || '✨'}</button>
+                      {emojiOpen && (
+                        <div className="absolute z-10 mt-1 p-2 rounded-lg bg-[#1a1f36] border border-white/10 shadow-xl grid grid-cols-6 gap-1 w-[224px]">
+                          {CUSTOM_EMOJIS.map(e => (
+                            <button type="button" key={e} onClick={() => { set('customIcon', e); setEmojiOpen(false) }} className="w-8 h-8 rounded hover:bg-white/10 text-lg flex items-center justify-center">{e}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 block mb-1">Title</label>
+                      <input value={form.customName} onChange={e => set('customName', e.target.value)} placeholder="e.g. Enterprise" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Videos / month</label>
+                      <input type="number" value={form.customVideos} onChange={e => set('customVideos', e.target.value)} placeholder="0" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Monthly price</label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400">$</span>
+                        <input type="number" value={form.customPrice} onChange={e => set('customPrice', e.target.value)} placeholder="0" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                        <span className="text-gray-500 text-sm">/mo</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -430,7 +472,7 @@ export default function AgreementBuilderPage() {
                 <div className="flex justify-between"><span className="text-gray-500">Date</span><span className="text-gray-300">{today}</span></div>
                 <div className="border-t border-white/5" />
                 <div className="flex justify-between"><span className="text-gray-500">Package</span><span className="text-white font-medium">{pkg ? pkg.name : '—'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Videos / month</span><span className="text-gray-300">{pkg ? `${pkg.videos} (${pkg.cadence})` : '—'}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Videos / month</span><span className="text-gray-300">{pkg && pkg.videos ? `${pkg.videos}${pkg.cadence ? ` (${pkg.cadence})` : ''}` : '—'}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Filming</span><span className="text-gray-300">{pkg ? pkg.filming : '—'}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">YouTube Ads</span><span className="text-green-400">Included</span></div>
                 <div className="border-t border-white/5" />
