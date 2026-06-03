@@ -13,14 +13,12 @@ const PACKAGES = [
   { id: 'custom',  name: 'Custom',       icon: '✨', price: null, videos: null, cadence: '',           filming: 'Done-For-You',  blurb: 'Build your own', custom: true },
 ]
 
-const CUSTOM_EMOJIS = ['✨','👑','🔥','💎','🚀','⭐','🎯','📈','🏆','💼','🎬','📹','🦾','🌟','⚡','💡']
-
 function money(n) { return '$' + Math.round(n || 0).toLocaleString() }
 
 const emptyForm = {
   company: '', contact: '', email: '', phone: '',
   packageId: 'growth', billing: 'monthly', customPrice: '',
-  customName: '', customVideos: '', customIcon: '✨',
+  customName: '', customVideos: '',
   setupFee: '', adOn: false, adPct: '', notes: '',
 }
 
@@ -71,7 +69,6 @@ export default function AgreementBuilderPage() {
 
   const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, email: true })
   const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
-  const [emojiOpen, setEmojiOpen] = useState(false)
 
   function flash(msg, ms = 2800) { setToast(msg); setTimeout(() => setToast(null), ms) }
 
@@ -97,7 +94,6 @@ export default function AgreementBuilderPage() {
           customPrice: ag.customPrice ?? '',
           customName: ag.customName ?? '',
           customVideos: ag.customVideos ?? '',
-          customIcon: ag.customIcon ?? '✨',
           setupFee: ag.setupFee ?? '',
           adOn: ag.adOn ?? false,
           adPct: ag.adPct ?? '',
@@ -121,7 +117,7 @@ export default function AgreementBuilderPage() {
 
   const rawPkg = PACKAGES.find(p => p.id === form.packageId) || null
   const pkg = rawPkg && rawPkg.custom
-    ? { ...rawPkg, name: form.customName || 'Custom', videos: Number(form.customVideos) || 0, icon: form.customIcon || '✨', cadence: '' }
+    ? { ...rawPkg, name: form.customName || 'Custom', videos: Number(form.customVideos) || 0, cadence: '' }
     : rawPkg
   const basePrice = pkg?.custom ? Number(form.customPrice || 0) : (pkg?.price || 0)
   const monthly = form.billing === 'annual' ? basePrice * 0.85 : basePrice
@@ -154,7 +150,7 @@ export default function AgreementBuilderPage() {
     return {
       packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
       billing: form.billing, customPrice: form.customPrice,
-      customName: form.customName, customVideos: form.customVideos, customIcon: form.customIcon,
+      customName: form.customName, customVideos: form.customVideos,
       setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
       monthly: Math.round(monthly),
       emailSubject, emailMessage, emailTerms, emailCc,
@@ -312,7 +308,6 @@ export default function AgreementBuilderPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {PACKAGES.map(p => {
                   const selected = form.packageId === p.id
-                  const dIcon = p.custom ? (form.customIcon || '✨') : p.icon
                   const dName = p.custom ? (form.customName || 'Custom') : p.name
                   const dVideos = p.custom ? (form.customVideos || '—') : p.videos
                   const dPrice = p.custom ? (form.customPrice ? money(form.customPrice) : 'Custom') : money(p.price)
@@ -322,7 +317,7 @@ export default function AgreementBuilderPage() {
                       style={{ background: '#0d1119' }}>
                       {p.popular && <span className="absolute -top-2 right-2 text-[9px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">POPULAR</span>}
                       {p.custom && <span className="absolute -top-2 right-2 text-[9px] font-bold bg-violet-600 text-white px-2 py-0.5 rounded-full">CUSTOM</span>}
-                      <div className="text-lg mb-1">{dIcon}</div>
+                      <div className="text-lg mb-1">{p.icon}</div>
                       <p className={`text-sm font-bold ${p.custom ? 'text-violet-300' : 'text-white'}`}>{dName}</p>
                       <p className="text-[11px] text-gray-500 mb-2">{dVideos} videos/mo</p>
                       <p className={`text-base font-extrabold ${p.custom ? 'text-violet-300' : 'text-white'}`}>{dPrice}</p>
@@ -333,22 +328,9 @@ export default function AgreementBuilderPage() {
               {pkg?.custom && (
                 <div className="mt-3 p-3 rounded-lg bg-violet-900/10 border border-violet-500/20 space-y-3">
                   <p className="text-xs text-violet-300 font-semibold">Build a custom package</p>
-                  <div className="flex gap-3">
-                    <div className="relative">
-                      <label className="text-xs text-gray-500 block mb-1">Icon</label>
-                      <button type="button" onClick={() => setEmojiOpen(o => !o)} className="w-11 h-[38px] rounded-lg bg-gray-900/60 border border-white/10 text-xl flex items-center justify-center hover:border-blue-500">{form.customIcon || '✨'}</button>
-                      {emojiOpen && (
-                        <div className="absolute z-10 mt-1 p-2 rounded-lg bg-[#1a1f36] border border-white/10 shadow-xl grid grid-cols-6 gap-1 w-[224px]">
-                          {CUSTOM_EMOJIS.map(e => (
-                            <button type="button" key={e} onClick={() => { set('customIcon', e); setEmojiOpen(false) }} className="w-8 h-8 rounded hover:bg-white/10 text-lg flex items-center justify-center">{e}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-500 block mb-1">Title</label>
-                      <input value={form.customName} onChange={e => set('customName', e.target.value)} placeholder="e.g. Enterprise" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
-                    </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Title</label>
+                    <input value={form.customName} onChange={e => set('customName', e.target.value)} placeholder="e.g. Enterprise" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
