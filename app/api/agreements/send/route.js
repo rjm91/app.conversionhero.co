@@ -82,7 +82,7 @@ function buildEmailHtml({ message, link, lines, total, customer, agreement }) {
     ${customer && agreement ? buildTermsHtml({ customer, agreement }) : ''}
     <p style="font-size:12px;color:#6b7280;text-align:center;margin:0 0 14px;line-height:1.5;">By clicking <strong>Review &amp; Pay</strong> and paying this invoice, you authorize the charges above and agree to the Service Agreement &amp; Terms.</p>
     <div style="text-align:center;margin:8px 0 24px;">${button}</div>
-    <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Conversion Hero · Powered by QuickBooks secure payments</p>
+    <p style="color:#9ca3af;font-size:12px;margin-top:24px;text-align:center;">ConversionHero · Powered by QuickBooks secure payments</p>
   </div>`
 }
 
