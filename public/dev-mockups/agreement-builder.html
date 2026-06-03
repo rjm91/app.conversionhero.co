@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agreement Builder — Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pkg-card.selected { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6, 0 8px 24px rgba(37,99,235,.25); }
+  .pkg-card { cursor: pointer; transition: all .15s; }
+  .pkg-card:hover { border-color: rgba(255,255,255,.25); }
+  /* toggle */
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: #374151; border-radius: 99px; transition: .18s; }
+  .switch input:checked + .switch-track { background: #3b82f6; }
+  .switch-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: .18s; }
+  .switch input:checked ~ .switch-thumb { transform: translateX(18px); }
+  .num-input { font-variant-numeric: tabular-nums; }
+  input:focus, select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+</style>
+</head>
+<body class="text-gray-200" style="background: linear-gradient(135deg, #0a0e1a 0%, #0f1117 50%, #0a0e1a 100%); min-height:100vh;">
+
+<div class="max-w-6xl mx-auto px-6 py-10">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <p class="text-xs font-semibold tracking-widest text-gray-500 uppercase mb-1">Agreement Builder · Mockup</p>
+      <h1 class="text-2xl font-bold text-white">New Agreement</h1>
+    </div>
+    <div class="text-right">
+      <p class="text-xs text-gray-500">Deal</p>
+      <p class="text-sm font-semibold text-white" id="hdr-deal">Larry Cook HVAC</p>
+    </div>
+  </div>
+  <p class="text-sm text-gray-500 mb-8">Fill out the deal terms — saves as a draft, then sends for signature.</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- ─────────── LEFT: FORM ─────────── -->
+    <div class="lg:col-span-3 space-y-6">
+
+      <!-- Deal info -->
+      <div class="rounded-2xl border border-white/10 p-5" style="background:#12161f;">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wide">Client &amp; Deal</h2>
+          <span class="text-xs text-gray-500">Date: <span class="text-gray-300 font-medium" id="today"></span></span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500">Company</label>
+            <input id="f-company" value="Larry Cook HVAC" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Contact name</label>
+            <input id="f-contact" value="Larry Cook" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Email</label>
+            <input id="f-email" value="larry@larrycookhvac.com" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Phone</label>
+            <input id="f-phone" value="(815) 555-0142" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Package selector -->
+      <div class="rounded-2xl border border-white/10 p-5" style="background:#12161f;">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wide">Package</h2>
+          <!-- Billing toggle -->
+          <div class="inline-flex items-center bg-gray-900/70 rounded-full p-1 text-xs">
+            <button id="bill-monthly" class="px-3 py-1 rounded-full font-semibold bg-blue-600 text-white">Monthly</button>
+            <button id="bill-annual"  class="px-3 py-1 rounded-full font-semibold text-gray-400">Annual <span class="text-green-400">−15%</span></button>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">YouTube Advertising included in every package.</p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="pkg-grid"></div>
+
+        <!-- Synergy Hero custom price -->
+        <div id="custom-price" class="hidden mt-3 p-3 rounded-lg bg-yellow-900/15 border border-yellow-500/20">
+          <label class="text-xs text-yellow-400 font-semibold">Synergy Hero is custom — enter monthly price</label>
+          <div class="flex items-center gap-1 mt-1">
+            <span class="text-gray-400">$</span>
+            <input id="f-custom" type="number" placeholder="0" class="num-input w-32 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white" />
+            <span class="text-gray-500 text-sm">/mo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fees -->
+      <div class="rounded-2xl border border-white/10 p-5" style="background:#12161f;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wide mb-4">Fees</h2>
+
+        <!-- Setup fee -->
+        <div class="flex items-center justify-between py-2">
+          <div>
+            <p class="text-sm text-white font-medium">Setup fee</p>
+            <p class="text-xs text-gray-500">One-time, charged at signing</p>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-gray-400">$</span>
+            <input id="f-setup" type="number" value="1500" class="num-input w-28 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white text-right" />
+          </div>
+        </div>
+
+        <div class="border-t border-white/5 my-2"></div>
+
+        <!-- Ad spend commission -->
+        <div class="flex items-center justify-between py-2">
+          <div>
+            <p class="text-sm text-white font-medium">Ad-spend commission</p>
+            <p class="text-xs text-gray-500">Optional — % of managed ad spend</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="t-adspend" onchange="toggleAdspend()">
+            <span class="switch-track"></span><span class="switch-thumb"></span>
+          </label>
+        </div>
+        <div id="adspend-row" class="hidden pl-1 pb-2">
+          <div class="flex items-center gap-1">
+            <input id="f-adpct" type="number" value="10" class="num-input w-20 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white text-right" />
+            <span class="text-gray-400 text-sm">% of ad spend</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="rounded-2xl border border-white/10 p-5" style="background:#12161f;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wide mb-3">Special terms <span class="text-gray-600 normal-case font-normal">(optional)</span></h2>
+        <textarea id="f-notes" rows="2" placeholder="e.g. 30-day cancellation, performance guarantee…" class="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white"></textarea>
+      </div>
+
+    </div>
+
+    <!-- ─────────── RIGHT: PREVIEW ─────────── -->
+    <div class="lg:col-span-2">
+      <div class="rounded-2xl border border-white/10 p-5 sticky top-6" style="background:#0d1119;">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wide">Agreement Preview</h2>
+          <span id="badge-status" class="text-xs font-semibold px-2 py-1 rounded-full bg-gray-700 text-gray-300">Draft</span>
+        </div>
+
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between"><span class="text-gray-500">Client</span><span id="p-client" class="text-white font-medium text-right">—</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Date</span><span id="p-date" class="text-gray-300">—</span></div>
+          <div class="border-t border-white/5"></div>
+          <div class="flex justify-between"><span class="text-gray-500">Package</span><span id="p-package" class="text-white font-medium">—</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Videos / month</span><span id="p-videos" class="text-gray-300">—</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Filming</span><span id="p-filming" class="text-gray-300">—</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">YouTube Ads</span><span class="text-green-400">Included</span></div>
+          <div class="border-t border-white/5"></div>
+          <div class="flex justify-between"><span class="text-gray-500">Billing</span><span id="p-billing" class="text-gray-300">Monthly</span></div>
+          <div class="flex justify-between items-baseline"><span class="text-gray-500">Recurring</span><span id="p-recurring" class="text-white font-bold text-lg">—</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Setup fee</span><span id="p-setup" class="text-gray-300">—</span></div>
+          <div id="p-adrow" class="hidden flex justify-between"><span class="text-gray-500">Ad commission</span><span id="p-ad" class="text-gray-300">—</span></div>
+        </div>
+
+        <div class="mt-5 p-3 rounded-xl bg-blue-950/30 border border-blue-500/15">
+          <div class="flex justify-between items-baseline">
+            <span class="text-xs text-blue-300 uppercase tracking-wide font-semibold">First payment due</span>
+            <span id="p-firstpay" class="text-xl font-extrabold text-white">—</span>
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1" id="p-firstpay-note">Setup fee + first month</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-5 space-y-2">
+          <button onclick="sendForSig()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition">Send for Signature →</button>
+          <button onclick="saveDraft()" class="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition">Save Draft</button>
+        </div>
+        <p class="text-[11px] text-gray-600 text-center mt-3" id="action-note">Saving sets status → <span class="text-gray-400">Agreement Drafted</span></p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Package data (from pricing page) ───────────────────────────────
+const PACKAGES = [
+  { id:'pilot',   name:'Pilot',        icon:'🌱', price:1000, videos:8,  cadence:'2 per week',   filming:'Done-With-You', blurb:'Test the waters' },
+  { id:'starter', name:'Starter',      icon:'🚀', price:1550, videos:13, cadence:'3–4 per week', filming:'Done-With-You', blurb:'Build momentum' },
+  { id:'growth',  name:'Growth',       icon:'⚡', price:2450, videos:21, cadence:'4–6 per week', filming:'Done-With-You', blurb:'Most Popular', popular:true },
+  { id:'pro',     name:'Pro',          icon:'💎', price:3750, videos:34, cadence:'7–9 per week', filming:'Done-For-You',  blurb:'Full automation' },
+  { id:'hero',    name:'Synergy Hero', icon:'👑', price:null, videos:55, cadence:'2 per day',    filming:'Done-For-You',  blurb:'The best of the best', custom:true },
+];
+
+const state = { pkg:null, billing:'monthly', custom:0 };
+
+// ─── Build package cards ────────────────────────────────────────────
+const grid = document.getElementById('pkg-grid');
+grid.innerHTML = PACKAGES.map(p => `
+  <div class="pkg-card rounded-xl border border-white/10 p-3 relative ${p.custom?'border-yellow-500/20':''}" data-id="${p.id}" onclick="selectPkg('${p.id}')" style="background:#0d1119;">
+    ${p.popular ? '<span class="absolute -top-2 right-2 text-[9px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">POPULAR</span>' : ''}
+    <div class="text-lg mb-1">${p.icon}</div>
+    <p class="text-sm font-bold ${p.custom?'text-yellow-400':'text-white'}">${p.name}</p>
+    <p class="text-[11px] text-gray-500 mb-2">${p.videos} videos/mo</p>
+    <p class="text-base font-extrabold ${p.custom?'text-yellow-400':'text-white'}">${p.custom ? "Let's Talk" : '$'+p.price.toLocaleString()}</p>
+  </div>
+`).join('');
+
+// ─── Interactions ───────────────────────────────────────────────────
+function selectPkg(id){
+  state.pkg = PACKAGES.find(p=>p.id===id);
+  document.querySelectorAll('.pkg-card').forEach(c=>c.classList.toggle('selected', c.dataset.id===id));
+  document.getElementById('custom-price').classList.toggle('hidden', !state.pkg.custom);
+  render();
+}
+document.getElementById('bill-monthly').onclick = ()=>setBilling('monthly');
+document.getElementById('bill-annual').onclick  = ()=>setBilling('annual');
+function setBilling(b){
+  state.billing = b;
+  const m = document.getElementById('bill-monthly'), a = document.getElementById('bill-annual');
+  m.className = 'px-3 py-1 rounded-full font-semibold ' + (b==='monthly'?'bg-blue-600 text-white':'text-gray-400');
+  a.className = 'px-3 py-1 rounded-full font-semibold ' + (b==='annual'?'bg-blue-600 text-white':'text-gray-400');
+  a.innerHTML = 'Annual <span class="text-green-400">−15%</span>';
+  render();
+}
+function toggleAdspend(){
+  const on = document.getElementById('t-adspend').checked;
+  document.getElementById('adspend-row').classList.toggle('hidden', !on);
+  document.getElementById('p-adrow').classList.toggle('hidden', !on);
+  render();
+}
+['f-company','f-contact','f-setup','f-custom','f-adpct'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+});
+
+// ─── Render preview ─────────────────────────────────────────────────
+function money(n){ return '$'+Math.round(n).toLocaleString(); }
+function render(){
+  const company = document.getElementById('f-company').value || '—';
+  document.getElementById('hdr-deal').textContent = company;
+  document.getElementById('p-client').textContent = company;
+  document.getElementById('p-date').textContent = document.getElementById('today').textContent;
+
+  const p = state.pkg;
+  if(!p){
+    document.getElementById('p-package').textContent = '—';
+    document.getElementById('p-videos').textContent = '—';
+    document.getElementById('p-filming').textContent = '—';
+    document.getElementById('p-recurring').textContent = '—';
+    document.getElementById('p-firstpay').textContent = '—';
+    return;
+  }
+  document.getElementById('p-package').textContent = p.name;
+  document.getElementById('p-videos').textContent = `${p.videos} (${p.cadence})`;
+  document.getElementById('p-filming').textContent = p.filming;
+
+  // base monthly price
+  let base = p.custom ? Number(document.getElementById('f-custom').value||0) : p.price;
+  let monthly = base;
+  let billingLabel = 'Monthly';
+  if(state.billing==='annual'){ monthly = base*0.85; billingLabel = 'Annual (15% off)'; }
+  document.getElementById('p-billing').textContent = billingLabel;
+  document.getElementById('p-recurring').textContent = base ? money(monthly)+'/mo' : '—';
+
+  const setup = Number(document.getElementById('f-setup').value||0);
+  document.getElementById('p-setup').textContent = setup ? money(setup) : '$0';
+
+  const adOn = document.getElementById('t-adspend').checked;
+  if(adOn){
+    const pct = Number(document.getElementById('f-adpct').value||0);
+    document.getElementById('p-ad').textContent = pct+'% of ad spend';
+  }
+
+  document.getElementById('p-firstpay').textContent = base!==null ? money(setup + monthly) : '—';
+}
+
+// ─── Actions (mock) ─────────────────────────────────────────────────
+function saveDraft(){
+  document.getElementById('badge-status').textContent = 'Agreement Drafted';
+  document.getElementById('badge-status').className = 'text-xs font-semibold px-2 py-1 rounded-full bg-amber-500/20 text-amber-300';
+  document.getElementById('action-note').innerHTML = 'Draft saved · status → <span class="text-amber-300">Agreement Drafted</span>';
+}
+function sendForSig(){
+  if(!state.pkg){ alert('Pick a package first.'); return; }
+  document.getElementById('badge-status').textContent = 'Agreement Sent';
+  document.getElementById('badge-status').className = 'text-xs font-semibold px-2 py-1 rounded-full bg-blue-500/20 text-blue-300';
+  document.getElementById('action-note').innerHTML = 'Sent for signature · status → <span class="text-blue-300">Agreement Sent</span> <span class="text-gray-600">(provider-neutral)</span>';
+}
+
+// ─── Init ───────────────────────────────────────────────────────────
+document.getElementById('today').textContent = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+selectPkg('growth');
+</script>
+</body>
+</html>

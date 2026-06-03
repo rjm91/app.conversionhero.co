@@ -47,7 +47,7 @@ export default function PaymentsPage() {
     fetch('/api/quickbooks/status', { cache: 'no-store' }).then(r => r.json()).then(d => setQbConnected(d.connected))
     const sp = new URLSearchParams(window.location.search)
     if (sp.get('qb') === 'error') setQbBanner({ type: 'error', text: sp.get('msg') || 'QuickBooks connection failed.' })
-    else if (sp.get('qb') === 'connected') setQbBanner({ type: 'ok', text: 'QuickBooks connected.' })
+    else if (sp.get('qb') === 'connected') { setQbBanner({ type: 'ok', text: 'QuickBooks connected.' }); setQbConnected(true) }
   }, [])
 
 

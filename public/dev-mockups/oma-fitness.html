@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMA — One More Again</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0a0a0a; --dark: #111; --surface: #1a1a1a; --surface2: #222;
+      --border: rgba(255,255,255,0.08); --text: #f5f5f5; --muted: #888;
+      --accent: #2b7fff; --accent2: #4a94ff; --accent-glow: rgba(43,127,255,0.3);
+      --green: #00d46a;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--black); color: var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+    /* Nav */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; background: rgba(10,10,10,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+    .logo { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    .nav-cta { padding: 10px 24px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .nav-cta:hover { background: var(--accent2); box-shadow: 0 0 30px var(--accent-glow); }
+
+    /* Hero */
+    .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 120px 40px 80px; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 50% 40%, var(--accent-glow) 0%, transparent 50%); opacity: 0.4; pointer-events: none; }
+    .hero-content { position: relative; z-index: 1; max-width: 900px; }
+    .hero-tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px; border: 1px solid var(--accent); border-radius: 40px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 32px; }
+    .hero-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .hero h1 { font-size: clamp(48px, 8vw, 96px); font-weight: 900; line-height: 0.95; letter-spacing: -0.03em; margin-bottom: 24px; }
+    .hero h1 .accent { color: var(--accent); display: block; }
+    .hero p { font-size: 20px; color: var(--muted); max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
+    .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { padding: 16px 40px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; text-decoration: none; }
+    .btn-primary:hover { background: var(--accent2); box-shadow: 0 8px 40px var(--accent-glow); transform: translateY(-2px); }
+    .btn-secondary { padding: 16px 40px; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; text-decoration: none; }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); }
+
+    /* Stats bar */
+    .stats-bar { display: flex; justify-content: center; gap: 60px; padding: 60px 40px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .stat { text-align: center; }
+    .stat .num { font-size: 42px; font-weight: 900; color: var(--accent); letter-spacing: -0.02em; }
+    .stat .label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-top: 4px; }
+
+    /* Section */
+    .section { padding: 100px 40px; max-width: 1200px; margin: 0 auto; }
+    .section-tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 16px; }
+    .section h2 { font-size: 44px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 20px; line-height: 1.1; }
+    .section .sub { font-size: 18px; color: var(--muted); max-width: 600px; line-height: 1.6; margin-bottom: 60px; }
+
+    /* Programs grid */
+    .programs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+    .program-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 36px; transition: all 0.3s; position: relative; overflow: hidden; }
+    .program-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .program-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.3s; }
+    .program-card:hover::before { opacity: 1; }
+    .program-icon { width: 56px; height: 56px; border-radius: 14px; background: rgba(255,77,0,0.1); display: grid; place-items: center; margin-bottom: 20px; font-size: 24px; }
+    .program-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+    .program-card p { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+    .program-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+    .program-meta span { padding: 5px 12px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 12px; font-weight: 600; color: var(--muted); }
+
+    /* Testimonials */
+    .testimonials { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; }
+    .testimonial { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
+    .testimonial .stars { color: var(--accent); font-size: 16px; margin-bottom: 16px; }
+    .testimonial blockquote { font-size: 16px; line-height: 1.7; color: var(--text); margin-bottom: 20px; font-style: italic; }
+    .testimonial .author { display: flex; align-items: center; gap: 12px; }
+    .testimonial .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--surface2); display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--accent); }
+    .testimonial .name { font-weight: 700; font-size: 14px; }
+    .testimonial .role { font-size: 12px; color: var(--muted); }
+
+    /* Pricing */
+    .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; text-align: center; transition: all 0.3s; }
+    .price-card.featured { border-color: var(--accent); position: relative; }
+    .price-card.featured::before { content: 'MOST POPULAR'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; border-radius: 20px; }
+    .price-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .price-card .desc { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+    .price-card .price { font-size: 52px; font-weight: 900; margin-bottom: 4px; letter-spacing: -0.03em; }
+    .price-card .price span { font-size: 18px; color: var(--muted); font-weight: 500; }
+    .price-card .period { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+    .price-card ul { list-style: none; text-align: left; margin-bottom: 32px; }
+    .price-card li { padding: 10px 0; font-size: 14px; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .price-card li::before { content: ''; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,212,106,0.15); flex-shrink: 0; display: grid; place-items: center; }
+    .price-card .btn-price { display: block; padding: 14px; background: var(--surface2); color: #fff; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s; text-decoration: none; text-align: center; }
+    .price-card.featured .btn-price { background: var(--accent); border-color: var(--accent); }
+    .price-card .btn-price:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
+    /* CTA */
+    .cta-section { text-align: center; padding: 120px 40px; position: relative; }
+    .cta-section::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, var(--accent-glow) 0%, transparent 60%); opacity: 0.3; pointer-events: none; }
+    .cta-section h2 { font-size: 52px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 16px; position: relative; }
+    .cta-section p { font-size: 18px; color: var(--muted); margin-bottom: 40px; position: relative; }
+    .cta-section .btn-primary { position: relative; font-size: 18px; padding: 18px 48px; }
+
+    /* Footer */
+    footer { border-top: 1px solid var(--border); padding: 60px 40px; }
+    .footer-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+    .footer-brand { font-size: 22px; font-weight: 900; }
+    .footer-brand span { color: var(--accent); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .footer-links a:hover { color: #fff; }
+    .footer-copy { font-size: 13px; color: var(--muted); }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      .hero { padding: 100px 20px 60px; }
+      .stats-bar { flex-wrap: wrap; gap: 30px; padding: 40px 20px; }
+      .section { padding: 60px 20px; }
+      .section h2 { font-size: 32px; }
+      .cta-section h2 { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="logo"><span>OMA</span></div>
+    <div class="nav-links">
+      <a href="#programs">Programs</a>
+      <a href="#results">Results</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#about">About</a>
+    </div>
+    <a href="#pricing" class="nav-cta">Start Training</a>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-tag"><div class="dot"></div> Now Accepting New Clients</div>
+      <h1>One More<span class="accent">Again.</span></h1>
+      <p>Elite personal training built on one principle: when you think you're done, you go again. Transform your body, your discipline, and your life.</p>
+      <div class="hero-buttons">
+        <a href="#pricing" class="btn-primary">Get Started Today</a>
+        <a href="#programs" class="btn-secondary">View Programs</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="num">500+</div><div class="label">Clients Trained</div></div>
+    <div class="stat"><div class="num">12K</div><div class="label">Sessions Completed</div></div>
+    <div class="stat"><div class="num">98%</div><div class="label">Client Retention</div></div>
+    <div class="stat"><div class="num">4.9</div><div class="label">Average Rating</div></div>
+  </div>
+
+  <section class="section" id="programs">
+    <div class="section-tag">Programs</div>
+    <h2>Train With Purpose</h2>
+    <p class="sub">Every program is built around progressive overload, accountability, and the OMA mindset — one more rep, one more set, one more again.</p>
+
+    <div class="programs">
+      <div class="program-card">
+        <div class="program-icon">&#9861;</div>
+        <h3>1-on-1 Coaching</h3>
+        <p>Fully customized training and nutrition programming with direct access to your coach. Weekly check-ins, form reviews, and real-time adjustments.</p>
+        <div class="program-meta">
+          <span>Custom Programming</span>
+          <span>Nutrition Plan</span>
+          <span>Weekly Calls</span>
+        </div>
+      </div>
+      <div class="program-card">
+        <div class="program-icon">&#9876;</div>
+        <h3>Group Training</h3>
+        <p>High-energy small group sessions (max 8 people) designed to push you harder than you'd ever push yourself. Community-driven results.</p>
+        <div class="program-meta">
+          <span>Small Groups</span>
+          <span>4x/week</span>
+          <span>All Levels</span>
+        </div>
+      </div>
+      <div class="program-card">
+        <div class="program-icon">&#9889;</div>
+        <h3>Online Programming</h3>
+        <p>Get the OMA methodology delivered to your phone. Full training splits, video demos, progress tracking, and coach support via app.</p>
+        <div class="program-meta">
+          <span>App-Based</span>
+          <span>Video Demos</span>
+          <span>Progress Tracking</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="results">
+    <div class="section-tag">Results</div>
+    <h2>Real People. Real Results.</h2>
+    <p class="sub">Don't take our word for it. Here's what happens when you commit to the OMA way of training.</p>
+
+    <div class="testimonials">
+      <div class="testimonial">
+        <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>"I've tried every program out there. OMA is different. Brian doesn't just give you a workout — he rewires how you think about effort. Down 35 lbs and stronger than I've ever been."</blockquote>
+        <div class="author">
+          <div class="avatar">MR</div>
+          <div><div class="name">Mike R.</div><div class="role">1-on-1 Client, 8 months</div></div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>"The group sessions are addicting. You walk in thinking you'll pace yourself, and Brian has you doing things you didn't know you could do. Best investment I've made in myself."</blockquote>
+        <div class="author">
+          <div class="avatar">JT</div>
+          <div><div class="name">Jessica T.</div><div class="role">Group Training, 6 months</div></div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>"I travel for work constantly. The online program keeps me locked in no matter where I am. The app is clean, the videos are clear, and the programming is legit."</blockquote>
+        <div class="author">
+          <div class="avatar">DK</div>
+          <div><div class="name">David K.</div><div class="role">Online Client, 1 year</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="pricing">
+    <div class="section-tag">Pricing</div>
+    <h2>Invest In Yourself</h2>
+    <p class="sub">Simple pricing. No contracts. No hidden fees. Just show up and put in the work.</p>
+
+    <div class="pricing">
+      <div class="price-card">
+        <h3>Online</h3>
+        <p class="desc">Train anywhere, anytime</p>
+        <div class="price">$149<span>/mo</span></div>
+        <p class="period">Cancel anytime</p>
+        <ul>
+          <li>Custom training program</li>
+          <li>Video exercise demos</li>
+          <li>App-based tracking</li>
+          <li>Monthly program updates</li>
+          <li>Coach messaging support</li>
+        </ul>
+        <a href="#" class="btn-price">Get Started</a>
+      </div>
+      <div class="price-card featured">
+        <h3>1-on-1 Coaching</h3>
+        <p class="desc">The full OMA experience</p>
+        <div class="price">$349<span>/mo</span></div>
+        <p class="period">3-month commitment</p>
+        <ul>
+          <li>Everything in Online</li>
+          <li>Weekly video check-ins</li>
+          <li>Custom nutrition plan</li>
+          <li>Form review & feedback</li>
+          <li>Direct coach access (text/call)</li>
+          <li>Bi-weekly adjustments</li>
+        </ul>
+        <a href="#" class="btn-price">Apply Now</a>
+      </div>
+      <div class="price-card">
+        <h3>Group Training</h3>
+        <p class="desc">Community-driven sessions</p>
+        <div class="price">$199<span>/mo</span></div>
+        <p class="period">Month-to-month</p>
+        <ul>
+          <li>4 sessions per week</li>
+          <li>Small group (max 8)</li>
+          <li>All equipment provided</li>
+          <li>Progressive programming</li>
+          <li>Community access</li>
+        </ul>
+        <a href="#" class="btn-price">Join a Group</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <h2>One More Again.</h2>
+    <p>Your next rep starts now. Stop thinking about it and start training.</p>
+    <a href="#pricing" class="btn-primary">Start Your Transformation</a>
+  </section>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand"><span>OMA</span> Fitness</div>
+      <div class="footer-links">
+        <a href="#programs">Programs</a>
+        <a href="#results">Results</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Instagram</a>
+      </div>
+      <div class="footer-copy">&copy; 2026 OMA Fitness. All rights reserved.</div>
+    </div>
+  </footer>
+
+</body>
+</html>
