@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { buildAgreementEmailHtml } from '../../../../lib/agreement-email.js'
 
 /* ─── Package data (from pricing page) ─── */
 const PACKAGES = [
@@ -372,7 +373,7 @@ export default function AgreementBuilderPage() {
       {emailOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => !sending && setEmailOpen(false)} />
-          <div className="relative w-full max-w-lg bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-3xl bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-white">Review &amp; Send</h2>
               <button onClick={() => !sending && setEmailOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
@@ -394,20 +395,30 @@ export default function AgreementBuilderPage() {
                 <textarea rows={6} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 leading-relaxed" />
               </div>
 
-              {/* Invoice summary (read-only) */}
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Invoice (created in QuickBooks)</p>
-                {lineItems().map((l, i) => (
-                  <div key={i} className="flex justify-between text-sm py-0.5">
-                    <span className="text-gray-400">{l.description}</span>
-                    <span className="text-gray-200">{money(l.amount)}</span>
+              {/* Full email preview — a true mirror of what the client receives */}
+              <div>
+                <label className="text-xs text-gray-500">Preview — exactly what your client receives</label>
+                <div className="mt-1 rounded-lg border border-white/10 overflow-hidden bg-white">
+                  <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 text-[12px] text-gray-600 space-y-0.5">
+                    <div><span className="text-gray-400">From:</span> ConversionHero &lt;notifications@send.conversionhero.co&gt;</div>
+                    <div><span className="text-gray-400">To:</span> {form.email || '—'}</div>
+                    <div><span className="text-gray-400">Subject:</span> <span className="text-gray-800 font-medium">{emailSubject || '—'}</span></div>
                   </div>
-                ))}
-                <div className="flex justify-between text-sm pt-2 mt-1 border-t border-white/10">
-                  <span className="text-white font-semibold">Total due</span>
-                  <span className="text-white font-bold">{money(setup + monthly)}</span>
+                  <iframe
+                    title="Email preview"
+                    className="w-full bg-white"
+                    style={{ height: 440, border: 'none' }}
+                    srcDoc={buildAgreementEmailHtml({
+                      message: emailMessage,
+                      link: '#preview',
+                      lines: lineItems(),
+                      total: setup + monthly,
+                      customer: { company: form.company, contact: form.contact, email: form.email, phone: form.phone },
+                      agreement: { packageName: pkg?.name, videos: pkg?.videos, monthly: Math.round(monthly), setupFee: setup, adOn: form.adOn, adPct: form.adPct },
+                    })}
+                  />
                 </div>
-                <p className="text-[11px] text-gray-500 mt-2">A “Review &amp; Pay” button with the QuickBooks payment link is added automatically.{form.adOn && form.adPct ? ` Ad-spend commission (${Number(form.adPct)}%) is billed monthly off actuals.` : ''}</p>
+                <p className="text-[11px] text-gray-500 mt-1.5">The “Review &amp; Pay” button links to the live QuickBooks invoice once sent.{form.adOn && form.adPct ? ` Ad-spend commission (${Number(form.adPct)}%) is billed monthly off actuals.` : ''}</p>
               </div>
             </div>
 
