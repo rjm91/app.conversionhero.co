@@ -307,8 +307,8 @@ export default function AgentPanel({ mode = 'client' }) {
                       </svg>
                     </div>
                   )}
-                  <div>
-                    <div className={`text-sm rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap ${
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap break-words ${
                       m.role === 'user'
                         ? 'bg-blue-600 text-white rounded-br-md'
                         : 'bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-gray-100 rounded-bl-md'
@@ -450,21 +450,21 @@ function ProposalCard({ proposal, onAccept, onReject }) {
               const isLong = str.length > 80
               const isBody = k === 'script_body'
               return (
-                <div key={k} className="text-[11px]">
-                  <div className="font-mono text-gray-500">{k}:</div>
+                <div key={k} className="text-[11px] min-w-0">
+                  <div className="font-mono text-gray-500 break-words">{k}:</div>
                   {expanded || !isLong ? (
-                    <div className={`text-gray-900 dark:text-gray-100 ${isBody ? 'whitespace-pre-wrap mt-0.5 p-2 bg-gray-50 dark:bg-white/5 rounded max-h-80 overflow-y-auto' : ''}`}>
+                    <div className={`text-gray-900 dark:text-gray-100 break-words ${isBody ? 'whitespace-pre-wrap mt-0.5 p-2 bg-gray-50 dark:bg-white/5 rounded max-h-80 overflow-y-auto' : ''}`}>
                       {str}
                     </div>
                   ) : (
-                    <div className="text-gray-900 dark:text-gray-100">{str.slice(0, 80)}…</div>
+                    <div className="text-gray-900 dark:text-gray-100 break-words">{str.slice(0, 80)}…</div>
                   )}
                 </div>
               )
             })}
             {(Object.keys(fields).length > 4 || Object.values(fields).some(v => String(v ?? '').length > 80)) && (
               <button onClick={() => setExpanded(e => !e)} className="text-[11px] text-blue-600 hover:underline mt-1">
-                {expanded ? 'Show less' : 'Show full script'}
+                {expanded ? 'Show less' : (isAgreement ? 'Show all fields' : 'Show full script')}
               </button>
             )}
           </div>
