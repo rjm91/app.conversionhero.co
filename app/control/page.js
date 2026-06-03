@@ -140,11 +140,19 @@ async function fetchClientData(clientId, start, end) {
 
 /* ─── Build pipeline data ─── */
 function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFilter = 'active') {
+  // A client "has data" in the selected period if there's any cash, campaign,
+  // ad spend, or lead activity within the date-scoped data we fetched.
+  const hasPeriodData = c =>
+    c._payments.some(p => Number(p.amount) > 0) ||
+    c._campaigns.length > 0 ||
+    c._leads.length > 0
+
   const activeClients = clientsWithData.filter(c => {
     if (c.status === 'Demo' && !showDemo) return false
     if (clientFilter === 'active') return c.status === 'Active' || c.status === 'Demo'
     if (clientFilter === 'inactive') return c.status === 'Past' || c.status === 'Inactive'
-    return true // 'all'
+    // 'all' → any status, but only clients with actual activity in the period
+    return hasPeriodData(c)
   })
 
   // ── Active Clients rows ──
