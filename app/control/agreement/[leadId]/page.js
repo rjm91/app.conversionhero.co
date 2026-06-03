@@ -31,6 +31,10 @@ export default function AgreementBuilderPage() {
   const [saving, setSaving] = useState(false)
   const [statusLabel, setStatusLabel] = useState('Draft')
   const [toast, setToast] = useState(null)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailMessage, setEmailMessage] = useState('')
+  const [sending, setSending] = useState(false)
 
   // Load the lead + any existing agreement draft
   useEffect(() => {
@@ -122,9 +126,55 @@ export default function AgreementBuilderPage() {
   }
 
   const saveDraft = () => persist('Agreement Drafted', 'Agreement Drafted', 'Draft saved')
-  const sendForSig = () => {
+
+  function lineItems() {
+    const items = []
+    if (setup > 0) items.push({ name: 'Setup Fee', description: 'One-time setup fee', amount: setup })
+    if (pkg && basePrice > 0) items.push({ name: pkg.name, description: `${pkg.name} — first month (${pkg.videos} videos/mo, ${pkg.cadence})`, amount: Math.round(monthly) })
+    return items
+  }
+
+  function openSend() {
     if (!pkg) { setToast('Pick a package first.'); setTimeout(() => setToast(null), 2500); return }
-    persist('Agreement Sent', 'Agreement Sent', 'Sent for signature')
+    if (!form.email) { setToast('Add a client email first.'); setTimeout(() => setToast(null), 2500); return }
+    setEmailSubject('Your Conversion Hero agreement & invoice')
+    setEmailMessage(`Hi ${(form.contact || '').split(' ')[0] || 'there'},\n\nThanks for the time today. Here's the agreement we put together — ${pkg.name} at ${money(monthly)}/mo${setup ? ` plus a one-time ${money(setup)} setup fee` : ''}. Click below to review and get started.\n\n— Conversion Hero`)
+    setEmailOpen(true)
+  }
+
+  async function doSend() {
+    if (!lead) return
+    setSending(true)
+    try {
+      const agreement = {
+        packageId: form.packageId, billing: form.billing, customPrice: form.customPrice,
+        setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
+        monthly: Math.round(monthly), status: 'Agreement Sent', updated_at: new Date().toISOString(),
+      }
+      const res = await fetch('/api/agreements/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: lead.id,
+          subject: emailSubject,
+          message: emailMessage,
+          customer: { company: form.company, contact: form.contact, email: form.email, phone: form.phone },
+          lines: lineItems(),
+          agreement,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Send failed')
+      setStatusLabel('Agreement Sent')
+      setEmailOpen(false)
+      setToast('Invoice sent to ' + form.email)
+      setTimeout(() => setToast(null), 3500)
+    } catch (err) {
+      setToast(err.message)
+      setTimeout(() => setToast(null), 5000)
+    } finally {
+      setSending(false)
+    }
   }
 
   if (loading) {
@@ -305,8 +355,8 @@ export default function AgreementBuilderPage() {
               </div>
 
               <div className="mt-5 space-y-2">
-                <button onClick={sendForSig} disabled={saving} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
-                  {saving ? 'Working…' : 'Send for Signature →'}
+                <button onClick={openSend} disabled={saving || sending} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
+                  Review &amp; Send →
                 </button>
                 <button onClick={saveDraft} disabled={saving} className="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition disabled:opacity-50">
                   Save Draft
@@ -316,6 +366,59 @@ export default function AgreementBuilderPage() {
           </div>
         </div>
       </div>
+
+      {/* Email preview modal */}
+      {emailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => !sending && setEmailOpen(false)} />
+          <div className="relative w-full max-w-lg bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-white">Review &amp; Send</h2>
+              <button onClick={() => !sending && setEmailOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">To</label>
+                <div className="mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-gray-300">{form.email || '—'}</div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Subject</label>
+                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Message</label>
+                <textarea rows={6} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 leading-relaxed" />
+              </div>
+
+              {/* Invoice summary (read-only) */}
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Invoice (created in QuickBooks)</p>
+                {lineItems().map((l, i) => (
+                  <div key={i} className="flex justify-between text-sm py-0.5">
+                    <span className="text-gray-400">{l.description}</span>
+                    <span className="text-gray-200">{money(l.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm pt-2 mt-1 border-t border-white/10">
+                  <span className="text-white font-semibold">Total due</span>
+                  <span className="text-white font-bold">{money(setup + monthly)}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">A “Review &amp; Pay” button with the QuickBooks payment link is added automatically.{form.adOn && form.adPct ? ` Ad-spend commission (${Number(form.adPct)}%) is billed monthly off actuals.` : ''}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEmailOpen(false)} disabled={sending} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition disabled:opacity-50">Cancel</button>
+              <button onClick={doSend} disabled={sending} className="px-4 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
+                {sending ? 'Sending…' : 'Send Invoice →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-lg bg-[#171B33] border border-white/10 text-sm text-white shadow-2xl z-50">
