@@ -17,7 +17,7 @@ const PACKAGES = [
 function money(n) { return '$' + Math.round(n || 0).toLocaleString() }
 
 const emptyForm = {
-  company: '', contact: '', email: '', phone: '',
+  company: '', legalName: '', address: '', contact: '', email: '', phone: '',
   packageId: 'growth', billing: 'monthly', customPrice: '',
   customName: '', customScope: '',
   term: '4 months', termCustom: '',
@@ -98,6 +98,8 @@ export default function AgreementBuilderPage() {
         const ag = l.meta?.agreement || {}
         setForm({
           company: l.company || '',
+          legalName: ag.legalName ?? '',
+          address: ag.address ?? '',
           contact: [l.first_name, l.last_name].filter(Boolean).join(' '),
           email: l.email || '',
           phone: l.phone || '',
@@ -148,6 +150,7 @@ export default function AgreementBuilderPage() {
   const termVal = form.term === 'Custom…' ? (form.termCustom || 'a custom term') : form.term
   const agreementData = {
     packageName: pkg?.name,
+    legalName: form.legalName, address: form.address,
     custom: !!pkg?.custom,
     scope: form.customScope,
     videos: pkg?.custom ? null : pkg?.videos,
@@ -175,7 +178,7 @@ export default function AgreementBuilderPage() {
   useEffect(() => {
     function onApply(e) {
       const f = e.detail || {}
-      const keys = ['packageId', 'customName', 'customScope', 'customPrice', 'billing', 'setupFee', 'adOn', 'adPct', 'revOn', 'revPct', 'term', 'termCustom', 'notes']
+      const keys = ['legalName', 'address', 'packageId', 'customName', 'customScope', 'customPrice', 'billing', 'setupFee', 'adOn', 'adPct', 'revOn', 'revPct', 'term', 'termCustom', 'notes']
       setForm(prev => {
         const next = { ...prev }
         for (const k of keys) if (f[k] !== undefined && f[k] !== null) next[k] = f[k]
@@ -218,6 +221,7 @@ export default function AgreementBuilderPage() {
   function agreementMeta(status) {
     return {
       packageId: form.packageId, packageName: pkg?.name, videos: pkg?.videos,
+      legalName: form.legalName, address: form.address,
       billing: form.billing, customPrice: form.customPrice,
       customName: form.customName, customScope: form.customScope,
       term: form.term, termCustom: form.termCustom,
@@ -362,6 +366,14 @@ export default function AgreementBuilderPage() {
                 <div>
                   <label className="text-xs text-gray-500">Phone</label>
                   <input value={form.phone} onChange={e => set('phone', e.target.value)} className={inputCls} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500">Legal company name <span className="text-gray-600">(for the contract — defaults to Company)</span></label>
+                  <input value={form.legalName} onChange={e => set('legalName', e.target.value)} placeholder={form.company || 'e.g. Sun Health RX, LLC'} className={inputCls} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500">Business address</label>
+                  <input value={form.address} onChange={e => set('address', e.target.value)} placeholder="123 Main St, City, ST 00000" className={inputCls} />
                 </div>
               </div>
               <p className="text-[11px] text-gray-500 mt-3">Date: <span className="text-gray-400">{today}</span></p>
