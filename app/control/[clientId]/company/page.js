@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../../lib/supabase-browser'
 
 const roleColors = {
@@ -152,10 +152,10 @@ function DeleteUserModal({ user, onClose, onSuccess }) {
 }
 
 // ── Shared UI primitives ──────────────────────────────────────────────────────
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, wide }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#171B33] rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-white/10">
+      <div className={`bg-white dark:bg-[#171B33] rounded-2xl shadow-2xl w-full ${wide ? 'max-w-lg' : 'max-w-md'} max-h-[90vh] overflow-y-auto border border-gray-100 dark:border-white/10`}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/10">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
@@ -222,6 +222,7 @@ function ModalButtons({ onCancel, loading, label }) {
 // ── Brand Board ───────────────────────────────────────────────────────────────
 function BrandBoardCard({ client, branding, canEdit, onEdit }) {
   const colors = Array.isArray(branding?.colors) ? branding.colors : []
+  const logoUrl = branding?.logoUrl
   const [copied, setCopied] = useState(null)
 
   function copyHex(hex) {
@@ -250,6 +251,18 @@ function BrandBoardCard({ client, branding, canEdit, onEdit }) {
             className="text-xs font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg transition">
             Edit
           </button>
+        )}
+      </div>
+
+      {/* Logo */}
+      <div className="px-6 pt-6">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">Logo</div>
+        {logoUrl ? (
+          <div className="inline-flex items-center justify-center px-5 py-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+            <img src={logoUrl} alt="Brand logo" className="max-h-12 max-w-[220px] object-contain" />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-300 dark:text-white/30">No logo set yet.</p>
         )}
       </div>
 
@@ -307,22 +320,40 @@ function EditBrandModal({ clientId, branding, onClose, onSuccess }) {
     const c = Array.isArray(branding?.colors) ? branding.colors : []
     return c.length ? c.map(x => ({ role: x.role || '', hex: x.hex || '#000000' })) : [{ role: 'Primary', hex: '#2E6E42' }]
   })
+  const [logoUrl, setLogoUrl]     = useState(branding?.logoUrl || '')
   const [brandName, setBrandName] = useState(branding?.brandName || '')
   const [tagline, setTagline]     = useState(branding?.tagline || '')
   const [font, setFont]           = useState(branding?.font || '')
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef(null)
 
   function setColor(i, key, val) { setColors(cs => cs.map((c, idx) => idx === i ? { ...c, [key]: val } : c)) }
   function addColor()    { setColors(cs => [...cs, { role: '', hex: '#3B82F6' }]) }
   function removeColor(i) { setColors(cs => cs.filter((_, idx) => idx !== i)) }
+
+  async function handleLogo(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(''); setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('client_id', clientId)
+    const res = await fetch('/api/clients/logo', { method: 'POST', body: fd })
+    const data = await res.json()
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+    if (!res.ok) { setError(data.error || 'Logo upload failed.'); return }
+    setLogoUrl(data.url)
+  }
 
   async function handleSave() {
     setError(''); setLoading(true)
     const cleanColors = colors
       .filter(c => c.hex && c.hex.trim())
       .map(c => ({ role: c.role.trim(), hex: c.hex.trim().toUpperCase() }))
-    const next = { ...(branding || {}), colors: cleanColors, brandName: brandName.trim(), tagline: tagline.trim(), font: font.trim() }
+    const next = { ...(branding || {}), colors: cleanColors, logoUrl: logoUrl.trim(), brandName: brandName.trim(), tagline: tagline.trim(), font: font.trim() }
     const res = await fetch('/api/clients', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -334,19 +365,50 @@ function EditBrandModal({ clientId, branding, onClose, onSuccess }) {
   }
 
   return (
-    <Modal title="Edit Brand Board" onClose={onClose}>
-      <div className="space-y-4">
+    <Modal title="Edit Brand Board" onClose={onClose} wide>
+      <div className="space-y-5">
+        {/* Logo */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Brand Colors</label>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Logo</label>
+          <div className="flex items-center gap-3">
+            <div className="w-20 h-20 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 grid place-items-center overflow-hidden shrink-0">
+              {logoUrl
+                ? <img src={logoUrl} alt="logo" className="max-w-[80%] max-h-[80%] object-contain" />
+                : <span className="text-[10px] text-gray-300 dark:text-white/25">No logo</span>}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogo} className="hidden" />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                className="text-xs font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg transition disabled:opacity-60">
+                {uploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
+              </button>
+              {logoUrl && (
+                <button type="button" onClick={() => setLogoUrl('')}
+                  className="text-xs font-medium text-gray-400 hover:text-red-500 dark:hover:text-red-400 text-left px-1">
+                  Remove
+                </button>
+              )}
+              <p className="text-[11px] text-gray-400">PNG, JPG, SVG, or WebP · under 5 MB</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Colors */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Brand Colors</label>
           <div className="space-y-2">
             {colors.map((c, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input type="color" value={c.hex} onChange={e => setColor(i, 'hex', e.target.value)}
-                  className="w-10 h-9 p-0 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent cursor-pointer shrink-0" />
-                <Input value={c.role} onChange={e => setColor(i, 'role', e.target.value)} placeholder="Role (e.g. Primary)" className="flex-1" />
-                <Input value={c.hex} onChange={e => setColor(i, 'hex', e.target.value)} className="w-28 font-mono" />
-                <button type="button" onClick={() => removeColor(i)} title="Remove"
-                  className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg shrink-0">
+              <div key={i} className="flex items-center gap-2.5">
+                <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(c.hex) ? c.hex : '#000000'} onChange={e => setColor(i, 'hex', e.target.value)}
+                  className="w-10 h-10 p-0 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent cursor-pointer shrink-0" />
+                <div className="w-28 shrink-0">
+                  <Input value={c.hex} onChange={e => setColor(i, 'hex', e.target.value)} placeholder="#2E6E42" className="font-mono" />
+                </div>
+                <div className="flex-1">
+                  <Input value={c.role} onChange={e => setColor(i, 'role', e.target.value)} placeholder="Name (optional) — e.g. Primary" />
+                </div>
+                <button type="button" onClick={() => removeColor(i)} title="Remove color"
+                  className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg shrink-0 transition">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -368,7 +430,7 @@ function EditBrandModal({ clientId, branding, onClose, onSuccess }) {
             className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition">
             Cancel
           </button>
-          <button type="button" onClick={handleSave} disabled={loading}
+          <button type="button" onClick={handleSave} disabled={loading || uploading}
             className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg transition">
             {loading ? 'Saving...' : 'Save Brand Board'}
           </button>
