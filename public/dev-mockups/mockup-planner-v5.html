@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plans V4 — Month-Zoom Gantt</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0b14; --sidebar-bg: #0c0e18; --surface: #111528; --surface2: #171B33;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+    --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+    --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171;
+    --orange: #fb923c; --indigo: #818cf8; --purple: #a78bfa; --teal: #2dd4bf;
+    --radius: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+  .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 14px; flex-shrink: 0; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 20px; }
+  .sidebar-avatar { width: 30px; height: 30px; border-radius: 8px; background: var(--blue); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+  .sidebar-brand span { font-weight: 600; font-size: 14px; }
+  .nav-group-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; padding: 14px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 8px; text-decoration: none; margin-bottom: 1px; }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: #fff; background: var(--blue); font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .main { flex: 1; padding: 24px 32px; overflow: hidden; display: flex; flex-direction: column; }
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+  .page-header h1 { font-size: 24px; font-weight: 700; }
+  .page-header .sub { font-size: 13px; color: var(--dim); margin-top: 3px; }
+  .btn-new { display: flex; align-items: center; gap: 6px; padding: 10px 18px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .period-nav { display: flex; align-items: center; gap: 12px; }
+  .period-nav h2 { font-size: 17px; font-weight: 700; min-width: 170px; }
+  .nav-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .today-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; }
+  .view-toggle button { padding: 6px 14px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; border-radius: 6px; }
+  .view-toggle button.active { background: var(--blue); color: #fff; }
+  .zoom-step { display: flex; align-items: center; gap: 8px; }
+  .zoom-step span { font-size: 12px; font-weight: 700; color: var(--muted); min-width: 56px; text-align: center; }
+  .zoom-step .nav-btn { font-size: 18px; font-weight: 700; }
+  .zoom-step .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* Gantt frame */
+  .gantt-frame { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .scroll { overflow-x: auto; overflow-y: hidden; flex: 1; scrollbar-width: thin; }
+  .scroll::-webkit-scrollbar { height: 10px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 5px; }
+  .canvas { position: relative; }
+
+  /* month band */
+  .month-band { display: flex; height: 30px; border-bottom: 1px solid var(--border2); position: sticky; top: 0; background: var(--surface); z-index: 5; }
+  .month-seg { border-right: 1px solid var(--border2); font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; padding: 0 12px; position: sticky; }
+  .month-seg span { position: sticky; left: 12px; }
+
+  /* day axis */
+  .day-axis { display: flex; height: 38px; border-bottom: 1px solid var(--border); position: sticky; top: 30px; background: var(--surface); z-index: 4; }
+  .day-cell { flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+  .day-cell.weekend { background: rgba(255,255,255,0.018); }
+  .day-cell .dn { font-size: 12px; font-weight: 700; }
+  .day-cell .dw { font-size: 9px; color: var(--dim); text-transform: uppercase; }
+  .day-cell.is-today .dn { background: var(--blue); color: #fff; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; }
+
+  /* lanes */
+  .lanes { position: relative; }
+  .grid-lines { position: absolute; inset: 0; display: flex; z-index: 0; }
+  .grid-lines .gl { flex-shrink: 0; border-right: 1px solid var(--border); }
+  .grid-lines .gl.weekend { background: rgba(255,255,255,0.018); }
+  .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); z-index: 3; opacity: 0.6; }
+  .lane { position: relative; height: 56px; }
+  .gbar { position: absolute; top: 8px; height: 40px; border-radius: 8px; padding: 0 12px; display: flex; flex-direction: column; justify-content: center; color: #fff; cursor: pointer; overflow: hidden; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  .gbar:hover { filter: brightness(1.08); }
+  .gbar .gnm { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gbar .gmeta { font-size: 10px; opacity: 0.9; white-space: nowrap; }
+  .gflight { position: absolute; top: 18px; font-size: 14px; z-index: 3; transform: translateX(-50%); }
+
+  /* footer summary */
+  .gantt-foot { display: flex; gap: 26px; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--surface); }
+  .gantt-foot .blk .l { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .gantt-foot .blk .v { font-size: 17px; font-weight: 800; margin-top: 3px; }
+  .gantt-foot .blk .v.green { color: var(--green); } .gantt-foot .blk .v.blue { color: var(--indigo); }
+  .hint { margin-left: auto; align-self: center; font-size: 11px; color: var(--dim); }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-avatar">CH</div><span>ConversionHero</span></div>
+    <div class="nav-group-label">Management</div>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Clients</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>Projects</a>
+    <a class="nav-item active"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Plans</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Calendar</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Plans</h1><div class="sub">Scroll the timeline left and right to move through your plan, day by day.</div></div>
+      <button class="btn-new">+ New Stay</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="period-nav">
+        <button class="nav-btn" id="prev">‹</button>
+        <h2 id="period-label">June 2026</h2>
+        <button class="nav-btn" id="next">›</button>
+        <button class="today-btn" id="today">Today</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="zoom-step">
+          <button class="nav-btn" id="zoom-out" title="Zoom out">−</button>
+          <span id="zoom-level">Month</span>
+          <button class="nav-btn" id="zoom-in" title="Zoom in">+</button>
+        </div>
+        <div class="view-toggle">
+          <button data-zoom="year">Year</button>
+          <button data-zoom="quarter">Quarter</button>
+          <button data-zoom="month" class="active">Month</button>
+          <button data-zoom="week">Week</button>
+          <button data-zoom="day">Day</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gantt-frame">
+      <div class="scroll" id="scroll">
+        <div class="canvas" id="canvas"></div>
+      </div>
+      <div class="gantt-foot">
+        <div class="blk"><div class="l">In View · <span id="f-month">June</span></div><div class="v green" id="f-spend">$0</div></div>
+        <div class="blk"><div class="l">Nights</div><div class="v" id="f-nights">0</div></div>
+        <div class="blk"><div class="l">Avg / Day</div><div class="v blue" id="f-day">$0</div></div>
+        <div class="hint">↔ drag or scroll the timeline · click a bar for details</div>
+      </div>
+    </div>
+  </main>
+
+<script>
+const STAYS = [
+  { id:1, name:'Old Town Loft', city:'Scottsdale, AZ', color:'#7c5cff', url:'#', start:'2026-06-09', end:'2026-06-16',
+    cats:{airbnb:628,food:150,personal:80,fun:120}, flightIn:{route:'SAN→PHX', date:'2026-06-09'} },
+  { id:2, name:'Chandler Pool Room', city:'Chandler, AZ', color:'#2dd4bf', url:'#', start:'2026-06-17', end:'2026-06-30',
+    cats:{airbnb:669,food:280,personal:120,fun:200}, flightIn:null },
+  { id:3, name:'Sedona Casita', city:'Sedona, AZ', color:'#fb923c', url:'#', start:'2026-07-04', end:'2026-07-12',
+    cats:{airbnb:910,food:200,personal:90,fun:260}, flightIn:{route:'PHX→FLG', date:'2026-07-04'} },
+  { id:4, name:'Denver Loft', city:'Denver, CO', color:'#38bdf8', url:'#', start:'2026-09-05', end:'2026-09-14',
+    cats:{airbnb:1040,food:240,personal:110,fun:300}, flightIn:{route:'PHX→DEN', date:'2026-09-05'} },
+  { id:5, name:'East Austin Bungalow', city:'Austin, TX', color:'#f472b6', url:'#', start:'2026-11-07', end:'2026-11-15',
+    cats:{airbnb:880,food:220,personal:100,fun:280}, flightIn:{route:'DEN→AUS', date:'2026-11-07'} },
+];
+const MOF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MOS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DW=['S','M','T','W','T','F','S'];
+const DWF=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// full-year timeline so we can zoom from Year all the way to Day
+const RANGE_START = new Date(2026,0,1);
+const RANGE_END   = new Date(2026,11,31);
+const TODAY = new Date(2026,5,4);
+
+// zoom levels, ordered zoomed-OUT -> zoomed-IN; value = px per day
+const LEVELS = [
+  { key:'year',    label:'Year',    cw:4   },
+  { key:'quarter', label:'Quarter', cw:13  },
+  { key:'month',   label:'Month',   cw:40  },
+  { key:'week',    label:'Week',    cw:110 },
+  { key:'day',     label:'Day',     cw:280 },
+];
+let zoomIdx = 2;              // start at Month
+let cursor = new Date(2026,5,9); // anchor near first stay
+
+function d(s){const[y,m,a]=s.split('-').map(Number);return new Date(y,m-1,a);}
+function nights(s){return Math.round((d(s.end)-d(s.start))/86400000);}
+function total(s){return Object.values(s.cats).reduce((a,b)=>a+b,0);}
+function money(n){return '$'+Math.round(n).toLocaleString();}
+function daysBetween(a,b){return Math.round((b-a)/86400000);}
+function addDays(dt,n){const r=new Date(dt);r.setDate(r.getDate()+n);return r;}
+function sameDay(a,b){return a.toDateString()===b.toDateString();}
+
+const totalDays = daysBetween(RANGE_START, RANGE_END)+1;
+
+function level(){ return LEVELS[zoomIdx]; }
+
+function build(){
+  const cw = level().cw;
+  const zoom = level().key;
+  const dense = cw >= 28;          // room to label every day
+  const showDOW = cw >= 34;        // weekday letters once there's room
+  const fullDOW = cw >= 90;        // full weekday names at week/day zoom
+  const width = totalDays*cw;
+  const canvas = document.getElementById('canvas');
+
+  // month band
+  let band='';
+  let cur=new Date(RANGE_START);
+  while(cur<=RANGE_END){
+    const mStart = new Date(cur.getFullYear(),cur.getMonth(),1);
+    const mEnd = new Date(cur.getFullYear(),cur.getMonth()+1,0);
+    const segStart = mStart<RANGE_START?RANGE_START:mStart;
+    const segEnd = mEnd>RANGE_END?RANGE_END:mEnd;
+    const w=(daysBetween(segStart,segEnd)+1)*cw;
+    band+=`<div class="month-seg" style="width:${w}px"><span>${MOS[cur.getMonth()]} ${cur.getFullYear()}</span></div>`;
+    cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+  }
+
+  // day axis + grid lines
+  let axis='', glines='';
+  for(let i=0;i<totalDays;i++){
+    const dt=addDays(RANGE_START,i);
+    const we=dt.getDay()===0||dt.getDay()===6;
+    const today=sameDay(dt,TODAY);
+    // dense zooms: every day. tighter zooms: only tick week-starts (Mondays) + the 1st
+    const labelNum = dense || (cw>=8 && (dt.getDay()===1 || dt.getDate()===1));
+    axis+=`<div class="day-cell${we?' weekend':''}${today?' is-today':''}" style="width:${cw}px">`+
+      (labelNum?`<div class="dn">${dt.getDate()}</div>`:'')+
+      (showDOW?`<div class="dw">${fullDOW?DWF[dt.getDay()]:DW[dt.getDay()]}</div>`:'')+`</div>`;
+    glines+=`<div class="gl${we?' weekend':''}" style="width:${cw}px"></div>`;
+  }
+
+  // lanes — pack non-overlapping stays into rows
+  const lanes=[];
+  STAYS.slice().sort((a,b)=>d(a.start)-d(b.start)).forEach(s=>{
+    let placed=false;
+    for(const lane of lanes){ if(d(s.start) >= d(lane[lane.length-1].end)){ lane.push(s); placed=true; break; } }
+    if(!placed) lanes.push([s]);
+  });
+
+  let laneHtml='';
+  lanes.forEach(lane=>{
+    let bars='';
+    lane.forEach(s=>{
+      const left=daysBetween(RANGE_START,d(s.start))*cw;
+      const w=nights(s)*cw;
+      const n=nights(s);
+      bars+=`<div class="gbar" data-id="${s.id}" style="left:${left}px;width:${w}px;background:linear-gradient(135deg,${s.color},${s.color}bb)">`+
+        `<div class="gnm">${s.name}</div>`+(cw>=11?`<div class="gmeta">${money(total(s))} · ${money(total(s)/n)}/day</div>`:'')+`</div>`;
+      if(s.flightIn){ const fl=daysBetween(RANGE_START,d(s.flightIn.date))*cw; bars+=`<div class="gflight" style="left:${fl}px">✈️</div>`; }
+    });
+    laneHtml+=`<div class="lane">${bars}</div>`;
+  });
+
+  const todayLeft = daysBetween(RANGE_START,TODAY)*cw + cw/2;
+
+  canvas.style.width=width+'px';
+  canvas.innerHTML=
+    `<div class="month-band">${band}</div>`+
+    `<div class="day-axis">${axis}</div>`+
+    `<div class="lanes"><div class="grid-lines">${glines}</div>`+
+    `<div class="today-line" style="left:${todayLeft}px"></div>`+
+    laneHtml+`</div>`;
+
+  canvas.querySelectorAll('.gbar').forEach(b=>b.addEventListener('click',()=>{
+    const s=STAYS.find(x=>x.id==b.dataset.id); alert(`${s.name}\n${s.city}\n${MOS[d(s.start).getMonth()]} ${d(s.start).getDate()} → ${MOS[d(s.end).getMonth()]} ${d(s.end).getDate()}\nTotal ${money(total(s))} · ${money(total(s)/nights(s))}/day`);
+  }));
+}
+
+// the [start,end] window the cursor "points at" for the current zoom level
+function periodBounds(){
+  const y=cursor.getFullYear(), m=cursor.getMonth();
+  switch(level().key){
+    case 'year':    return [new Date(y,0,1), new Date(y,11,31)];
+    case 'quarter': { const qs=Math.floor(m/3)*3; return [new Date(y,qs,1), new Date(y,qs+3,0)]; }
+    case 'month':   return [new Date(y,m,1), new Date(y,m+1,0)];
+    case 'week':    { const ws=addDays(cursor,-cursor.getDay()); return [ws, addDays(ws,6)]; }
+    case 'day':     return [new Date(cursor), new Date(cursor)];
+  }
+}
+function periodLabel(){
+  const [a,b]=periodBounds(); const y=cursor.getFullYear();
+  switch(level().key){
+    case 'year':    return ''+y;
+    case 'quarter': return 'Q'+(Math.floor(cursor.getMonth()/3)+1)+' '+y;
+    case 'month':   return MOF[cursor.getMonth()]+' '+y;
+    case 'week':    return MOS[a.getMonth()]+' '+a.getDate()+' – '+(a.getMonth()===b.getMonth()?b.getDate():MOS[b.getMonth()]+' '+b.getDate());
+    case 'day':     return DWF[cursor.getDay()]+', '+MOS[cursor.getMonth()]+' '+cursor.getDate();
+  }
+}
+function scrollToPeriod(animate=true){
+  const cw=level().cw;
+  const [start]=periodBounds();
+  const left = daysBetween(RANGE_START, start)*cw;
+  document.getElementById('scroll').scrollTo({left:Math.max(left-8,0), behavior:animate?'smooth':'auto'});
+  document.getElementById('period-label').textContent=periodLabel();
+  document.getElementById('zoom-level').textContent=level().label;
+  document.getElementById('zoom-in').disabled = zoomIdx>=LEVELS.length-1;
+  document.getElementById('zoom-out').disabled = zoomIdx<=0;
+  document.querySelectorAll('.view-toggle button').forEach(x=>x.classList.toggle('active',x.dataset.zoom===level().key));
+  updateFoot();
+}
+function updateFoot(){
+  const [a,b]=periodBounds();
+  const inView=STAYS.filter(s=> d(s.start)<=b && d(s.end)>a);
+  const spend=inView.reduce((a,s)=>a+total(s),0);
+  const nts=inView.reduce((a,s)=>a+nights(s),0);
+  document.getElementById('f-month').textContent=periodLabel();
+  document.getElementById('f-spend').textContent=money(spend);
+  document.getElementById('f-nights').textContent=nts;
+  document.getElementById('f-day').textContent=nts?money(spend/nts):'$0';
+}
+// step the cursor by one unit of the current zoom level
+function step(dir){
+  const y=cursor.getFullYear(), m=cursor.getMonth();
+  switch(level().key){
+    case 'year':    cursor=new Date(y+dir,m,1); break;
+    case 'quarter': cursor=new Date(y,m+3*dir,1); break;
+    case 'month':   cursor=new Date(y,m+dir,1); break;
+    case 'week':    cursor=addDays(cursor,7*dir); break;
+    case 'day':     cursor=addDays(cursor,dir); break;
+  }
+  scrollToPeriod();
+}
+function setZoom(idx){ zoomIdx=Math.max(0,Math.min(LEVELS.length-1,idx)); build(); scrollToPeriod(false); }
+
+document.querySelectorAll('.view-toggle button').forEach(b=>b.addEventListener('click',()=>
+  setZoom(LEVELS.findIndex(l=>l.key===b.dataset.zoom))));
+document.getElementById('zoom-in').addEventListener('click',()=>setZoom(zoomIdx+1));
+document.getElementById('zoom-out').addEventListener('click',()=>setZoom(zoomIdx-1));
+document.getElementById('prev').addEventListener('click',()=>step(-1));
+document.getElementById('next').addEventListener('click',()=>step(1));
+document.getElementById('today').addEventListener('click',()=>{ cursor=new Date(TODAY); scrollToPeriod(); });
+
+// drag-to-pan
+const sc=document.getElementById('scroll');
+let down=false,sx=0,sl=0;
+sc.addEventListener('mousedown',e=>{ if(e.target.closest('.gbar'))return; down=true;sx=e.pageX;sl=sc.scrollLeft;sc.style.cursor='grabbing'; });
+window.addEventListener('mouseup',()=>{ down=false;sc.style.cursor=''; });
+window.addEventListener('mousemove',e=>{ if(!down)return; sc.scrollLeft=sl-(e.pageX-sx); });
+
+build();
+scrollToPeriod(false);
+</script>
+</body>
+</html>

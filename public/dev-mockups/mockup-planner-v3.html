@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plans V3 — Budget Cockpit</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0b14; --sidebar-bg: #0c0e18; --surface: #111528; --surface2: #171B33;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+    --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+    --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171;
+    --orange: #fb923c; --indigo: #818cf8; --purple: #a78bfa; --teal: #2dd4bf;
+    --radius: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+  .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 14px; flex-shrink: 0; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 20px; }
+  .sidebar-avatar { width: 30px; height: 30px; border-radius: 8px; background: var(--blue); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+  .sidebar-brand span { font-weight: 600; font-size: 14px; }
+  .nav-group-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; padding: 14px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 8px; text-decoration: none; margin-bottom: 1px; }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: #fff; background: var(--blue); font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+  .page-header h1 { font-size: 24px; font-weight: 700; }
+  .page-header .sub { font-size: 13px; color: var(--dim); margin-top: 3px; }
+  .btn-new { display: flex; align-items: center; gap: 6px; padding: 10px 18px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  .grid-top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card h3 { font-size: 12px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+
+  /* Big budget */
+  .budget-hero { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .budget-hero .big { font-size: 40px; font-weight: 800; color: var(--green); }
+  .budget-hero .cap { font-size: 13px; color: var(--dim); }
+  .budget-sub { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 16px; }
+  .kpi { background: var(--surface2); border-radius: 10px; padding: 12px 14px; }
+  .kpi .v { font-size: 18px; font-weight: 800; } .kpi .v.blue { color: var(--indigo); }
+  .kpi .l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+
+  /* Category breakdown */
+  .cat-bar { display: grid; grid-template-columns: 80px 1fr 60px; align-items: center; gap: 12px; margin-bottom: 14px; font-size: 13px; }
+  .cat-bar .cat { color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .cat-bar .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .cat-track { height: 10px; background: var(--surface2); border-radius: 6px; overflow: hidden; }
+  .cat-fill { height: 100%; border-radius: 6px; }
+  .cat-bar .amt { text-align: right; font-weight: 700; }
+  .stacked { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 6px; }
+
+  /* Gantt */
+  .gantt { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
+  .gantt-months { display: grid; grid-template-columns: repeat(12,1fr); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px; }
+  .gantt-months div { font-size: 10px; font-weight: 700; color: var(--dim); text-align: center; text-transform: uppercase; }
+  .gantt-track { position: relative; height: 44px; margin-top: 8px; }
+  .gantt-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12,1fr); }
+  .gantt-grid div { border-right: 1px solid var(--border); }
+  .gantt-grid div:last-child { border-right: none; }
+  .gantt-bar { position: absolute; top: 7px; height: 30px; border-radius: 7px; display: flex; align-items: center; padding: 0 12px; gap: 8px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; overflow: hidden; white-space: nowrap; }
+  .gantt-bar .cost { font-weight: 600; opacity: 0.85; font-size: 11px; }
+  .gantt-flight { position: absolute; top: 16px; font-size: 13px; }
+
+  /* Table */
+  .tbl { width: 100%; border-collapse: collapse; }
+  .tbl th { text-align: left; font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 14px 12px; }
+  .tbl th.r, .tbl td.r { text-align: right; }
+  .tbl td { padding: 14px; border-top: 1px solid var(--border); font-size: 13px; }
+  .tbl tr:hover td { background: rgba(255,255,255,0.02); }
+  .tbl .nm { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .tbl .chip { width: 10px; height: 10px; border-radius: 3px; }
+  .tbl .sub { color: var(--dim); font-size: 11px; }
+  .tbl .tot { font-weight: 800; color: var(--green); }
+  .tbl a { color: var(--blue); text-decoration: none; font-size: 12px; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-avatar">CH</div><span>ConversionHero</span></div>
+    <div class="nav-group-label">Management</div>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Clients</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>Projects</a>
+    <a class="nav-item active"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Plans</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Calendar</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Plans</h1><div class="sub">Your forward budget — every stay across the year, and what each one costs.</div></div>
+      <button class="btn-new">+ New Stay</button>
+    </div>
+
+    <div class="grid-top">
+      <div class="card">
+        <h3>Total Planned · 2026</h3>
+        <div class="budget-hero"><span class="big" id="big">$0</span><span class="cap" id="cap"></span></div>
+        <div class="budget-sub" id="bsub"></div>
+        <div class="kpi-row">
+          <div class="kpi"><div class="v" id="k-nights">0</div><div class="l">Nights</div></div>
+          <div class="kpi"><div class="v blue" id="k-day">$0</div><div class="l">Avg / Day</div></div>
+          <div class="kpi"><div class="v" id="k-stays">0</div><div class="l">Stays</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Where the money goes</h3>
+        <div id="cat-bars"></div>
+        <div class="stacked" id="stacked"></div>
+      </div>
+    </div>
+
+    <div class="gantt">
+      <h3 style="font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Year timeline · 2026</h3>
+      <div class="gantt-months" id="g-months"></div>
+      <div class="gantt-track" id="g-track"><div class="gantt-grid" id="g-grid"></div></div>
+    </div>
+
+    <div class="card" style="padding:6px 0 0">
+      <table class="tbl">
+        <thead><tr><th style="padding-left:20px">Stay</th><th>Dates</th><th class="r">Nights</th><th class="r">$ / Day</th><th class="r">Total</th><th style="padding-right:20px"></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+<script>
+const CATS = [
+  { key:'airbnb', label:'Airbnb', color:'#a78bfa' },
+  { key:'food', label:'Food', color:'#fb923c' },
+  { key:'personal', label:'Personal', color:'#2dd4bf' },
+  { key:'fun', label:'Fun', color:'#818cf8' },
+];
+const STAYS = [
+  { id:1, name:'Old Town Loft', city:'Scottsdale, AZ', color:'#7c5cff', url:'#', start:'2026-06-09', end:'2026-06-16',
+    cats:{airbnb:628,food:150,personal:80,fun:120}, flightIn:{route:'SAN→PHX'} },
+  { id:2, name:'Chandler Pool Room', city:'Chandler, AZ', color:'#2dd4bf', url:'#', start:'2026-06-17', end:'2026-06-30',
+    cats:{airbnb:669,food:280,personal:120,fun:200}, flightIn:null },
+];
+const MO=['J','F','M','A','M','J','J','A','S','O','N','D'];
+const MOF=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function d(s){const[y,m,a]=s.split('-').map(Number);return new Date(y,m-1,a);}
+function nights(s){return Math.round((d(s.end)-d(s.start))/86400000);}
+function total(s){return Object.values(s.cats).reduce((a,b)=>a+b,0);}
+function money(n){return '$'+Math.round(n).toLocaleString();}
+function dayOfYear(dt){return Math.floor((dt-new Date(dt.getFullYear(),0,0))/86400000);}
+
+const budget=STAYS.reduce((a,s)=>a+total(s),0), nightsAll=STAYS.reduce((a,s)=>a+nights(s),0);
+document.getElementById('big').textContent=money(budget);
+document.getElementById('cap').textContent='planned';
+document.getElementById('bsub').textContent=STAYS.length+' stays · '+nightsAll+' nights · Jun–Jun';
+document.getElementById('k-nights').textContent=nightsAll;
+document.getElementById('k-day').textContent=money(budget/nightsAll);
+document.getElementById('k-stays').textContent=STAYS.length;
+
+// Category totals
+const catTotals=CATS.map(c=>({...c, val:STAYS.reduce((a,s)=>a+s.cats[c.key],0)}));
+const catMax=Math.max(...catTotals.map(c=>c.val));
+document.getElementById('cat-bars').innerHTML=catTotals.map(c=>
+  `<div class="cat-bar"><span class="cat"><span class="dot" style="background:${c.color}"></span>${c.label}</span>`+
+  `<div class="cat-track"><div class="cat-fill" style="width:${c.val/catMax*100}%;background:${c.color}"></div></div>`+
+  `<span class="amt">${money(c.val)}</span></div>`).join('');
+document.getElementById('stacked').innerHTML=catTotals.map(c=>
+  `<div style="width:${c.val/budget*100}%;background:${c.color}"></div>`).join('');
+
+// Gantt
+document.getElementById('g-months').innerHTML=MOF.map(m=>`<div>${m}</div>`).join('');
+document.getElementById('g-grid').innerHTML=Array(12).fill('<div></div>').join('');
+const yearDays=365;
+let bars='';
+STAYS.forEach(s=>{
+  const left=dayOfYear(d(s.start))/yearDays*100;
+  const width=nights(s)/yearDays*100;
+  bars+=`<div class="gantt-bar" style="left:${left}%;width:${Math.max(width,8)}%;background:linear-gradient(135deg,${s.color},${s.color}cc)" title="${s.name}">`+
+    `<span>${s.name}</span><span class="cost">${money(total(s))}</span></div>`;
+  if(s.flightIn) bars+=`<div class="gantt-flight" style="left:${left-1.5}%">✈️</div>`;
+});
+document.getElementById('g-track').insertAdjacentHTML('beforeend',bars);
+
+// Table
+document.getElementById('tbody').innerHTML=STAYS.map(s=>{
+  const n=nights(s);
+  return `<tr><td style="padding-left:20px"><div class="nm"><span class="chip" style="background:${s.color}"></span>${s.name}<span class="sub">· ${s.city}</span></div></td>`+
+    `<td>${MOF[d(s.start).getMonth()]} ${d(s.start).getDate()} → ${MOF[d(s.end).getMonth()]} ${d(s.end).getDate()}</td>`+
+    `<td class="r">${n}</td><td class="r">${money(total(s)/n)}</td><td class="r tot">${money(total(s))}</td>`+
+    `<td style="padding-right:20px" class="r"><a href="${s.url}">Airbnb ↗</a></td></tr>`;
+}).join('');
+</script>
+</body>
+</html>

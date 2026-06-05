@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import PlanGantt, { nights as planNights, catTotal as planCatTotal, money as planMoney } from '../../components/PlanGantt'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -1296,6 +1297,95 @@ function ProjectsSection() {
   )
 }
 
+/* ─── Plans Section (personal forward planner) ─── */
+function PlansSection() {
+  const router = useRouter()
+  const [plans, setPlans] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => { loadPlans() }, [])
+
+  async function loadPlans() {
+    try {
+      const res = await fetch('/api/plans')
+      const json = await res.json()
+      setPlans(json.plans || [])
+    } catch (err) {
+      console.error('[PlansSection] fetch error:', err)
+    }
+    setLoading(false)
+  }
+
+  const budget = plans.reduce((a, s) => a + planCatTotal(s), 0)
+  const nts = plans.reduce((a, s) => a + planNights(s), 0)
+  const perDay = nts ? budget / nts : 0
+  const next = [...plans]
+    .filter(s => new Date(s.start_date) >= new Date(new Date().toDateString()))
+    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))[0]
+    || [...plans].sort((a, b) => new Date(a.start_date) - new Date(b.start_date))[0]
+
+  return (
+    <div className="bg-[#171B33] rounded-2xl border border-white/5 mt-4 overflow-hidden">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition">
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        <span className="text-[15px] font-bold text-white">Plans</span>
+        <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{plans.length}</span>
+        {next && (
+          <span className="text-[11px] font-semibold text-gray-400 ml-2 hidden sm:inline">
+            ✈ Next: {next.name} · {new Date(next.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        )}
+        <div className="flex-1" />
+        {!loading && (
+          <div className="flex items-center">
+            <div className="flex flex-col items-center px-3.5 min-w-[80px] border-r border-white/5">
+              <span className={`text-[15px] font-extrabold leading-tight ${budget > 0 ? 'text-green-400' : 'text-gray-500'}`}>{planMoney(budget)}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Budget</span>
+            </div>
+            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+              <span className={`text-[15px] font-extrabold leading-tight ${nts > 0 ? 'text-white' : 'text-gray-500'}`}>{nts}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Nights</span>
+            </div>
+            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
+              <span className={`text-[15px] font-extrabold leading-tight ${plans.length > 0 ? 'text-white' : 'text-gray-500'}`}>{plans.length}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Stays</span>
+            </div>
+            <div className="flex flex-col items-center px-3.5 min-w-[70px]">
+              <span className={`text-[15px] font-extrabold leading-tight ${perDay > 0 ? 'text-indigo-400' : 'text-gray-500'}`}>{planMoney(perDay)}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Avg/Day</span>
+            </div>
+          </div>
+        )}
+        <button onClick={e => { e.stopPropagation(); router.push('/control/plans') }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition ml-3">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          New Stay
+        </button>
+      </button>
+
+      <Collapse open={open}>
+        <div className="border-t border-white/5 p-5">
+          {loading ? (
+            <div className="text-sm text-gray-500">Loading plans…</div>
+          ) : plans.length === 0 ? (
+            <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
+          ) : (
+            <>
+              <PlanGantt stays={plans} today={new Date()} compact onSelect={() => router.push('/control/plans')} />
+              <div className="mt-3 text-right">
+                <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
+              </div>
+            </>
+          )}
+        </div>
+      </Collapse>
+    </div>
+  )
+}
+
 /* ─── Main Page ─── */
 export default function ControlPage() {
   const router = useRouter()
@@ -1716,6 +1806,8 @@ export default function ControlPage() {
           })()}
 
           <ProjectsSection />
+
+          <PlansSection />
         </div>
       )}
 

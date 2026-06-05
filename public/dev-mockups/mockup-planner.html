@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plans — Personal Planner Mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0b14; --sidebar-bg: #0c0e18; --surface: #111528; --surface2: #171B33;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+    --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+    --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171;
+    --orange: #fb923c; --indigo: #818cf8; --purple: #a78bfa; --teal: #2dd4bf;
+    --radius: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 14px; flex-shrink: 0; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 20px; }
+  .sidebar-avatar { width: 30px; height: 30px; border-radius: 8px; background: var(--blue); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+  .sidebar-brand span { font-weight: 600; font-size: 14px; }
+  .nav-group-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; padding: 14px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 8px; text-decoration: none; margin-bottom: 1px; }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: #fff; background: var(--blue); font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* Main */
+  .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .page-header h1 { font-size: 24px; font-weight: 700; }
+  .page-header .sub { font-size: 13px; color: var(--dim); margin-top: 3px; }
+  .btn-new { display: flex; align-items: center; gap: 6px; padding: 10px 18px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-new:hover { background: #2563eb; }
+
+  /* Stats row */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stat { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .stat-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+  .stat-val { font-size: 24px; font-weight: 800; }
+  .stat-val.green { color: var(--green); } .stat-val.yellow { color: var(--yellow); } .stat-val.blue { color: var(--indigo); }
+  .stat-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .period-nav { display: flex; align-items: center; gap: 12px; }
+  .period-nav h2 { font-size: 17px; font-weight: 700; min-width: 180px; }
+  .nav-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .today-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .today-btn:hover { color: var(--text); }
+  .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; }
+  .view-toggle button { padding: 6px 14px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; border-radius: 6px; }
+  .view-toggle button.active { background: var(--blue); color: #fff; }
+
+  .layout { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+
+  /* Month grid */
+  .cal-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border); }
+  .cal-dow div { padding: 10px 12px; font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .cal-cell { min-height: 92px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 7px; position: relative; cursor: pointer; }
+  .cal-cell:nth-child(7n) { border-right: none; }
+  .cal-cell.dim { background: rgba(255,255,255,0.012); }
+  .cal-cell.dim .cal-date { color: var(--dim); }
+  .cal-cell:hover { background: rgba(255,255,255,0.025); }
+  .cal-date { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .cal-cell.today .cal-date { background: var(--blue); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
+  .stay-bar { margin-top: 4px; font-size: 10px; font-weight: 700; color: #fff; padding: 3px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stay-bar.mid { border-radius: 0; margin-left: -7px; margin-right: -7px; padding-left: 7px; }
+  .stay-bar.start { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -7px; }
+  .stay-bar.end { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -7px; padding-left: 7px; }
+  .daily-cost { position: absolute; bottom: 5px; right: 7px; font-size: 10px; font-weight: 700; color: var(--green); }
+  .flight-pin { position: absolute; top: 6px; right: 7px; font-size: 11px; }
+
+  /* Week view */
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .week-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; min-height: 280px; }
+  .week-col-head { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .week-col-head .num { color: var(--dim); }
+  .week-col.today { border-color: var(--blue); }
+  .week-stay { font-size: 10px; font-weight: 700; color: #fff; padding: 4px 6px; border-radius: 5px; margin-bottom: 8px; }
+  .wk-line { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; color: var(--muted); }
+  .wk-line b { color: var(--text); }
+  .wk-total { border-top: 1px dashed var(--border2); margin-top: 6px; padding-top: 6px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+  .wk-total b { color: var(--green); }
+
+  /* Day view */
+  .day-view { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .day-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .day-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .expense-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .expense-row:last-child { border-bottom: none; }
+  .expense-left { display: flex; align-items: center; gap: 10px; }
+  .cat-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .expense-amt { font-size: 14px; font-weight: 700; }
+  .day-total { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border2); font-size: 16px; font-weight: 800; }
+  .day-total b { color: var(--green); }
+  .lodge-hero { height: 120px; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: flex-end; padding: 12px; color: #fff; font-weight: 700; font-size: 16px; }
+  .lodge-meta { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .lodge-meta a { color: var(--blue); text-decoration: none; }
+
+  /* Year view */
+  .year-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .mini-month { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .mini-month.has-stay { border-color: var(--border2); }
+  .mini-month h4 { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .mini-day { aspect-ratio: 1; border-radius: 3px; font-size: 8px; color: var(--dim); display: grid; place-items: center; }
+  .mini-foot { margin-top: 8px; font-size: 10px; color: var(--muted); }
+  .mini-foot .amt { color: var(--green); font-weight: 700; }
+
+  /* Detail panel */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: sticky; top: 0; }
+  .panel-empty { color: var(--dim); font-size: 13px; text-align: center; padding: 40px 10px; }
+  .panel-hero { height: 90px; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: flex-end; padding: 12px; }
+  .panel-hero .ph-name { font-size: 16px; font-weight: 800; color: #fff; }
+  .panel-dates { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .panel-city { font-size: 12px; color: var(--dim); margin-bottom: 14px; }
+  .panel-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--blue); text-decoration: none; margin-bottom: 16px; }
+  .panel-sec-label { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; margin: 16px 0 8px; }
+  .cat-line { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 13px; }
+  .cat-line .lhs { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .cat-line .val { font-weight: 700; }
+  .cat-line .val.tbd { color: var(--yellow); }
+  .panel-total { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border2); font-weight: 800; font-size: 15px; }
+  .panel-total b { color: var(--green); }
+  .perday { font-size: 11px; color: var(--dim); text-align: right; margin-top: 3px; }
+  .flight-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-size: 12px; margin-top: 8px; }
+  .flight-card .route { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .flight-card .fmeta { color: var(--dim); font-size: 11px; margin-top: 3px; }
+
+  .hidden { display: none !important; }
+  .legend { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-avatar">CH</div>
+      <span>ConversionHero</span>
+    </div>
+    <div class="nav-group-label">Management</div>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Clients</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>Projects</a>
+    <a class="nav-item active"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Plans</a>
+    <a class="nav-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Calendar</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>Plans</h1>
+        <div class="sub">Your forward plan — where you'll be and what it costs, day by day.</div>
+      </div>
+      <button class="btn-new">+ New Stay</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Planned Budget</div><div class="stat-val green" id="s-budget">$0</div><div class="stat-sub" id="s-budget-sub">across all stays</div></div>
+      <div class="stat"><div class="stat-label">Days Planned</div><div class="stat-val" id="s-days">0</div><div class="stat-sub">nights booked</div></div>
+      <div class="stat"><div class="stat-label">Avg / Day</div><div class="stat-val blue" id="s-perday">$0</div><div class="stat-sub">all categories</div></div>
+      <div class="stat"><div class="stat-label">Upcoming Stays</div><div class="stat-val yellow" id="s-stays">0</div><div class="stat-sub">in the pipeline</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="period-nav">
+        <button class="nav-btn" id="prev">‹</button>
+        <h2 id="period-label">June 2026</h2>
+        <button class="nav-btn" id="next">›</button>
+        <button class="today-btn" id="today">Today</button>
+      </div>
+      <div class="view-toggle">
+        <button data-view="day">Day</button>
+        <button data-view="week">Week</button>
+        <button data-view="month" class="active">Month</button>
+        <button data-view="year">Year</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div id="view-month"></div>
+        <div id="view-week" class="hidden"></div>
+        <div id="view-day" class="hidden"></div>
+        <div id="view-year" class="hidden"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <aside class="panel" id="panel">
+        <div class="panel-empty">Select a stay to see its daily breakdown, lodging, and flights.</div>
+      </aside>
+    </div>
+  </main>
+
+<script>
+const CATS = [
+  { key: 'airbnb',   label: 'Airbnb',   color: 'var(--purple)' },
+  { key: 'food',     label: 'Food',     color: 'var(--orange)' },
+  { key: 'personal', label: 'Personal', color: 'var(--teal)' },
+  { key: 'fun',      label: 'Fun',      color: 'var(--indigo)' },
+];
+
+// Seeded from "Personal Plans June 2026" note
+const STAYS = [
+  {
+    id: 1, name: 'Old Town Loft', city: 'Scottsdale, AZ', color: '#7c5cff',
+    url: 'https://airbnb.com/rooms/old-town', start: '2026-06-09', end: '2026-06-16',
+    cats: { airbnb: 628, food: 150, personal: 80, fun: 120 },
+    flightIn: { route: 'SAN → PHX', date: '2026-06-09', time: '8:40 AM', airline: 'Southwest', price: 96 },
+  },
+  {
+    id: 2, name: 'Chandler Pool Room', city: 'Chandler, AZ', color: '#2dd4bf',
+    url: 'https://airbnb.com/rooms/chandler-pool', start: '2026-06-17', end: '2026-06-30',
+    cats: { airbnb: 669, food: 280, personal: 120, fun: 200 },
+    flightIn: null,
+  },
+];
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function d(s){ const [y,m,da]=s.split('-').map(Number); return new Date(y,m-1,da); }
+function nights(st){ return Math.round((d(st.end)-d(st.start))/86400000); }
+function total(st){ return Object.values(st.cats).reduce((a,b)=>a+b,0); }
+function perDay(st){ return total(st)/nights(st); }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function stayOnDay(date){ return STAYS.find(s => date>=d(s.start) && date<d(s.end)); }
+function money(n){ return '$'+Math.round(n).toLocaleString(); }
+
+let view = 'month';
+let cursor = new Date(2026,5,1);    // June 2026
+const TODAY = new Date(2026,5,4);   // pretend "today"
+let selectedId = 1;
+
+// ---- Stats ----
+function renderStats(){
+  const budget = STAYS.reduce((a,s)=>a+total(s),0);
+  const days = STAYS.reduce((a,s)=>a+nights(s),0);
+  document.getElementById('s-budget').textContent = money(budget);
+  document.getElementById('s-budget-sub').textContent = STAYS.length+' stays · '+MONTHS[cursor.getMonth()]+' '+cursor.getFullYear();
+  document.getElementById('s-days').textContent = days;
+  document.getElementById('s-perday').textContent = money(budget/days);
+  document.getElementById('s-stays').textContent = STAYS.length;
+}
+
+// ---- Legend ----
+document.getElementById('legend').innerHTML = STAYS.map(s =>
+  `<span><i style="width:10px;height:10px;border-radius:3px;background:${s.color};display:inline-block"></i>${s.name}</span>`
+).join('') + CATS.map(c =>
+  `<span><i class="cat-dot" style="background:${c.color}"></i>${c.label}</span>`
+).join('');
+
+// ---- Month view ----
+function renderMonth(){
+  const y=cursor.getFullYear(), m=cursor.getMonth();
+  const first=new Date(y,m,1), startDow=first.getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  let cells='';
+  // leading dim days
+  const prevDays=new Date(y,m,0).getDate();
+  for(let i=startDow-1;i>=0;i--) cells+=cell(new Date(y,m-1,prevDays-i),true);
+  for(let dn=1;dn<=daysInMonth;dn++) cells+=cell(new Date(y,m,dn),false);
+  const trailing=(7-((startDow+daysInMonth)%7))%7;
+  for(let i=1;i<=trailing;i++) cells+=cell(new Date(y,m+1,i),true);
+
+  document.getElementById('view-month').innerHTML =
+    `<div class="cal-wrap"><div class="cal-dow">${DOW.map(x=>`<div>${x}</div>`).join('')}</div>`+
+    `<div class="cal-grid">${cells}</div></div>`;
+  document.querySelectorAll('.cal-cell[data-stay]').forEach(c=>
+    c.addEventListener('click',()=>select(+c.dataset.stay)));
+}
+function cell(date,dim){
+  const st=stayOnDay(date);
+  const isToday=sameDay(date,TODAY);
+  let bar='', cost='', pin='';
+  if(st){
+    const isStart=sameDay(date,d(st.start));
+    const isEndNight=sameDay(date,new Date(d(st.end)-86400000));
+    const cls=isStart?'start':isEndNight?'end':'mid';
+    bar=`<div class="stay-bar ${cls}" style="background:${st.color}">${isStart?st.name:'&nbsp;'}</div>`;
+    cost=`<div class="daily-cost">${money(perDay(st))}</div>`;
+    if(st.flightIn && sameDay(date,d(st.flightIn.date))) pin=`<div class="flight-pin">✈️</div>`;
+  }
+  return `<div class="cal-cell${dim?' dim':''}${isToday?' today':''}"${st?` data-stay="${st.id}"`:''}>`+
+    `<div class="cal-date">${date.getDate()}</div>${pin}${bar}${cost}</div>`;
+}
+
+// ---- Week view ----
+function renderWeek(){
+  // week containing cursor
+  const base=new Date(cursor); base.setDate(cursor.getDate()-cursor.getDay());
+  let cols='';
+  for(let i=0;i<7;i++){
+    const date=new Date(base); date.setDate(base.getDate()+i);
+    const st=stayOnDay(date);
+    const isToday=sameDay(date,TODAY);
+    let body='<div style="color:var(--dim);font-size:11px;padding:8px 0">No plan</div>';
+    if(st){
+      const pd=perDay(st), n=nights(st);
+      body=`<div class="week-stay" style="background:${st.color}">${st.name}</div>`+
+        CATS.map(c=>`<div class="wk-line"><span>${c.label}</span><b>${money(st.cats[c.key]/n)}</b></div>`).join('')+
+        `<div class="wk-total"><span>Day total</span><b>${money(pd)}</b></div>`;
+    }
+    cols+=`<div class="week-col${isToday?' today':''}"${st?` data-stay="${st.id}"`:''}>`+
+      `<div class="week-col-head"><span>${DOW[i]}</span><span class="num">${date.getDate()}</span></div>${body}</div>`;
+  }
+  document.getElementById('view-week').innerHTML=`<div class="week-grid">${cols}</div>`;
+  document.querySelectorAll('.week-col[data-stay]').forEach(c=>c.addEventListener('click',()=>select(+c.dataset.stay)));
+}
+
+// ---- Day view ----
+function renderDay(){
+  const date=new Date(cursor);
+  const st=stayOnDay(date) || STAYS.find(s=>d(s.start)>=date) || STAYS[0];
+  const n=nights(st);
+  const lodge=`<div class="day-card"><h3>Where you're staying</h3>`+
+    `<div class="lodge-hero" style="background:linear-gradient(135deg,${st.color},#0a0b14)">${st.name}</div>`+
+    `<div class="lodge-meta">${st.city}<br>${fmt(d(st.start))} → ${fmt(d(st.end))} · ${n} nights<br>`+
+    `<a href="${st.url}" target="_blank">View Airbnb ↗</a></div>`+
+    (st.flightIn?`<div class="flight-card"><div class="route">✈️ ${st.flightIn.route}</div>`+
+      `<div class="fmeta">${st.flightIn.airline} · ${st.flightIn.time} · ${money(st.flightIn.price)}</div></div>`:'')+`</div>`;
+  const exp=`<div class="day-card"><h3>${fmt(date)} · expenses</h3>`+
+    CATS.map(c=>`<div class="expense-row"><div class="expense-left"><span class="cat-dot" style="background:${c.color}"></span>${c.label}</div>`+
+      `<div class="expense-amt">${money(st.cats[c.key]/n)}</div></div>`).join('')+
+    `<div class="day-total"><span>Total today</span><b>${money(perDay(st))}</b></div></div>`;
+  document.getElementById('view-day').innerHTML=`<div class="day-view">${lodge}${exp}</div>`;
+}
+
+// ---- Year view ----
+function renderYear(){
+  const y=cursor.getFullYear();
+  let html='';
+  for(let m=0;m<12;m++){
+    const first=new Date(y,m,1), startDow=first.getDay(), dim=new Date(y,m+1,0).getDate();
+    let monthTotal=0, has=false, grid='';
+    for(let i=0;i<startDow;i++) grid+=`<div class="mini-day"></div>`;
+    for(let dn=1;dn<=dim;dn++){
+      const date=new Date(y,m,dn), st=stayOnDay(date);
+      if(st){ has=true; monthTotal+=perDay(st); }
+      grid+=`<div class="mini-day" style="${st?`background:${st.color};color:#fff`:''}">${dn}</div>`;
+    }
+    html+=`<div class="mini-month${has?' has-stay':''}"><h4>${MONTHS[m]}</h4><div class="mini-grid">${grid}</div>`+
+      (has?`<div class="mini-foot"><span class="amt">${money(monthTotal)}</span> planned</div>`:`<div class="mini-foot" style="color:var(--dim)">—</div>`)+`</div>`;
+  }
+  document.getElementById('view-year').innerHTML=`<div class="year-grid">${html}</div>`;
+}
+
+// ---- Detail panel ----
+function select(id){ selectedId=id; renderPanel(); }
+function renderPanel(){
+  const st=STAYS.find(s=>s.id===selectedId);
+  if(!st){ return; }
+  const n=nights(st);
+  document.getElementById('panel').innerHTML=
+    `<div class="panel-hero" style="background:linear-gradient(135deg,${st.color},#0a0b14)"><div class="ph-name">${st.name}</div></div>`+
+    `<div class="panel-dates">${fmt(d(st.start))} → ${fmt(d(st.end))} · ${n} nights</div>`+
+    `<div class="panel-city">📍 ${st.city}</div>`+
+    `<a class="panel-link" href="${st.url}" target="_blank">View Airbnb listing ↗</a>`+
+    (st.flightIn?`<div class="panel-sec-label">Flight in</div><div class="flight-card"><div class="route">✈️ ${st.flightIn.route}</div>`+
+      `<div class="fmeta">${st.flightIn.airline} · ${fmt(d(st.flightIn.date))} ${st.flightIn.time} · ${money(st.flightIn.price)}</div></div>`:'')+
+    `<div class="panel-sec-label">Budget breakdown</div>`+
+    CATS.map(c=>`<div class="cat-line"><span class="lhs"><span class="cat-dot" style="background:${c.color}"></span>${c.label}</span>`+
+      `<span class="val">${money(st.cats[c.key])}</span></div>`).join('')+
+    `<div class="panel-total"><span>Stay total</span><b>${money(total(st))}</b></div>`+
+    `<div class="perday">${money(perDay(st))} / day</div>`;
+}
+
+function fmt(date){ return MONTHS[date.getMonth()].slice(0,3)+' '+date.getDate(); }
+
+// ---- View switching ----
+function setView(v){
+  view=v;
+  document.querySelectorAll('.view-toggle button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  ['month','week','day','year'].forEach(x=>document.getElementById('view-'+x).classList.toggle('hidden',x!==v));
+  render();
+}
+function periodLabel(){
+  if(view==='year') return cursor.getFullYear();
+  if(view==='day') return fmt(cursor)+', '+cursor.getFullYear();
+  if(view==='week'){ const b=new Date(cursor); b.setDate(cursor.getDate()-cursor.getDay()); const e=new Date(b); e.setDate(b.getDate()+6); return fmt(b)+' – '+fmt(e); }
+  return MONTHS[cursor.getMonth()]+' '+cursor.getFullYear();
+}
+function render(){
+  if(view==='month') renderMonth();
+  else if(view==='week') renderWeek();
+  else if(view==='day') renderDay();
+  else renderYear();
+  document.getElementById('period-label').textContent=periodLabel();
+  renderStats();
+  renderPanel();
+}
+function shift(dir){
+  if(view==='year') cursor.setFullYear(cursor.getFullYear()+dir);
+  else if(view==='month') cursor.setMonth(cursor.getMonth()+dir);
+  else if(view==='week') cursor.setDate(cursor.getDate()+7*dir);
+  else cursor.setDate(cursor.getDate()+dir);
+  render();
+}
+
+document.querySelectorAll('.view-toggle button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+document.getElementById('prev').addEventListener('click',()=>shift(-1));
+document.getElementById('next').addEventListener('click',()=>shift(1));
+document.getElementById('today').addEventListener('click',()=>{ cursor=new Date(TODAY); render(); });
+
+render();
+</script>
+</body>
+</html>
