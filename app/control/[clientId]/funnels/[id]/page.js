@@ -63,6 +63,7 @@ function nextVariantLabel(variants) {
 const FUNNEL_COMPONENTS = {
   'generator-quote':      { folder: 'components/funnels/synergy-generator', base: 'SynergyGenerator' },
   'hvac-second-opinion':  { folder: 'components/funnels/synergy-hvac',      base: 'SynergyHVAC' },
+  'spray-foam':           { folder: 'components/funnels/synergy-spray-foam', base: 'SynergySprayFoam' },
 }
 
 function getFunnelComponent(funnel, winner) {
