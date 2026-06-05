@@ -460,8 +460,8 @@ export default function CompanyPage() {
           </div>
         </div>
 
-        {/* Team Members */}
-        <div className="lg:col-span-3">
+        {/* Team Members + Brand Board */}
+        <div className="lg:col-span-3 space-y-6">
           <div className="bg-white dark:bg-[#171B33] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Team Members</h2>
@@ -534,11 +534,9 @@ export default function CompanyPage() {
               </table>
             )}
           </div>
-        </div>
-      </div>
 
-      <div className="mt-6">
-        <BrandBoardCard client={client} branding={client?.branding} canEdit={canDelete} onEdit={() => setModal({ type: 'brand' })} />
+          <BrandBoardCard client={client} branding={client?.branding} canEdit={canDelete} onEdit={() => setModal({ type: 'brand' })} />
+        </div>
       </div>
     </div>
   )
