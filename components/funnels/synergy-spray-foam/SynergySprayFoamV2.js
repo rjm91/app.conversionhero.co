@@ -18,7 +18,7 @@ const BRAND_CSS = `
 .sf2-root .brand-logo{height:44px;width:auto;display:block;}
 .sf2-root .btn-yellow{font-family:var(--display);font-weight:700;font-size:13.5px;border:none;border-radius:999px;padding:11px 20px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:var(--yellow);color:var(--navy);transition:filter .12s;}
 .sf2-root .btn-yellow:hover{filter:brightness(1.04);}
-.sf2-root .hero{text-align:center;padding:46px 0 18px;position:relative;}
+.sf2-root .hero{text-align:center;padding:46px 0 10px;position:relative;}
 .sf2-root .eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,230,0,.15);border:1px solid rgba(255,230,0,.38);color:var(--yellow);font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase;padding:6px 13px;border-radius:999px;}
 .sf2-root .hero h1{font-family:var(--display);font-weight:800;font-size:38px;line-height:1.12;letter-spacing:-.5px;margin:18px 0 14px;}
 .sf2-root .hero h1 .hl{color:var(--yellow);}
@@ -27,7 +27,7 @@ const BRAND_CSS = `
 .sf2-root .stars{color:var(--yellow);font-size:15px;letter-spacing:1px;}
 .sf2-root .trust-item{font-size:12.5px;color:rgba(255,255,255,.82);font-weight:600;display:flex;align-items:center;gap:7px;}
 .sf2-root .gdot{width:18px;height:18px;border-radius:50%;background:conic-gradient(#4285F4 0 25%,#34A853 0 50%,#FBBC05 0 75%,#EA4335 0);}
-.sf2-root .form-wrap{padding:30px 0 56px;}
+.sf2-root .form-wrap{padding:14px 0 56px;}
 .sf2-root .card{background:#fff;color:var(--ink);border-radius:20px;box-shadow:0 28px 70px rgba(0,0,0,.4);overflow:hidden;position:relative;}
 .sf2-root .card-top{height:5px;background:linear-gradient(90deg,var(--green) 0%,var(--green-mid) 50%,var(--yellow) 100%);}
 .sf2-root .promo-ribbon{position:absolute;top:18px;right:-46px;transform:rotate(45deg);background:var(--yellow);color:var(--navy);font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:.5px;padding:6px 56px;box-shadow:0 4px 10px rgba(0,0,0,.15);}

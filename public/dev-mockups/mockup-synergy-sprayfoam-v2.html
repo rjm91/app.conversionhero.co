@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Synergy Home — Spray Foam Landing V2 (Direct Form)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:#262263; --navy-deep:#1a1747; --navy-soft:#353074;
+    --yellow:#ffe600; --yellow-dk:#e6cf00;
+    --green:#016838; --green-dk:#014f2a; --green-mid:#1f9d5c;
+    --ink:#1c2233; --muted:#5b6478; --line:#e6e8f0;
+    --sans:'Inter',system-ui,sans-serif; --display:'Poppins',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);color:#fff;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(1100px 600px at 50% -8%,var(--navy-soft) 0%,transparent 60%),
+               linear-gradient(180deg,var(--navy) 0%,var(--navy-deep) 100%);
+    min-height:100vh;}
+  .wrap{max-width:600px;margin:0 auto;padding:0 22px;}
+  .grad-bar{height:5px;background:linear-gradient(90deg,var(--green) 0%,var(--green-mid) 45%,var(--yellow) 100%);}
+
+  /* Header */
+  header{background:#fff;}
+  .topbar{max-width:1100px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;}
+  .brand-logo{height:44px;width:auto;display:block;}
+  .btn-yellow{font-family:var(--display);font-weight:700;font-size:13.5px;border:none;border-radius:999px;padding:11px 20px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:var(--yellow);color:var(--navy);transition:filter .12s;}
+  .btn-yellow:hover{filter:brightness(1.04);}
+
+  /* Hero — single centered column */
+  .hero{text-align:center;padding:46px 0 10px;position:relative;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,230,0,.15);border:1px solid rgba(255,230,0,.38);color:var(--yellow);font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase;padding:6px 13px;border-radius:999px;}
+  .hero h1{font-family:var(--display);font-weight:800;font-size:38px;line-height:1.12;letter-spacing:-.5px;margin:18px 0 14px;}
+  .hero h1 .hl{color:var(--yellow);}
+  .hero p.sub{font-size:16.5px;line-height:1.6;color:rgba(255,255,255,.82);max-width:520px;margin:0 auto;text-wrap:balance;}
+
+  /* Trust row */
+  .trust-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:22px;flex-wrap:wrap;}
+  .stars{color:var(--yellow);font-size:15px;letter-spacing:1px;}
+  .trust-item{font-size:12.5px;color:rgba(255,255,255,.82);font-weight:600;display:flex;align-items:center;gap:7px;}
+  .gdot{width:18px;height:18px;border-radius:50%;background:conic-gradient(#4285F4 0 25%,#34A853 0 50%,#FBBC05 0 75%,#EA4335 0);}
+
+  /* Form card */
+  .form-wrap{padding:14px 0 56px;}
+  .card{background:#fff;color:var(--ink);border-radius:20px;box-shadow:0 28px 70px rgba(0,0,0,.4);overflow:hidden;position:relative;}
+  .card-top{height:5px;background:linear-gradient(90deg,var(--green) 0%,var(--green-mid) 50%,var(--yellow) 100%);}
+  .promo-ribbon{position:absolute;top:18px;right:-46px;transform:rotate(45deg);background:var(--yellow);color:var(--navy);font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:.5px;padding:6px 56px;box-shadow:0 4px 10px rgba(0,0,0,.15);}
+  .card-body{padding:30px 30px 28px;}
+  .card-eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--green-dk);text-align:center;}
+  .card-title{font-family:var(--display);font-weight:800;font-size:24px;color:var(--navy);text-align:center;margin:7px 0 4px;line-height:1.18;}
+  .card-note{font-size:13px;color:var(--muted);text-align:center;margin-bottom:22px;}
+  .field{display:flex;flex-direction:column;margin-bottom:14px;}
+  .field-label{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;}
+  .field-input{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:12px;padding:0 13px;transition:border-color .14s;}
+  .field-input:focus-within{border-color:var(--green);}
+  .field-input svg{flex:none;color:var(--muted);}
+  .field-input input{width:100%;border:none;outline:none;padding:14px 11px;font-size:15.5px;font-family:var(--sans);color:var(--ink);background:none;}
+  .cta{width:100%;font-family:var(--display);font-weight:800;font-size:17px;border:none;border-radius:13px;padding:16px;margin-top:6px;background:var(--yellow);color:var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 12px 26px rgba(255,230,0,.28);transition:filter .12s,transform .1s;}
+  .cta:hover{filter:brightness(1.04);transform:translateY(-1px);}
+  .reassure{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:var(--muted);margin-top:14px;}
+  .reassure b{color:var(--green-dk);font-weight:700;}
+  .mini-trust{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+  .mini-trust span{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:5px;}
+
+  /* Testimonial */
+  .testi{background:#fff;color:var(--ink);padding:52px 0;}
+  .testi-inner{max-width:760px;margin:0 auto;text-align:center;padding:0 22px;}
+  .testi-divider{width:54px;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--yellow));margin:0 auto 20px;}
+  .testi-eyebrow{font-size:11.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--green-dk);}
+  .testi-stars{color:var(--yellow);font-size:22px;letter-spacing:3px;margin:13px 0 16px;-webkit-text-stroke:.5px var(--yellow-dk);}
+  .testi-quote{font-family:var(--display);font-weight:600;font-size:23px;line-height:1.42;color:var(--navy);letter-spacing:-.3px;}
+  .testi-quote .mark{color:var(--green);}
+  .testi-person{display:inline-flex;align-items:center;gap:13px;margin-top:24px;}
+  .testi-photo{width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid var(--yellow);}
+  .testi-name{text-align:left;}
+  .testi-name b{display:block;font-family:var(--display);font-weight:700;color:var(--navy);font-size:15px;}
+  .testi-name span{display:block;font-size:12.5px;color:var(--muted);}
+
+  /* Footer */
+  footer{background:var(--navy-deep);color:rgba(255,255,255,.6);font-size:12px;}
+  footer .f-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:10px;padding:20px 22px;flex-wrap:wrap;text-align:center;}
+  footer .dot{opacity:.4;}
+
+  .mock-flag{background:#fff3cd;color:#7a5b00;font-size:12px;font-weight:600;text-align:center;padding:7px;}
+
+  @media (max-width:560px){ .hero h1{font-size:30px;} }
+</style>
+</head>
+<body>
+  <div class="mock-flag">MOCKUP — Spray Foam Variant B (direct name/email/phone form) · split-test challenger · not live</div>
+
+  <header>
+    <div class="topbar">
+      <img class="brand-logo" src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/brand/logo-1780679768602.svg" alt="Synergy Home" />
+      <a class="btn-yellow" href="tel:+18592031533">
+        <svg width="15" height="15" viewBox="0 0 14 14"><path d="M3 4.5C3 3.7 3.7 3 4.5 3H6L7 5L5.8 6.2C6.5 7.5 7.5 8.5 8.8 9.2L10 8L12 9V10.5C12 11.3 11.3 12 10.5 12C6.4 12 3 8.6 3 4.5Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
+        Call (859) 203-1533
+      </a>
+    </div>
+  </header>
+  <div class="grad-bar"></div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">★ Lexington &amp; Bluegrass Area Homeowners</span>
+      <h1>Cut your energy bills with a <span class="hl">free spray foam inspection</span>.</h1>
+      <p class="sub">Attic, crawlspace, or whole-home sealing from the team your neighbors trust. Tell us where to reach you — we'll handle the rest.</p>
+      <div class="trust-row">
+        <span class="trust-item"><span class="gdot"></span> <span class="stars">★★★★★</span> 4.9 · 1,125+ Google reviews</span>
+        <span class="trust-item">⚡ 24/7 Emergency Service</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section class="form-wrap">
+    <div class="wrap">
+      <div class="card">
+        <div class="card-top"></div>
+        <div class="promo-ribbon">20% OFF</div>
+        <div class="card-body">
+          <div class="card-eyebrow">Free · No obligation</div>
+          <div class="card-title">Get your free inspection</div>
+          <div class="card-note">One quick call — no pushy sales, transparent pricing.</div>
+
+          <div class="field">
+            <label class="field-label">Full name</label>
+            <div class="field-input">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke-linecap="round"/></svg>
+              <input type="text" placeholder="Jane Smith" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Email</label>
+            <div class="field-input">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6" stroke-linecap="round"/></svg>
+              <input type="email" placeholder="jane@email.com" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Phone</label>
+            <div class="field-input">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4.5C5 3.7 5.7 3 6.5 3H9l1.5 4-2 1.8c1 2.2 2.5 3.7 4.7 4.7L14 14.5 18 16v2.5c0 .8-.7 1.5-1.5 1.5C9.6 20 5 15.4 5 8.5z" stroke-linejoin="round"/></svg>
+              <input type="tel" placeholder="555-000-0000" />
+            </div>
+          </div>
+
+          <button class="cta">
+            Get My Free Inspection
+            <svg width="16" height="16" viewBox="0 0 14 14"><path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+
+          <div class="reassure">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3" stroke-linecap="round"/></svg>
+            <span>Your info is <b>private</b> — never shared or sold.</span>
+          </div>
+
+          <div class="mini-trust">
+            <span>✓ Licensed &amp; insured</span>
+            <span>✓ 12+ years local</span>
+            <span>✓ 2,000+ homes sealed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonial -->
+  <section class="testi">
+    <div class="testi-inner">
+      <div class="testi-divider"></div>
+      <div class="testi-eyebrow">What Lexington homeowners say</div>
+      <div class="testi-stars">★★★★★</div>
+      <blockquote class="testi-quote">
+        <span class="mark">“</span>Their customer service is second to none. I will use no other company than Synergy Home from here on out. Highly recommended — five stars all around!<span class="mark">”</span>
+      </blockquote>
+      <div class="testi-person">
+        <img class="testi-photo" src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/testi-hvac-chris-giebler.png" alt="Chris Giebler" />
+        <span class="testi-name"><b>Chris Giebler</b><span>Lexington, KY · Verified Google review</span></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="f-inner">
+      <span>©2026 Synergy Home. All Rights Reserved.</span>
+      <span class="dot">|</span>
+      <span>Master HVAC License #HM06306</span>
+      <span class="dot">|</span>
+      <span>Serving Lexington &amp; the Bluegrass Region</span>
+    </div>
+  </footer>
+</body>
+</html>
