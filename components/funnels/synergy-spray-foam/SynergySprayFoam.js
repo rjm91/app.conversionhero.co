@@ -18,22 +18,22 @@ const KY_ZIPS = {
   "41010": "Corinth", "41031": "Cynthiana",
 }
 
-const ISSUE = [
-  { id: "moisture", label: "Moisture, mold, or musty smell", sub: "Damp air or odors coming from below" },
-  { id: "cold",     label: "Cold floors & high energy bills",  sub: "Drafts and rooms that never feel comfortable" },
-  { id: "sagging",  label: "Sagging or uneven floors",         sub: "Soft spots or floors that bounce" },
-  { id: "seal",     label: "Just want it sealed / encapsulated", sub: "Protect my home before problems start" },
+const AREA = [
+  { id: "attic",      label: "Attic",        sub: "Hot upstairs, ice dams, or high bills" },
+  { id: "crawlspace", label: "Crawlspace",   sub: "Damp, musty air or cold floors" },
+  { id: "whole_home", label: "Whole home",   sub: "Drafty and inefficient throughout" },
+  { id: "not_sure",   label: "Not sure yet", sub: "Help me find where I'm losing energy" },
 ]
-const CRAWL_STATE = [
-  { id: "dirt",        label: "Bare dirt or gravel",      sub: "No barrier down there today" },
-  { id: "old_barrier", label: "Old or torn vapor barrier", sub: "Existing plastic that's failing" },
-  { id: "partial",     label: "Partially encapsulated",    sub: "Some work done, not finished" },
-  { id: "unsure",      label: "Not sure",                  sub: "We'll check during the visit" },
+const GOAL = [
+  { id: "bills",      label: "Lower my energy bills",        sub: "Heating and cooling cost too much" },
+  { id: "comfort",    label: "Fix uneven / drafty rooms",     sub: "Some rooms never feel comfortable" },
+  { id: "moisture",   label: "Stop moisture, mold, or odors", sub: "Damp or musty air in the home" },
+  { id: "efficiency", label: "Just make my home efficient",   sub: "Seal and insulate before problems start" },
 ]
-const CRAWL_SIZE = [
-  { id: "small",   label: "Under 1,000 sq ft",   sub: "Smaller footprint home" },
-  { id: "medium",  label: "1,000 – 2,000 sq ft", sub: "Average-size home" },
-  { id: "large",   label: "Over 2,000 sq ft",    sub: "Larger or multi-section home" },
+const HOME_SIZE = [
+  { id: "small",   label: "Under 1,500 sq ft",   sub: "Smaller home" },
+  { id: "medium",  label: "1,500 – 2,500 sq ft", sub: "Average-size home" },
+  { id: "large",   label: "Over 2,500 sq ft",    sub: "Larger or multi-level home" },
   { id: "unknown", label: "Not sure",            sub: "We'll measure during the visit" },
 ]
 
@@ -88,7 +88,7 @@ function StatStrip() {
     <div className="stat-strip">
       <div className="stat">
         <div className="stat-title">Licensed &amp; Insured</div>
-        <div className="stat-label">Certified crawlspace crews</div>
+        <div className="stat-label">Certified insulation crews</div>
       </div>
       <div className="stat-rule" />
       <div className="stat">
@@ -98,7 +98,7 @@ function StatStrip() {
       <div className="stat-rule" />
       <div className="stat">
         <div className="stat-num">2k<span>+</span></div>
-        <div className="stat-label">Crawlspaces sealed</div>
+        <div className="stat-label">Homes sealed &amp; insulated</div>
       </div>
       <div className="stat-rule" />
       <div className="stat">
@@ -209,9 +209,9 @@ export default function SynergySprayFoam({
   disableTracking = false,
 }) {
   const [step, setStep] = useState(0)
-  const [issue, setIssue] = useState(null)
-  const [crawlState, setCrawlState] = useState(null)
-  const [crawlSize, setCrawlSize] = useState(null)
+  const [area, setArea] = useState(null)
+  const [goal, setGoal] = useState(null)
+  const [homeSize, setHomeSize] = useState(null)
   const [zip, setZip] = useState('')
   const [city, setCity] = useState('')
   const [zipErr, setZipErr] = useState('')
@@ -227,13 +227,13 @@ export default function SynergySprayFoam({
 
   const total = 5
   const canAdvance = useMemo(() => {
-    if (step === 0) return !!issue
-    if (step === 1) return !!crawlState
-    if (step === 2) return !!crawlSize
+    if (step === 0) return !!area
+    if (step === 1) return !!goal
+    if (step === 2) return !!homeSize
     if (step === 3) return zip.length === 5
     if (step === 4) return !!(contact.name && contact.email && contact.phone)
     return false
-  }, [step, issue, crawlState, crawlSize, zip, contact])
+  }, [step, area, goal, homeSize, zip, contact])
 
   useEffect(() => {
     metaRef.current = captureMeta()
@@ -303,9 +303,9 @@ export default function SynergySprayFoam({
     }, 600)
   }
 
-  function chooseIssue(v) { setIssue(v);      saveField('issue', v);      scheduleAdvance() }
-  function chooseState(v) { setCrawlState(v); saveField('crawlState', v); scheduleAdvance() }
-  function chooseSize(v)  { setCrawlSize(v);  saveField('crawlSize', v);  scheduleAdvance() }
+  function chooseArea(v) { setArea(v);     saveField('area', v);     scheduleAdvance() }
+  function chooseGoal(v) { setGoal(v);     saveField('goal', v);     scheduleAdvance() }
+  function chooseSize(v) { setHomeSize(v); saveField('homeSize', v); scheduleAdvance() }
 
   async function next() {
     clearTimeout(advanceTimer.current)
@@ -384,7 +384,7 @@ export default function SynergySprayFoam({
             <header className="stage-top stage-top--centered">
               <div className="stage-eyebrow">Lexington &amp; Bluegrass area homeowners</div>
               <h1 className="stage-headline">
-                Stop losing money to a damp, drafty crawlspace — get a <span className="hl">free spray foam inspection</span> from Synergy Home.
+                Stop losing money to a drafty, poorly insulated home — get a <span className="hl">free spray foam inspection</span> from Synergy Home.
               </h1>
               <div className="progress-row" aria-hidden="true">
                 <div className="progress-bar">
@@ -398,32 +398,32 @@ export default function SynergySprayFoam({
               <div className="card-inner" key={step} data-direction={direction}>
                 {step === 0 && (
                   <>
-                    <StepHeader eyebrow="01 · What's going on" title="What's the main issue with your crawlspace?" />
+                    <StepHeader eyebrow="01 · Where to seal" title="Where are you looking to seal or insulate?" />
                     <div className="opt-grid">
-                      {ISSUE.map((o, i) => (
-                        <OptionTile key={o.id} option={o} index={i} selected={issue === o.id}
-                          onClick={() => chooseIssue(o.id)} />
+                      {AREA.map((o, i) => (
+                        <OptionTile key={o.id} option={o} index={i} selected={area === o.id}
+                          onClick={() => chooseArea(o.id)} />
                       ))}
                     </div>
                   </>
                 )}
                 {step === 1 && (
                   <>
-                    <StepHeader eyebrow="02 · Current state" title="What's the current state of your crawlspace?" />
+                    <StepHeader eyebrow="02 · Your goal" title="What's the main thing you want to fix?" />
                     <div className="opt-grid">
-                      {CRAWL_STATE.map((o, i) => (
-                        <OptionTile key={o.id} option={o} index={i} selected={crawlState === o.id}
-                          onClick={() => chooseState(o.id)} />
+                      {GOAL.map((o, i) => (
+                        <OptionTile key={o.id} option={o} index={i} selected={goal === o.id}
+                          onClick={() => chooseGoal(o.id)} />
                       ))}
                     </div>
                   </>
                 )}
                 {step === 2 && (
                   <>
-                    <StepHeader eyebrow="03 · Size" title="Roughly how big is your crawlspace?" />
+                    <StepHeader eyebrow="03 · Home size" title="Roughly how big is your home?" />
                     <div className="opt-grid">
-                      {CRAWL_SIZE.map((o, i) => (
-                        <OptionTile key={o.id} option={o} index={i} selected={crawlSize === o.id}
+                      {HOME_SIZE.map((o, i) => (
+                        <OptionTile key={o.id} option={o} index={i} selected={homeSize === o.id}
                           onClick={() => chooseSize(o.id)} />
                       ))}
                     </div>

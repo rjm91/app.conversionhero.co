@@ -13,14 +13,14 @@ function CompleteCard({ city, firstName }) {
           <path d="M20 33 L29 41 L45 24" stroke="var(--brand)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <h2 className="complete-title">Your free crawlspace inspection is booked.</h2>
+      <h2 className="complete-title">Your free spray foam inspection is booked.</h2>
       <p className="complete-sub">
         {firstName ? <>Thanks, <strong>{firstName}</strong>. </> : null}
-        A Synergy Home advisor will reach out as soon as possible to schedule your free crawlspace &amp; spray foam inspection{city ? <> in <strong>{city}</strong></> : null}.
+        A Synergy Home advisor will reach out as soon as possible to schedule your free spray foam insulation &amp; sealing inspection{city ? <> in <strong>{city}</strong></> : null}.
       </p>
       <div className="complete-next">
         <div className="next-row"><span className="next-num">01</span><span className="next-label">Free phone consult <em>· today or tomorrow</em></span></div>
-        <div className="next-row"><span className="next-num">02</span><span className="next-label">On-site crawlspace assessment <em>· typically within a week</em></span></div>
+        <div className="next-row"><span className="next-num">02</span><span className="next-label">On-site home assessment <em>· typically within a week</em></span></div>
         <div className="next-row"><span className="next-num">03</span><span className="next-label">Honest recommendation, no obligation</span></div>
       </div>
       <div className="ty-actions">
