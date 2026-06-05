@@ -182,6 +182,7 @@ export default function ClientLayout({ children }) {
   const { clientId } = useParams()
   const pathname = usePathname()
   const [clientName, setClientName] = useState('')
+  const [clients, setClients] = useState([])
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -220,6 +221,13 @@ export default function ClientLayout({ children }) {
       if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
     })
   }, [clientId])
+
+  // Load active clients for the account switcher
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('client').select('client_id, client_name').eq('status', 'Active').order('client_name')
+      .then(({ data }) => { if (data) setClients(data) })
+  }, [])
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -301,19 +309,35 @@ export default function ClientLayout({ children }) {
             </button>
           </div>
 
-          {/* Brand dropdown */}
-          {openDropdown === 'brand' && (
-            <div className="absolute top-full left-3 mt-1 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[200px] z-[100] shadow-xl">
-              {isAgencyAdmin && (
-                <Link
-                  href="/control"
-                  className="flex items-center gap-2.5 px-3.5 py-2.5 text-gray-400 text-[13px] font-medium rounded-lg hover:text-white hover:bg-white/5 transition"
-                  onClick={() => setOpenDropdown(null)}
-                >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                  Agency
-                </Link>
-              )}
+          {/* Account switcher dropdown */}
+          {openDropdown === 'brand' && isAgencyAdmin && (
+            <div className="absolute top-full left-3 mt-1 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[230px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
+              <Link
+                href="/control"
+                className="flex items-center gap-2.5 px-3 py-2.5 text-gray-400 text-[13px] font-medium rounded-lg hover:text-white hover:bg-white/5 transition"
+                onClick={() => setOpenDropdown(null)}
+              >
+                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Agency
+              </Link>
+              {clients.length > 0 && <div className="my-1 border-t border-white/[0.06]" />}
+              {clients.map(c => {
+                const isCurrent = c.client_id === clientId
+                const initials = (c.client_name || 'CA').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                return (
+                  <Link
+                    key={c.client_id}
+                    href={`/control/${c.client_id}/dashboard`}
+                    onClick={() => setOpenDropdown(null)}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-lg transition ${
+                      isCurrent ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${isCurrent ? 'bg-white/20 text-white' : 'bg-white/10 text-gray-300'}`}>{initials}</span>
+                    {c.client_name}
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>

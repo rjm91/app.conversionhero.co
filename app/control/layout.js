@@ -169,6 +169,7 @@ function Toast({ message }) {
 export default function AdminLayout({ children }) {
   const pathname = usePathname()
   const [profile, setProfile] = useState({ name: '', email: '' })
+  const [clients, setClients] = useState([])
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
@@ -183,6 +184,13 @@ export default function AdminLayout({ children }) {
       .then(data => {
         if (!data.error) setProfile({ name: data.full_name || '', email: data.email || '' })
       })
+  }, [])
+
+  // Load active clients for the account switcher
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('client').select('client_id, client_name').eq('status', 'Active').order('client_name')
+      .then(({ data }) => { if (data) setClients(data) })
   }, [])
 
   // Load pinned state from localStorage
@@ -259,7 +267,10 @@ export default function AdminLayout({ children }) {
       <header className="h-12 bg-[#0c0e18] border-b border-white/[0.06] flex items-center pr-3 gap-1 flex-shrink-0 relative z-50">
 
         {/* Brand area */}
-        <div className="flex items-center gap-2 px-3 border-r border-white/10 h-full flex-shrink-0 relative">
+        <div
+          ref={el => dropdownRefs.current['brand'] = el}
+          className="flex items-center gap-2 px-3 border-r border-white/10 h-full flex-shrink-0 relative"
+        >
           {/* Icon — toggles collapse */}
           <button
             onClick={toggleCollapse}
@@ -269,15 +280,48 @@ export default function AdminLayout({ children }) {
             CA
           </button>
 
-          {/* Name — collapses away */}
+          {/* Name + chevron — collapses away */}
           <div
             className="flex items-center gap-1.5 overflow-hidden transition-all duration-300"
-            style={{ width: isCollapsed ? 0 : 150, opacity: isCollapsed ? 0 : 1 }}
+            style={{ width: isCollapsed ? 0 : 172, opacity: isCollapsed ? 0 : 1 }}
           >
             <span className="text-white font-semibold text-[13px] whitespace-nowrap">
               ConversionAgent
             </span>
+            <button
+              onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
+              className="p-1 rounded hover:bg-white/[0.08] transition flex-shrink-0"
+              title="Switch account"
+            >
+              <svg className="w-3 h-3 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
           </div>
+
+          {/* Account switcher dropdown */}
+          {openDropdown === 'brand' && (
+            <div className="absolute top-full left-3 mt-1 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[230px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
+              <Link
+                href="/control"
+                onClick={() => setOpenDropdown(null)}
+                className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-lg transition bg-blue-600 text-white"
+              >
+                <span className="w-5 h-5 rounded bg-white/20 flex items-center justify-center text-[9px] font-bold flex-shrink-0">CA</span>
+                Agency
+              </Link>
+              {clients.length > 0 && <div className="my-1 border-t border-white/[0.06]" />}
+              {clients.map(c => (
+                <Link
+                  key={c.client_id}
+                  href={`/control/${c.client_id}/dashboard`}
+                  onClick={() => setOpenDropdown(null)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-lg transition text-gray-400 hover:text-white hover:bg-white/5"
+                >
+                  <span className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-[9px] font-bold flex-shrink-0 text-gray-300">{getInitials(c.client_name, '')}</span>
+                  {c.client_name}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Dashboard — standalone, always in topnav */}
