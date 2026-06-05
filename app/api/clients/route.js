@@ -70,3 +70,40 @@ export async function GET(request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ clients: data || [] })
 }
+
+// Update a client's brand board. Agency admins, or admins of that client, may edit.
+export async function PATCH(request) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const db = admin()
+  const { data: profile } = await db
+    .from('profiles')
+    .select('role, client_id')
+    .eq('id', user.id)
+    .single()
+
+  const body = await request.json()
+  const { client_id, branding } = body
+  if (!client_id) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
+  if (typeof branding !== 'object' || branding === null) {
+    return NextResponse.json({ error: 'branding must be an object' }, { status: 400 })
+  }
+
+  const isAgency = profile?.role === 'agency_admin' || profile?.role === 'agency_standard'
+  const isClientAdmin = profile?.role === 'client_admin' && profile?.client_id === client_id
+  if (!isAgency && !isClientAdmin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { data, error } = await db
+    .from('client')
+    .update({ branding })
+    .eq('client_id', client_id)
+    .select('client_id, branding')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, client: data })
+}

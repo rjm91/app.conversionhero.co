@@ -219,6 +219,165 @@ function ModalButtons({ onCancel, loading, label }) {
   )
 }
 
+// ── Brand Board ───────────────────────────────────────────────────────────────
+function BrandBoardCard({ client, branding, canEdit, onEdit }) {
+  const colors = Array.isArray(branding?.colors) ? branding.colors : []
+  const [copied, setCopied] = useState(null)
+
+  function copyHex(hex) {
+    navigator.clipboard?.writeText(hex)
+    setCopied(hex)
+    setTimeout(() => setCopied(c => (c === hex ? null : c)), 1400)
+  }
+
+  const details = [
+    { label: 'Brand name', value: branding?.brandName || client?.client_name },
+    { label: 'Legal name', value: client?.client_name_legal },
+    { label: 'Tagline',    value: branding?.tagline },
+    { label: 'Font',       value: branding?.font },
+    { label: 'Website',    value: client?.website, isLink: true },
+  ]
+
+  return (
+    <div className="bg-white dark:bg-[#171B33] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Brand Board</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Brand colors &amp; details — the agent references these when styling funnels and pages.</p>
+        </div>
+        {canEdit && (
+          <button onClick={onEdit}
+            className="text-xs font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg transition">
+            Edit
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        {/* Colors */}
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">Brand Colors</div>
+          {colors.length === 0 ? (
+            <p className="text-sm text-gray-300 dark:text-white/30">No colors set yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {colors.map((c, i) => (
+                <button key={i} onClick={() => copyHex(c.hex)}
+                  className="w-full flex items-center gap-3.5 p-2 rounded-xl border border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 transition text-left group">
+                  <span className="w-11 h-11 rounded-lg shrink-0 ring-1 ring-inset ring-black/5 dark:ring-white/10" style={{ background: c.hex }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium text-gray-900 dark:text-white truncate">{c.role || 'Color'}</span>
+                    <span className="block text-xs text-gray-400 font-mono">{c.hex}</span>
+                  </span>
+                  <span className="text-[11px] text-gray-300 dark:text-white/30 opacity-0 group-hover:opacity-100 transition pr-1">
+                    {copied === c.hex ? 'Copied!' : 'Copy'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Details */}
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">Brand Details</div>
+          <div className="divide-y divide-gray-50 dark:divide-white/5">
+            {details.map(({ label, value, isLink }) => (
+              <div key={label} className="flex items-baseline gap-4 py-2.5">
+                <span className="text-xs text-gray-400 w-20 shrink-0">{label}</span>
+                {isLink && value ? (
+                  <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:underline truncate">{value}</a>
+                ) : (
+                  <span className="text-sm text-gray-900 dark:text-white">
+                    {value || <span className="text-gray-300 dark:text-white/20">—</span>}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditBrandModal({ clientId, branding, onClose, onSuccess }) {
+  const [colors, setColors]   = useState(() => {
+    const c = Array.isArray(branding?.colors) ? branding.colors : []
+    return c.length ? c.map(x => ({ role: x.role || '', hex: x.hex || '#000000' })) : [{ role: 'Primary', hex: '#2E6E42' }]
+  })
+  const [brandName, setBrandName] = useState(branding?.brandName || '')
+  const [tagline, setTagline]     = useState(branding?.tagline || '')
+  const [font, setFont]           = useState(branding?.font || '')
+  const [error, setError]         = useState('')
+  const [loading, setLoading]     = useState(false)
+
+  function setColor(i, key, val) { setColors(cs => cs.map((c, idx) => idx === i ? { ...c, [key]: val } : c)) }
+  function addColor()    { setColors(cs => [...cs, { role: '', hex: '#3B82F6' }]) }
+  function removeColor(i) { setColors(cs => cs.filter((_, idx) => idx !== i)) }
+
+  async function handleSave() {
+    setError(''); setLoading(true)
+    const cleanColors = colors
+      .filter(c => c.hex && c.hex.trim())
+      .map(c => ({ role: c.role.trim(), hex: c.hex.trim().toUpperCase() }))
+    const next = { ...(branding || {}), colors: cleanColors, brandName: brandName.trim(), tagline: tagline.trim(), font: font.trim() }
+    const res = await fetch('/api/clients', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, branding: next }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || 'Failed to save.'); setLoading(false); return }
+    onSuccess(next)
+  }
+
+  return (
+    <Modal title="Edit Brand Board" onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Brand Colors</label>
+          <div className="space-y-2">
+            {colors.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input type="color" value={c.hex} onChange={e => setColor(i, 'hex', e.target.value)}
+                  className="w-10 h-9 p-0 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent cursor-pointer shrink-0" />
+                <Input value={c.role} onChange={e => setColor(i, 'role', e.target.value)} placeholder="Role (e.g. Primary)" className="flex-1" />
+                <Input value={c.hex} onChange={e => setColor(i, 'hex', e.target.value)} className="w-28 font-mono" />
+                <button type="button" onClick={() => removeColor(i)} title="Remove"
+                  className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addColor}
+            className="mt-2 w-full text-xs font-semibold text-blue-600 dark:text-blue-400 border border-dashed border-gray-200 dark:border-white/10 hover:border-blue-400 rounded-lg py-2 transition">
+            + Add color
+          </button>
+        </div>
+
+        <Field label="Brand Name"><Input value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="Defaults to company name" /></Field>
+        <Field label="Tagline"><Input value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Comfort done right." /></Field>
+        <Field label="Font"><Input value={font} onChange={e => setFont(e.target.value)} placeholder="Inter" /></Field>
+
+        {error && <ErrorBox>{error}</ErrorBox>}
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose}
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition">
+            Cancel
+          </button>
+          <button type="button" onClick={handleSave} disabled={loading}
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg transition">
+            {loading ? 'Saving...' : 'Save Brand Board'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function CompanyPage() {
   const { clientId } = useParams()
@@ -268,6 +427,7 @@ export default function CompanyPage() {
       {modal?.type === 'add'    && <AddUserModal    clientId={clientId} onClose={() => setModal(null)} onSuccess={() => { setModal(null); loadData() }} />}
       {modal?.type === 'edit'   && <EditUserModal   user={modal.user}   onClose={() => setModal(null)} onSuccess={() => { setModal(null); loadData() }} />}
       {modal?.type === 'delete' && <DeleteUserModal user={modal.user}   onClose={() => setModal(null)} onSuccess={() => { setModal(null); loadData() }} />}
+      {modal?.type === 'brand'  && <EditBrandModal  clientId={clientId} branding={client?.branding} onClose={() => setModal(null)} onSuccess={(next) => { setModal(null); setClient(c => ({ ...c, branding: next })) }} />}
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Company</h1>
@@ -375,6 +535,10 @@ export default function CompanyPage() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <BrandBoardCard client={client} branding={client?.branding} canEdit={canDelete} onEdit={() => setModal({ type: 'brand' })} />
       </div>
     </div>
   )

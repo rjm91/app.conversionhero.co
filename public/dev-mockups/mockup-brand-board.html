@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brand Board — Interactive Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0b14; --surface: #111528; --surface2: #171B33;
+      --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+      --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+      --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171;
+      --radius: 16px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; padding: 40px; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    .page-head { margin-bottom: 8px; }
+    .page-head h1 { font-size: 24px; font-weight: 800; }
+    .page-head .sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+    .mode-tag { display: inline-flex; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(59,130,246,0.1); color: var(--blue); margin-bottom: 28px; }
+    .context-note { font-size: 12px; color: var(--muted); background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 11px 15px; margin: 18px 0 24px; }
+    .context-note b { color: var(--text); font-weight: 600; }
+
+    /* ── Card ── */
+    .card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+    .card-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+    .card-head .title { display: flex; align-items: center; gap: 10px; }
+    .card-head h2 { font-size: 15px; font-weight: 700; }
+    .card-head .glyph { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: rgba(59,130,246,0.12); color: var(--blue); }
+    .edit-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+    .edit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    .card-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 12px; }
+
+    /* ── Logo block ── */
+    .logo-block { grid-column: 1 / -1; }
+    .logo-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .logo-tile { border-radius: 12px; height: 130px; display: grid; place-items: center; position: relative; border: 1px solid var(--border); overflow: hidden; }
+    .logo-tile.light { background: #ffffff; }
+    .logo-tile.dark  { background: #0e1322; }
+    .logo-tile img { max-width: 64%; max-height: 56px; object-fit: contain; }
+    .logo-tile .tag { position: absolute; top: 8px; left: 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; }
+    .logo-tile.light .tag { color: #1a1a1a; }
+    .logo-tile.dark .tag  { color: #fff; }
+
+    /* ── Colors ── */
+    .swatches { display: flex; flex-direction: column; gap: 10px; }
+    .swatch { display: flex; align-items: center; gap: 14px; padding: 10px; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; }
+    .swatch:hover { border-color: var(--border2); }
+    .swatch:hover .copy { opacity: 1; }
+    .chip { width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+    .swatch .meta { flex: 1; min-width: 0; }
+    .swatch .role { font-size: 13px; font-weight: 600; }
+    .swatch .hex { font-size: 12px; color: var(--muted); font-family: ui-monospace, 'SF Mono', Menlo, monospace; margin-top: 2px; }
+    .swatch .copy { opacity: 0; font-size: 11px; color: var(--dim); transition: opacity .15s; }
+
+    /* ── Details ── */
+    .detail-rows { display: flex; flex-direction: column; gap: 0; }
+    .detail-row { display: flex; align-items: baseline; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-row .k { font-size: 12px; color: var(--dim); width: 80px; flex-shrink: 0; }
+    .detail-row .v { font-size: 13px; font-weight: 500; }
+    .detail-row .v.font-display { font-size: 16px; }
+
+    .usage { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.14); color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .usage b { color: var(--text); font-weight: 600; }
+
+    .divider-label { grid-column: 1/-1; }
+
+    /* ── Toast ── */
+    .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1f2540; border: 1px solid var(--border2); padding: 10px 18px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none; transition: all .2s; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Edit modal ── */
+    .overlay { position: fixed; inset: 0; background: rgba(4,6,14,0.7); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
+    .overlay.show { display: flex; }
+    .modal { width: 100%; max-width: 520px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); max-height: 90vh; overflow-y: auto; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    .modal-head h3 { font-size: 15px; font-weight: 700; }
+    .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+    .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+    .field input[type=text] { width: 100%; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border2); background: rgba(255,255,255,0.03); color: var(--text); font-size: 13px; }
+    .field input:focus { outline: none; border-color: var(--blue); }
+    .color-edit-row { display: flex; align-items: center; gap: 10px; }
+    .color-edit-row input[type=color] { width: 42px; height: 38px; padding: 0; border: 1px solid var(--border2); border-radius: 9px; background: none; cursor: pointer; }
+    .color-edit-row input[type=text] { flex: 1; font-family: ui-monospace, monospace; }
+    .color-edit-row .role-in { width: 130px; }
+    .add-color { font-size: 12px; font-weight: 600; color: var(--blue); background: none; border: 1px dashed var(--border2); border-radius: 9px; padding: 9px; cursor: pointer; }
+    .add-color:hover { border-color: var(--blue); }
+    .logo-upload { display: flex; gap: 12px; }
+    .logo-drop { flex: 1; border: 1px dashed var(--border2); border-radius: 11px; height: 84px; display: grid; place-items: center; text-align: center; font-size: 11px; color: var(--dim); cursor: pointer; }
+    .logo-drop.light { background: #fff; color: #999; }
+    .logo-drop:hover { border-color: var(--blue); }
+    .modal-foot { display: flex; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--border); }
+    .btn { flex: 1; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); }
+    .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .x { background: none; border: 0; color: var(--dim); font-size: 20px; cursor: pointer; line-height: 1; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="mode-tag">Mockup · Company page → Brand Board section</div>
+    <div class="page-head">
+      <h1>Company</h1>
+      <p class="sub">Synergy Home · ch014 — client details, team, and brand reference.</p>
+    </div>
+
+    <div class="context-note">Shown here on its own. In the app this sits as a new <b>Brand Board</b> card on the Company page, below Company Info &amp; Team Members.</div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="title">
+          <div class="glyph">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h12a2 2 0 012 2v12a4 4 0 01-4 4H7zM11 3v18M3 12h8"/></svg>
+          </div>
+          <h2>Brand Board</h2>
+        </div>
+        <button class="edit-btn" onclick="openModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+          Edit
+        </button>
+      </div>
+
+      <div class="card-body">
+        <!-- Colors -->
+        <div>
+          <div class="section-label">Primary Colors</div>
+          <div class="swatches" id="swatches">
+            <div class="swatch" onclick="copyHex('#2E6E42')">
+              <div class="chip" style="background:#2E6E42"></div>
+              <div class="meta"><div class="role">Primary</div><div class="hex">#2E6E42</div></div>
+              <span class="copy">Click to copy</span>
+            </div>
+            <div class="swatch" onclick="copyHex('#245737')">
+              <div class="chip" style="background:#245737"></div>
+              <div class="meta"><div class="role">Primary · Hover</div><div class="hex">#245737</div></div>
+              <span class="copy">Click to copy</span>
+            </div>
+            <div class="swatch" onclick="copyHex('#E8F5ED')">
+              <div class="chip" style="background:#E8F5ED"></div>
+              <div class="meta"><div class="role">Primary · Light</div><div class="hex">#E8F5ED</div></div>
+              <span class="copy">Click to copy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Details -->
+        <div>
+          <div class="section-label">Brand Details</div>
+          <div class="detail-rows">
+            <div class="detail-row"><span class="k">Brand name</span><span class="v">Synergy Home</span></div>
+            <div class="detail-row"><span class="k">Legal name</span><span class="v">Synergy Home LLC</span></div>
+            <div class="detail-row"><span class="k">Tagline</span><span class="v">Comfort done right.</span></div>
+            <div class="detail-row"><span class="k">Font</span><span class="v font-display">Inter</span></div>
+            <div class="detail-row"><span class="k">Website</span><span class="v" style="color:var(--blue)">synergyhome.co</span></div>
+          </div>
+        </div>
+
+        <div class="usage">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Reference only — funnels keep their own styling. The <b>agent</b> reads this when it needs the client's brand colors (e.g. building a funnel or landing page).</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Modal ── -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Edit Brand Board</h3>
+        <button class="x" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Primary Colors <span style="font-weight:400;color:var(--dim)">(up to 3)</span></label>
+          <div style="display:flex;flex-direction:column;gap:10px" id="colorEditors">
+            <div class="color-edit-row">
+              <input type="color" value="#2E6E42" oninput="syncHex(this)">
+              <input type="text" class="role-in" value="Primary">
+              <input type="text" value="#2E6E42">
+            </div>
+            <div class="color-edit-row">
+              <input type="color" value="#245737" oninput="syncHex(this)">
+              <input type="text" class="role-in" value="Primary · Hover">
+              <input type="text" value="#245737">
+            </div>
+            <div class="color-edit-row">
+              <input type="color" value="#E8F5ED" oninput="syncHex(this)">
+              <input type="text" class="role-in" value="Primary · Light">
+              <input type="text" value="#E8F5ED">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Brand name</label>
+          <input type="text" value="Synergy Home">
+        </div>
+        <div class="field">
+          <label>Tagline</label>
+          <input type="text" value="Comfort done right.">
+        </div>
+        <div class="field">
+          <label>Font</label>
+          <input type="text" value="Inter">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" onclick="closeModal()">Save Brand Board</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard</div>
+
+  <script>
+    function openModal(){ document.getElementById('overlay').classList.add('show'); }
+    function closeModal(){ document.getElementById('overlay').classList.remove('show'); }
+    function syncHex(el){ el.parentElement.querySelector('input[type=text]:last-child').value = el.value.toUpperCase(); }
+    let toastTimer;
+    function copyHex(hex){
+      navigator.clipboard?.writeText(hex);
+      const t = document.getElementById('toast');
+      t.textContent = 'Copied ' + hex;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>t.classList.remove('show'), 1400);
+    }
+    document.getElementById('overlay').addEventListener('click', e => { if(e.target.id==='overlay') closeModal(); });
+  </script>
+</body>
+</html>
