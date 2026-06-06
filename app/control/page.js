@@ -1450,6 +1450,7 @@ function PlansSection() {
           error={error}
           onSave={save}
           onDelete={remove}
+          onBack={viewStay ? () => { setMode('view'); setError(null) } : null}
           onClose={() => setDrawerOpen(false)}
         />
       )}
@@ -1599,7 +1600,7 @@ function StayViewDrawer({ stay, onEdit, onClose }) {
   )
 }
 
-function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onClose }) {
+function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onBack, onClose }) {
   const liveTotal = STAY_CATS.reduce((a, c) => a + (Number(form[c.key]) || 0), 0)
 
   return (
@@ -1607,8 +1608,15 @@ function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onClose })
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">{form.id ? 'Edit Stay' : 'New Stay'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <div className="flex items-center gap-2 min-w-0">
+            {onBack && (
+              <button onClick={onBack} title="Back to details" className="-ml-1 p-1 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition flex-shrink-0">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+            )}
+            <h2 className="text-lg font-bold text-white truncate">{form.id ? 'Edit Stay' : 'New Stay'}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -1672,6 +1680,8 @@ function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onClose })
               className="flex-1 px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
               {saving ? 'Saving…' : form.id ? 'Save changes' : 'Add stay'}
             </button>
+            <button onClick={onBack || onClose} disabled={saving}
+              className="px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/5 rounded-lg transition">Cancel</button>
             {form.id && (
               <button onClick={onDelete} disabled={saving}
                 className="px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 rounded-lg transition">Delete</button>
