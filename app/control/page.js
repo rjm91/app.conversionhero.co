@@ -1303,7 +1303,10 @@ function PlansSection() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [form, setForm] = useState(STAY_EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => { loadPlans() }, [])
 
@@ -1316,6 +1319,50 @@ function PlansSection() {
       console.error('[PlansSection] fetch error:', err)
     }
     setLoading(false)
+  }
+
+  function openNew() { setForm(STAY_EMPTY_FORM); setError(null); setDrawerOpen(true) }
+  function openEdit(plan) { setForm(stayFormFromPlan(plan)); setError(null); setDrawerOpen(true) }
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function save() {
+    if (!form.name.trim()) { setError('Name is required'); return }
+    if (!form.start_date || !form.end_date) { setError('Check-in and check-out dates are required'); return }
+    if (form.end_date <= form.start_date) { setError('Check-out must be after check-in'); return }
+    setSaving(true); setError(null)
+    const payload = {
+      name: form.name, city: form.city, url: form.url, color: form.color,
+      start_date: form.start_date, end_date: form.end_date,
+      categories: {
+        airbnb: Number(form.airbnb) || 0, food: Number(form.food) || 0,
+        personal: Number(form.personal) || 0, fun: Number(form.fun) || 0,
+      },
+      flight_route: form.flight_route || null,
+      flight_date: form.flight_date || null,
+      notes: form.notes || null,
+    }
+    try {
+      const url = form.id ? `/api/plans/${form.id}` : '/api/plans'
+      const method = form.id ? 'PATCH' : 'POST'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Save failed')
+      setPlans(prev => form.id ? prev.map(p => p.id === json.plan.id ? json.plan : p) : [...prev, json.plan])
+      setDrawerOpen(false)
+    } catch (e) { setError(e.message) }
+    finally { setSaving(false) }
+  }
+
+  async function remove() {
+    if (!form.id) return
+    if (!confirm('Delete this stay?')) return
+    setSaving(true)
+    try {
+      await fetch(`/api/plans/${form.id}`, { method: 'DELETE' })
+      setPlans(prev => prev.filter(p => p.id !== form.id))
+      setDrawerOpen(false)
+    } catch (e) { setError(e.message) }
+    finally { setSaving(false) }
   }
 
   const budget = plans.reduce((a, s) => a + planCatTotal(s), 0)
@@ -1360,7 +1407,7 @@ function PlansSection() {
             </div>
           </div>
         )}
-        <button onClick={e => { e.stopPropagation(); router.push('/control/plans') }}
+        <button onClick={e => { e.stopPropagation(); setOpen(true); openNew() }}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition ml-3">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           New Stay
@@ -1375,7 +1422,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanGantt stays={plans} today={new Date()} compact onSelect={s => setSelected(s)} />
+              <PlanGantt stays={plans} today={new Date()} compact onSelect={openEdit} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>
@@ -1384,131 +1431,130 @@ function PlansSection() {
         </div>
       </Collapse>
 
-      {selected && (
-        <StayDetailDrawer
-          stay={selected}
-          onClose={() => setSelected(null)}
-          onEdit={() => router.push('/control/plans')}
+      {drawerOpen && (
+        <StayEditDrawer
+          form={form}
+          set={set}
+          saving={saving}
+          error={error}
+          onSave={save}
+          onDelete={remove}
+          onClose={() => setDrawerOpen(false)}
         />
       )}
     </div>
   )
 }
 
-/* ─── Stay Detail Drawer (read-only, opens from control Plans timeline) ─── */
+/* ─── Stay Edit Drawer (full create/edit/delete from control Plans timeline) ─── */
+const STAY_COLORS = ['#7c5cff', '#2dd4bf', '#fb923c', '#818cf8', '#38bdf8', '#f472b6', '#34d399', '#f5c542']
 const STAY_CATS = [
   { key: 'airbnb', label: 'Airbnb' },
   { key: 'food', label: 'Food' },
   { key: 'personal', label: 'Personal' },
   { key: 'fun', label: 'Fun' },
 ]
+const STAY_EMPTY_FORM = { id: null, name: '', city: '', url: '', color: STAY_COLORS[0], start_date: '', end_date: '', airbnb: '', food: '', personal: '', fun: '', flight_route: '', flight_date: '', notes: '' }
 
-function fmtStayDate(d) {
-  if (!d) return '—'
-  return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+function stayFormFromPlan(p) {
+  const c = p.categories || {}
+  return {
+    id: p.id, name: p.name || '', city: p.city || '', url: p.url || '', color: p.color || STAY_COLORS[0],
+    start_date: p.start_date || '', end_date: p.end_date || '',
+    airbnb: c.airbnb ?? '', food: c.food ?? '', personal: c.personal ?? '', fun: c.fun ?? '',
+    flight_route: p.flight_route || '', flight_date: p.flight_date || '', notes: p.notes || '',
+  }
 }
 
-function StayDetailDrawer({ stay, onClose, onEdit }) {
-  const n = planNights(stay)
-  const total = planCatTotal(stay)
-  const cats = stay.categories || {}
+const stayInputCls = 'w-full px-3 py-2 text-sm rounded-lg bg-[#171B33] border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500'
+
+function StayField({ label, children }) {
+  return (
+    <div>
+      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onClose }) {
+  const liveTotal = STAY_CATS.reduce((a, c) => a + (Number(form[c.key]) || 0), 0)
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#171B33] border-l border-white/10 shadow-2xl overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
-          <span className="w-3.5 h-3.5 rounded-full mt-1 flex-shrink-0" style={{ background: stay.color }} />
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-bold text-white leading-tight">{stay.name}</h3>
-            {stay.city && <p className="text-sm text-gray-400 mt-0.5">{stay.city}</p>}
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
+      <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-white">{form.id ? 'Edit Stay' : 'New Stay'}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-in</p>
-              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.start_date)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-out</p>
-              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.end_date)}</p>
-            </div>
+        <div className="space-y-4">
+          <StayField label="Lodging name">
+            <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Old Town Loft" className={stayInputCls} />
+          </StayField>
+          <StayField label="City">
+            <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Scottsdale, AZ" className={stayInputCls} />
+          </StayField>
+          <StayField label="Airbnb / listing link">
+            <input value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://airbnb.com/rooms/…" className={stayInputCls} />
+          </StayField>
+
+          <div className="grid grid-cols-2 gap-3">
+            <StayField label="Check-in"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className={stayInputCls} /></StayField>
+            <StayField label="Check-out"><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} className={stayInputCls} /></StayField>
           </div>
 
-          {/* Summary */}
-          <div className="flex gap-6">
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
-              <p className="text-lg font-extrabold text-white">{n}</p>
+          <StayField label="Color">
+            <div className="flex gap-2 flex-wrap">
+              {STAY_COLORS.map(c => (
+                <button key={c} onClick={() => set('color', c)}
+                  className={`w-7 h-7 rounded-lg ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-[#111528] ring-white' : ''}`} style={{ background: c }} />
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
-              <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
-              <p className="text-lg font-extrabold text-indigo-400">{n ? planMoney(total / n) : '$0'}</p>
-            </div>
-          </div>
+          </StayField>
 
-          {/* Budget breakdown */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Budget</p>
-            <div className="space-y-1.5">
+          <StayField label="Budget">
+            <div className="grid grid-cols-2 gap-3">
               {STAY_CATS.map(c => (
-                <div key={c.key} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400">{c.label}</span>
-                  <span className="font-semibold text-white">{planMoney(Number(cats[c.key]) || 0)}</span>
+                <div key={c.key}>
+                  <label className="text-[11px] text-gray-400">{c.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} placeholder="0" className={stayInputCls + ' pl-7'} />
+                  </div>
                 </div>
               ))}
-              <div className="flex items-center justify-between text-sm pt-1.5 mt-1 border-t border-white/5">
-                <span className="font-bold text-gray-300">Total</span>
-                <span className="font-bold text-green-400">{planMoney(total)}</span>
-              </div>
             </div>
+            <div className="flex items-center justify-between text-sm mt-3 pt-2 border-t border-white/5">
+              <span className="font-bold text-gray-300">Total</span>
+              <span className="font-bold text-green-400">{planMoney(liveTotal)}</span>
+            </div>
+          </StayField>
+
+          <div className="grid grid-cols-2 gap-3">
+            <StayField label="Flight in (route)"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
+            <StayField label="Flight date"><input type="date" value={form.flight_date} onChange={e => set('flight_date', e.target.value)} className={stayInputCls} /></StayField>
           </div>
 
-          {/* Flight */}
-          {(stay.flight_route || stay.flight_date) && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Flight</p>
-              <p className="text-sm font-semibold text-white">
-                {stay.flight_route || '—'}{stay.flight_date ? ` · ${fmtStayDate(stay.flight_date)}` : ''}
-              </p>
-            </div>
-          )}
+          <StayField label="Notes">
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} className={stayInputCls} />
+          </StayField>
 
-          {/* Airbnb link */}
-          {stay.url && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Listing</p>
-              <a href={stay.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-400 hover:text-blue-300 break-all">
-                {stay.url}
-              </a>
-            </div>
-          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
-          {/* Notes */}
-          {stay.notes && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-sm text-gray-300 whitespace-pre-wrap">{stay.notes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/5">
-          <button onClick={onEdit} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
-            Edit in planner →
-          </button>
+          <div className="flex items-center gap-2 pt-2">
+            <button onClick={onSave} disabled={saving}
+              className="flex-1 px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
+              {saving ? 'Saving…' : form.id ? 'Save changes' : 'Add stay'}
+            </button>
+            {form.id && (
+              <button onClick={onDelete} disabled={saving}
+                className="px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 rounded-lg transition">Delete</button>
+            )}
+          </div>
         </div>
       </div>
     </div>
