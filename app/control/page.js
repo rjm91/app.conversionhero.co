@@ -1304,6 +1304,8 @@ function PlansSection() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [mode, setMode] = useState('view')        // 'view' | 'edit'
+  const [viewStay, setViewStay] = useState(null)   // the stay shown in read-only view
   const [form, setForm] = useState(STAY_EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -1321,8 +1323,9 @@ function PlansSection() {
     setLoading(false)
   }
 
-  function openNew() { setForm(STAY_EMPTY_FORM); setError(null); setDrawerOpen(true) }
-  function openEdit(plan) { setForm(stayFormFromPlan(plan)); setError(null); setDrawerOpen(true) }
+  function openView(plan) { setViewStay(plan); setMode('view'); setError(null); setDrawerOpen(true) }
+  function openNew() { setForm(STAY_EMPTY_FORM); setViewStay(null); setMode('edit'); setError(null); setDrawerOpen(true) }
+  function startEdit() { setForm(stayFormFromPlan(viewStay)); setMode('edit'); setError(null) }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   async function save() {
@@ -1348,7 +1351,8 @@ function PlansSection() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Save failed')
       setPlans(prev => form.id ? prev.map(p => p.id === json.plan.id ? json.plan : p) : [...prev, json.plan])
-      setDrawerOpen(false)
+      if (form.id) { setViewStay(json.plan); setMode('view') }   // edits → back to view
+      else { setDrawerOpen(false) }                              // new stay → close
     } catch (e) { setError(e.message) }
     finally { setSaving(false) }
   }
@@ -1422,7 +1426,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanGantt stays={plans} today={new Date()} compact onSelect={openEdit} />
+              <PlanGantt stays={plans} today={new Date()} compact onSelect={openView} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>
@@ -1431,7 +1435,14 @@ function PlansSection() {
         </div>
       </Collapse>
 
-      {drawerOpen && (
+      {drawerOpen && mode === 'view' && viewStay && (
+        <StayViewDrawer
+          stay={viewStay}
+          onEdit={startEdit}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
+      {drawerOpen && mode === 'edit' && (
         <StayEditDrawer
           form={form}
           set={set}
@@ -1473,6 +1484,117 @@ function StayField({ label, children }) {
     <div>
       <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">{label}</label>
       {children}
+    </div>
+  )
+}
+
+function fmtStayDate(d) {
+  if (!d) return '—'
+  return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function StayViewDrawer({ stay, onEdit, onClose }) {
+  const n = planNights(stay)
+  const total = planCatTotal(stay)
+  const cats = stay.categories || {}
+
+  return (
+    <div className="fixed inset-0 z-[200] flex justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
+          <span className="w-3.5 h-3.5 rounded-full mt-1 flex-shrink-0" style={{ background: stay.color }} />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-white leading-tight">{stay.name}</h3>
+            {stay.city && <p className="text-sm text-gray-400 mt-0.5">{stay.city}</p>}
+          </div>
+          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white/5 hover:bg-white/10 text-gray-200 rounded-lg transition flex-shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            Edit
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-6">
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-in</p>
+              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.start_date)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-out</p>
+              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.end_date)}</p>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="flex gap-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
+              <p className="text-lg font-extrabold text-white">{n}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
+              <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
+              <p className="text-lg font-extrabold text-indigo-400">{n ? planMoney(total / n) : '$0'}</p>
+            </div>
+          </div>
+
+          {/* Budget breakdown */}
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Budget</p>
+            <div className="space-y-1.5">
+              {STAY_CATS.map(c => (
+                <div key={c.key} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">{c.label}</span>
+                  <span className="font-semibold text-white">{planMoney(Number(cats[c.key]) || 0)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between text-sm pt-1.5 mt-1 border-t border-white/5">
+                <span className="font-bold text-gray-300">Total</span>
+                <span className="font-bold text-green-400">{planMoney(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Flight */}
+          {(stay.flight_route || stay.flight_date) && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Flight</p>
+              <p className="text-sm font-semibold text-white">
+                {stay.flight_route || '—'}{stay.flight_date ? ` · ${fmtStayDate(stay.flight_date)}` : ''}
+              </p>
+            </div>
+          )}
+
+          {/* Airbnb link — clickable */}
+          {stay.url && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Listing</p>
+              <a href={stay.url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                Open listing
+              </a>
+            </div>
+          )}
+
+          {/* Notes */}
+          {stay.notes && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-sm text-gray-300 whitespace-pre-wrap">{stay.notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
