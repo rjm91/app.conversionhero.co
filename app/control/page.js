@@ -1303,6 +1303,7 @@ function PlansSection() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState(null)
 
   useEffect(() => { loadPlans() }, [])
 
@@ -1374,7 +1375,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanGantt stays={plans} today={new Date()} compact onSelect={() => router.push('/control/plans')} />
+              <PlanGantt stays={plans} today={new Date()} compact onSelect={s => setSelected(s)} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>
@@ -1382,6 +1383,134 @@ function PlansSection() {
           )}
         </div>
       </Collapse>
+
+      {selected && (
+        <StayDetailDrawer
+          stay={selected}
+          onClose={() => setSelected(null)}
+          onEdit={() => router.push('/control/plans')}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ─── Stay Detail Drawer (read-only, opens from control Plans timeline) ─── */
+const STAY_CATS = [
+  { key: 'airbnb', label: 'Airbnb' },
+  { key: 'food', label: 'Food' },
+  { key: 'personal', label: 'Personal' },
+  { key: 'fun', label: 'Fun' },
+]
+
+function fmtStayDate(d) {
+  if (!d) return '—'
+  return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function StayDetailDrawer({ stay, onClose, onEdit }) {
+  const n = planNights(stay)
+  const total = planCatTotal(stay)
+  const cats = stay.categories || {}
+
+  return (
+    <div className="fixed inset-0 z-[200] flex justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md h-full bg-[#171B33] border-l border-white/10 shadow-2xl overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
+          <span className="w-3.5 h-3.5 rounded-full mt-1 flex-shrink-0" style={{ background: stay.color }} />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-white leading-tight">{stay.name}</h3>
+            {stay.city && <p className="text-sm text-gray-400 mt-0.5">{stay.city}</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-6">
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-in</p>
+              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.start_date)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-out</p>
+              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.end_date)}</p>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="flex gap-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
+              <p className="text-lg font-extrabold text-white">{n}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
+              <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
+              <p className="text-lg font-extrabold text-indigo-400">{n ? planMoney(total / n) : '$0'}</p>
+            </div>
+          </div>
+
+          {/* Budget breakdown */}
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Budget</p>
+            <div className="space-y-1.5">
+              {STAY_CATS.map(c => (
+                <div key={c.key} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">{c.label}</span>
+                  <span className="font-semibold text-white">{planMoney(Number(cats[c.key]) || 0)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between text-sm pt-1.5 mt-1 border-t border-white/5">
+                <span className="font-bold text-gray-300">Total</span>
+                <span className="font-bold text-green-400">{planMoney(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Flight */}
+          {(stay.flight_route || stay.flight_date) && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Flight</p>
+              <p className="text-sm font-semibold text-white">
+                {stay.flight_route || '—'}{stay.flight_date ? ` · ${fmtStayDate(stay.flight_date)}` : ''}
+              </p>
+            </div>
+          )}
+
+          {/* Airbnb link */}
+          {stay.url && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Listing</p>
+              <a href={stay.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-400 hover:text-blue-300 break-all">
+                {stay.url}
+              </a>
+            </div>
+          )}
+
+          {/* Notes */}
+          {stay.notes && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-sm text-gray-300 whitespace-pre-wrap">{stay.notes}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-white/5">
+          <button onClick={onEdit} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+            Edit in planner →
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
