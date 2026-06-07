@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  buildCsv, docCounts, RSA, MATCH_TYPES, STATUSES, BID_STRATEGIES,
+  buildCsv, docCounts, CAMPAIGN_TYPES, RSA, MATCH_TYPES, STATUSES, BID_STRATEGIES,
   MAX_HEADLINES, MAX_DESCRIPTIONS, HEADLINE_MAX_LEN, DESC_MAX_LEN, PATH_MAX_LEN,
   DEFAULT_TRACKING,
 } from '../lib/google-ads-csv'
@@ -12,7 +12,7 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 function newKeyword()  { return { id: uid(), text: '', matchType: 'Phrase' } }
 function newAd()       { return { id: uid(), adType: RSA, headlines: [ {text:'',position:null}, {text:'',position:null}, {text:'',position:null} ], descriptions: [ {text:'',position:null}, {text:'',position:null} ], path1: '', path2: '', finalUrl: '' } }
 function newAdGroup(n) { return { id: uid(), name: n || 'Ad group 1', keywords: [newKeyword()], ads: [newAd()] } }
-function newCampaign() { return { id: uid(), name: 'New Campaign', status: 'Paused', bidStrategy: 'Maximize clicks', trackingTemplate: DEFAULT_TRACKING, adGroups: [newAdGroup()] } }
+function newCampaign(type = 'search') { return { id: uid(), type, name: 'New Campaign', status: 'Paused', bidStrategy: 'Maximize clicks', trackingTemplate: DEFAULT_TRACKING, adGroups: [newAdGroup()] } }
 
 // Normalize a campaign drafted by the agent into a full doc campaign (assign
 // ids, apply defaults, coerce headline/description strings to {text,position}).
@@ -34,6 +34,7 @@ function normalizeAgentCampaign(c) {
   }))
   return {
     id: uid(),
+    type: 'search',
     name: c.name || 'New Campaign',
     status: STATUSES.includes(c.status) ? c.status : 'Paused',
     bidStrategy: BID_STRATEGIES.includes(c.bidStrategy) ? c.bidStrategy : 'Maximize clicks',
@@ -66,6 +67,7 @@ export default function CampaignBuilder({ clientId, clientName }) {
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [selected, setSelected]   = useState(null)   // { cid, gid, aid }
+  const [activeType, setActiveType] = useState('search')
   const [glowIds, setGlowIds]     = useState(() => new Set()) // campaigns just added by the agent
   const skipSave = useRef(true)
   const saveTimer = useRef(null)
@@ -141,7 +143,7 @@ export default function CampaignBuilder({ clientId, clientName }) {
   const findAd = (next, cid, gid, aid) => findGroup(next, cid, gid)?.ads.find(a => a.id === aid)
 
   // campaign ops
-  const addCampaign = () => update(n => { n.campaigns.push(newCampaign()) })
+  const addCampaign = () => update(n => { n.campaigns.push(newCampaign(activeType)) })
   const patchCampaign = (cid, patch) => update(n => Object.assign(findCamp(n, cid), patch))
   const deleteCampaign = (cid) => update(n => { n.campaigns = n.campaigns.filter(c => c.id !== cid) })
   // ad group ops
@@ -157,15 +159,17 @@ export default function CampaignBuilder({ clientId, clientName }) {
   const patchAd = (cid, gid, aid, patch) => update(n => Object.assign(findAd(n, cid, gid, aid), patch))
   const deleteAd = (cid, gid, aid) => update(n => { const g = findGroup(n, cid, gid); g.ads = g.ads.filter(a => a.id !== aid) })
 
-  const counts = docCounts(doc)
+  const typeMeta = CAMPAIGN_TYPES.find(t => t.key === activeType) || CAMPAIGN_TYPES[0]
+  const typeCampaigns = doc.campaigns.filter(c => (c.type || 'search') === activeType)
+  const counts = docCounts({ campaigns: typeCampaigns })
 
   function downloadCsv() {
-    const csv = buildCsv(doc)
+    const csv = buildCsv({ campaigns: typeCampaigns })
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     const name = (clientName || clientId || 'campaigns').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-    a.href = url; a.download = `${name}-google-ads-editor.csv`
+    a.href = url; a.download = `${name}-google-ads-${activeType}.csv`
     document.body.appendChild(a); a.click(); a.remove()
     URL.revokeObjectURL(url)
   }
@@ -176,64 +180,91 @@ export default function CampaignBuilder({ clientId, clientName }) {
 
   return (
     <div>
+      {/* campaign type selector */}
+      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        {CAMPAIGN_TYPES.map(t => {
+          const active = t.key === activeType
+          const n = doc.campaigns.filter(c => (c.type || 'search') === t.key).length
+          return (
+            <button key={t.key} onClick={() => { setActiveType(t.key); setSelected(null) }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${active ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'}`}>
+              {t.label}
+              {n > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>{n}</span>}
+              {!t.ready && <span className={`text-[9px] uppercase tracking-wide ${active ? 'text-white/70' : 'text-gray-400'}`}>soon</span>}
+            </button>
+          )
+        })}
+      </div>
+
       {/* toolbar */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            A live sheet that mirrors the Google Ads Editor import. Edit cells directly, then download.
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            <b className="text-gray-700 dark:text-gray-200">{counts.campaigns}</b> campaigns · <b className="text-gray-700 dark:text-gray-200">{counts.adGroups}</b> ad groups · <b className="text-gray-700 dark:text-gray-200">{counts.keywords}</b> keywords · <b className="text-gray-700 dark:text-gray-200">{counts.ads}</b> ads
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{typeMeta.label} — {typeMeta.note}</p>
+          {typeMeta.ready && (
+            <p className="text-xs text-gray-400 mt-1">
+              <b className="text-gray-700 dark:text-gray-200">{counts.campaigns}</b> campaigns · <b className="text-gray-700 dark:text-gray-200">{counts.adGroups}</b> ad groups · <b className="text-gray-700 dark:text-gray-200">{counts.keywords}</b> keywords · <b className="text-gray-700 dark:text-gray-200">{counts.ads}</b> ads
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 w-16 text-right">
-            {saveState === 'saving' && 'Saving…'}
-            {saveState === 'saved'  && <span className="text-emerald-500">Saved ✓</span>}
-            {saveState === 'error'  && <span className="text-red-500">Save failed</span>}
-          </span>
-          <button onClick={addCampaign}
-            className="text-xs font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3 py-2 rounded-lg transition">
-            + New campaign
-          </button>
-          <button onClick={downloadCsv} disabled={counts.campaigns === 0}
-            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-[#06281c] font-bold text-xs px-4 py-2 rounded-lg transition">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-            Download CSV
-          </button>
-        </div>
-      </div>
-
-      {/* sheet */}
-      <div className="border border-gray-200 dark:border-white/5 rounded-xl overflow-auto bg-white dark:bg-[#171B33]" style={{ maxHeight: 'calc(100vh - 380px)', minHeight: 320 }}>
-        {counts.campaigns === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-sm text-gray-400 mb-3">No campaigns yet.</p>
-            <button onClick={addCampaign} className="text-sm font-semibold text-blue-600 dark:text-blue-400">+ Create your first campaign</button>
+        {typeMeta.ready && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 w-16 text-right">
+              {saveState === 'saving' && 'Saving…'}
+              {saveState === 'saved'  && <span className="text-emerald-500">Saved ✓</span>}
+              {saveState === 'error'  && <span className="text-red-500">Save failed</span>}
+            </span>
+            <button onClick={addCampaign}
+              className="text-xs font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3 py-2 rounded-lg transition">
+              + New campaign
+            </button>
+            <button onClick={downloadCsv} disabled={counts.campaigns === 0}
+              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-[#06281c] font-bold text-xs px-4 py-2 rounded-lg transition">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Download CSV
+            </button>
           </div>
-        ) : (
-          <table className="text-[12.5px] border-collapse min-w-full whitespace-nowrap">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-[#1c2138] text-gray-400">
-                {['#','Campaign','Ad Group','Status','Keyword','Match','Bid strategy','Ad type','Headline 1','Headline 2','Headline 3','Final URL'].map((h, i) => (
-                  <th key={i} className={`sticky top-0 z-10 bg-gray-50 dark:bg-[#1c2138] text-left font-bold text-[11px] uppercase tracking-wide px-3 py-2 border-b border-r border-gray-100 dark:border-white/5 ${i===0?'w-10 text-center':''}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {doc.campaigns.map(c => <CampaignRows key={c.id} c={c} glow={glowIds.has(c.id)}
-                selected={selected} setSelected={setSelected}
-                patchCampaign={patchCampaign} deleteCampaign={deleteCampaign}
-                addAdGroup={addAdGroup} patchAdGroup={patchAdGroup} deleteAdGroup={deleteAdGroup}
-                addKeyword={addKeyword} patchKeyword={patchKeyword} deleteKeyword={deleteKeyword}
-                addAd={addAd} patchAd={patchAd} deleteAd={deleteAd} />)}
-            </tbody>
-          </table>
         )}
       </div>
 
+      {!typeMeta.ready ? (
+        /* scaffolded type — awaiting its Google Ads Editor template */
+        <div className="border border-dashed border-gray-200 dark:border-white/10 rounded-xl p-10 text-center bg-white dark:bg-[#171B33]">
+          <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{typeMeta.label} builder — coming soon</div>
+          <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">{typeMeta.note} This type is structured differently from Search, so it needs its own sheet layout and import format.</p>
+          <p className="text-[11px] text-gray-400">To wire it up: export a {typeMeta.label} campaign template from Google Ads Editor and drop it into the project's <code className="text-gray-500 dark:text-gray-300">data/</code> folder.</p>
+        </div>
+      ) : (
+        /* sheet */
+        <div className="border border-gray-200 dark:border-white/5 rounded-xl overflow-auto bg-white dark:bg-[#171B33]" style={{ maxHeight: 'calc(100vh - 380px)', minHeight: 320 }}>
+          {counts.campaigns === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-sm text-gray-400 mb-3">No {typeMeta.label} campaigns yet.</p>
+              <button onClick={addCampaign} className="text-sm font-semibold text-blue-600 dark:text-blue-400">+ Create your first campaign</button>
+            </div>
+          ) : (
+            <table className="text-[12.5px] border-collapse min-w-full whitespace-nowrap">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-[#1c2138] text-gray-400">
+                  {['#','Campaign','Ad Group','Status','Keyword','Match','Bid strategy','Ad type','Headline 1','Headline 2','Headline 3','Final URL'].map((h, i) => (
+                    <th key={i} className={`sticky top-0 z-10 bg-gray-50 dark:bg-[#1c2138] text-left font-bold text-[11px] uppercase tracking-wide px-3 py-2 border-b border-r border-gray-100 dark:border-white/5 ${i===0?'w-10 text-center':''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {typeCampaigns.map(c => <CampaignRows key={c.id} c={c} glow={glowIds.has(c.id)}
+                  selected={selected} setSelected={setSelected}
+                  patchCampaign={patchCampaign} deleteCampaign={deleteCampaign}
+                  addAdGroup={addAdGroup} patchAdGroup={patchAdGroup} deleteAdGroup={deleteAdGroup}
+                  addKeyword={addKeyword} patchKeyword={patchKeyword} deleteKeyword={deleteKeyword}
+                  addAd={addAd} patchAd={patchAd} deleteAd={deleteAd} />)}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {/* ad editor + preview */}
-      {selectedAd && (
+      {selectedAd && typeMeta.ready && (
         <AdEditor ad={selectedAd} loc={selected}
           patchAd={patchAd} deleteAd={deleteAd} onClose={() => setSelected(null)} />
       )}

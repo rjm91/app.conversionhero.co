@@ -234,7 +234,8 @@ export default function AgentPanel({ mode = 'client' }) {
         return p
       })
       const fallback = proposals.length ? 'Drafted a new proposal — review it below.' : '(no response)'
-      setMessages(m => [...m, { role: 'agent', text: data.text || fallback, proposals }])
+      const text = (data.text || fallback).replace(/\*\*/g, '') // strip markdown bold the UI renders literally
+      setMessages(m => [...m, { role: 'agent', text, proposals }])
     } catch (e) {
       setMessages(m => [...m, { role: 'agent', text: `Error: ${e.message}`, error: true }])
     } finally {
