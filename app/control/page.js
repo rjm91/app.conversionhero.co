@@ -1506,7 +1506,7 @@ function stayFormFromPlan(p) {
   }
 }
 
-const stayInputCls = 'w-full px-3 py-2 text-sm rounded-lg bg-[#171B33] border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500'
+const stayInputCls = 'w-full px-3 py-2 text-sm rounded-lg bg-[#171B33] border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 [color-scheme:dark]'
 
 function StayField({ label, children }) {
   return (
