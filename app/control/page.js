@@ -1304,6 +1304,7 @@ function PlansSection() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [range, setRange] = useState(null)        // active calendar period for KPI scope
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [form, setForm] = useState(STAY_EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -1400,9 +1401,12 @@ function PlansSection() {
     finally { setSaving(false) }
   }
 
-  const budget = plans.reduce((a, s) => a + planAmount(s), 0)
-  const nts = plans.reduce((a, s) => a + (planIsEvent(s) ? 0 : planNights(s)), 0)
-  const perDay = nts ? budget / nts : 0
+  // KPIs scope to the period in view (a plan counts in the period it starts)
+  const inView = range ? plans.filter(s => s.start_date >= range.startStr && s.start_date <= range.endStr) : plans
+  const budget = inView.reduce((a, s) => a + planAmount(s), 0)
+  const nts = inView.reduce((a, s) => a + (planIsEvent(s) ? 0 : planNights(s)), 0)
+  const planCount = inView.length
+  const perDay = range ? (range.days ? budget / range.days : 0) : (nts ? budget / nts : 0)
   const next = [...plans]
     .filter(s => new Date(s.start_date) >= new Date(new Date().toDateString()))
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))[0]
@@ -1421,6 +1425,9 @@ function PlansSection() {
             ✈ Next: {next.name} · {new Date(next.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         )}
+        {range && (
+          <span className="text-[11px] font-semibold text-blue-300/90 bg-blue-500/10 px-2 py-0.5 rounded-full ml-1 hidden md:inline">{range.label}</span>
+        )}
         <div className="flex-1" />
         {!loading && (
           <div className="flex items-center">
@@ -1433,7 +1440,7 @@ function PlansSection() {
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Nights</span>
             </div>
             <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-              <span className={`text-[15px] font-extrabold leading-tight ${plans.length > 0 ? 'text-white' : 'text-gray-500'}`}>{plans.length}</span>
+              <span className={`text-[15px] font-extrabold leading-tight ${planCount > 0 ? 'text-white' : 'text-gray-500'}`}>{planCount}</span>
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Plans</span>
             </div>
             <div className="flex flex-col items-center px-3.5 min-w-[70px]">
@@ -1457,7 +1464,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanCalendar stays={plans} today={new Date()} onSelect={openStay} />
+              <PlanCalendar stays={plans} today={new Date()} onSelect={openStay} onRangeChange={setRange} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>

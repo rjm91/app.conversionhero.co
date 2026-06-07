@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useLayoutEffect, useCallback } from 'react'
+import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react'
 import { parseDate, isEvent, PLAN_TYPE_META, fmtTime } from './PlanGantt'
 
 /* ─── Zoom levels ─── */
@@ -33,6 +33,25 @@ function coversDay(s, day) {
   return d >= start && (d < endExcl || sameDay(d, start))
 }
 function isTimed(s) { return isEvent(s) && parseMin(s.start_time) != null }
+function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
+/* The date window (and label) the KPI strip should total over, per zoom level */
+function rangeFor(levelKey, cursor, viewDate) {
+  const y = cursor.getFullYear(), m = cursor.getMonth()
+  let start, end, label
+  switch (levelKey) {
+    case 'day': start = midnight(viewDate); end = start; label = `${MOS[start.getMonth()]} ${start.getDate()}`; break
+    case 'week': {
+      start = midnight(viewDate); end = addDays(start, 6)
+      label = `${MOS[start.getMonth()]} ${start.getDate()}–${start.getMonth() === end.getMonth() ? end.getDate() : MOS[end.getMonth()] + ' ' + end.getDate()}`
+      break
+    }
+    case 'month': start = new Date(y, m, 1); end = new Date(y, m + 1, 0); label = `${MOF[m]} ${y}`; break
+    case 'quarter': { const qs = Math.floor(m / 3) * 3; start = new Date(y, qs, 1); end = new Date(y, qs + 3, 0); label = `Q${Math.floor(m / 3) + 1} ${y}`; break }
+    default: start = new Date(y, 0, 1); end = new Date(y, 11, 31); label = `${y}`
+  }
+  return { startStr: ymd(start), endStr: ymd(end), days: dayDiff(start, end) + 1, label }
+}
 function chipLabel(s) {
   const meta = PLAN_TYPE_META[s.type] || PLAN_TYPE_META.stay
   const t = isEvent(s) ? fmtTime(s.start_time) : ''
@@ -40,13 +59,19 @@ function chipLabel(s) {
 }
 
 /* ─── Main ─── */
-export default function PlanCalendar({ stays = [], today = new Date(), onSelect }) {
+export default function PlanCalendar({ stays = [], today = new Date(), onSelect, onRangeChange }) {
   const [zoomIdx, setZoomIdx] = useState(1)        // default Week
   const [cursor, setCursor] = useState(() => midnight(today))   // month/quarter/year nav
   const [viewDate, setViewDate] = useState(() => midnight(today)) // label while scrolling day/week
   const level = LEVELS[zoomIdx]
   const isScroll = level.key === 'day' || level.key === 'week'
   const timeApi = useRef(null)
+
+  // Report the active period so the KPI strip can total over what's in view
+  useEffect(() => {
+    if (onRangeChange) onRangeChange(rangeFor(level.key, cursor, viewDate))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level.key, cursor, viewDate])
 
   function step(dir) {
     if (isScroll) { timeApi.current?.scrollByDays((level.key === 'day' ? 1 : 7) * dir); return }
