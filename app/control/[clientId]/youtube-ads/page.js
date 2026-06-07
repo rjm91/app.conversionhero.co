@@ -6,6 +6,7 @@ import { supabase } from '../../../../lib/supabase'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import CampaignBuilder from '../../../../components/CampaignBuilder'
+import { useAuth } from '../../../../lib/useAuth'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -77,6 +78,8 @@ export default function YouTubeAdsPage() {
   const [sortDir, setSortDir] = useState('desc')
 
   // Drill-down state: 'campaigns' → 'adGroups' → 'ads'
+  const { role }                            = useAuth()
+  const isAgency = role === 'agency_admin' || role === 'agency_standard'
   const [tab, setTab]                       = useState('performance') // performance | builder
   const [view, setView]                     = useState('campaigns')
   const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }
@@ -490,18 +493,21 @@ export default function YouTubeAdsPage() {
 
   const isClickable = view !== 'ads'
 
-  const tabsEl = (
+  const tabOptions = isAgency
+    ? [['performance', 'Performance'], ['builder', 'Campaign Builder']]
+    : [['performance', 'Performance']]
+  const tabsEl = isAgency ? (
     <div className="inline-flex bg-gray-100 dark:bg-[#1c2138] border border-gray-200 dark:border-white/5 rounded-lg p-0.5">
-      {[['performance', 'Performance'], ['builder', 'Campaign Builder']].map(([key, label]) => (
+      {tabOptions.map(([key, label]) => (
         <button key={key} onClick={() => setTab(key)}
           className={`text-xs font-semibold px-3.5 py-1.5 rounded-md transition ${tab === key ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
           {label}
         </button>
       ))}
     </div>
-  )
+  ) : null
 
-  if (tab === 'builder') {
+  if (tab === 'builder' && isAgency) {
     return (
       <div className="p-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
