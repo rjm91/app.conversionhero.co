@@ -41,7 +41,7 @@ function chipLabel(s) {
 /* ─── Main ─── */
 export default function PlanCalendar({ stays = [], today = new Date(), onSelect }) {
   const [zoomIdx, setZoomIdx] = useState(1)   // default Week
-  const [cursor, setCursor] = useState(() => midnight(stays.length ? parseDate(stays[0].start_date) : today))
+  const [cursor, setCursor] = useState(() => midnight(today))   // open on the current week/day
   const level = LEVELS[zoomIdx]
 
   function step(dir) {
@@ -116,7 +116,15 @@ const HOUR_H = 44
 
 function TimeGrid({ stays, days, today, onSelect }) {
   const scrollRef = useRef(null)
-  useLayoutEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_H }, [])
+  const todayVisible = days.some(d => sameDay(d, today))
+  const nowTop = (today.getHours() * 60 + today.getMinutes()) / 60 * HOUR_H
+  // Open scrolled to the current time (a little above), else to ~7am
+  useLayoutEffect(() => {
+    if (!scrollRef.current) return
+    const target = (todayVisible ? nowTop : 7 * HOUR_H) - 120
+    scrollRef.current.scrollTop = Math.max(0, target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // All-day items (stays + untimed events) packed into lanes across the visible days
   const ndays = days.length
@@ -176,7 +184,7 @@ function TimeGrid({ stays, days, today, onSelect }) {
 
       {/* Hour grid */}
       <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 460 }}>
-        <div className="flex" style={{ height: 24 * HOUR_H }}>
+        <div className="flex relative" style={{ height: 24 * HOUR_H }}>
           {/* hour gutter */}
           <div className="w-14 flex-shrink-0 border-r border-white/5">
             {hours.map(h => (
@@ -188,13 +196,10 @@ function TimeGrid({ stays, days, today, onSelect }) {
           {/* day columns */}
           {days.map((d, i) => {
             const dayEvents = layoutDay(stays.filter(s => isTimed(s) && sameDay(midnight(parseDate(s.start_date)), midnight(d))))
-            const nowTop = sameDay(d, today) ? (today.getHours() * 60 + today.getMinutes()) / 60 * HOUR_H : null
             return (
               <div key={i} className="flex-1 relative border-r border-white/5 last:border-r-0">
                 {/* hour lines */}
                 {hours.map(h => <div key={h} className="border-b border-white/5" style={{ height: HOUR_H }} />)}
-                {/* now line */}
-                {nowTop != null && <div className="absolute left-0 right-0 h-px bg-blue-500 z-[3]" style={{ top: nowTop }} />}
                 {/* events */}
                 {dayEvents.map(e => {
                   const meta = PLAN_TYPE_META[e.type] || PLAN_TYPE_META.event
@@ -217,6 +222,16 @@ function TimeGrid({ stays, days, today, onSelect }) {
               </div>
             )
           })}
+          {/* now marker — label on the time axis + line across the day(s) */}
+          {todayVisible && (
+            <>
+              <div className="absolute z-[5] flex items-center justify-end pr-1" style={{ top: nowTop - 7, left: 0, width: 56 }}>
+                <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold leading-none">now</span>
+              </div>
+              <div className="absolute z-[5] w-2 h-2 rounded-full bg-red-500" style={{ top: nowTop - 3, left: 50 }} />
+              <div className="absolute z-[5] h-0.5 bg-red-500" style={{ top: nowTop, left: 56, right: 0 }} />
+            </>
+          )}
         </div>
       </div>
     </div>
