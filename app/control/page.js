@@ -1304,13 +1304,14 @@ function PlansSection() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [mode, setMode] = useState('view')        // 'view' | 'edit'
-  const [viewStay, setViewStay] = useState(null)   // the stay shown in read-only view
   const [form, setForm] = useState(STAY_EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
+  const savedTimer = useRef(null)
 
   useEffect(() => { loadPlans() }, [])
+  useEffect(() => () => clearTimeout(savedTimer.current), [])
 
   async function loadPlans() {
     try {
@@ -1323,42 +1324,63 @@ function PlansSection() {
     setLoading(false)
   }
 
-  function openView(plan) { setViewStay(plan); setMode('view'); setError(null); setDrawerOpen(true) }
-  function openNew() { setForm(STAY_EMPTY_FORM); setViewStay(null); setMode('edit'); setError(null); setDrawerOpen(true) }
-  function startEdit() { setForm(stayFormFromPlan(viewStay)); setMode('edit'); setError(null) }
+  function openStay(plan) { setForm(stayFormFromPlan(plan)); setError(null); setSaved(false); setDrawerOpen(true) }
+  function openNew() { setForm(STAY_EMPTY_FORM); setError(null); setSaved(false); setDrawerOpen(true) }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  async function save() {
-    if (!form.name.trim()) { setError('Name is required'); return }
-    if (!form.start_date || !form.end_date) { setError('Check-in and check-out dates are required'); return }
-    if (form.end_date <= form.start_date) { setError('Check-out must be after check-in'); return }
-    setSaving(true); setError(null)
-    const payload = {
-      name: form.name, city: form.city, url: form.url, color: form.color,
-      start_date: form.start_date, end_date: form.end_date,
+  function payloadFrom(f) {
+    return {
+      name: f.name, city: f.city, url: f.url, color: f.color,
+      start_date: f.start_date, end_date: f.end_date,
       categories: {
-        airbnb: Number(form.airbnb) || 0, food: Number(form.food) || 0,
-        personal: Number(form.personal) || 0, fun: Number(form.fun) || 0,
+        airbnb: Number(f.airbnb) || 0, food: Number(f.food) || 0,
+        personal: Number(f.personal) || 0, fun: Number(f.fun) || 0,
       },
-      flight_route: form.flight_route || null,
-      flight_date: form.flight_date || null,
-      notes: form.notes || null,
+      flight_route: f.flight_route || null,
+      flight_date: f.flight_date || null,
+      notes: f.notes || null,
     }
+  }
+
+  function validate(f) {
+    if (!f.name.trim()) return 'Name is required'
+    if (!f.start_date || !f.end_date) return 'Check-in and check-out dates are required'
+    if (f.end_date <= f.start_date) return 'Check-out must be after check-in'
+    return null
+  }
+
+  // Persist a stay. Used both by inline auto-save (existing) and "Add stay" (new).
+  async function commit(f = form) {
+    const v = validate(f)
+    if (v) { setError(v); return false }
+    setError(null); setSaving(true)
     try {
-      const url = form.id ? `/api/plans/${form.id}` : '/api/plans'
-      const method = form.id ? 'PATCH' : 'POST'
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const url = f.id ? `/api/plans/${f.id}` : '/api/plans'
+      const method = f.id ? 'PATCH' : 'POST'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFrom(f)) })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Save failed')
-      setPlans(prev => form.id ? prev.map(p => p.id === json.plan.id ? json.plan : p) : [...prev, json.plan])
-      if (form.id) { setViewStay(json.plan); setMode('view') }   // edits → back to view
-      else { setDrawerOpen(false) }                              // new stay → close
-    } catch (e) { setError(e.message) }
+      setPlans(prev => f.id ? prev.map(p => p.id === json.plan.id ? json.plan : p) : [...prev, json.plan])
+      if (!f.id) setForm(prev => ({ ...prev, id: json.plan.id }))   // adopt id → future edits auto-save
+      setSaved(true)
+      clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaved(false), 1500)
+      return true
+    } catch (e) { setError(e.message); return false }
     finally { setSaving(false) }
   }
 
+  // Auto-save on blur — only for stays that already exist.
+  function autosave() { if (form.id) commit(form) }
+  // Set + immediately save (for instant controls like the color swatch).
+  function setAndSave(k, v) {
+    const next = { ...form, [k]: v }
+    setForm(next)
+    if (next.id) commit(next)
+  }
+
   async function remove() {
-    if (!form.id) return
+    if (!form.id) { setDrawerOpen(false); return }
     if (!confirm('Delete this stay?')) return
     setSaving(true)
     try {
@@ -1426,7 +1448,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanGantt stays={plans} today={new Date()} compact onSelect={openView} />
+              <PlanGantt stays={plans} today={new Date()} compact onSelect={openStay} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>
@@ -1435,22 +1457,17 @@ function PlansSection() {
         </div>
       </Collapse>
 
-      {drawerOpen && mode === 'view' && viewStay && (
-        <StayViewDrawer
-          stay={viewStay}
-          onEdit={startEdit}
-          onClose={() => setDrawerOpen(false)}
-        />
-      )}
-      {drawerOpen && mode === 'edit' && (
-        <StayEditDrawer
+      {drawerOpen && (
+        <StayPanel
           form={form}
           set={set}
+          setAndSave={setAndSave}
+          autosave={autosave}
+          onCreate={() => commit(form)}
           saving={saving}
+          saved={saved}
           error={error}
-          onSave={save}
           onDelete={remove}
-          onBack={viewStay ? () => { setMode('view'); setError(null) } : null}
           onClose={() => setDrawerOpen(false)}
         />
       )}
@@ -1458,7 +1475,7 @@ function PlansSection() {
   )
 }
 
-/* ─── Stay Edit Drawer (full create/edit/delete from control Plans timeline) ─── */
+/* ─── Stay Panel (single inline-editing panel for the control Plans timeline) ─── */
 const STAY_COLORS = ['#7c5cff', '#2dd4bf', '#fb923c', '#818cf8', '#38bdf8', '#f472b6', '#34d399', '#f5c542']
 const STAY_CATS = [
   { key: 'airbnb', label: 'Airbnb' },
@@ -1489,163 +1506,73 @@ function StayField({ label, children }) {
   )
 }
 
-function fmtStayDate(d) {
-  if (!d) return '—'
-  return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-}
+function StayPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, error, onDelete, onClose }) {
+  const isNew = !form.id
+  const liveTotal = STAY_CATS.reduce((a, c) => a + (Number(form[c.key]) || 0), 0)
+  const datesValid = form.start_date && form.end_date && form.end_date > form.start_date
+  const nts = datesValid ? planNights(form) : 0
+  const urlValid = /^https?:\/\//i.test(form.url || '')
 
-function StayViewDrawer({ stay, onEdit, onClose }) {
-  const n = planNights(stay)
-  const total = planCatTotal(stay)
-  const cats = stay.categories || {}
+  // Existing stays auto-save on blur; new stays wait for the "Add stay" press.
+  const blurSave = isNew ? undefined : autosave
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto">
-        {/* Header */}
+
+        {/* Header — editable name + city */}
         <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
-          <span className="w-3.5 h-3.5 rounded-full mt-1 flex-shrink-0" style={{ background: stay.color }} />
+          <span className="w-3.5 h-3.5 rounded-full mt-2 flex-shrink-0" style={{ background: form.color }} />
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-bold text-white leading-tight">{stay.name}</h3>
-            {stay.city && <p className="text-sm text-gray-400 mt-0.5">{stay.city}</p>}
+            <input value={form.name} onChange={e => set('name', e.target.value)} onBlur={blurSave} placeholder="Lodging name"
+              className="w-full bg-transparent text-lg font-bold text-white placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 py-0.5" />
+            <input value={form.city} onChange={e => set('city', e.target.value)} onBlur={blurSave} placeholder="City"
+              className="w-full bg-transparent text-sm text-gray-400 placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 mt-0.5" />
           </div>
-          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white/5 hover:bg-white/10 text-gray-200 rounded-lg transition flex-shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            Edit
-          </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
+          {/* Save status */}
+          <span className="text-[11px] font-semibold flex-shrink-0 mt-1 min-w-[46px] text-right">
+            {saving ? <span className="text-gray-400">Saving…</span> : saved ? <span className="text-green-400">Saved ✓</span> : null}
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0 mt-0.5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-in</p>
-              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.start_date)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Check-out</p>
-              <p className="text-sm font-semibold text-white">{fmtStayDate(stay.end_date)}</p>
-            </div>
-          </div>
-
+        <div className="px-6 py-5 space-y-5">
           {/* Summary */}
           <div className="flex gap-6">
             <div>
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
-              <p className="text-lg font-extrabold text-white">{n}</p>
+              <p className="text-lg font-extrabold text-white">{nts}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
-              <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
+              <p className="text-lg font-extrabold text-green-400">{planMoney(liveTotal)}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
-              <p className="text-lg font-extrabold text-indigo-400">{n ? planMoney(total / n) : '$0'}</p>
+              <p className="text-lg font-extrabold text-indigo-400">{nts ? planMoney(liveTotal / nts) : '$0'}</p>
             </div>
           </div>
 
-          {/* Budget breakdown */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Budget</p>
-            <div className="space-y-1.5">
-              {STAY_CATS.map(c => (
-                <div key={c.key} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400">{c.label}</span>
-                  <span className="font-semibold text-white">{planMoney(Number(cats[c.key]) || 0)}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between text-sm pt-1.5 mt-1 border-t border-white/5">
-                <span className="font-bold text-gray-300">Total</span>
-                <span className="font-bold text-green-400">{planMoney(total)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Flight */}
-          {(stay.flight_route || stay.flight_date) && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Flight</p>
-              <p className="text-sm font-semibold text-white">
-                {stay.flight_route || '—'}{stay.flight_date ? ` · ${fmtStayDate(stay.flight_date)}` : ''}
-              </p>
-            </div>
-          )}
-
-          {/* Airbnb link — clickable */}
-          {stay.url && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Listing</p>
-              <a href={stay.url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                Open listing
-              </a>
-            </div>
-          )}
-
-          {/* Notes */}
-          {stay.notes && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-sm text-gray-300 whitespace-pre-wrap">{stay.notes}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onBack, onClose }) {
-  const liveTotal = STAY_CATS.reduce((a, c) => a + (Number(form[c.key]) || 0), 0)
-
-  return (
-    <div className="fixed inset-0 z-[200] flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2 min-w-0">
-            {onBack && (
-              <button onClick={onBack} title="Back to details" className="-ml-1 p-1 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition flex-shrink-0">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
-            )}
-            <h2 className="text-lg font-bold text-white truncate">{form.id ? 'Edit Stay' : 'New Stay'}</h2>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <StayField label="Lodging name">
-            <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Old Town Loft" className={stayInputCls} />
-          </StayField>
-          <StayField label="City">
-            <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Scottsdale, AZ" className={stayInputCls} />
-          </StayField>
-          <StayField label="Airbnb / listing link">
-            <input value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://airbnb.com/rooms/…" className={stayInputCls} />
-          </StayField>
-
+          {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
-            <StayField label="Check-in"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className={stayInputCls} /></StayField>
-            <StayField label="Check-out"><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} className={stayInputCls} /></StayField>
+            <StayField label="Check-in"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+            <StayField label="Check-out"><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
           </div>
 
+          {/* Color */}
           <StayField label="Color">
             <div className="flex gap-2 flex-wrap">
               {STAY_COLORS.map(c => (
-                <button key={c} onClick={() => set('color', c)}
+                <button key={c} onClick={() => setAndSave('color', c)}
                   className={`w-7 h-7 rounded-lg ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-[#111528] ring-white' : ''}`} style={{ background: c }} />
               ))}
             </div>
           </StayField>
 
+          {/* Budget */}
           <StayField label="Budget">
             <div className="grid grid-cols-2 gap-3">
               {STAY_CATS.map(c => (
@@ -1653,40 +1580,58 @@ function StayEditDrawer({ form, set, saving, error, onSave, onDelete, onBack, on
                   <label className="text-[11px] text-gray-400">{c.label}</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                    <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} placeholder="0" className={stayInputCls + ' pl-7'} />
+                    <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
                   </div>
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between text-sm mt-3 pt-2 border-t border-white/5">
-              <span className="font-bold text-gray-300">Total</span>
-              <span className="font-bold text-green-400">{planMoney(liveTotal)}</span>
+          </StayField>
+
+          {/* Flight */}
+          <div className="grid grid-cols-2 gap-3">
+            <StayField label="Flight in (route)"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} onBlur={blurSave} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
+            <StayField label="Flight date"><input type="date" value={form.flight_date} onChange={e => set('flight_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+          </div>
+
+          {/* Listing — editable URL + clickable open button */}
+          <StayField label="Airbnb / listing link">
+            <div className="flex gap-2">
+              <input value={form.url} onChange={e => set('url', e.target.value)} onBlur={blurSave} placeholder="https://airbnb.com/rooms/…" className={stayInputCls} />
+              {urlValid && (
+                <a href={form.url} target="_blank" rel="noopener noreferrer" title="Open listing"
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  Open
+                </a>
+              )}
             </div>
           </StayField>
 
-          <div className="grid grid-cols-2 gap-3">
-            <StayField label="Flight in (route)"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
-            <StayField label="Flight date"><input type="date" value={form.flight_date} onChange={e => set('flight_date', e.target.value)} className={stayInputCls} /></StayField>
-          </div>
-
+          {/* Notes */}
           <StayField label="Notes">
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} className={stayInputCls} />
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} onBlur={blurSave} rows={3} className={stayInputCls} />
           </StayField>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <div className="flex items-center gap-2 pt-2">
-            <button onClick={onSave} disabled={saving}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
-              {saving ? 'Saving…' : form.id ? 'Save changes' : 'Add stay'}
-            </button>
-            <button onClick={onBack || onClose} disabled={saving}
-              className="px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/5 rounded-lg transition">Cancel</button>
-            {form.id && (
+          {/* Footer actions */}
+          {isNew ? (
+            <div className="flex items-center gap-2 pt-1">
+              <button onClick={onCreate} disabled={saving}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
+                {saving ? 'Saving…' : 'Add stay'}
+              </button>
+              <button onClick={onClose} disabled={saving}
+                className="px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/5 rounded-lg transition">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 pt-1">
+              <button onClick={onClose}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-white/5 hover:bg-white/10 text-gray-200 rounded-lg transition">Done</button>
               <button onClick={onDelete} disabled={saving}
                 className="px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 rounded-lg transition">Delete</button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
