@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
-import PlanGantt, { nights as planNights, catTotal as planCatTotal, money as planMoney } from '../../components/PlanGantt'
+import PlanGantt, { nights as planNights, catTotal as planCatTotal, amount as planAmount, money as planMoney, isEvent as planIsEvent, PLAN_TYPE_META, fmtTime as planFmtTime } from '../../components/PlanGantt'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -1325,27 +1325,35 @@ function PlansSection() {
   }
 
   function openStay(plan) { setForm(stayFormFromPlan(plan)); setError(null); setSaved(false); setDrawerOpen(true) }
-  function openNew() { setForm(STAY_EMPTY_FORM); setError(null); setSaved(false); setDrawerOpen(true) }
+  function openNew(type = 'stay') { setForm({ ...STAY_EMPTY_FORM, type }); setError(null); setSaved(false); setDrawerOpen(true) }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function payloadFrom(f) {
+    const stay = (f.type || 'stay') === 'stay'
     return {
-      name: f.name, city: f.city, url: f.url, color: f.color,
-      start_date: f.start_date, end_date: f.end_date,
+      name: f.name, type: f.type || 'stay', city: f.city, url: f.url, color: f.color,
+      start_date: f.start_date,
+      end_date: stay ? f.end_date : f.start_date,   // events are single-day
+      start_time: stay ? null : (f.start_time || null),
+      cost: stay ? 0 : (Number(f.cost) || 0),
       categories: {
         airbnb: Number(f.airbnb) || 0, food: Number(f.food) || 0,
         personal: Number(f.personal) || 0, fun: Number(f.fun) || 0,
       },
       flight_route: f.flight_route || null,
-      flight_date: f.flight_date || null,
+      flight_date: stay ? (f.flight_date || null) : null,
       notes: f.notes || null,
     }
   }
 
   function validate(f) {
     if (!f.name.trim()) return 'Name is required'
-    if (!f.start_date || !f.end_date) return 'Check-in and check-out dates are required'
-    if (f.end_date <= f.start_date) return 'Check-out must be after check-in'
+    if ((f.type || 'stay') === 'stay') {
+      if (!f.start_date || !f.end_date) return 'Check-in and check-out dates are required'
+      if (f.end_date <= f.start_date) return 'Check-out must be after check-in'
+    } else {
+      if (!f.start_date) return 'A date is required'
+    }
     return null
   }
 
@@ -1391,8 +1399,8 @@ function PlansSection() {
     finally { setSaving(false) }
   }
 
-  const budget = plans.reduce((a, s) => a + planCatTotal(s), 0)
-  const nts = plans.reduce((a, s) => a + planNights(s), 0)
+  const budget = plans.reduce((a, s) => a + planAmount(s), 0)
+  const nts = plans.reduce((a, s) => a + (planIsEvent(s) ? 0 : planNights(s)), 0)
   const perDay = nts ? budget / nts : 0
   const next = [...plans]
     .filter(s => new Date(s.start_date) >= new Date(new Date().toDateString()))
@@ -1425,7 +1433,7 @@ function PlansSection() {
             </div>
             <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
               <span className={`text-[15px] font-extrabold leading-tight ${plans.length > 0 ? 'text-white' : 'text-gray-500'}`}>{plans.length}</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Stays</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Plans</span>
             </div>
             <div className="flex flex-col items-center px-3.5 min-w-[70px]">
               <span className={`text-[15px] font-extrabold leading-tight ${perDay > 0 ? 'text-indigo-400' : 'text-gray-500'}`}>{planMoney(perDay)}</span>
@@ -1433,10 +1441,10 @@ function PlansSection() {
             </div>
           </div>
         )}
-        <button onClick={e => { e.stopPropagation(); setOpen(true); openNew() }}
+        <button onClick={e => { e.stopPropagation(); setOpen(true); openNew('stay') }}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition ml-3">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          New Stay
+          New
         </button>
       </button>
 
@@ -1458,7 +1466,7 @@ function PlansSection() {
       </Collapse>
 
       {drawerOpen && (
-        <StayPanel
+        <PlanPanel
           form={form}
           set={set}
           setAndSave={setAndSave}
@@ -1483,13 +1491,16 @@ const STAY_CATS = [
   { key: 'personal', label: 'Personal' },
   { key: 'fun', label: 'Fun' },
 ]
-const STAY_EMPTY_FORM = { id: null, name: '', city: '', url: '', color: STAY_COLORS[0], start_date: '', end_date: '', airbnb: '', food: '', personal: '', fun: '', flight_route: '', flight_date: '', notes: '' }
+const STAY_EMPTY_FORM = { id: null, type: 'stay', name: '', city: '', url: '', color: STAY_COLORS[0], start_date: '', end_date: '', start_time: '', cost: '', airbnb: '', food: '', personal: '', fun: '', flight_route: '', flight_date: '', notes: '' }
+
+const PLAN_TYPE_ORDER = ['stay', 'dinner', 'hangout', 'flight', 'event']
 
 function stayFormFromPlan(p) {
   const c = p.categories || {}
   return {
-    id: p.id, name: p.name || '', city: p.city || '', url: p.url || '', color: p.color || STAY_COLORS[0],
+    id: p.id, type: p.type || 'stay', name: p.name || '', city: p.city || '', url: p.url || '', color: p.color || STAY_COLORS[0],
     start_date: p.start_date || '', end_date: p.end_date || '',
+    start_time: p.start_time || '', cost: p.cost ?? '',
     airbnb: c.airbnb ?? '', food: c.food ?? '', personal: c.personal ?? '', fun: c.fun ?? '',
     flight_route: p.flight_route || '', flight_date: p.flight_date || '', notes: p.notes || '',
   }
@@ -1506,28 +1517,33 @@ function StayField({ label, children }) {
   )
 }
 
-function StayPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, error, onDelete, onClose }) {
+function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, error, onDelete, onClose }) {
   const isNew = !form.id
+  const type = form.type || 'stay'
+  const isStay = type === 'stay'
+  const meta = PLAN_TYPE_META[type] || PLAN_TYPE_META.event
   const liveTotal = STAY_CATS.reduce((a, c) => a + (Number(form[c.key]) || 0), 0)
+  const total = isStay ? liveTotal : (Number(form.cost) || 0)
   const datesValid = form.start_date && form.end_date && form.end_date > form.start_date
-  const nts = datesValid ? planNights(form) : 0
+  const nts = isStay && datesValid ? planNights(form) : 0
   const urlValid = /^https?:\/\//i.test(form.url || '')
 
-  // Existing stays auto-save on blur; new stays wait for the "Add stay" press.
+  // Existing rows auto-save on blur; new ones wait for the "Add" press.
   const blurSave = isNew ? undefined : autosave
+  function pickType(t) { isNew ? set('type', t) : setAndSave('type', t) }
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto">
 
-        {/* Header — editable name + city */}
+        {/* Header — editable name + location */}
         <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
           <span className="w-3.5 h-3.5 rounded-full mt-2 flex-shrink-0" style={{ background: form.color }} />
           <div className="min-w-0 flex-1">
-            <input value={form.name} onChange={e => set('name', e.target.value)} onBlur={blurSave} placeholder="Lodging name"
+            <input value={form.name} onChange={e => set('name', e.target.value)} onBlur={blurSave} placeholder={isStay ? 'Lodging name' : 'Title'}
               className="w-full bg-transparent text-lg font-bold text-white placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 py-0.5" />
-            <input value={form.city} onChange={e => set('city', e.target.value)} onBlur={blurSave} placeholder="City"
+            <input value={form.city} onChange={e => set('city', e.target.value)} onBlur={blurSave} placeholder={isStay ? 'City' : 'Location'}
               className="w-full bg-transparent text-sm text-gray-400 placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 mt-0.5" />
           </div>
           {/* Save status */}
@@ -1540,27 +1556,63 @@ function StayPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Summary */}
-          <div className="flex gap-6">
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
-              <p className="text-lg font-extrabold text-white">{nts}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
-              <p className="text-lg font-extrabold text-green-400">{planMoney(liveTotal)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
-              <p className="text-lg font-extrabold text-indigo-400">{nts ? planMoney(liveTotal / nts) : '$0'}</p>
-            </div>
+          {/* Type picker */}
+          <div className="flex gap-1.5 flex-wrap">
+            {PLAN_TYPE_ORDER.map(t => {
+              const m = PLAN_TYPE_META[t]
+              const active = type === t
+              return (
+                <button key={t} onClick={() => pickType(t)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${active ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}>
+                  <span className="leading-none">{m.emoji}</span>{m.label}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <StayField label="Check-in"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
-            <StayField label="Check-out"><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
-          </div>
+          {/* Summary */}
+          {isStay ? (
+            <div className="flex gap-6">
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
+                <p className="text-lg font-extrabold text-white">{nts}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
+                <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Avg / Day</p>
+                <p className="text-lg font-extrabold text-indigo-400">{nts ? planMoney(total / nts) : '$0'}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-8">
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cost</p>
+                <p className="text-lg font-extrabold text-green-400">{planMoney(total)}</p>
+              </div>
+              {form.start_time && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Time</p>
+                  <p className="text-lg font-extrabold text-white">{planFmtTime(form.start_time)}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Date(s) */}
+          {isStay ? (
+            <div className="grid grid-cols-2 gap-3">
+              <StayField label="Check-in"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+              <StayField label="Check-out"><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <StayField label="Date"><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+              <StayField label="Time"><input type="time" value={form.start_time} onChange={e => set('start_time', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
+            </div>
+          )}
 
           {/* Color */}
           <StayField label="Color">
@@ -1572,33 +1624,46 @@ function StayPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
             </div>
           </StayField>
 
-          {/* Budget */}
-          <StayField label="Budget">
-            <div className="grid grid-cols-2 gap-3">
-              {STAY_CATS.map(c => (
-                <div key={c.key}>
-                  <label className="text-[11px] text-gray-400">{c.label}</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                    <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
+          {/* Budget (stay) or single Cost (event) */}
+          {isStay ? (
+            <StayField label="Budget">
+              <div className="grid grid-cols-2 gap-3">
+                {STAY_CATS.map(c => (
+                  <div key={c.key}>
+                    <label className="text-[11px] text-gray-400">{c.label}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </StayField>
+          ) : (
+            <StayField label="Cost">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
+              </div>
+            </StayField>
+          )}
+
+          {/* Flight fields — stays (in + date) or flight-type events (route only) */}
+          {isStay ? (
+            <div className="grid grid-cols-2 gap-3">
+              <StayField label="Flight in (route)"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} onBlur={blurSave} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
+              <StayField label="Flight date"><input type="date" value={form.flight_date} onChange={e => set('flight_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
             </div>
-          </StayField>
+          ) : type === 'flight' ? (
+            <StayField label="Route"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} onBlur={blurSave} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
+          ) : null}
 
-          {/* Flight */}
-          <div className="grid grid-cols-2 gap-3">
-            <StayField label="Flight in (route)"><input value={form.flight_route} onChange={e => set('flight_route', e.target.value)} onBlur={blurSave} placeholder="SAN → PHX" className={stayInputCls} /></StayField>
-            <StayField label="Flight date"><input type="date" value={form.flight_date} onChange={e => set('flight_date', e.target.value)} onBlur={blurSave} className={stayInputCls} /></StayField>
-          </div>
-
-          {/* Listing — editable URL + clickable open button */}
-          <StayField label="Airbnb / listing link">
+          {/* Link — editable URL + clickable open button */}
+          <StayField label={isStay ? 'Airbnb / listing link' : 'Link'}>
             <div className="flex gap-2">
-              <input value={form.url} onChange={e => set('url', e.target.value)} onBlur={blurSave} placeholder="https://airbnb.com/rooms/…" className={stayInputCls} />
+              <input value={form.url} onChange={e => set('url', e.target.value)} onBlur={blurSave} placeholder={isStay ? 'https://airbnb.com/rooms/…' : 'https://…'} className={stayInputCls} />
               {urlValid && (
-                <a href={form.url} target="_blank" rel="noopener noreferrer" title="Open listing"
+                <a href={form.url} target="_blank" rel="noopener noreferrer" title="Open link"
                   className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                   Open
@@ -1619,7 +1684,7 @@ function StayPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
             <div className="flex items-center gap-2 pt-1">
               <button onClick={onCreate} disabled={saving}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition">
-                {saving ? 'Saving…' : 'Add stay'}
+                {saving ? 'Saving…' : `Add ${meta.label.toLowerCase()}`}
               </button>
               <button onClick={onClose} disabled={saving}
                 className="px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/5 rounded-lg transition">Cancel</button>

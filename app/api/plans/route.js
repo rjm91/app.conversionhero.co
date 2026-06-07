@@ -25,19 +25,22 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json()
-  const { name, city, url, color, start_date, end_date, categories, flight_route, flight_date, notes } = body
+  const { name, type, city, url, color, start_date, end_date, start_time, cost, categories, flight_route, flight_date, notes } = body
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
-  if (!start_date || !end_date) return NextResponse.json({ error: 'start_date and end_date required' }, { status: 400 })
+  if (!start_date) return NextResponse.json({ error: 'start_date required' }, { status: 400 })
 
   const { data, error } = await db()
     .from('plans')
     .insert({
       name,
+      type: type || 'stay',
       city: city || null,
       url: url || null,
       color: color || '#7c5cff',
       start_date,
-      end_date,
+      end_date: end_date || start_date,   // single-day events store end = start
+      start_time: start_time || null,
+      cost: Number(cost) || 0,
       categories: { ...DEFAULT_CATS, ...(categories || {}) },
       flight_route: flight_route || null,
       flight_date: flight_date || null,

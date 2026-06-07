@@ -21,13 +21,34 @@ export function parseDate(s) {
   return new Date(y, m - 1, a)
 }
 export function nights(s) {
-  return Math.max(1, Math.round((parseDate(s.end_date) - parseDate(s.start_date)) / 86400000))
+  const end = s.end_date || s.start_date
+  return Math.max(1, Math.round((parseDate(end) - parseDate(s.start_date)) / 86400000))
 }
 export function catTotal(s) {
   const c = s.categories || {}
   return Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0)
 }
+/* Spend for any plan row: stays sum their categories, events use a single cost */
+export function isEvent(s) { return !!s.type && s.type !== 'stay' }
+export function amount(s) { return isEvent(s) ? (Number(s.cost) || 0) : catTotal(s) }
 export function money(n) { return '$' + Math.round(n).toLocaleString() }
+
+/* Icon + display label per event type (stays render as bars, not markers) */
+export const PLAN_TYPE_META = {
+  stay:    { emoji: '🏠', label: 'Stay' },
+  dinner:  { emoji: '🍽️', label: 'Dinner' },
+  hangout: { emoji: '🥂', label: 'Hangout' },
+  flight:  { emoji: '✈️', label: 'Flight' },
+  event:   { emoji: '📌', label: 'Event' },
+}
+/* '18:00' -> '6:00 PM'; passthrough if not HH:MM */
+export function fmtTime(t) {
+  if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return t || ''
+  const [h, m] = t.split(':').map(Number)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${ap}`
+}
 function daysBetween(a, b) { return Math.round((b - a) / 86400000) }
 function addDays(dt, n) { const r = new Date(dt); r.setDate(r.getDate() + n); return r }
 function sameDay(a, b) { return a.toDateString() === b.toDateString() }
@@ -55,7 +76,8 @@ export default function PlanGantt({ stays = [], year, today = new Date(), onSele
     ;[...stays].sort((a, b) => parseDate(a.start_date) - parseDate(b.start_date)).forEach(s => {
       let placed = false
       for (const lane of ls) {
-        if (parseDate(s.start_date) >= parseDate(lane[lane.length - 1].end_date)) { lane.push(s); placed = true; break }
+        const lastEnd = lane[lane.length - 1].end_date || lane[lane.length - 1].start_date
+        if (parseDate(s.start_date) >= parseDate(lastEnd)) { lane.push(s); placed = true; break }
       }
       if (!placed) ls.push([s])
     })
@@ -118,8 +140,8 @@ export default function PlanGantt({ stays = [], year, today = new Date(), onSele
 
   /* summary for the period in view */
   const [a, b] = periodBounds()
-  const inView = stays.filter(s => parseDate(s.start_date) <= b && parseDate(s.end_date) > a)
-  const spend = inView.reduce((acc, s) => acc + catTotal(s), 0)
+  const inView = stays.filter(s => parseDate(s.start_date) <= b && parseDate(s.end_date || s.start_date) >= a)
+  const spend = inView.reduce((acc, s) => acc + amount(s), 0)
   const nts = inView.reduce((acc, s) => acc + nights(s), 0)
 
   const dense = cw >= 28
@@ -221,6 +243,22 @@ export default function PlanGantt({ stays = [], year, today = new Date(), onSele
                 <div key={li} style={{ position: 'relative', height: laneH }}>
                   {lane.map(s => {
                     const left = daysBetween(RANGE_START, parseDate(s.start_date)) * cw
+
+                    /* Non-stay events render as a compact marker pill on the day */
+                    if (isEvent(s)) {
+                      const meta = PLAN_TYPE_META[s.type] || PLAN_TYPE_META.event
+                      const t = fmtTime(s.start_time)
+                      return (
+                        <div key={s.id} data-bar onClick={() => onSelect && onSelect(s)}
+                          title={`${meta.emoji} ${s.name}${t ? ' · ' + t : ''}`}
+                          className="absolute z-[2] flex items-center gap-1 cursor-pointer rounded-full shadow-md hover:brightness-110 pl-1.5 pr-2.5"
+                          style={{ left, top: (laneH - 24) / 2, height: 24, maxWidth: 210, background: `linear-gradient(135deg, ${s.color}, ${s.color}bb)` }}>
+                          <span className="text-[13px] leading-none">{meta.emoji}</span>
+                          {cw >= 11 && <span className="text-[11px] font-bold whitespace-nowrap overflow-hidden text-ellipsis">{s.name}{t ? ` · ${t}` : ''}</span>}
+                        </div>
+                      )
+                    }
+
                     const w = nights(s) * cw
                     const n = nights(s)
                     const flightLeft = s.flight_date ? daysBetween(RANGE_START, parseDate(s.flight_date)) * cw : null

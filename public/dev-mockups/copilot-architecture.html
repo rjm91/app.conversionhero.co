@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voice → Action — Copilot Architecture (Concept)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0a0e1a 0%, #0f1117 50%, #0a0e1a 100%);
+    color: #e5e7eb; line-height: 1.6; padding: 48px 24px 96px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #818cf8; }
+  h1 { font-size: 30px; font-weight: 800; color: #fff; margin: 6px 0 6px; letter-spacing: -.01em; }
+  .sub { color: #9ca3af; font-size: 15px; max-width: 680px; }
+  .pill { display:inline-block; font-size: 11px; font-weight:700; color:#fcd34d; background:#3f2d0a; border:1px solid #b4530933; padding:3px 10px; border-radius:99px; margin-top:14px; }
+
+  section { margin-top: 44px; }
+  h2 { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #6b7280; margin-bottom: 16px; display:flex; align-items:center; gap:10px; }
+  h2 .n { width:22px;height:22px;border-radius:6px;background:#1e2340;color:#a5b4fc;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800; }
+
+  .card { background:#12161f; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:20px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2,.grid3{grid-template-columns:1fr;} }
+
+  .cap-title { font-size:15px; font-weight:700; color:#fff; margin-bottom:4px; display:flex; align-items:center; gap:8px;}
+  .cap-title .ico{ font-size:18px; }
+  .cap-body { color:#9ca3af; font-size:13.5px; }
+  .mono { font-family:'SF Mono','Fira Code',ui-monospace,monospace; font-size:12.5px; }
+  code { font-family:'SF Mono','Fira Code',ui-monospace,monospace; background:#0d1119; border:1px solid rgba(255,255,255,.08); padding:1px 6px; border-radius:5px; font-size:12px; color:#93c5fd; }
+
+  /* layer stack */
+  .layer { border-radius:12px; padding:14px 18px; margin-bottom:10px; border:1px solid rgba(255,255,255,.08); }
+  .layer .lt { font-weight:700; color:#fff; font-size:14px; }
+  .layer .ld { color:#9ca3af; font-size:12.5px; }
+  .l-node { background:linear-gradient(90deg,#0f2417,#12161f); border-color:#16a34a33; }
+  .l-react{ background:linear-gradient(90deg,#0a2230,#12161f); border-color:#22d3ee33; }
+  .l-next { background:linear-gradient(90deg,#141a33,#12161f); border-color:#6366f133; }
+
+  /* flow */
+  .flow { display:flex; align-items:stretch; gap:0; flex-wrap:wrap; }
+  .step { flex:1 1 150px; background:#0d1119; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:14px; text-align:center; position:relative; }
+  .step .si { font-size:20px; }
+  .step .stt { font-size:12.5px; font-weight:700; color:#fff; margin-top:6px; }
+  .step .std { font-size:11.5px; color:#9ca3af; margin-top:3px; }
+  .arrow { align-self:center; color:#475569; font-size:20px; padding:0 6px; }
+  @media (max-width:720px){ .arrow{transform:rotate(90deg);} .flow{flex-direction:column;} }
+
+  /* registry diagram */
+  .reg { display:grid; grid-template-columns: 1fr; gap:14px; }
+  .hub { background:linear-gradient(160deg,#1a1f3a,#12161f); border:1px solid #6366f133; border-radius:14px; padding:16px 18px; text-align:center; }
+  .hub .ht{ font-weight:800; color:#fff; font-size:15px; }
+  .hub .hd{ color:#a5b4fc; font-size:12.5px; }
+  .providers { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:720px){ .providers{grid-template-columns:1fr 1fr;} }
+  .prov { background:#0d1119; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:12px; }
+  .prov .pn { font-weight:700; color:#fff; font-size:13px; }
+  .prov .ps { color:#6b7280; font-size:11px; margin-top:2px; }
+  .prov .pa { color:#93c5fd; font-size:11px; margin-top:8px; font-family:'SF Mono',monospace; line-height:1.5;}
+  .prov.live { border-color:#22c55e55; box-shadow:0 0 0 1px #22c55e22; }
+  .prov.soon { opacity:.6; }
+  .badge-live { font-size:9px;font-weight:800;color:#4ade80;background:#0f2417;border:1px solid #16a34a44;padding:2px 6px;border-radius:99px; }
+  .badge-soon { font-size:9px;font-weight:800;color:#94a3b8;background:#0f172a;border:1px solid #33415544;padding:2px 6px;border-radius:99px; }
+
+  /* code block */
+  pre { background:#0b0e17; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow-x:auto; font-family:'SF Mono','Fira Code',ui-monospace,monospace; font-size:12.5px; line-height:1.7; color:#cbd5e1; }
+  .c-key{color:#c084fc;} .c-fn{color:#60a5fa;} .c-str{color:#86efac;} .c-com{color:#64748b;} .c-pun{color:#94a3b8;}
+
+  .tree { font-family:'SF Mono',monospace; font-size:12.5px; color:#cbd5e1; line-height:1.85; }
+  .tree .dir{ color:#93c5fd; } .tree .new{ color:#4ade80; } .tree .cm{ color:#64748b; }
+
+  ul.rollout { list-style:none; }
+  ul.rollout li { padding:10px 0; border-top:1px solid rgba(255,255,255,.06); display:flex; gap:12px; align-items:flex-start; font-size:13.5px; color:#cbd5e1;}
+  ul.rollout li:first-child{border-top:none;}
+  ul.rollout .num { flex:0 0 24px; height:24px; border-radius:7px; background:#1e2340; color:#a5b4fc; display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px; }
+
+  .ref { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-top:1px solid rgba(255,255,255,.06); }
+  .ref:first-child{border-top:none;}
+  .ref .rk { flex:0 0 130px; font-weight:700; color:#fff; font-size:13px; }
+  .ref .rv { color:#9ca3af; font-size:13px; }
+
+  .note { margin-top:40px; padding:14px 16px; border-radius:10px; background:#0d1119; border:1px dashed rgba(255,255,255,.12); color:#9ca3af; font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="tag">Concept · Architecture sketch</p>
+  <h1>Voice → Action</h1>
+  <p class="sub">An in-app <strong style="color:#c7d2fe">AI Copilot</strong> that can read what's on the page and take typed actions on it — so you can speak a change and watch it happen. Designed to scale to <em>any</em> page, not just the Agreement Builder.</p>
+  <span class="pill">Not built — this is a thinking doc</span>
+
+  <!-- 1. The stack -->
+  <section>
+    <h2><span class="n">1</span> The stack it lives on</h2>
+    <div class="card">
+      <div class="layer l-next"><div class="lt">Next.js 14 · App Router <span style="color:#818cf8">← your framework</span></div><div class="ld">Routing, pages, API routes, the agent panel, the copilot layer.</div></div>
+      <div class="layer l-react"><div class="lt">React 18</div><div class="ld">The UI components and their state (the agreement form, etc.).</div></div>
+      <div class="layer l-node"><div class="lt">Node.js</div><div class="ld">The engine everything runs on (locally + on Vercel).</div></div>
+      <p class="cap-body" style="margin-top:12px">The copilot is just more React + Next.js — no new runtime, no rip-and-replace.</p>
+    </div>
+  </section>
+
+  <!-- 2. Two primitives -->
+  <section>
+    <h2><span class="n">2</span> The two primitives</h2>
+    <div class="grid2">
+      <div class="card">
+        <div class="cap-title"><span class="ico">👁️</span> Readable state</div>
+        <div class="cap-body">Each page tells the agent <em>what's currently on screen</em>. So "rename it" is a one-field change, not a full rebuild. Fixes today's "blind agent" problem.</div>
+        <pre style="margin-top:12px"><span class="c-fn">useAgentState</span><span class="c-pun">(</span><span class="c-str">'agreement'</span><span class="c-pun">,</span> form<span class="c-pun">)</span></pre>
+      </div>
+      <div class="card">
+        <div class="cap-title"><span class="ico">⚡</span> Actions</div>
+        <div class="cap-body">Each page registers things the agent can <em>do</em> — name, description, typed params, and a handler that updates the page live.</div>
+        <pre style="margin-top:12px"><span class="c-fn">registerAgentAction</span><span class="c-pun">({</span>
+  name<span class="c-pun">:</span> <span class="c-str">'updateAgreement'</span><span class="c-pun">,</span>
+  params<span class="c-pun">:</span> <span class="c-pun">{</span> customScope<span class="c-pun">,</span> monthly<span class="c-pun">,</span> term <span class="c-pun">},</span>
+  run<span class="c-pun">:</span> <span class="c-pun">(</span>p<span class="c-pun">) =></span> <span class="c-fn">setForm</span><span class="c-pun">(...)</span>
+<span class="c-pun">})</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Flow -->
+  <section>
+    <h2><span class="n">3</span> The flow (create &amp; alter)</h2>
+    <div class="card">
+      <div class="flow">
+        <div class="step"><div class="si">🗣️</div><div class="stt">You speak</div><div class="std">"make it 4 videos, $1,000, month-to-month"</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="si">👁️</div><div class="stt">Agent reads state</div><div class="std">sees the current deal values</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="si">⚡</div><div class="stt">Picks an action</div><div class="std">updateAgreement(&hellip;) with just the deltas</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="si">🔄</div><div class="stt">Page updates live</div><div class="std">form + email preview change instantly</div></div>
+        <div class="arrow">→</div>
+        <div class="step" style="border-color:#2563eb66;background:#0d1a33"><div class="si">✅</div><div class="stt">You send</div><div class="std">the one real confirm gate</div></div>
+      </div>
+      <p class="cap-body" style="margin-top:14px">No "propose → accept" gap for edits. The live preview <em>is</em> the review; if a value doesn't move, you see it instantly. Only <strong style="color:#e5e7eb">Send</strong> stays gated.</p>
+    </div>
+  </section>
+
+  <!-- 4. Registry / scaling -->
+  <section>
+    <h2><span class="n">4</span> Why it scales — one registry, many pages</h2>
+    <div class="card">
+      <div class="reg">
+        <div class="hub"><div class="ht">🤖 Copilot (one agent)</div><div class="hd">Loads only the state + actions for the page you're on (scoping = reliability)</div></div>
+        <div class="providers">
+          <div class="prov live"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pn">Agreement</span><span class="badge-live">FIRST</span></div><div class="ps">/control/agreement</div><div class="pa">updateAgreement<br>setRevShare<br>setTerm</div></div>
+          <div class="prov soon"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pn">Leads</span><span class="badge-soon">NEXT</span></div><div class="ps">/control/leads</div><div class="pa">updateLeadStatus<br>scheduleAppt</div></div>
+          <div class="prov soon"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pn">Scripts</span><span class="badge-soon">LATER</span></div><div class="ps">/…/scripts</div><div class="pa">editScript<br>approveScript</div></div>
+          <div class="prov soon"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pn">Dashboard</span><span class="badge-soon">LATER</span></div><div class="ps">/control</div><div class="pa">setFilters<br>setDateRange</div></div>
+        </div>
+      </div>
+      <p class="cap-body" style="margin-top:14px">Adding voice-to-action to a new page = register that page's <strong style="color:#e5e7eb">state</strong> + a few <strong style="color:#e5e7eb">actions</strong>. The agent, the chat panel, and the plumbing never change. That's the whole point of the registry.</p>
+    </div>
+  </section>
+
+  <!-- 5. File map -->
+  <section>
+    <h2><span class="n">5</span> Where it lives in your app</h2>
+    <div class="card">
+      <div class="tree">
+<span class="dir">lib/agent/</span>
+  tools.js            <span class="cm"># existing agent tools (data + proposals)</span>
+  <span class="new">registry.js</span>         <span class="cm"># NEW — the state + actions registry</span>
+<span class="dir">components/</span>
+  AgentPanel.js       <span class="cm"># reads the registry, runs actions live</span>
+<span class="dir">app/control/agreement/[leadId]/</span>
+  page.js             <span class="cm"># registers its state + actions (provider #1)</span>
+<span class="dir">app/control/leads/</span>
+  page.js             <span class="cm"># later: registers leads actions</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Rollout -->
+  <section>
+    <h2><span class="n">6</span> Roll-out plan</h2>
+    <div class="card">
+      <ul class="rollout">
+        <li><span class="num">1</span><div><strong style="color:#fff">Build the registry + convert the Agreement Builder</strong> to stateful, live edits (no accept gate). Fixes today's reliability and proves the pattern.</div></li>
+        <li><span class="num">2</span><div><strong style="color:#fff">Add the Leads page</strong> as provider #2 — update status, schedule appointment by voice. ~A small add, not a rebuild.</div></li>
+        <li><span class="num">3</span><div><strong style="color:#fff">Scripts, Dashboard, Payments…</strong> each one is "register state + actions." The copilot spreads across the app.</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7. Prior art -->
+  <section>
+    <h2><span class="n">7</span> Prior art (the names &amp; standards)</h2>
+    <div class="card">
+      <div class="ref"><div class="rk">Tool use</div><div class="rv">Anthropic's function-calling — what you already use. The core primitive.</div></div>
+      <div class="ref"><div class="rk">MCP</div><div class="rv">Model Context Protocol — Anthropic's open standard for exposing tools + context uniformly. The "make it pluggable" north star.</div></div>
+      <div class="ref"><div class="rk">CopilotKit</div><div class="rv">Independent open-source React framework (not Microsoft) — packages this exact "readable state + actions" idea. Adopt it, or build the lightweight in-house version shown here.</div></div>
+      <div class="ref"><div class="rk">The pattern</div><div class="rv">Industry name: an "AI Copilot" / "agent actions" layer. Your product name "Voice → Action" works great on top.</div></div>
+    </div>
+  </section>
+
+  <div class="note">This page is a concept sketch to align on the architecture — nothing here is wired up yet. Next step would be building primitive #1 (the registry) and converting the Agreement Builder to be the first provider.</div>
+
+</div>
+</body>
+</html>
