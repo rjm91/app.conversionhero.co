@@ -232,6 +232,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   function agencyLeadRow(l) {
     const funnel = l.agency_funnels?.name || ''
     return [
+      { notes: true, leadId: l.id, value: l.ch_notes || '' },
       fmtDate(l.created_at),
       { select: true, leadId: l.id, field: 'lead_status', value: l.lead_status || '', options: LEAD_STATUSES, color: statusColor(l.lead_status) },
       { select: true, leadId: l.id, field: 'appt_status', value: l.appt_status || '', options: APPT_STATUSES, color: statusColor(l.appt_status) },
@@ -268,6 +269,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const onboardingRows = onboardingLeads.map(l => {
     const funnel = l.agency_funnels?.name || ''
     const r = [
+      { notes: true, leadId: l.id, value: l.ch_notes || '' },
       fmtDate(l.created_at),
       { select: true, leadId: l.id, field: 'onboarding_status', value: l.onboarding_status || '', options: ONBOARDING_STATUSES, color: statusColor(l.onboarding_status) },
       [l.first_name, l.last_name].filter(Boolean).join(' ') || '—',
@@ -285,7 +287,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const onboardingPipeline = {
     title: 'Onboarding',
     count: onboardingLeads.length,
-    columns: ['Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Appointment Date','Deal Value',''],
+    columns: ['','Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Appointment Date','Deal Value',''],
     summaryMap: {},
     rows: onboardingRows,
   }
@@ -297,8 +299,8 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
-    summaryMap: proposalCount ? { 3: { value: `${proposalCount} Agreement Sent` } } : {},
+    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
+    summaryMap: proposalCount ? { 4: { value: `${proposalCount} Agreement Sent` } } : {},
     rows: salesRows,
   }
 
@@ -310,8 +312,8 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
-    summaryMap: { 2: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
+    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
+    summaryMap: { 3: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
 
@@ -327,8 +329,8 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const leadsPipeline = {
     title: 'Leads',
     count: onlyLeads.length,
-    columns: ['Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone',''],
-    summaryMap: leadSummaryParts.length ? { 1: { value: leadSummaryParts.join(', ') } } : {},
+    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone',''],
+    summaryMap: leadSummaryParts.length ? { 2: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
   }
 
@@ -342,9 +344,27 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
 }
 
 /* ─── Cell renderer ─── */
-function CellContent({ cell, onStatusChange }) {
+function CellContent({ cell, onStatusChange, notesApi }) {
   if (cell === null || cell === undefined) return null
   if (typeof cell === 'string') return cell
+
+  if (cell.notes !== undefined) {
+    const has = !!(cell.value && String(cell.value).trim())
+    return (
+      <button
+        type="button"
+        onClick={e => { e.stopPropagation(); notesApi?.open(cell.leadId, cell.value, e) }}
+        onMouseEnter={e => has && notesApi?.hover(cell.value, e)}
+        onMouseLeave={() => notesApi?.hoverOut()}
+        title={has ? '' : 'Add note'}
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-lg transition ${has ? 'text-blue-400 hover:bg-blue-500/10' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l1.3-3.9A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      </button>
+    )
+  }
 
   if (cell.select) {
     const colorCls = STAGE_COLORS[cell.color] || STAGE_COLORS.gray
@@ -504,7 +524,7 @@ function Collapse({ open, children }) {
 }
 
 /* ─── Accordion Pipeline Component ─── */
-function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction, selectable, onDeleteLeads }) {
+function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction, selectable, onDeleteLeads, notesApi }) {
   const { title, count, columns, summaryMap, rows, headerStats } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const tableRef = useRef(null)
@@ -658,7 +678,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                         key={ci}
                         className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04]"
                       >
-                        <CellContent cell={cell} onStatusChange={onStatusChange} />
+                        <CellContent cell={cell} onStatusChange={onStatusChange} notesApi={notesApi} />
                       </td>
                     ))}
                   </tr>
@@ -1723,6 +1743,16 @@ export default function ControlPage() {
   const [agencyLeads, setAgencyLeads] = useState([])
   const [clientsData, setClientsData] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
+
+  // ── Inline pipeline-row notes (hover preview + click-to-edit popover) ──
+  const [notesPopover, setNotesPopover] = useState(null) // { leadId, value, x, y }
+  const [notesHover, setNotesHover] = useState(null)     // { text, x, y }
+  const [notesSaving, setNotesSaving] = useState(false)
+  const notesApi = useMemo(() => ({
+    open: (leadId, value, e) => { setNotesHover(null); setNotesPopover({ leadId, value: value || '', x: e.clientX, y: e.clientY }) },
+    hover: (text, e) => setNotesHover({ text, x: e.clientX, y: e.clientY }),
+    hoverOut: () => setNotesHover(null),
+  }), [])
   const [drawerSaving, setDrawerSaving] = useState(false)
   const [drawerSaveSuccess, setDrawerSaveSuccess] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -2002,6 +2032,29 @@ export default function ControlPage() {
     }
   }
 
+  async function saveNote() {
+    if (!notesPopover) return
+    const { leadId, value } = notesPopover
+    setNotesSaving(true)
+    // Optimistic update
+    const updated = agencyLeads.map(l => l.id === leadId ? { ...l, ch_notes: value } : l)
+    setAgencyLeads(updated)
+    setPipelines(buildPipelines(clientsData, updated, showDemo, clientFilter))
+    setSelectedLead(p => (p && p.id === leadId ? { ...p, ch_notes: value } : p))
+    try {
+      await fetch(`/api/agency-leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ch_notes: value }),
+      })
+    } catch (err) {
+      console.error('[Control] note save failed:', err)
+    } finally {
+      setNotesSaving(false)
+      setNotesPopover(null)
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-start justify-between mb-1">
@@ -2122,6 +2175,7 @@ export default function ControlPage() {
                         nested
                         selectable
                         onDeleteLeads={deleteLeads}
+                        notesApi={notesApi}
                       />
                     ))}
                   </div>
@@ -2221,6 +2275,37 @@ export default function ControlPage() {
       )}
 
       {/* ─── Lead Detail Drawer ─── */}
+      {/* ── Pipeline-row note: hover preview tooltip ── */}
+      {notesHover && !notesPopover && (
+        <div className="fixed z-[70] max-w-xs bg-[#0c0e18] border border-white/10 rounded-lg shadow-xl px-3 py-2 text-xs text-gray-200 whitespace-pre-wrap pointer-events-none"
+          style={{ left: Math.min(notesHover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 280), top: notesHover.y + 14 }}>
+          {notesHover.text}
+        </div>
+      )}
+
+      {/* ── Pipeline-row note: click-to-edit popover ── */}
+      {notesPopover && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={() => setNotesPopover(null)} />
+          <div className="fixed z-[71] w-72 bg-[#1a1f36] border border-white/10 rounded-xl shadow-2xl p-3"
+            style={{ left: Math.min(notesPopover.x, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 300), top: Math.min(notesPopover.y, (typeof window !== 'undefined' ? window.innerHeight : 9999) - 200) }}
+            onClick={e => e.stopPropagation()}>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">Note</p>
+            <textarea autoFocus rows={4} value={notesPopover.value}
+              onChange={e => setNotesPopover(p => ({ ...p, value: e.target.value }))}
+              placeholder="Add a note…"
+              className="w-full text-sm rounded-lg bg-[#111528] border border-white/10 text-white p-2 outline-none focus:border-blue-500 resize-none" />
+            <div className="flex justify-end gap-2 mt-2">
+              <button onClick={() => setNotesPopover(null)} className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white">Cancel</button>
+              <button onClick={saveNote} disabled={notesSaving}
+                className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50">
+                {notesSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {selectedLead && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setSelectedLead(null)} />
