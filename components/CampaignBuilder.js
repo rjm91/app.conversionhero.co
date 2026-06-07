@@ -14,6 +14,34 @@ function newAd()       { return { id: uid(), adType: RSA, headlines: [ {text:'',
 function newAdGroup(n) { return { id: uid(), name: n || 'Ad group 1', keywords: [newKeyword()], ads: [newAd()] } }
 function newCampaign() { return { id: uid(), name: 'New Campaign', status: 'Paused', bidStrategy: 'Maximize clicks', trackingTemplate: DEFAULT_TRACKING, adGroups: [newAdGroup()] } }
 
+// Normalize a campaign drafted by the agent into a full doc campaign (assign
+// ids, apply defaults, coerce headline/description strings to {text,position}).
+function normalizeAgentCampaign(c) {
+  const adGroups = (Array.isArray(c.adGroups) ? c.adGroups : []).map(g => ({
+    id: uid(),
+    name: g.name || 'Ad group 1',
+    keywords: (Array.isArray(g.keywords) ? g.keywords : []).map(k => ({
+      id: uid(),
+      text: (typeof k === 'string' ? k : k.text) || '',
+      matchType: MATCH_TYPES.includes(k.matchType) ? k.matchType : 'Phrase',
+    })),
+    ads: (Array.isArray(g.ads) ? g.ads : []).map(a => ({
+      id: uid(), adType: RSA,
+      headlines: (Array.isArray(a.headlines) ? a.headlines : []).map(h => ({ text: (typeof h === 'string' ? h : h.text) || '', position: null })),
+      descriptions: (Array.isArray(a.descriptions) ? a.descriptions : []).map(d => ({ text: (typeof d === 'string' ? d : d.text) || '', position: null })),
+      path1: a.path1 || '', path2: a.path2 || '', finalUrl: a.finalUrl || '',
+    })),
+  }))
+  return {
+    id: uid(),
+    name: c.name || 'New Campaign',
+    status: STATUSES.includes(c.status) ? c.status : 'Paused',
+    bidStrategy: BID_STRATEGIES.includes(c.bidStrategy) ? c.bidStrategy : 'Maximize clicks',
+    trackingTemplate: c.trackingTemplate || DEFAULT_TRACKING,
+    adGroups: adGroups.length ? adGroups : [newAdGroup()],
+  }
+}
+
 // ── small UI atoms ──────────────────────────────────────────────────────────
 const inputCls = 'w-full bg-transparent text-gray-900 dark:text-white text-[12.5px] px-2 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white dark:focus:bg-white/5'
 
@@ -38,8 +66,10 @@ export default function CampaignBuilder({ clientId, clientName }) {
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [selected, setSelected]   = useState(null)   // { cid, gid, aid }
+  const [glowIds, setGlowIds]     = useState(() => new Set()) // campaigns just added by the agent
   const skipSave = useRef(true)
   const saveTimer = useRef(null)
+  const addedByProposal = useRef({}) // proposalId → [campaignId] for agent undo
 
   // load draft
   useEffect(() => {
@@ -74,6 +104,32 @@ export default function CampaignBuilder({ clientId, clientName }) {
     }, 900)
     return () => clearTimeout(saveTimer.current)
   }, [doc, clientId, loading])
+
+  // agent → sheet: auto-fill campaigns the agent drafts, with glow + undo
+  useEffect(() => {
+    function onApply(e) {
+      const { campaigns, proposalId } = e.detail || {}
+      if (!Array.isArray(campaigns) || !campaigns.length) return
+      const normalized = campaigns.map(normalizeAgentCampaign)
+      const ids = normalized.map(c => c.id)
+      if (proposalId) addedByProposal.current[proposalId] = ids
+      setGlowIds(prev => { const s = new Set(prev); ids.forEach(i => s.add(i)); return s })
+      setTimeout(() => setGlowIds(prev => { const s = new Set(prev); ids.forEach(i => s.delete(i)); return s }), 6000)
+      setDoc(prev => ({ ...prev, campaigns: [...prev.campaigns, ...normalized] }))
+    }
+    function onUndo(e) {
+      const ids = addedByProposal.current[e.detail?.proposalId]
+      if (!ids) return
+      setDoc(prev => ({ ...prev, campaigns: prev.campaigns.filter(c => !ids.includes(c.id)) }))
+      delete addedByProposal.current[e.detail.proposalId]
+    }
+    window.addEventListener('campaign:apply', onApply)
+    window.addEventListener('campaign:undo', onUndo)
+    return () => {
+      window.removeEventListener('campaign:apply', onApply)
+      window.removeEventListener('campaign:undo', onUndo)
+    }
+  }, [])
 
   // immutable-ish mutation helper
   const update = useCallback((producer) => {
@@ -165,7 +221,7 @@ export default function CampaignBuilder({ clientId, clientName }) {
               </tr>
             </thead>
             <tbody>
-              {doc.campaigns.map(c => <CampaignRows key={c.id} c={c}
+              {doc.campaigns.map(c => <CampaignRows key={c.id} c={c} glow={glowIds.has(c.id)}
                 selected={selected} setSelected={setSelected}
                 patchCampaign={patchCampaign} deleteCampaign={deleteCampaign}
                 addAdGroup={addAdGroup} patchAdGroup={patchAdGroup} deleteAdGroup={deleteAdGroup}
@@ -186,8 +242,9 @@ export default function CampaignBuilder({ clientId, clientName }) {
 }
 
 // ── one campaign's rows ─────────────────────────────────────────────────────
-function CampaignRows({ c, selected, setSelected, patchCampaign, deleteCampaign, addAdGroup, patchAdGroup, deleteAdGroup, addKeyword, patchKeyword, deleteKeyword, addAd, patchAd, deleteAd }) {
+function CampaignRows({ c, glow, selected, setSelected, patchCampaign, deleteCampaign, addAdGroup, patchAdGroup, deleteAdGroup, addKeyword, patchKeyword, deleteKeyword, addAd, patchAd, deleteAd }) {
   const cellBase = 'border-b border-r border-gray-100 dark:border-white/5 align-middle'
+  const glowCls = glow ? 'bg-violet-50 dark:bg-violet-500/10' : ''
   const muted = <span className="text-gray-300 dark:text-white/15 px-3">—</span>
   let campFirstDone = false
   const campMetaDone = { done: false } // campaign-level status/bid render once
@@ -238,7 +295,7 @@ function CampaignRows({ c, selected, setSelected, patchCampaign, deleteCampaign,
       const first = !campMetaDone.done; campMetaDone.done = true
       const groupStart = ki === 0
       rows.push(
-        <tr key={k.id} className={`group hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${groupStart ? 'border-t border-gray-200 dark:border-white/10' : ''}`}>
+        <tr key={k.id} className={`group ${glowCls || 'hover:bg-gray-50/60 dark:hover:bg-white/[0.02]'} ${groupStart ? 'border-t border-gray-200 dark:border-white/10' : ''}`}>
           <td className={`${cellBase} text-center text-gray-300 dark:text-white/25 text-[11px]`}>{rows.length + 1}</td>
           {renderCampCell()}
           {renderGroupCell()}
@@ -264,7 +321,7 @@ function CampaignRows({ c, selected, setSelected, patchCampaign, deleteCampaign,
       const h = (i) => a.headlines?.[i]?.text || ''
       rows.push(
         <tr key={a.id} onClick={() => setSelected({ cid: c.id, gid: g.id, aid: a.id })}
-          className={`group cursor-pointer ${isSel ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-gray-50/60 dark:hover:bg-white/[0.02]'}`}>
+          className={`group cursor-pointer ${isSel ? 'bg-blue-50 dark:bg-blue-500/10' : (glowCls || 'hover:bg-gray-50/60 dark:hover:bg-white/[0.02]')}`}>
           <td className={`${cellBase} text-center text-gray-300 dark:text-white/25 text-[11px]`}>{rows.length + 1}</td>
           {renderCampCell()}
           {renderGroupCell()}

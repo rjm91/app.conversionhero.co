@@ -139,14 +139,32 @@ export default function AgentPanel({ mode = 'client' }) {
     document.body.style.cursor = cursor
   }, [rect])
 
+  function markProposal(messageIndex, proposalIndex, patch) {
+    setMessages(m => m.map((msg, i) => i === messageIndex
+      ? { ...msg, proposals: msg.proposals.map((p, j) => j === proposalIndex ? { ...p, ...patch } : p) }
+      : msg))
+  }
+
+  // Campaign proposals auto-fill the on-screen sheet (no accept step) and can be undone.
+  function applyCampaignProposal(proposal) {
+    window.dispatchEvent(new CustomEvent('campaign:apply', { detail: { campaigns: proposal.campaigns, proposalId: proposal.proposalId } }))
+  }
+  function undoCampaignProposal(messageIndex, proposalIndex, proposal) {
+    window.dispatchEvent(new CustomEvent('campaign:undo', { detail: { proposalId: proposal.proposalId } }))
+    markProposal(messageIndex, proposalIndex, { _status: 'undone' })
+  }
+
   async function applyProposal(messageIndex, proposalIndex, proposal) {
-    // Agreement proposals fill the on-screen builder via a window event
+    // Agreement & campaign proposals fill on-screen builders via window events
     // instead of writing to the database.
     if (proposal.action === 'agreement') {
       window.dispatchEvent(new CustomEvent('agreement:apply', { detail: proposal.fields }))
-      setMessages(m => m.map((msg, i) => i === messageIndex
-        ? { ...msg, proposals: msg.proposals.map((p, j) => j === proposalIndex ? { ...p, _status: 'applied' } : p) }
-        : msg))
+      markProposal(messageIndex, proposalIndex, { _status: 'applied' })
+      return
+    }
+    if (proposal.action === 'campaign') {
+      applyCampaignProposal(proposal)
+      markProposal(messageIndex, proposalIndex, { _status: 'applied' })
       return
     }
     setMessages(m => m.map((msg, i) => i === messageIndex
@@ -207,7 +225,14 @@ export default function AgentPanel({ mode = 'client' }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-      const proposals = data.proposals || []
+      // Campaign proposals auto-fill the sheet the moment they arrive (no accept step).
+      const proposals = (data.proposals || []).map(p => {
+        if (p.action === 'campaign') {
+          applyCampaignProposal(p)
+          return { ...p, _status: 'applied' }
+        }
+        return p
+      })
       const fallback = proposals.length ? 'Drafted a new proposal — review it below.' : '(no response)'
       setMessages(m => [...m, { role: 'agent', text: data.text || fallback, proposals }])
     } catch (e) {
@@ -235,6 +260,7 @@ export default function AgentPanel({ mode = 'client' }) {
     : pathname.includes('/assets') ? 'Assets'
     : pathname.includes('/library') ? 'Library'
     : pathname.includes('/contacts') ? 'Leads'
+    : pathname.includes('/campaign-builder') ? 'Campaign Builder'
     : pathname.includes('/youtube-ads') ? 'Ads'
     : pathname.includes('/billing') ? 'Billing'
     : pathname.includes('/company') ? 'Company'
@@ -325,7 +351,7 @@ export default function AgentPanel({ mode = 'client' }) {
                     {m.proposals?.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {m.proposals.map((p, j) => (
-                          <ProposalCard key={p.proposalId || j} proposal={p} onAccept={() => applyProposal(i, j, p)} onReject={() => rejectProposal(i, j)} />
+                          <ProposalCard key={p.proposalId || j} proposal={p} onAccept={() => applyProposal(i, j, p)} onReject={() => rejectProposal(i, j)} onUndo={() => undoCampaignProposal(i, j, p)} />
                         ))}
                       </div>
                     )}
@@ -401,19 +427,38 @@ export default function AgentPanel({ mode = 'client' }) {
   )
 }
 
-function ProposalCard({ proposal, onAccept, onReject }) {
+function ProposalCard({ proposal, onAccept, onReject, onUndo }) {
   const [expanded, setExpanded] = useState(false)
   const status = proposal._status
   const isUpdate = proposal.action === 'updateScript'
   const isAgreement = proposal.action === 'agreement'
+  const isCampaign = proposal.action === 'campaign'
   const fields = proposal.fields || {}
   const diff = proposal.diff || {}
 
-  const statusBadge = status === 'applied' ? { text: 'Applied ✓', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }
+  const statusBadge = status === 'applied' ? { text: isCampaign ? 'Added ✓' : 'Applied ✓', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }
+    : status === 'undone' ? { text: 'Removed', cls: 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400' }
     : status === 'rejected' ? { text: 'Rejected', cls: 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400' }
     : status === 'applying' ? { text: 'Applying…', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' }
     : status === 'error' ? { text: 'Error', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }
     : null
+
+  // Campaign proposals auto-fill the sheet — show a compact "added · undo" card.
+  if (isCampaign) {
+    return (
+      <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#161922]">
+        <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">SHEET</span>
+            <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{proposal.summary}</p>
+          </div>
+          {status === 'undone'
+            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400 shrink-0">Removed</span>
+            : <button onClick={onUndo} className="text-[11px] font-semibold text-gray-500 hover:text-red-500 shrink-0">Undo</button>}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#161922]">
