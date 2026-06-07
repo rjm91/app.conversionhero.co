@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campaign Builder — Duplicate / Multiply</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0b14; --surface: #111528; --surface2: #171B33; --surface3: #1c2138;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+      --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+      --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171; --purple:#a78bfa;
+      --radius: 14px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; padding: 40px 28px; }
+    .mode-tag { display: inline-flex; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(52,204,147,0.12); color: var(--green); margin-bottom: 8px; }
+    .intro { max-width: 720px; margin: 0 auto 24px; }
+    .intro h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .intro p { font-size: 13px; color: var(--dim); }
+
+    /* row context bar mimicking the sheet group with a ⋯ menu */
+    .sheet-ctx { max-width: 720px; margin: 0 auto 20px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display:flex; align-items:center; gap:12px; }
+    .sheet-ctx .cn { font-weight: 700; color: var(--blue); font-size: 13.5px; }
+    .sheet-ctx .meta { font-size: 12px; color: var(--muted); }
+    .sheet-ctx .spacer { flex:1; }
+    .menu { position: relative; }
+    .menu .dots { background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--muted); padding: 6px 10px; cursor: pointer; font-weight:700; }
+    .menu-pop { position: absolute; right: 0; top: 38px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 10px; padding: 5px; width: 200px; z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+    .menu-pop button { width:100%; text-align:left; background:none; border:none; color: var(--text); font-size: 12.5px; padding: 8px 10px; border-radius: 7px; cursor:pointer; display:flex; gap:9px; align-items:center;}
+    .menu-pop button:hover { background: rgba(255,255,255,0.05); }
+    .menu-pop button.active { background: var(--blue); color:#fff; }
+    .menu-pop .k { color: var(--dim); font-size: 11px; margin-left:auto; }
+    .menu-pop hr { border:none; border-top:1px solid var(--border); margin:5px 0; }
+
+    /* modal */
+    .modal { max-width: 720px; margin: 0 auto; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+    .m-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .m-head h3 { font-size: 15px; font-weight: 700; }
+    .m-head .x { background:none; border:none; color: var(--dim); font-size: 20px; cursor:pointer; }
+
+    /* mode tabs */
+    .modes { display:flex; gap:8px; padding: 16px 20px 0; }
+    .mode-card { flex:1; border:1px solid var(--border); border-radius: 11px; padding: 12px; cursor:pointer; background: var(--surface); }
+    .mode-card.active { border-color: var(--blue); background: rgba(59,130,246,0.08); }
+    .mode-card .mt { font-size: 13px; font-weight: 700; margin-bottom: 3px; display:flex; align-items:center; gap:7px;}
+    .mode-card .md { font-size: 11px; color: var(--dim); line-height:1.45; }
+    .mode-card .star { color: var(--yellow); }
+
+    .m-body { padding: 18px 20px; }
+    .field { margin-bottom: 16px; }
+    .field label { display:block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+    .field .sub { font-weight: 400; color: var(--dim); }
+    input.tok, input.txt { width: 100%; background: var(--surface); border: 1px solid var(--border2); border-radius: 9px; padding: 9px 12px; color: var(--text); font-size: 13px; }
+    input.tok { font-family: ui-monospace, monospace; color: var(--purple); }
+
+    .chips { display:flex; flex-wrap:wrap; gap:6px; background: var(--surface); border:1px solid var(--border2); border-radius:9px; padding:8px; }
+    .chip { background: var(--surface3); border:1px solid var(--border); border-radius: 7px; padding: 4px 9px; font-size: 12px; display:flex; align-items:center; gap:6px; }
+    .chip .x { color: var(--dim); cursor:pointer; }
+    .chip-add { background: none; border:1px dashed var(--border2); border-radius:7px; padding:4px 10px; font-size:12px; color: var(--blue); cursor:pointer; }
+
+    /* detected token callout */
+    .detect { background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.25); border-radius: 10px; padding: 11px 13px; font-size: 12.5px; color: var(--muted); margin-bottom: 16px; display:flex; gap:10px; align-items:flex-start;}
+    .detect b { color: var(--text); }
+    .detect .hl { color: var(--purple); font-weight:700; }
+
+    .applyto { display:flex; flex-wrap:wrap; gap: 14px; }
+    .applyto label { display:flex; align-items:center; gap:7px; font-size: 12.5px; color: var(--text); cursor:pointer; }
+    .applyto input { accent-color: var(--blue); width:15px; height:15px; }
+
+    /* preview */
+    .preview { margin-top: 4px; border:1px solid var(--border); border-radius: 11px; overflow:hidden;}
+    .preview .ph { padding: 9px 13px; background: var(--surface3); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: var(--dim); display:flex; justify-content:space-between;}
+    .preview .pr { padding: 9px 13px; border-top:1px solid var(--border); font-size: 12.5px; display:flex; align-items:center; gap:10px;}
+    .preview .pr .idx { color: var(--dim); width:16px; }
+    .preview .pr .nm { font-weight:600; color: var(--blue); font-family: ui-monospace,monospace; font-size:12px;}
+    .preview .pr .ex { margin-left:auto; font-size: 11px; color: var(--muted); }
+    .preview .pr .ex em { color: var(--purple); font-style:normal; }
+
+    .m-foot { padding: 14px 20px; border-top: 1px solid var(--border); display:flex; align-items:center; gap:12px; }
+    .m-foot .count { font-size: 12.5px; color: var(--muted); }
+    .m-foot .count b { color: var(--green); }
+    .m-foot .spacer { flex:1; }
+    .btn { padding: 9px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor:pointer; border:1px solid var(--border2); background:transparent; color: var(--muted); }
+    .btn.primary { background: var(--green); color:#06281c; border-color: var(--green); }
+  </style>
+</head>
+<body>
+  <div style="text-align:center"><span class="mode-tag">Concept C · Bulk Duplicate / Multiply</span></div>
+  <div class="intro" style="text-align:center">
+    <h1>Creating 5–10 campaigns at once</h1>
+    <p>Build one strong campaign, then multiply it across a list. Same idea works from the agent: "duplicate HVAC across Lexington, Louisville, Georgetown."</p>
+  </div>
+
+  <!-- the sheet group row this opened from -->
+  <div class="sheet-ctx">
+    <span class="cn">NonBrand_Search_HVAC</span>
+    <span class="meta">2 ad groups · 6 keywords · 2 ads · 8 rows</span>
+    <span class="spacer"></span>
+    <div class="menu">
+      <button class="dots">⋯</button>
+      <div class="menu-pop">
+        <button>Edit campaign</button>
+        <button>Rename</button>
+        <hr>
+        <button>Duplicate once <span class="k">⌘D</span></button>
+        <button>Duplicate × N…</button>
+        <button class="active">Duplicate across a list… <span class="k">★</span></button>
+        <hr>
+        <button style="color:var(--red)">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal -->
+  <div class="modal">
+    <div class="m-head">
+      <h3>Duplicate “NonBrand_Search_HVAC”</h3>
+      <button class="x">&times;</button>
+    </div>
+
+    <div class="modes">
+      <div class="mode-card"><div class="mt">Once</div><div class="md">A single copy you tweak by hand.</div></div>
+      <div class="mode-card"><div class="mt">× N copies</div><div class="md">Several near-duplicates to edit individually.</div></div>
+      <div class="mode-card active"><div class="mt"><span class="star">★</span> Across a list</div><div class="md">One campaign per value — names, keywords &amp; paths auto-filled.</div></div>
+    </div>
+
+    <div class="m-body">
+      <div class="detect">
+        <span style="font-size:15px">✨</span>
+        <div>We found <b>“Lexington”</b> in this campaign's name, keywords, and paths. Want to turn it into a <span class="hl">{city}</span> variable and swap a different city into each copy?</div>
+      </div>
+
+      <div class="field">
+        <label>Variable <span class="sub">— the token that changes per campaign</span></label>
+        <input class="tok" value="{city}" />
+      </div>
+
+      <div class="field">
+        <label>Values <span class="sub">— one campaign will be generated per value</span></label>
+        <div class="chips">
+          <span class="chip">Lexington <span class="x">×</span></span>
+          <span class="chip">Louisville <span class="x">×</span></span>
+          <span class="chip">Georgetown <span class="x">×</span></span>
+          <span class="chip">Nicholasville <span class="x">×</span></span>
+          <span class="chip">Frankfort <span class="x">×</span></span>
+          <button class="chip-add">+ add · or paste a list</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Replace <span class="hl" style="color:var(--purple);font-family:monospace">{city}</span> in</label>
+        <div class="applyto">
+          <label><input type="checkbox" checked> Campaign name</label>
+          <label><input type="checkbox" checked> Keywords</label>
+          <label><input type="checkbox" checked> Display paths</label>
+          <label><input type="checkbox" checked> Headlines</label>
+          <label><input type="checkbox"> Final URL</label>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:0">
+        <label>Preview <span class="sub">— 5 campaigns will be added to the sheet</span></label>
+        <div class="preview">
+          <div class="ph"><span>Generated campaign</span><span>example keyword</span></div>
+          <div class="pr"><span class="idx">1</span><span class="nm">NonBrand_Search_HVAC_Lexington</span><span class="ex">hvac repair <em>lexington</em></span></div>
+          <div class="pr"><span class="idx">2</span><span class="nm">NonBrand_Search_HVAC_Louisville</span><span class="ex">hvac repair <em>louisville</em></span></div>
+          <div class="pr"><span class="idx">3</span><span class="nm">NonBrand_Search_HVAC_Georgetown</span><span class="ex">hvac repair <em>georgetown</em></span></div>
+          <div class="pr"><span class="idx">4</span><span class="nm">NonBrand_Search_HVAC_Nicholasville</span><span class="ex">hvac repair <em>nicholasville</em></span></div>
+          <div class="pr"><span class="idx">5</span><span class="nm">NonBrand_Search_HVAC_Frankfort</span><span class="ex">hvac repair <em>frankfort</em></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-foot">
+      <span class="count">Adds <b>5 campaigns</b> · 10 ad groups · 30 keywords · 40 rows</span>
+      <span class="spacer"></span>
+      <button class="btn">Cancel</button>
+      <button class="btn primary">Generate 5 campaigns</button>
+    </div>
+  </div>
+</body>
+</html>

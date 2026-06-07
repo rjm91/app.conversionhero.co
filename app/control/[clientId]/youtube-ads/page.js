@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../../../lib/supabase'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import CampaignBuilder from '../../../../components/CampaignBuilder'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -76,6 +77,7 @@ export default function YouTubeAdsPage() {
   const [sortDir, setSortDir] = useState('desc')
 
   // Drill-down state: 'campaigns' → 'adGroups' → 'ads'
+  const [tab, setTab]                       = useState('performance') // performance | builder
   const [view, setView]                     = useState('campaigns')
   const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }
   const [selectedAdGroup, setSelectedAdGroup]   = useState(null) // { ad_group_id, ad_group_name }
@@ -488,6 +490,32 @@ export default function YouTubeAdsPage() {
 
   const isClickable = view !== 'ads'
 
+  const tabsEl = (
+    <div className="inline-flex bg-gray-100 dark:bg-[#1c2138] border border-gray-200 dark:border-white/5 rounded-lg p-0.5">
+      {[['performance', 'Performance'], ['builder', 'Campaign Builder']].map(([key, label]) => (
+        <button key={key} onClick={() => setTab(key)}
+          className={`text-xs font-semibold px-3.5 py-1.5 rounded-md transition ${tab === key ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (tab === 'builder') {
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Google Ads Campaign Builder</h1>
+            <p className="text-sm text-gray-400 mt-0.5">{clientName || clientId}</p>
+          </div>
+          {tabsEl}
+        </div>
+        <CampaignBuilder clientId={clientId} clientName={clientName} />
+      </div>
+    )
+  }
+
   return (
     <div className="p-8">
 
@@ -508,6 +536,7 @@ export default function YouTubeAdsPage() {
               LIVE
             </span>
           </div>
+          <div className="mt-3">{tabsEl}</div>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">

@@ -27,3 +27,6 @@ Thumbs.db
 .idea/
 *.swp
 .claude/
+
+# Local data drops (CSV imports, scratch) — never commit
+data/

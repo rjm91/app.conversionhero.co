@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campaign Builder — Sheet</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0b14; --surface: #111528; --surface2: #171B33; --surface3: #1c2138;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+      --text: #f3f5f9; --muted: #8b93a7; --dim: #59617a;
+      --blue: #3b82f6; --green: #34CC93; --yellow: #f5c542; --red: #f87171; --purple:#a78bfa;
+      --cell: #141831; --cell-alt: #11152a; --grid: rgba(255,255,255,0.06);
+      --radius: 14px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; padding: 24px 28px; }
+    .mode-tag { display: inline-flex; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(52,204,147,0.12); color: var(--green); margin-bottom: 16px; }
+
+    .head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .head h1 { font-size: 22px; font-weight: 800; }
+    .head .sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+    .head .summary { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .head .summary b { color: var(--text); }
+    .actions { display: flex; gap: 10px; }
+    .btn-ghost { display:inline-flex; align-items:center; gap:7px; background: transparent; border: 1px solid var(--border2); color: var(--muted); font-weight: 600; font-size: 13px; padding: 9px 14px; border-radius: 10px; cursor: pointer; }
+    .btn-ghost:hover { color: var(--text); }
+    .dl-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--green); color: #06281c; font-weight: 700; font-size: 13px; padding: 9px 16px; border-radius: 10px; border: none; cursor: pointer; }
+
+    .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+    .seg button { border: none; background: none; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 6px 14px; border-radius: 7px; cursor: pointer; }
+    .seg button.active { background: var(--blue); color: #fff; }
+
+    /* toolbar */
+    .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--surface2); border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; }
+    .tool { display:inline-flex; align-items:center; gap:6px; font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; cursor: pointer; }
+    .tool:hover { color: var(--text); border-color: var(--border2); }
+    .tool.ai { color: var(--purple); border-color: rgba(167,139,250,0.3); }
+    .toolbar .spacer { flex: 1; }
+    .toolbar .scroll-hint { font-size: 11px; color: var(--dim); display:flex; align-items:center; gap:5px;}
+
+    /* sheet */
+    .sheet-wrap { border: 1px solid var(--border); border-radius: 0 0 12px 12px; overflow: auto; max-height: calc(100vh - 290px); background: var(--surface2); }
+    table.sheet { border-collapse: separate; border-spacing: 0; font-size: 12.5px; white-space: nowrap; }
+    .sheet th, .sheet td { border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); padding: 0; height: 34px; }
+    .sheet thead th { position: sticky; top: 0; z-index: 5; background: var(--surface3); color: var(--muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; text-align: left; padding: 0 10px; }
+    .sheet thead th.grouphdr { text-align:center; font-size:10px; color: var(--dim); border-bottom: 1px solid var(--border2); }
+    .colgrp-camp { color: var(--blue) !important; }
+    .colgrp-kw { color: var(--green) !important; }
+    .colgrp-ad { color: var(--purple) !important; }
+
+    .sheet td { color: var(--text); background: var(--cell); }
+    .sheet td .cell { padding: 0 10px; height: 100%; display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; }
+    .sheet td.muted .cell { color: var(--dim); }
+    .sheet td.mono .cell { font-family: ui-monospace, 'SF Mono', monospace; font-size: 11.5px; }
+
+    /* gutter + frozen cols */
+    .gutter { position: sticky; left: 0; z-index: 4; width: 40px; min-width:40px; background: var(--surface3) !important; color: var(--dim) !important; text-align: center; font-size: 11px; }
+    thead .gutter { z-index: 6; }
+    .froz-camp { position: sticky; left: 40px; z-index: 4; width: 190px; min-width:190px; background: var(--cell) !important; box-shadow: none; }
+    .froz-ag { position: sticky; left: 230px; z-index: 4; width: 150px; min-width:150px; background: var(--cell) !important; border-right: 1px solid var(--border2) !important; }
+    thead .froz-camp, thead .froz-ag { z-index: 6; background: var(--surface3) !important; }
+    .froz-camp .cell { font-weight: 700; color: var(--blue); }
+    .froz-ag .cell { font-weight: 600; }
+
+    /* group separator + new-rows glow */
+    tr.group-start td { border-top: 2px solid var(--border2); }
+    tr.ai-new td { background: rgba(167,139,250,0.08); }
+    tr.ai-new .froz-camp, tr.ai-new .froz-ag { background: rgba(167,139,250,0.08) !important; }
+
+    /* dropdown pill + selected cell */
+    .pill { display:inline-flex; align-items:center; gap:5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 5px; }
+    .pill.exact { background: rgba(52,204,147,0.14); color: var(--green); }
+    .pill.phrase { background: rgba(245,197,66,0.14); color: var(--yellow); }
+    .pill.paused { background: rgba(139,147,167,0.14); color: var(--muted); }
+    .pill.rsa { background: rgba(167,139,250,0.14); color: var(--purple); }
+    .chev { color: var(--dim); }
+
+    td.sel { outline: 2px solid var(--blue); outline-offset: -2px; z-index: 3; }
+    td.url .cell { color: var(--green); }
+
+    /* widths */
+    .w-status{width:96px;min-width:96px}.w-kw{width:180px;min-width:180px}.w-match{width:108px;min-width:108px}
+    .w-bid{width:140px;min-width:140px}.w-adtype{width:150px;min-width:150px}.w-h{width:150px;min-width:150px}
+    .w-d{width:230px;min-width:230px}.w-path{width:90px;min-width:90px}.w-url{width:240px;min-width:240px}
+
+    .footer { display:flex; align-items:center; gap:14px; margin-top:10px; font-size:12px; color: var(--dim); }
+    .footer .add { color: var(--blue); font-weight:700; cursor:pointer; background:none; border:none; }
+    .legend { display:flex; gap:14px; margin-top:6px; font-size:11px; color: var(--dim); }
+    .legend span b{ font-weight:700; }
+
+    /* ── Live ad preview ── */
+    .preview-panel { margin-top: 18px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .preview-panel .pp-head { display:flex; align-items:center; justify-content:space-between; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+    .preview-panel .pp-head h3 { font-size: 13px; font-weight: 700; }
+    .preview-panel .pp-head .ctx { font-size: 11px; color: var(--dim); }
+    .preview-panel .pp-head .ctx b { color: var(--purple); }
+    .pp-body { padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .pp-col-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin-bottom: 10px; }
+
+    /* google search ad card (light) */
+    .gad { background: #fff; border-radius: 10px; padding: 15px 17px; }
+    .gad .row1 { display:flex; align-items:center; gap:7px; margin-bottom:3px; }
+    .gad .adlabel { font-size: 11px; font-weight: 700; color: #202124; }
+    .gad .url { font-size: 12.5px; color: #202124; }
+    .gad .title { font-size: 19px; line-height: 1.3; color: #1a0dab; margin: 3px 0 4px; font-weight: 400; }
+    .gad .desc { font-size: 13px; color: #4d5156; line-height: 1.5; }
+
+    /* combinations note */
+    .combos { font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .combos .k { color: var(--dim); }
+    .combos .strength { display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-weight:700; color: var(--green); }
+    .combos .bar { width: 90px; height: 6px; border-radius: 4px; background: var(--surface3); overflow:hidden; }
+    .combos .bar i { display:block; height:100%; width: 78%; background: var(--green); }
+    .pp-toggle { display:inline-flex; gap:4px; margin-top:14px; }
+    .pp-toggle button { font-size:11px; font-weight:600; color: var(--muted); background: var(--surface3); border:1px solid var(--border); border-radius:6px; padding:4px 9px; cursor:pointer; }
+    .pp-toggle button.on { color:#fff; background: var(--blue); border-color: var(--blue); }
+  </style>
+</head>
+<body>
+  <div class="mode-tag">Concept C · Sheet — Ads tab</div>
+  <div class="head">
+    <div>
+      <h1>Google Ads Campaign Builder</h1>
+      <p class="sub">Synergy Home · A live sheet that mirrors the Google Ads Editor import — edit cells directly or let the agent fill rows.</p>
+      <p class="summary">Draft: <b>2 campaigns</b> · <b>3 ad groups</b> · <b>6 keywords</b> · <b>3 ads</b> · <b>12 rows</b></p>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Ask agent to fill</button>
+      <button class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Download CSV</button>
+    </div>
+  </div>
+
+  <div class="seg">
+    <button>Performance</button>
+    <button class="active">Campaign Builder</button>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool">+ Keyword row</button>
+    <button class="tool">+ Ad row</button>
+    <button class="tool">+ New campaign</button>
+    <button class="tool ai">⚡ Suggest keywords</button>
+    <button class="tool ai">⚡ Write ad</button>
+    <span class="spacer"></span>
+    <span class="scroll-hint">Scroll right for Headlines 4–15, Descriptions &amp; Paths →</span>
+  </div>
+
+  <div class="sheet-wrap">
+    <table class="sheet">
+      <thead>
+        <!-- group header row -->
+        <tr>
+          <th class="gutter"></th>
+          <th class="froz-camp grouphdr colgrp-camp">Campaign</th>
+          <th class="froz-ag grouphdr colgrp-camp">Settings</th>
+          <th class="grouphdr colgrp-camp"></th>
+          <th class="grouphdr colgrp-kw" colspan="2">Keyword</th>
+          <th class="grouphdr colgrp-camp" colspan="2">Bidding / Type</th>
+          <th class="grouphdr colgrp-ad" colspan="4">Responsive Search Ad</th>
+          <th class="grouphdr colgrp-ad" colspan="2">Paths</th>
+          <th class="grouphdr colgrp-camp">URL</th>
+        </tr>
+        <tr>
+          <th class="gutter">#</th>
+          <th class="froz-camp">Campaign</th>
+          <th class="froz-ag">Ad Group</th>
+          <th class="w-status">Status</th>
+          <th class="w-kw">Keyword</th>
+          <th class="w-match">Match</th>
+          <th class="w-bid">Bid strategy</th>
+          <th class="w-adtype">Ad type</th>
+          <th class="w-h">Headline 1</th>
+          <th class="w-h">Headline 2</th>
+          <th class="w-h">Headline 3</th>
+          <th class="w-d">Description 1</th>
+          <th class="w-path">Path 1</th>
+          <th class="w-path">Path 2</th>
+          <th class="w-url">Final URL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Campaign 1 / AG: HVAC Repair -->
+        <tr class="group-start">
+          <td class="gutter">1</td>
+          <td class="froz-camp"><div class="cell">NonBrand_Search_HVAC</div></td>
+          <td class="froz-ag"><div class="cell">HVAC Repair</div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">hvac repair lexington</div></td>
+          <td><div class="cell"><span class="pill exact">Exact ▾</span></div></td>
+          <td><div class="cell">Maximize clicks</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <tr>
+          <td class="gutter">2</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">ac repair near me</div></td>
+          <td><div class="cell"><span class="pill exact">Exact ▾</span></div></td>
+          <td><div class="cell">Maximize clicks</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <tr>
+          <td class="gutter">3</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">furnace repair</div></td>
+          <td><div class="cell"><span class="pill phrase">Phrase ▾</span></div></td>
+          <td><div class="cell">Maximize clicks</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <!-- Ad row for HVAC Repair -->
+        <tr>
+          <td class="gutter">4</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td><div class="cell"><span class="pill rsa">RSA ▾</span></div></td>
+          <td><div class="cell">Lexington HVAC Repair</div></td>
+          <td class="sel"><div class="cell">Same-Day Service</div></td>
+          <td><div class="cell">Free, Honest Estimates</div></td>
+          <td><div class="cell">Fast, honest HVAC repair. Book online in 60 sec.</div></td>
+          <td><div class="cell">repair</div></td>
+          <td><div class="cell">lexington</div></td>
+          <td class="url"><div class="cell">synergyhome.co/get-quote/hvac</div></td>
+        </tr>
+
+        <!-- AG: HVAC Replacement -->
+        <tr class="group-start">
+          <td class="gutter">5</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell">HVAC Replacement</div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">hvac replacement</div></td>
+          <td><div class="cell"><span class="pill exact">Exact ▾</span></div></td>
+          <td><div class="cell">Maximize clicks</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <tr>
+          <td class="gutter">6</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">new ac unit cost</div></td>
+          <td><div class="cell"><span class="pill phrase">Phrase ▾</span></div></td>
+          <td><div class="cell">Maximize clicks</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <tr>
+          <td class="gutter">7</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td><div class="cell"><span class="pill rsa">RSA ▾</span></div></td>
+          <td><div class="cell">New HVAC System?</div></td>
+          <td><div class="cell">Free In-Home Quote</div></td>
+          <td><div class="cell">$0 Down Financing</div></td>
+          <td><div class="cell">Upgrade with Synergy Home. Free second opinion.</div></td>
+          <td><div class="cell">replace</div></td>
+          <td><div class="cell">lexington</div></td>
+          <td class="url"><div class="cell">synergyhome.co/get-quote/hvac</div></td>
+        </tr>
+
+        <!-- AI-added campaign -->
+        <tr class="group-start ai-new">
+          <td class="gutter">8</td>
+          <td class="froz-camp"><div class="cell">Brand_Search_Synergy</div></td>
+          <td class="froz-ag"><div class="cell">Brand — Core</div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="mono"><div class="cell">synergy home</div></td>
+          <td><div class="cell"><span class="pill exact">Exact ▾</span></div></td>
+          <td><div class="cell">Manual CPC</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td><td class="muted"><div class="cell">—</div></td>
+        </tr>
+        <tr class="ai-new">
+          <td class="gutter">9</td>
+          <td class="froz-camp"><div class="cell"></div></td>
+          <td class="froz-ag"><div class="cell"></div></td>
+          <td><div class="cell"><span class="pill paused">Paused ▾</span></div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td class="muted"><div class="cell">—</div></td>
+          <td><div class="cell"><span class="pill rsa">RSA ▾</span></div></td>
+          <td><div class="cell">Synergy Home — Official</div></td>
+          <td><div class="cell">Lexington's Comfort Pros</div></td>
+          <td><div class="cell">Book a Free Quote</div></td>
+          <td><div class="cell">The official Synergy Home site. Honest HVAC, done right.</div></td>
+          <td><div class="cell"></div></td>
+          <td><div class="cell"></div></td>
+          <td class="url"><div class="cell">synergyhome.co</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <button class="add">+ Add row</button>
+    <span>12 rows · maps 1:1 to the Google Ads Editor import CSV</span>
+  </div>
+  <div class="legend">
+    <span><b style="color:var(--green)">Keyword rows</b> fill Keyword + Match</span>
+    <span><b style="color:var(--purple)">Ad rows</b> fill Ad type + Headlines/Descriptions</span>
+    <span><b style="color:var(--purple)">Purple glow</b> = just added by the agent</span>
+  </div>
+
+  <!-- ── Live ad preview (reflects the selected ad row) ── -->
+  <div class="preview-panel">
+    <div class="pp-head">
+      <h3>Ad Preview</h3>
+      <div class="ctx">Showing row <b>4</b> · NonBrand_Search_HVAC › HVAC Repair</div>
+    </div>
+    <div class="pp-body">
+      <div>
+        <div class="pp-col-label">How it can appear on Google</div>
+        <div class="gad">
+          <div class="row1"><span class="adlabel">Ad</span><span style="color:#5f6368">·</span><span class="url">synergyhome.co/repair/lexington</span></div>
+          <div class="title">Lexington HVAC Repair | Same-Day Service | Free Estimates</div>
+          <div class="desc">Fast, honest HVAC repair from Synergy Home. Book online in 60 seconds. Up-front pricing, no surprises.</div>
+        </div>
+        <div class="pp-toggle">
+          <button class="on">Desktop</button>
+          <button>Mobile</button>
+          <button>Shuffle combo ⟳</button>
+        </div>
+      </div>
+      <div>
+        <div class="pp-col-label">Asset summary</div>
+        <div class="combos">
+          <div><span class="k">Headlines:</span> 4 of 15 · <span class="k">Descriptions:</span> 2 of 4</div>
+          <div><span class="k">Paths:</span> /repair /lexington</div>
+          <div><span class="k">Final URL:</span> synergyhome.co/get-quote/hvac</div>
+          <div><span class="k">Pinned:</span> H1 → position 1</div>
+          <div class="strength">Ad strength: Good <span class="bar"><i></i></span></div>
+          <div style="margin-top:10px; color:var(--dim); font-size:11.5px;">Google rotates headlines &amp; descriptions into different combinations — this is one example. Add more assets to reach "Excellent."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
