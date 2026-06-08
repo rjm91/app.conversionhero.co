@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paid Ads — Multi-Platform Attribution Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e1a;
+      --surface: #111528;
+      --surface2: #161b30;
+      --surface3: #1c2138;
+      --border: rgba(255,255,255,0.06);
+      --border2: rgba(255,255,255,0.10);
+      --text: #e8ecf4;
+      --muted: #7a8bb5;
+      --dim: #4a5678;
+      --blue: #3b82f6;
+      --blue-soft: rgba(59,130,246,0.15);
+      --ch-green: #34d399;
+      --ch-green-soft: rgba(52,211,153,0.12);
+      --radius: 12px;
+      /* platform brand colors */
+      --google: #4285F4;
+      --meta: #0866FF;
+      --tiktok: #25F4EE;
+      --tiktok2: #FE2C55;
+      --radius: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      padding: 32px;
+    }
+    a { color: inherit; }
+
+    /* ── Header ── */
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
+    h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .sub-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+    .synced { color: var(--dim); font-size: 13px; }
+    .btn-ghost { font-size: 12px; font-weight: 600; border: 1px solid var(--border2); padding: 4px 12px; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; }
+    .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--ch-green); letter-spacing: 0.04em; }
+    .live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ch-green); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .filters label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .filters input, .filters select { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 6px 10px; color: var(--text); font-size: 13px; outline: none; }
+    .btn-blue { background: var(--blue); color: #fff; font-size: 13px; font-weight: 600; padding: 6px 16px; border-radius: 8px; border: none; cursor: pointer; }
+
+    /* ── Platform tab bar ── */
+    .platform-bar { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+    .ptab {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 16px; cursor: pointer;
+      min-width: 150px; transition: border-color .15s, background .15s;
+    }
+    .ptab:hover { border-color: var(--border2); }
+    .ptab.active { border-color: var(--blue); background: linear-gradient(180deg, rgba(59,130,246,0.10), transparent); }
+    .ptab .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #fff; flex-shrink: 0; }
+    .ico.all   { background: linear-gradient(135deg,#3b82f6,#34d399); }
+    .ico.google{ background: #fff; color: #4285F4; border: 1px solid #e3e8f0; }
+    .ico.meta  { background: var(--meta); }
+    .ico.tiktok{ background: #000; }
+    .ptab .meta-txt { display: flex; flex-direction: column; line-height: 1.25; }
+    .ptab .pname { font-size: 13px; font-weight: 700; }
+    .ptab .pspend { font-size: 12px; color: var(--muted); }
+    .ptab .pspend b { color: var(--text); font-weight: 600; }
+    .ptab.soon { opacity: 0.55; }
+    .badge-soon { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); border: 1px solid var(--border2); border-radius: 5px; padding: 1px 5px; margin-left: 4px; }
+
+    /* ── KPI summary cards ── */
+    .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
+    .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+    .kpi.ch { border-color: rgba(52,211,153,0.25); background: linear-gradient(180deg, var(--ch-green-soft), transparent); }
+    .kpi .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .kpi .val { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .kpi .delta { font-size: 12px; font-weight: 600; margin-top: 4px; }
+    .delta.up { color: var(--ch-green); }
+    .delta.down { color: #f87171; }
+    .ch-pill { font-size: 9px; font-weight: 800; color: var(--ch-green); background: var(--ch-green-soft); border-radius: 5px; padding: 1px 5px; letter-spacing: 0.03em; }
+
+    /* ── Chart ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 22px; }
+    .card .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 4px; }
+    .legend { display: flex; gap: 16px; margin: 8px 0 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+    /* ── Table ── */
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--surface2); }
+    th { text-align: right; padding: 12px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+    th.l { text-align: left; }
+    th.ch-col, td.ch-col { background: rgba(52,211,153,0.05); }
+    th.ch-col { color: var(--ch-green); }
+    td { padding: 13px 14px; text-align: right; font-size: 13px; border-top: 1px solid var(--border); white-space: nowrap; }
+    td.l { text-align: left; }
+    .camp-name { font-weight: 600; font-size: 13px; }
+    .camp-id { font-size: 11px; color: var(--dim); margin-top: 2px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ch-green); }
+    .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ch-green); }
+    .status.paused { color: var(--dim); }
+    .status.paused .dot { background: var(--dim); }
+    .pl-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+    .pl-tag .d { width: 8px; height: 8px; border-radius: 2px; }
+    .ch-val { color: var(--ch-green); font-weight: 600; }
+    .muted { color: var(--dim); }
+
+    .hidden { display: none; }
+    .note { font-size: 12px; color: var(--dim); margin-top: 14px; line-height: 1.5; }
+    .empty { padding: 60px; text-align: center; color: var(--muted); }
+    .empty .big { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="page-head">
+    <div>
+      <h1>Paid Ads</h1>
+      <div class="sub-row">
+        <span class="synced">Last synced Jun 8, 12:47 AM</span>
+        <button class="btn-ghost">Refresh</button>
+        <span class="live"><span class="dot"></span>LIVE</span>
+      </div>
+    </div>
+    <div class="filters">
+      <label>Start</label><input type="date" value="2026-06-01" />
+      <label>End</label><input type="date" value="2026-06-05" />
+      <button class="btn-blue">Apply</button>
+      <label>Status</label>
+      <select><option>All</option><option>Enabled</option><option>Paused</option></select>
+      <input type="text" placeholder="Filter campaigns…" style="width:160px" />
+    </div>
+  </div>
+
+  <!-- Platform tab bar -->
+  <div class="platform-bar">
+    <div class="ptab active" data-tab="all" onclick="selectTab(this)">
+      <div class="ico all">∑</div>
+      <div class="meta-txt"><span class="pname">All Platforms</span><span class="pspend"><b>$8,420</b> spend</span></div>
+    </div>
+    <div class="ptab" data-tab="google" onclick="selectTab(this)">
+      <div class="ico google">G</div>
+      <div class="meta-txt"><span class="pname">Google Ads</span><span class="pspend"><b>$5,180</b> · 4 campaigns</span></div>
+    </div>
+    <div class="ptab" data-tab="meta" onclick="selectTab(this)">
+      <div class="ico meta">f</div>
+      <div class="meta-txt"><span class="pname">Meta (Facebook)</span><span class="pspend"><b>$3,240</b> · 3 campaigns</span></div>
+    </div>
+    <div class="ptab soon" data-tab="tiktok" onclick="selectTab(this)">
+      <div class="ico tiktok">♪</div>
+      <div class="meta-txt"><span class="pname">TikTok <span class="badge-soon">Soon</span></span><span class="pspend">Not connected</span></div>
+    </div>
+  </div>
+
+  <!-- KPI summary -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Spend chart -->
+  <div class="card">
+    <div class="card-title">Ad Spend by Platform</div>
+    <div class="legend">
+      <span><i style="background:#4285F4"></i>Google</span>
+      <span><i style="background:#0866FF"></i>Meta</span>
+      <span><i style="background:#34d399"></i>CH-Attributed Revenue</span>
+    </div>
+    <svg viewBox="0 0 900 200" width="100%" height="200" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4285F4" stop-opacity="0.35"/><stop offset="1" stop-color="#4285F4" stop-opacity="0"/></linearGradient>
+        <linearGradient id="gM" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0866FF" stop-opacity="0.30"/><stop offset="1" stop-color="#0866FF" stop-opacity="0"/></linearGradient>
+      </defs>
+      <path d="M0,150 L180,140 L360,120 L540,95 L720,70 L900,45 L900,200 L0,200 Z" fill="url(#gG)"/>
+      <path d="M0,150 L180,140 L360,120 L540,95 L720,70 L900,45" fill="none" stroke="#4285F4" stroke-width="2.5"/>
+      <path d="M0,175 L180,172 L360,168 L540,160 L720,150 L900,138 L900,200 L0,200 Z" fill="url(#gM)"/>
+      <path d="M0,175 L180,172 L360,168 L540,160 L720,150 L900,138" fill="none" stroke="#0866FF" stroke-width="2.5"/>
+      <path d="M0,120 L180,108 L360,85 L540,60 L720,40 L900,22" fill="none" stroke="#34d399" stroke-width="2.5" stroke-dasharray="5 4"/>
+    </svg>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <p class="note" id="note"></p>
+
+<script>
+  // ── Mock data per platform ──
+  const ch = (v) => `<span class="ch-val">${v}</span>`;
+  const plDot = { google: '#4285F4', meta: '#0866FF', tiktok: '#25F4EE' };
+  const plName = { google: 'Google', meta: 'Meta', tiktok: 'TikTok' };
+
+  const data = {
+    google: [
+      { name: 'PMax | Prospecting | US | All Products', id: '23868142839', status: 'Enabled', budget: '$133', cost: '$293.44', clicks: 172, cpc: '$1.71', conv: 0, cpa: '$0.00', chConv: 6, chCpa: '$48.90' },
+      { name: 'Shopping | Prospecting | US', id: '23903417651', status: 'Enabled', budget: '$130', cost: '$30.47', clicks: 43, cpc: '$0.71', conv: 2, cpa: '$15.24', chConv: 3, chCpa: '$10.16' },
+      { name: 'Search | Brand | Exact', id: '23811240097', status: 'Enabled', budget: '$60', cost: '$144.10', clicks: 88, cpc: '$1.64', conv: 9, cpa: '$16.01', chConv: 11, chCpa: '$13.10' },
+      { name: 'Search | Non-Brand | Wipers', id: '23811240511', status: 'Paused', budget: '$45', cost: '$71.20', clicks: 51, cpc: '$1.40', conv: 1, cpa: '$71.20', chConv: 2, chCpa: '$35.60' },
+    ],
+    meta: [
+      { name: 'ABO | Prospecting | Broad | Wipers', id: '120210984471020', status: 'Enabled', budget: '$120', cost: '$1,240.55', clicks: 980, cpc: '$1.27', conv: 14, cpa: '$88.61', chConv: 31, chCpa: '$40.02' },
+      { name: 'Advantage+ | Catalog Sales', id: '120210984471988', status: 'Enabled', budget: '$150', cost: '$1,510.20', clicks: 1320, cpc: '$1.14', conv: 22, cpa: '$68.65', chConv: 40, chCpa: '$37.76' },
+      { name: 'Retargeting | 7d Site Visitors', id: '120210984472455', status: 'Enabled', budget: '$50', cost: '$489.25', clicks: 410, cpc: '$1.19', conv: 18, cpa: '$27.18', chConv: 24, chCpa: '$20.39' },
+    ],
+    tiktok: [],
+  };
+
+  const kpiSets = {
+    all:    [['Ad Spend','$8,420','+12% vs prior','up'],['Tracked Conv','135','+24%','up','ch'],['Tracked Revenue','$41,180','+19%','up','ch'],['Blended ROAS','4.89x','+0.6x','up','ch'],['CH-Attributed CPA','$62.37','−14%','up','ch']],
+    google: [['Ad Spend','$5,180','+8% vs prior','up'],['Platform Conv','12','—','up'],['Tracked Conv','22','+10 vs platform','up','ch'],['CH Revenue','$18,640','+15%','up','ch'],['CH CPA','$235.45','−9%','up','ch']],
+    meta:   [['Ad Spend','$3,240','+18% vs prior','up'],['Platform Conv','54','—','up'],['Tracked Conv','95','+41 vs platform','up','ch'],['CH Revenue','$22,540','+21%','up','ch'],['CH CPA','$34.11','−16%','up','ch']],
+    tiktok: [['Ad Spend','—','Not connected','',''],['Platform Conv','—','','',''],['Tracked Conv','—','','','ch'],['CH Revenue','—','','','ch'],['CH CPA','—','','','ch']],
+  };
+
+  function renderKpis(tab) {
+    document.getElementById('kpis').innerHTML = kpiSets[tab].map(k => {
+      const isCh = k[4] === 'ch';
+      const label = isCh ? `${k[0]} <span class="ch-pill">CH</span>` : k[0];
+      const delta = k[2] ? `<div class="delta ${k[3]||''}">${k[2]}</div>` : '';
+      return `<div class="kpi ${isCh ? 'ch' : ''}"><div class="label">${label}</div><div class="val">${k[1]}</div>${delta}</div>`;
+    }).join('');
+  }
+
+  function renderTable(tab) {
+    const showPlatform = tab === 'all';
+    const rows = tab === 'all' ? [...data.google.map(r=>({...r,pl:'google'})), ...data.meta.map(r=>({...r,pl:'meta'}))] : data[tab];
+    const thead = document.getElementById('thead');
+    const tbody = document.getElementById('tbody');
+
+    thead.innerHTML = `<tr>
+      <th class="l">Campaign</th>
+      ${showPlatform ? '<th class="l">Platform</th>' : ''}
+      <th>Status</th><th>Budget/day</th><th>Cost</th><th>Clicks</th><th>CPC</th>
+      <th>Conv</th><th>Cost/Conv</th>
+      <th class="ch-col">Conv (CH)</th><th class="ch-col">Cost/Conv (CH)</th>
+    </tr>`;
+
+    if (!rows || rows.length === 0) {
+      const span = showPlatform ? 11 : 10;
+      tbody.innerHTML = `<tr><td colspan="${span}"><div class="empty"><div class="big">TikTok isn't connected yet</div>Connect TikTok Ads to pull spend and match it to CH-attributed conversions.</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td class="l"><div class="camp-name">${r.name}</div><div class="camp-id">ID: ${r.id}</div></td>
+      ${showPlatform ? `<td class="l"><span class="pl-tag"><span class="d" style="background:${plDot[r.pl]}"></span>${plName[r.pl]}</span></td>` : ''}
+      <td><span class="status ${r.status==='Paused'?'paused':''}"><span class="dot"></span>${r.status}</span></td>
+      <td>${r.budget}</td><td>${r.cost}</td><td>${r.clicks}</td><td>${r.cpc}</td>
+      <td>${r.conv===0?'<span class="muted">0</span>':r.conv}</td>
+      <td class="${r.conv===0?'muted':''}">${r.cpa}</td>
+      <td class="ch-col">${ch(r.chConv)}</td>
+      <td class="ch-col">${ch(r.chCpa)}</td>
+    </tr>`).join('');
+  }
+
+  const notes = {
+    all: 'Blended view — every platform\'s spend reconciled against CH-attributed conversions from your Shopify UTM/click data. The (CH) columns are your platform-independent source of truth.',
+    google: 'Google reports 12 conversions; CH attributes 22 by matching campaign IDs from your tracking template to Shopify orders.',
+    meta: 'Meta reports 54 conversions in-platform; CH attributes 95 via UTM/click matching — surfacing conversions Meta\'s pixel missed (iOS / cookie loss).',
+    tiktok: 'TikTok integration is on the roadmap. Once connected it joins the same blended attribution model.',
+  };
+
+  function selectTab(el) {
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const tab = el.dataset.tab;
+    renderKpis(tab);
+    renderTable(tab);
+    document.getElementById('note').textContent = notes[tab];
+  }
+
+  // init
+  renderKpis('all');
+  renderTable('all');
+  document.getElementById('note').textContent = notes.all;
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paid Ads — Design Directions</title>
+  <style>
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif; background:#0b0e1a; color:#e8ecf4; padding:40px; -webkit-font-smoothing:antialiased; }
+    h1 { font-size:26px; font-weight:700; letter-spacing:-0.02em; margin-bottom:6px; }
+    .sub { color:#7a8bb5; margin-bottom:28px; font-size:14px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
+    .card { background:#111528; border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:22px; text-decoration:none; color:inherit; transition:border-color .15s,transform .15s; display:block; }
+    .card:hover { border-color:#3b82f6; transform:translateY(-2px); }
+    .tag { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#3b82f6; background:rgba(59,130,246,0.12); border-radius:6px; padding:3px 8px; margin-bottom:12px; }
+    .card h2 { font-size:18px; font-weight:700; margin-bottom:8px; }
+    .card p { font-size:13px; color:#7a8bb5; line-height:1.5; margin-bottom:14px; }
+    .card .best { font-size:12px; color:#34d399; font-weight:600; }
+    .open { margin-top:14px; font-size:13px; font-weight:600; color:#3b82f6; }
+    .ascii { font-family:ui-monospace,Menlo,monospace; font-size:10px; line-height:1.3; color:#4a5678; background:#0b0e1a; border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:10px; margin-bottom:14px; white-space:pre; overflow:hidden; }
+  </style>
+</head>
+<body>
+  <h1>Paid Ads — Multi-Platform Design Directions</h1>
+  <div class="sub">Google + Facebook shown live · TikTok as a "connect later" state · All three use real CH-attribution columns. Click any direction to view it full-screen.</div>
+
+  <div class="grid">
+    <a class="card" href="./mockup-paid-ads-multiplatform.html">
+      <span class="tag">Direction A</span>
+      <h2>Platform Tabs</h2>
+      <div class="ascii">Paid Ads
+[All][Google][Meta][TikTok]
+KPI KPI KPI KPI KPI
+~~ spend chart ~~
+| campaign table |</div>
+      <p>A tab bar switches the entire view to one platform at a time (or a blended "All"). One platform in focus, least scrolling.</p>
+      <div class="best">Best for: drilling into one platform at a time</div>
+      <div class="open">Open Direction A →</div>
+    </a>
+
+    <a class="card" href="./mockup-paid-ads-b-stacked.html">
+      <span class="tag">Direction B</span>
+      <h2>Stacked Sections</h2>
+      <div class="ascii">Paid Ads
+KPI KPI KPI KPI KPI
+[G] Google Ads  · table
+[f] Meta        · table
+[♪] TikTok  (connect)</div>
+      <p>Every platform on one scrollable page, each with its own labeled table + subtotal row. See everything at a glance, no clicking.</p>
+      <div class="best">Best for: scanning all platforms together</div>
+      <div class="open">Open Direction B →</div>
+    </a>
+
+    <a class="card" href="./mockup-paid-ads-c-unified.html">
+      <span class="tag">Direction C</span>
+      <h2>Unified Table</h2>
+      <div class="ascii">Paid Ads
+KPI KPI KPI KPI KPI
+(All)(Google)(Meta)(+TikTok)
+| one table, Platform column |
+| sorted by spend            |</div>
+      <p>One combined table across all platforms with a Platform column, sorted by spend. Filter chips narrow to a platform. Most "single source of truth."</p>
+      <div class="best">Best for: ranking spend across platforms</div>
+      <div class="open">Open Direction C →</div>
+    </a>
+  </div>
+</body>
+</html>

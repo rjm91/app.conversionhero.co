@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paid Ads — Direction B: Stacked Platform Sections</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0b0e1a; --surface:#111528; --surface2:#161b30; --border:rgba(255,255,255,0.06);
+      --border2:rgba(255,255,255,0.10); --text:#e8ecf4; --muted:#7a8bb5; --dim:#4a5678;
+      --blue:#3b82f6; --ch-green:#34d399; --ch-green-soft:rgba(52,211,153,0.12); --radius:12px;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif; background:var(--bg); color:var(--text); font-size:14px; -webkit-font-smoothing:antialiased; padding:32px; }
+    .page-head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+    h1 { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+    .sub-row { display:flex; align-items:center; gap:12px; margin-top:6px; }
+    .synced { color:var(--dim); font-size:13px; }
+    .btn-ghost { font-size:12px; font-weight:600; border:1px solid var(--border2); padding:4px 12px; border-radius:8px; color:var(--muted); background:transparent; cursor:pointer; }
+    .live { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--ch-green); letter-spacing:0.04em; }
+    .live .dot { width:6px; height:6px; border-radius:50%; background:var(--ch-green); animation:pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .filters { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .filters label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
+    .filters input,.filters select { background:var(--surface2); border:1px solid var(--border2); border-radius:8px; padding:6px 10px; color:var(--text); font-size:13px; outline:none; }
+    .btn-blue { background:var(--blue); color:#fff; font-size:13px; font-weight:600; padding:6px 16px; border-radius:8px; border:none; cursor:pointer; }
+
+    .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; margin-bottom:26px; }
+    .chart-card .card-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:12px; }
+    .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:26px; }
+    .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+    .kpi.ch { border-color:rgba(52,211,153,0.25); background:linear-gradient(180deg,var(--ch-green-soft),transparent); }
+    .kpi .label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    .kpi .val { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+    .kpi .delta { font-size:12px; font-weight:600; margin-top:4px; color:var(--ch-green); }
+    .ch-pill { font-size:9px; font-weight:800; color:var(--ch-green); background:var(--ch-green-soft); border-radius:5px; padding:1px 5px; }
+
+    /* platform section */
+    .section { margin-bottom:28px; }
+    .sec-head { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .sec-ico { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; font-weight:800; font-size:15px; color:#fff; }
+    .sec-ico.google { background:#fff; color:#4285F4; border:1px solid #e3e8f0; }
+    .sec-ico.meta { background:#0866FF; }
+    .sec-ico.tiktok { background:#000; }
+    .sec-title { font-size:16px; font-weight:700; }
+    .sec-stat { font-size:13px; color:var(--muted); }
+    .sec-stat b { color:var(--text); }
+    .sec-head .spacer { flex:1; }
+    .chip-ch { font-size:12px; color:var(--ch-green); background:var(--ch-green-soft); border:1px solid rgba(52,211,153,0.25); padding:3px 10px; border-radius:20px; font-weight:600; }
+    .collapse-btn { font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--border2); border-radius:7px; padding:4px 10px; cursor:pointer; }
+
+    .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    thead { background:var(--surface2); }
+    th { text-align:right; padding:11px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted); white-space:nowrap; }
+    th.l { text-align:left; }
+    th.ch-col,td.ch-col { background:rgba(52,211,153,0.05); }
+    th.ch-col { color:var(--ch-green); }
+    td { padding:13px 14px; text-align:right; font-size:13px; border-top:1px solid var(--border); white-space:nowrap; }
+    td.l { text-align:left; }
+    .camp-name { font-weight:600; } .camp-id { font-size:11px; color:var(--dim); margin-top:2px; }
+    .status { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--ch-green); }
+    .status .dot { width:6px; height:6px; border-radius:50%; background:var(--ch-green); }
+    .status.paused { color:var(--dim); } .status.paused .dot { background:var(--dim); }
+    .ch-val { color:var(--ch-green); font-weight:600; } .muted { color:var(--dim); }
+    tfoot td { background:var(--surface2); font-weight:700; border-top:2px solid var(--border2); }
+
+    .connect-card { background:var(--surface); border:1px dashed var(--border2); border-radius:var(--radius); padding:28px; display:flex; align-items:center; gap:16px; }
+    .connect-card .txt { flex:1; } .connect-card .big { font-weight:600; margin-bottom:3px; }
+    .connect-card .sm { font-size:13px; color:var(--muted); }
+    .connect-card button { background:var(--surface3,#1c2138); color:var(--text); border:1px solid var(--border2); border-radius:8px; padding:8px 16px; font-weight:600; font-size:13px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="page-head">
+    <div>
+      <h1>Paid Ads</h1>
+      <div class="sub-row">
+        <span class="synced">Last synced Jun 8, 12:47 AM</span>
+        <button class="btn-ghost">Refresh</button>
+        <span class="live"><span class="dot"></span>LIVE</span>
+      </div>
+    </div>
+    <div class="filters">
+      <label>Start</label><input type="date" value="2026-06-01" />
+      <label>End</label><input type="date" value="2026-06-05" />
+      <button class="btn-blue">Apply</button>
+      <input type="text" placeholder="Filter campaigns…" style="width:160px" />
+    </div>
+  </div>
+
+  <!-- Ad Spend chart (existing Chart.js feature, kept) -->
+  <div class="chart-card">
+    <div class="card-title">Ad Spend</div>
+    <div style="height:180px"><canvas id="spendChart"></canvas></div>
+  </div>
+
+  <!-- Google section -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-ico google">G</div>
+      <div><div class="sec-title">Google Ads</div><div class="sec-stat"><b>$5,180</b> spend · 4 campaigns</div></div>
+      <div class="spacer"></div>
+      <span class="chip-ch">22 CH conversions · $235 CH CPA</span>
+      <button class="collapse-btn">Collapse</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="l">Campaign</th><th>Status</th><th>Budget/day</th><th>Cost</th><th>Clicks</th><th>CPC</th><th>Conv</th><th>Cost/Conv</th><th class="ch-col">Conv (CH)</th><th class="ch-col">Cost/Conv (CH)</th></tr></thead>
+        <tbody>
+          <tr><td class="l"><div class="camp-name">PMax | Prospecting | US | All Products</div><div class="camp-id">ID: 23868142839</div></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$133</td><td>$293.44</td><td>172</td><td>$1.71</td><td><span class="muted">0</span></td><td class="muted">$0.00</td><td class="ch-col"><span class="ch-val">6</span></td><td class="ch-col"><span class="ch-val">$48.90</span></td></tr>
+          <tr><td class="l"><div class="camp-name">Shopping | Prospecting | US</div><div class="camp-id">ID: 23903417651</div></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$130</td><td>$30.47</td><td>43</td><td>$0.71</td><td>2</td><td>$15.24</td><td class="ch-col"><span class="ch-val">3</span></td><td class="ch-col"><span class="ch-val">$10.16</span></td></tr>
+          <tr><td class="l"><div class="camp-name">Search | Brand | Exact</div><div class="camp-id">ID: 23811240097</div></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$60</td><td>$144.10</td><td>88</td><td>$1.64</td><td>9</td><td>$16.01</td><td class="ch-col"><span class="ch-val">11</span></td><td class="ch-col"><span class="ch-val">$13.10</span></td></tr>
+          <tr><td class="l"><div class="camp-name">Search | Non-Brand | Wipers</div><div class="camp-id">ID: 23811240511</div></td><td><span class="status paused"><span class="dot"></span>Paused</span></td><td>$45</td><td>$71.20</td><td>51</td><td>$1.40</td><td>1</td><td>$71.20</td><td class="ch-col"><span class="ch-val">2</span></td><td class="ch-col"><span class="ch-val">$35.60</span></td></tr>
+        </tbody>
+        <tfoot><tr><td class="l">Google total</td><td></td><td></td><td>$539.21</td><td>354</td><td>$1.52</td><td>12</td><td>$44.93</td><td class="ch-col"><span class="ch-val">22</span></td><td class="ch-col"><span class="ch-val">$24.51</span></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Facebook section -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-ico meta">f</div>
+      <div><div class="sec-title">Meta (Facebook)</div><div class="sec-stat"><b>$3,240</b> spend · 3 campaigns</div></div>
+      <div class="spacer"></div>
+      <span class="chip-ch">95 CH conversions · $34 CH CPA</span>
+      <button class="collapse-btn">Collapse</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="l">Campaign / Ad Set</th><th>Status</th><th>Budget/day</th><th>Cost</th><th>Clicks</th><th>CPC</th><th>Conv</th><th>Cost/Conv</th><th class="ch-col">Conv (CH)</th><th class="ch-col">Cost/Conv (CH)</th></tr></thead>
+        <tbody>
+          <tr><td class="l"><div class="camp-name">ABO | Prospecting | Broad | Wipers</div><div class="camp-id">ID: 120210984471020</div></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$120</td><td>$1,240.55</td><td>980</td><td>$1.27</td><td>14</td><td>$88.61</td><td class="ch-col"><span class="ch-val">31</span></td><td class="ch-col"><span class="ch-val">$40.02</span></td></tr>
+          <tr><td class="l"><div class="camp-name">Advantage+ | Catalog Sales</div><div class="camp-id">ID: 120210984471988</div></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$150</td><td>$1,510.20</td><td>1,320</td><td>$1.14</td><td>22</td><td>$68.65</td><td class="ch-col"><span class="ch-val">40</span></td><td class="ch-col"><span class="ch-val">$37.76</span></td></tr>
+          <tr><td class="l"><div class="camp-name">Retargeting | 7d Site Visitors</div><div class="camp-id">ID: 120210984472455</div></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$50</td><td>$489.25</td><td>410</td><td>$1.19</td><td>18</td><td>$27.18</td><td class="ch-col"><span class="ch-val">24</span></td><td class="ch-col"><span class="ch-val">$20.39</span></td></tr>
+        </tbody>
+        <tfoot><tr><td class="l">Meta total</td><td></td><td></td><td>$3,240.00</td><td>2,710</td><td>$1.20</td><td>54</td><td>$60.00</td><td class="ch-col"><span class="ch-val">95</span></td><td class="ch-col"><span class="ch-val">$34.11</span></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- TikTok connect -->
+  <div class="section">
+    <div class="connect-card">
+      <div class="sec-ico tiktok">♪</div>
+      <div class="txt"><div class="big">TikTok Ads</div><div class="sm">Connect TikTok to pull spend and reconcile it against CH-attributed conversions — same as Google &amp; Meta.</div></div>
+      <button>Connect TikTok →</button>
+    </div>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('spendChart');
+    const grad = (color) => {
+      const g = ctx.getContext('2d').createLinearGradient(0, 0, 0, 180);
+      g.addColorStop(0, color + '40'); g.addColorStop(1, color + '00');
+      return g;
+    };
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['Jun 1', 'Jun 2', 'Jun 3', 'Jun 4', 'Jun 5'],
+        datasets: [
+          { label: 'Google', data: [820, 980, 1040, 1120, 1220], borderColor: '#4285F4', backgroundColor: grad('#4285F4'), borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#4285F4' },
+          { label: 'Meta', data: [540, 610, 660, 690, 740], borderColor: '#0866FF', backgroundColor: grad('#0866FF'), borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#0866FF' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#7a8bb5', usePointStyle: true, boxWidth: 8, padding: 16 } } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#4a5678' } },
+          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#4a5678', callback: v => '$' + v } },
+        },
+      },
+    });
+  </script>
+</body>
+</html>

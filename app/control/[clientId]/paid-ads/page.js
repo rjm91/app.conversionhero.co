@@ -84,6 +84,7 @@ export default function PaidAdsPage() {
   const [view, setView]                     = useState('campaigns')
   const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }
   const [selectedAdGroup, setSelectedAdGroup]   = useState(null) // { ad_group_id, ad_group_name }
+  const [googleOpen, setGoogleOpen]         = useState(true)     // Google Ads accordion expanded
 
   useEffect(() => {
     const oauthError = searchParams.get('google_ads_error')
@@ -716,7 +717,35 @@ export default function PaidAdsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
-                {filtered.map((row, i) => {
+                {view === 'campaigns' && filtered.length > 0 && (
+                  <tr
+                    onClick={() => setGoogleOpen(o => !o)}
+                    className="cursor-pointer select-none bg-blue-50/60 dark:bg-blue-500/[0.06] hover:bg-blue-100/70 dark:hover:bg-blue-500/[0.10] border-t-2 border-gray-200 dark:border-white/[0.08] transition-colors"
+                  >
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform ${googleOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        <span className="w-6 h-6 rounded-md bg-white border border-gray-200 grid place-items-center text-[11px] font-extrabold text-[#4285F4] flex-shrink-0">G</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">Google Ads</span>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{filtered.length} campaign{filtered.length === 1 ? '' : 's'}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    {showBudget && (
+                      <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmtBudget(totals.budget)}</td>
+                    )}
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totals.cost)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{totals.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">{totals.chConv}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
+                  </tr>
+                )}
+                {(view !== 'campaigns' || googleOpen) && filtered.map((row, i) => {
                   const costPerConv = row.conversions > 0 ? Number(row.cost) / Number(row.conversions) : 0
                   const chLeads     = getChLeads(row)
                   const chCost      = chLeads > 0 ? Number(row.cost) / chLeads : 0
@@ -779,7 +808,7 @@ export default function PaidAdsPage() {
                 })}
               </tbody>
 
-              {filtered.length > 0 && (
+              {filtered.length > 0 && view !== 'campaigns' && (
                 <tfoot className="border-t-2 border-gray-200 dark:border-white/[0.08] bg-gray-50 dark:bg-[#161b30]">
                   <tr>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
@@ -816,6 +845,32 @@ export default function PaidAdsPage() {
           </div>
         )}
       </div>
+
+      {/* Other ad platforms — connect to add them to the blended attribution view */}
+      {view === 'campaigns' && (
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center gap-4 bg-white dark:bg-[#111528] rounded-xl border border-dashed border-gray-200 dark:border-white/[0.10] px-5 py-4">
+            <span className="w-7 h-7 rounded-md bg-[#0866FF] grid place-items-center text-sm font-extrabold text-white flex-shrink-0">f</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Meta (Facebook)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Connect Meta Ads to pull spend and match it to CH-attributed conversions.</p>
+            </div>
+            <button className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">
+              Connect Meta →
+            </button>
+          </div>
+          <div className="flex items-center gap-4 bg-white dark:bg-[#111528] rounded-xl border border-dashed border-gray-200 dark:border-white/[0.10] px-5 py-4">
+            <span className="w-7 h-7 rounded-md bg-black grid place-items-center text-sm font-extrabold text-white flex-shrink-0">♪</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">TikTok Ads</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Connect TikTok Ads to pull spend and match it to CH-attributed conversions.</p>
+            </div>
+            <button className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">
+              Connect TikTok →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

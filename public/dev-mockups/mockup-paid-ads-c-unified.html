@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paid Ads — Direction C: Unified Table</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0b0e1a; --surface:#111528; --surface2:#161b30; --surface3:#1c2138; --border:rgba(255,255,255,0.06);
+      --border2:rgba(255,255,255,0.10); --text:#e8ecf4; --muted:#7a8bb5; --dim:#4a5678;
+      --blue:#3b82f6; --ch-green:#34d399; --ch-green-soft:rgba(52,211,153,0.12); --radius:12px;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif; background:var(--bg); color:var(--text); font-size:14px; -webkit-font-smoothing:antialiased; padding:32px; }
+    .page-head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+    h1 { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+    .sub-row { display:flex; align-items:center; gap:12px; margin-top:6px; }
+    .synced { color:var(--dim); font-size:13px; }
+    .btn-ghost { font-size:12px; font-weight:600; border:1px solid var(--border2); padding:4px 12px; border-radius:8px; color:var(--muted); background:transparent; cursor:pointer; }
+    .live { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--ch-green); letter-spacing:0.04em; }
+    .live .dot { width:6px; height:6px; border-radius:50%; background:var(--ch-green); animation:pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .filters { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .filters label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
+    .filters input { background:var(--surface2); border:1px solid var(--border2); border-radius:8px; padding:6px 10px; color:var(--text); font-size:13px; outline:none; }
+    .btn-blue { background:var(--blue); color:#fff; font-size:13px; font-weight:600; padding:6px 16px; border-radius:8px; border:none; cursor:pointer; }
+
+    .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+    .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+    .kpi.ch { border-color:rgba(52,211,153,0.25); background:linear-gradient(180deg,var(--ch-green-soft),transparent); }
+    .kpi .label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    .kpi .val { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+    .kpi .delta { font-size:12px; font-weight:600; margin-top:4px; color:var(--ch-green); }
+    .ch-pill { font-size:9px; font-weight:800; color:var(--ch-green); background:var(--ch-green-soft); border-radius:5px; padding:1px 5px; }
+
+    /* platform filter chips */
+    .chips { display:flex; gap:8px; margin-bottom:14px; align-items:center; }
+    .chip { display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border2); border-radius:20px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; color:var(--muted); }
+    .chip.active { color:var(--text); border-color:var(--blue); background:rgba(59,130,246,0.10); }
+    .chip .d { width:9px; height:9px; border-radius:3px; }
+    .chip .ct { font-size:11px; color:var(--dim); font-weight:600; }
+    .chip.add { border-style:dashed; color:var(--dim); }
+
+    .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    thead { background:var(--surface2); }
+    th { text-align:right; padding:11px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted); white-space:nowrap; cursor:pointer; }
+    th.l { text-align:left; }
+    th.ch-col,td.ch-col { background:rgba(52,211,153,0.05); }
+    th.ch-col { color:var(--ch-green); }
+    td { padding:13px 14px; text-align:right; font-size:13px; border-top:1px solid var(--border); white-space:nowrap; }
+    td.l { text-align:left; }
+    .camp-name { font-weight:600; } .camp-id { font-size:11px; color:var(--dim); margin-top:2px; }
+    .pl-tag { display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; }
+    .pl-tag .pico { width:20px; height:20px; border-radius:5px; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; }
+    .pico.google { background:#fff; color:#4285F4; border:1px solid #e3e8f0; }
+    .pico.meta { background:#0866FF; }
+    .status { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--ch-green); }
+    .status .dot { width:6px; height:6px; border-radius:50%; background:var(--ch-green); }
+    .status.paused { color:var(--dim); } .status.paused .dot { background:var(--dim); }
+    .ch-val { color:var(--ch-green); font-weight:600; } .muted { color:var(--dim); }
+    tr.hide { display:none; }
+    .note { font-size:12px; color:var(--dim); margin-top:14px; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div class="page-head">
+    <div>
+      <h1>Paid Ads</h1>
+      <div class="sub-row">
+        <span class="synced">Last synced Jun 8, 12:47 AM</span>
+        <button class="btn-ghost">Refresh</button>
+        <span class="live"><span class="dot"></span>LIVE</span>
+      </div>
+    </div>
+    <div class="filters">
+      <label>Start</label><input type="date" value="2026-06-01" />
+      <label>End</label><input type="date" value="2026-06-05" />
+      <button class="btn-blue">Apply</button>
+      <input type="text" placeholder="Filter campaigns…" style="width:160px" />
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Total Ad Spend</div><div class="val">$8,420</div><div class="delta">+12% vs prior</div></div>
+    <div class="kpi ch"><div class="label">Tracked Conv <span class="ch-pill">CH</span></div><div class="val">135</div><div class="delta">+24%</div></div>
+    <div class="kpi ch"><div class="label">Tracked Revenue <span class="ch-pill">CH</span></div><div class="val">$41,180</div><div class="delta">+19%</div></div>
+    <div class="kpi ch"><div class="label">Blended ROAS <span class="ch-pill">CH</span></div><div class="val">4.89x</div><div class="delta">+0.6x</div></div>
+    <div class="kpi ch"><div class="label">Blended CPA <span class="ch-pill">CH</span></div><div class="val">$62.37</div><div class="delta">−14%</div></div>
+  </div>
+
+  <!-- Platform filter chips (multi-select) -->
+  <div class="chips">
+    <div class="chip active" data-pl="all" onclick="filterPl(this)">All Platforms <span class="ct">7</span></div>
+    <div class="chip" data-pl="google" onclick="filterPl(this)"><span class="d" style="background:#4285F4"></span>Google <span class="ct">4</span></div>
+    <div class="chip" data-pl="meta" onclick="filterPl(this)"><span class="d" style="background:#0866FF"></span>Meta <span class="ct">3</span></div>
+    <div class="chip add">+ Connect TikTok</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="l">Campaign</th><th class="l">Platform</th><th>Status</th><th>Cost ↓</th><th>Clicks</th><th>CPC</th>
+        <th>Conv</th><th>Cost/Conv</th><th class="ch-col">Conv (CH)</th><th class="ch-col">Cost/Conv (CH)</th>
+      </tr></thead>
+      <tbody>
+        <tr data-pl="meta"><td class="l"><div class="camp-name">Advantage+ | Catalog Sales</div><div class="camp-id">ID: 120210984471988</div></td><td class="l"><span class="pl-tag"><span class="pico meta">f</span>Meta</span></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$1,510.20</td><td>1,320</td><td>$1.14</td><td>22</td><td>$68.65</td><td class="ch-col"><span class="ch-val">40</span></td><td class="ch-col"><span class="ch-val">$37.76</span></td></tr>
+        <tr data-pl="meta"><td class="l"><div class="camp-name">ABO | Prospecting | Broad | Wipers</div><div class="camp-id">ID: 120210984471020</div></td><td class="l"><span class="pl-tag"><span class="pico meta">f</span>Meta</span></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$1,240.55</td><td>980</td><td>$1.27</td><td>14</td><td>$88.61</td><td class="ch-col"><span class="ch-val">31</span></td><td class="ch-col"><span class="ch-val">$40.02</span></td></tr>
+        <tr data-pl="meta"><td class="l"><div class="camp-name">Retargeting | 7d Site Visitors</div><div class="camp-id">ID: 120210984472455</div></td><td class="l"><span class="pl-tag"><span class="pico meta">f</span>Meta</span></td><td><span class="status"><span class="dot"></span>Active</span></td><td>$489.25</td><td>410</td><td>$1.19</td><td>18</td><td>$27.18</td><td class="ch-col"><span class="ch-val">24</span></td><td class="ch-col"><span class="ch-val">$20.39</span></td></tr>
+        <tr data-pl="google"><td class="l"><div class="camp-name">PMax | Prospecting | US | All Products</div><div class="camp-id">ID: 23868142839</div></td><td class="l"><span class="pl-tag"><span class="pico google">G</span>Google</span></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$293.44</td><td>172</td><td>$1.71</td><td><span class="muted">0</span></td><td class="muted">$0.00</td><td class="ch-col"><span class="ch-val">6</span></td><td class="ch-col"><span class="ch-val">$48.90</span></td></tr>
+        <tr data-pl="google"><td class="l"><div class="camp-name">Search | Brand | Exact</div><div class="camp-id">ID: 23811240097</div></td><td class="l"><span class="pl-tag"><span class="pico google">G</span>Google</span></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$144.10</td><td>88</td><td>$1.64</td><td>9</td><td>$16.01</td><td class="ch-col"><span class="ch-val">11</span></td><td class="ch-col"><span class="ch-val">$13.10</span></td></tr>
+        <tr data-pl="google"><td class="l"><div class="camp-name">Search | Non-Brand | Wipers</div><div class="camp-id">ID: 23811240511</div></td><td class="l"><span class="pl-tag"><span class="pico google">G</span>Google</span></td><td><span class="status paused"><span class="dot"></span>Paused</span></td><td>$71.20</td><td>51</td><td>$1.40</td><td>1</td><td>$71.20</td><td class="ch-col"><span class="ch-val">2</span></td><td class="ch-col"><span class="ch-val">$35.60</span></td></tr>
+        <tr data-pl="google"><td class="l"><div class="camp-name">Shopping | Prospecting | US</div><div class="camp-id">ID: 23903417651</div></td><td class="l"><span class="pl-tag"><span class="pico google">G</span>Google</span></td><td><span class="status"><span class="dot"></span>Enabled</span></td><td>$30.47</td><td>43</td><td>$0.71</td><td>2</td><td>$15.24</td><td class="ch-col"><span class="ch-val">3</span></td><td class="ch-col"><span class="ch-val">$10.16</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">One unified list across every platform, sorted by spend. The <b style="color:#34d399">Conv (CH)</b> / <b style="color:#34d399">Cost/Conv (CH)</b> columns are CH-attributed — your platform-independent source of truth — shown next to each platform's self-reported Conv so the gap is obvious. Use the chips above to focus a single platform.</p>
+
+<script>
+  function filterPl(el) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    const pl = el.dataset.pl;
+    document.querySelectorAll('tbody tr').forEach(tr => {
+      tr.classList.toggle('hide', pl !== 'all' && tr.dataset.pl !== pl);
+    });
+  }
+</script>
+</body>
+</html>
