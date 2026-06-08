@@ -112,8 +112,61 @@ export default function ContactsPage() {
     setLoading(false)
   }
 
+  // Open the panel for a brand-new, manually-entered lead
+  function openNew() {
+    setConfirmDelete(false)
+    setSelected({
+      lead_id:     null,            // null marks this as unsaved → handleSave inserts
+      client_id:   clientId,
+      first_name: '', last_name: '', email: '', phone: '',
+      address: '', city: '', state: '', zip_code: '',
+      lead_status: 'New / Not Yet Contacted',
+      appt_status: '', sale_status: '', sale_amount: null,
+      appt_date: '', appt_time: '', ch_notes: '',
+    })
+  }
+
   async function handleSave() {
     setSaving(true)
+
+    // ─── Create a new lead ───
+    if (!selected.lead_id) {
+      const leadId = crypto.randomUUID()
+      const row = {
+        lead_id:     leadId,
+        client_id:   clientId,
+        first_name:  selected.first_name || null,
+        last_name:   selected.last_name || null,
+        email:       selected.email || null,
+        phone:       selected.phone || null,
+        address:     selected.address || null,
+        city:        selected.city || null,
+        state:       selected.state || null,
+        zip_code:    selected.zip_code || null,
+        lead_status: selected.lead_status || 'New / Not Yet Contacted',
+        appt_status: selected.appt_status || null,
+        sale_status: selected.sale_status || null,
+        sale_amount: selected.sale_amount ?? null,
+        appt_date:   selected.appt_date || null,
+        appt_time:   selected.appt_time || null,
+        ch_notes:    selected.ch_notes || null,
+        created_at:  new Date().toISOString(),
+      }
+      const { data, error } = await supabase.from('client_lead').insert(row).select().single()
+      if (!error) {
+        const saved = data || row
+        setLeads(prev => [saved, ...prev])
+        setSelected(saved)
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 2000)
+      } else {
+        console.error('Error creating lead:', error)
+      }
+      setSaving(false)
+      return
+    }
+
+    // ─── Update an existing lead ───
     const { error } = await supabase
       .from('client_lead')
       .update({
@@ -253,6 +306,13 @@ export default function ContactsPage() {
             onChange={e => setSearch(e.target.value)}
             className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
           />
+          <button
+            onClick={openNew}
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition whitespace-nowrap"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            New Lead
+          </button>
         </div>
       </div>
 
@@ -261,7 +321,16 @@ export default function ContactsPage() {
         {loading ? (
           <p className="text-gray-400 text-sm p-8">Loading contacts...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-gray-400 text-sm p-8">No contacts found.</p>
+          <div className="p-8 text-center">
+            <p className="text-gray-400 text-sm mb-4">{leads.length === 0 ? 'No leads yet.' : 'No contacts match your search.'}</p>
+            <button
+              onClick={openNew}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              New Lead
+            </button>
+          </div>
         ) : (
           <table className="w-full">
             <thead>
@@ -365,8 +434,10 @@ export default function ContactsPage() {
                   </span>
                 </div>
                 <div>
-                  <h2 className="font-semibold text-gray-900 dark:text-white">{selected.first_name} {selected.last_name}</h2>
-                  <p className="text-xs text-gray-400">{selected.lead_id}</p>
+                  <h2 className="font-semibold text-gray-900 dark:text-white">
+                    {(selected.first_name || selected.last_name) ? `${selected.first_name} ${selected.last_name}` : 'New Contact'}
+                  </h2>
+                  <p className="text-xs text-gray-400">{selected.lead_id || 'Unsaved lead'}</p>
                 </div>
               </div>
               <button
@@ -552,6 +623,8 @@ export default function ContactsPage() {
                 </div>
               </div>
 
+              {selected.lead_id && (
+                <>
               {/* Resend Notification */}
               <div className="border border-blue-100 dark:border-blue-500/20 rounded-xl p-4">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notification</p>
@@ -607,6 +680,8 @@ export default function ContactsPage() {
                   </div>
                 )}
               </div>
+                </>
+              )}
 
             </div>
 
@@ -620,7 +695,7 @@ export default function ContactsPage() {
                 disabled={saving}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50"
               >
-                {saving ? 'Saving...' : saveSuccess ? '✓ Saved!' : 'Save Changes'}
+                {saving ? 'Saving...' : saveSuccess ? '✓ Saved!' : selected.lead_id ? 'Save Changes' : 'Create Lead'}
               </button>
             </div>
           </div>
