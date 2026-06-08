@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import ColdEmailCacCalculator from '../../../components/ColdEmailCacCalculator'
 
 const STATUS_OPTIONS = ['All Status', 'New', 'Contacted', 'Replied', 'Bounced', 'Unsubscribed']
 
@@ -18,6 +19,7 @@ export default function ProspectingPage() {
   const [status, setStatus] = useState('All Status')
   const [convertedIds, setConvertedIds] = useState(new Set())
   const [converting, setConverting] = useState(null)
+  const [showCac, setShowCac] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -123,8 +125,14 @@ export default function ProspectingPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
+      {showCac && <ColdEmailCacCalculator onClose={() => setShowCac(false)} />}
+      <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <button onClick={() => setShowCac(true)}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 px-3.5 py-2 rounded-lg transition">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /></svg>
+          CAC Calculator
+        </button>
       </div>
 
       {/* Stat Cards */}
