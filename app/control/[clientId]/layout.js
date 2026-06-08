@@ -293,21 +293,17 @@ export default function ClientLayout({ children }) {
             {clientInitials}
           </button>
 
-          {/* Name + chevron — collapses away */}
-          <div
-            className="flex items-center gap-1.5 overflow-hidden transition-all duration-300"
-            style={{ width: isCollapsed ? 0 : 140, opacity: isCollapsed ? 0 : 1 }}
+          {/* Name + chevron — collapses away. Whole row is the dropdown toggle. */}
+          <button
+            onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
+            className="flex items-center gap-1.5 overflow-hidden transition-all duration-300 rounded hover:bg-white/[0.08] px-1.5 -mx-1.5 py-1 group"
+            style={{ width: isCollapsed ? 0 : 168, opacity: isCollapsed ? 0 : 1 }}
           >
-            <span className="text-white font-semibold text-[13px] whitespace-nowrap">
+            <span className="text-white font-semibold text-[13px] truncate min-w-0">
               {clientName || 'Client'}
             </span>
-            <button
-              onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
-              className="p-1 rounded hover:bg-white/[0.08] transition flex-shrink-0"
-            >
-              <svg className="w-3 h-3 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
-          </div>
+            <svg className="w-3 h-3 text-gray-500 group-hover:text-gray-300 transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
 
           {/* Account switcher dropdown */}
           {openDropdown === 'brand' && isAgencyAdmin && (
