@@ -262,7 +262,7 @@ export default function AgentPanel({ mode = 'client' }) {
     : pathname.includes('/library') ? 'Library'
     : pathname.includes('/contacts') ? 'Leads'
     : pathname.includes('/campaign-builder') ? 'Campaign Builder'
-    : pathname.includes('/youtube-ads') ? 'Ads'
+    : pathname.includes('/paid-ads') ? 'Ads'
     : pathname.includes('/billing') ? 'Billing'
     : pathname.includes('/company') ? 'Company'
     : pathname.includes('/dashboard') ? 'Dashboard'

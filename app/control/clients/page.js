@@ -620,7 +620,7 @@ export default function ClientsPage() {
                   {[
                     { icon: '📊', label: 'Dashboard', path: 'dashboard' },
                     { icon: '👤', label: 'Contacts', path: 'contacts' },
-                    { icon: '▶️', label: 'Ads', path: 'youtube-ads' },
+                    { icon: '▶️', label: 'Ads', path: 'paid-ads' },
                     { icon: '🔄', label: 'Funnels', path: 'funnels' },
                     { icon: '🎬', label: 'Videos', path: 'videos' },
                     { icon: '💳', label: 'Billing', path: 'billing' },

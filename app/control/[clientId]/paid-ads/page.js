@@ -40,7 +40,7 @@ function isAuthError(msg) {
 
 const STATUS_OPTIONS = ['All', 'ENABLED', 'PAUSED']
 
-export default function YouTubeAdsPage() {
+export default function PaidAdsPage() {
   const { clientId } = useParams()
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -527,7 +527,7 @@ export default function YouTubeAdsPage() {
 
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Google Ads</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Paid Ads</h1>
           <div className="flex items-center gap-3 mt-1">
             <span className="text-gray-400 dark:text-gray-500 text-sm">{syncedLabel}</span>
             <button

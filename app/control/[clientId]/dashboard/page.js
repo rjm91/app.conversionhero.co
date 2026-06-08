@@ -308,7 +308,7 @@ export default function DashboardPage() {
             <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/5">
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">Active Campaigns</span>
-                <a href={`/control/${clientId}/youtube-ads`} className="text-xs text-blue-500 hover:text-blue-400">See all →</a>
+                <a href={`/control/${clientId}/paid-ads`} className="text-xs text-blue-500 hover:text-blue-400">See all →</a>
               </div>
               {campaignRows.length === 0 ? (
                 <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No active campaigns — ads may be paused</p>

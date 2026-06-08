@@ -287,7 +287,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const onboardingPipeline = {
     title: 'Onboarding',
     count: onboardingLeads.length,
-    columns: ['','Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Appointment Date','Deal Value',''],
+    columns: ['Notes','Submitted','Onboarding Status','Contact Name','Company','Email','Phone','Appointment Date','Deal Value',''],
     summaryMap: {},
     rows: onboardingRows,
   }
@@ -299,7 +299,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const salesPipeline = {
     title: 'Sales',
     count: salesLeads.length,
-    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
+    columns: ['Notes','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
     summaryMap: proposalCount ? { 4: { value: `${proposalCount} Agreement Sent` } } : {},
     rows: salesRows,
   }
@@ -312,7 +312,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const appointmentsPipeline = {
     title: 'Appointments',
     count: apptLeads.length,
-    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
+    columns: ['Notes','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone','Appointment Date',''],
     summaryMap: { 3: { value: `${completeAppts} Complete, ${upcomingAppts} Upcoming` } },
     rows: apptRows,
   }
@@ -329,7 +329,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   const leadsPipeline = {
     title: 'Leads',
     count: onlyLeads.length,
-    columns: ['','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone',''],
+    columns: ['Notes','Submitted','Lead Status','Appointment Status','Sale Status','Contact Name','Company','Email','Phone',''],
     summaryMap: leadSummaryParts.length ? { 2: { value: leadSummaryParts.join(', ') } } : {},
     rows: leadRows,
   }
