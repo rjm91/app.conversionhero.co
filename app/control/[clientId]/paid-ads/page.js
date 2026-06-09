@@ -650,7 +650,7 @@ export default function PaidAdsPage() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#111528] rounded-xl border border-gray-100 dark:border-white/[0.06] shadow-sm dark:shadow-none overflow-hidden">
+      <div className="bg-white dark:bg-[#161b30] rounded-xl border border-gray-100 dark:border-white/[0.06] shadow-sm dark:shadow-none overflow-hidden">
 
         {/* Breadcrumb Navigation */}
         {view !== 'campaigns' && (
@@ -696,7 +696,7 @@ export default function PaidAdsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-[#161b30] border-b border-gray-100 dark:border-white/[0.06]">
+              <thead className="bg-gray-50 dark:bg-[#0d1020] border-b border-gray-100 dark:border-white/[0.06]">
                 <tr>
                   <th onClick={() => toggleSort('name')} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[260px] cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">{nameLabel}{arrow('name')}</th>
                   <th onClick={() => toggleSort('status')} className="text-center px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Status{arrow('status')}</th>
@@ -708,10 +708,10 @@ export default function PaidAdsPage() {
                   <th onClick={() => toggleSort('cpc')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">CPC{arrow('cpc')}</th>
                   <th onClick={() => toggleSort('conversions')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Conv.{arrow('conversions')}</th>
                   <th onClick={() => toggleSort('cost_per_conversion')} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost / Conv.{arrow('cost_per_conversion')}</th>
-                  <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chConv')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Conv. (CH){arrow('chConv')}
                   </th>
-                  <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chCost')} className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Cost / Conv. (CH){arrow('chCost')}
                   </th>
                 </tr>
@@ -741,8 +741,8 @@ export default function PaidAdsPage() {
                     <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
                     <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">{totals.chConv}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">{totals.chConv}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
                   </tr>
                 )}
                 {(view !== 'campaigns' || googleOpen) && filtered.map((row, i) => {
@@ -797,10 +797,10 @@ export default function PaidAdsPage() {
                         {Number(row.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                       </td>
                       <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-300">{fmt$(costPerConv)}</td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] ">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] ">
                         {chLeads}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">
+                      <td className="px-4 py-4 text-right font-semibold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">
                         {chLeads > 0 ? fmt$(chCost) : '—'}
                       </td>
                     </tr>
@@ -809,7 +809,7 @@ export default function PaidAdsPage() {
               </tbody>
 
               {filtered.length > 0 && view !== 'campaigns' && (
-                <tfoot className="border-t-2 border-gray-200 dark:border-white/[0.08] bg-gray-50 dark:bg-[#161b30]">
+                <tfoot className="border-t-2 border-gray-200 dark:border-white/[0.08] bg-gray-50 dark:bg-[#0d1020]">
                   <tr>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
                     <td></td>
@@ -823,8 +823,8 @@ export default function PaidAdsPage() {
                       {totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30] ">{totals.chConv}</td>
-                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#161b30]">
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] ">{totals.chConv}</td>
+                    <td className="px-4 py-4 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">
                       {totals.chConv > 0 ? fmt$(totalChCost) : '—'}
                     </td>
                   </tr>
