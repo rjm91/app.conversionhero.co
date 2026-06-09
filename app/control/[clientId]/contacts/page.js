@@ -314,8 +314,8 @@ export default function ContactsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contacts</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{leads.length} total leads</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isEcom ? 'Customers' : 'Contacts'}</h1>
+          <p className="text-gray-400 text-sm mt-0.5">{leads.length} total {isEcom ? 'orders' : 'leads'}</p>
         </div>
         <div className="flex items-center gap-3">
           {someChecked && (
@@ -327,7 +327,7 @@ export default function ContactsPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              {deleting ? 'Deleting…' : `Delete ${checked.size} lead${checked.size > 1 ? 's' : ''}`}
+              {deleting ? 'Deleting…' : `Delete ${checked.size} ${isEcom ? 'order' : 'lead'}${checked.size > 1 ? 's' : ''}`}
             </button>
           )}
           <input
@@ -337,13 +337,15 @@ export default function ContactsPage() {
             onChange={e => setSearch(e.target.value)}
             className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
           />
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition whitespace-nowrap"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            New Lead
-          </button>
+          {!isEcom && (
+            <button
+              onClick={openNew}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition whitespace-nowrap"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              New Lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -353,14 +355,16 @@ export default function ContactsPage() {
           <p className="text-gray-400 text-sm p-8">Loading contacts...</p>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-gray-400 text-sm mb-4">{leads.length === 0 ? 'No leads yet.' : 'No contacts match your search.'}</p>
-            <button
-              onClick={openNew}
-              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              New Lead
-            </button>
+            <p className="text-gray-400 text-sm mb-4">{leads.length === 0 ? (isEcom ? 'No orders yet.' : 'No leads yet.') : `No ${isEcom ? 'orders' : 'contacts'} match your search.`}</p>
+            {!isEcom && (
+              <button
+                onClick={openNew}
+                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                New Lead
+              </button>
+            )}
           </div>
         ) : (
           <table className="w-full">

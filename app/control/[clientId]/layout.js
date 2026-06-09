@@ -182,6 +182,7 @@ export default function ClientLayout({ children }) {
   const { clientId } = useParams()
   const pathname = usePathname()
   const [clientName, setClientName] = useState('')
+  const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
   const [clients, setClients] = useState([])
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
@@ -215,8 +216,8 @@ export default function ClientLayout({ children }) {
   // Fetch client name and role
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('client').select('client_name').eq('client_id', clientId).single()
-      .then(({ data }) => { if (data) setClientName(data.client_name) })
+    supabase.from('client').select('client_name, is_ecom').eq('client_id', clientId).single()
+      .then(({ data }) => { if (data) { setClientName(data.client_name); setIsEcom(!!data.is_ecom) } })
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
     })
@@ -266,6 +267,9 @@ export default function ClientLayout({ children }) {
     if (item.matchPrefix) return pathname.startsWith(href)
     return pathname === href
   }
+
+  // Ecom accounts relabel the Contacts group/item as Customers/Orders.
+  const navLabel = (label) => isEcom ? ({ Contacts: 'Customers', Leads: 'Orders' }[label] || label) : label
 
   const clientInitials = clientName
     ? clientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -375,7 +379,7 @@ export default function ClientLayout({ children }) {
                 }`}
               >
                 {group.icon}
-                {group.label}
+                {navLabel(group.label)}
                 <span className="text-[8px] opacity-50 ml-0.5">&#9662;</span>
               </button>
 
@@ -383,7 +387,7 @@ export default function ClientLayout({ children }) {
               {openDropdown === groupId && (
                 <div className="absolute top-full left-0 mt-1.5 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[220px] z-[100] shadow-xl">
                   <div className="flex items-center justify-between px-3 pb-2 mb-1 border-b border-white/[0.06]">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{group.label}</span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{navLabel(group.label)}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); pinGroup(groupId) }}
                       className="w-6 h-6 rounded-md flex items-center justify-center text-gray-500 hover:bg-white/[0.08] hover:text-blue-400 transition relative group/pin"
@@ -405,7 +409,7 @@ export default function ClientLayout({ children }) {
                       }`}
                     >
                       <span className="w-[18px] flex justify-center flex-shrink-0">{item.icon}</span>
-                      {item.label}
+                      {navLabel(item.label)}
                     </Link>
                   ))}
                 </div>
@@ -440,7 +444,7 @@ export default function ClientLayout({ children }) {
                   {/* Group header — hidden when collapsed */}
                   {!isCollapsed && (
                     <div className="flex items-center justify-between px-2 py-1.5">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{group.label}</span>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{navLabel(group.label)}</span>
                       <button
                         onClick={() => unpinGroup(groupId)}
                         className="w-5 h-5 rounded flex items-center justify-center text-blue-400 hover:bg-white/[0.06] hover:text-gray-400 transition"
@@ -464,11 +468,11 @@ export default function ClientLayout({ children }) {
                       }`}
                     >
                       <span className={`flex justify-center flex-shrink-0 ${isCollapsed ? 'text-base' : 'w-[18px]'}`}>{item.icon}</span>
-                      {!isCollapsed && <span>{item.label}</span>}
+                      {!isCollapsed && <span>{navLabel(item.label)}</span>}
                       {/* Tooltip when collapsed */}
                       {isCollapsed && (
                         <span className="hidden group-hover/nav:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white text-[11px] px-2.5 py-1 rounded-md whitespace-nowrap z-[100]">
-                          {item.label}
+                          {navLabel(item.label)}
                         </span>
                       )}
                     </Link>
