@@ -68,7 +68,11 @@ Conversions are matched by injecting the platform's campaign ID into the URL (Go
 
 ---
 
-## Shopify Order Sync — Status & Remaining Steps (as of 2026-06-08)
+## Shopify Order Sync — ✅ LIVE (2026-06-09)
+
+**Working end-to-end for ShieldTech (ch069).** First sync pulled 1,073 orders → `client_lead`. Connection: custom app **CH - ShieldTech 2** (created in the *client's* own dev dashboard org — Client ID `127d465c5b67f8e8a38ea6f45764d634`), token captured via our OAuth callback into `shopify_connections`. Sync route `/api/sync-shopify-orders` (`?client_id=` for one, no param = all). Daily cron at 08:00 in `vercel.json`. Reads order name/email/total/lineItems + `customerJourneySummary.lastVisit.utmParameters` — name/email come from billing/shipping address + order email (NOT the `customer{}` field, which needs `read_customers` we don't have).
+
+### Historical notes (the painful path, kept for reference)
 
 **Goal:** Pull each Shopify order's customer name, email, product, amount, and UTM data, write it into the existing `client_lead` table so customers show on the Leads page AND auto-route to the right campaign via the existing `fetchAttribution()` UTM→campaign match (no new attribution logic). Product → lead Notes (`ch_notes`); amount → `sale_amount`; `utm_campaign` = the Google campaign ID.
 
