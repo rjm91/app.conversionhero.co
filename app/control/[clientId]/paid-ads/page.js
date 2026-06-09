@@ -708,10 +708,10 @@ export default function PaidAdsPage() {
                   <th onClick={() => toggleSort('cpc')} className="text-right px-2.5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">CPC{arrow('cpc')}</th>
                   <th onClick={() => toggleSort('conversions')} className="text-right px-2.5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Conv.{arrow('conversions')}</th>
                   <th onClick={() => toggleSort('cost_per_conversion')} className="text-right px-2.5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition">Cost / Conv.{arrow('cost_per_conversion')}</th>
-                  <th onClick={() => toggleSort('chConv')} className="text-right px-2.5 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chConv')} className="text-right px-2.5 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-gray-100 dark:bg-[#0e1628] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Conv. (CH){arrow('chConv')}
                   </th>
-                  <th onClick={() => toggleSort('chCost')} className="text-right px-2.5 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
+                  <th onClick={() => toggleSort('chCost')} className="text-right px-2.5 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-blue-600 dark:text-[#34d399] bg-gray-100 dark:bg-[#0e1628] cursor-pointer select-none hover:text-blue-800 dark:hover:text-[#6ee7b7] transition">
                     Cost / Conv. (CH){arrow('chCost')}
                   </th>
                 </tr>
@@ -720,7 +720,7 @@ export default function PaidAdsPage() {
                 {view === 'campaigns' && filtered.length > 0 && (
                   <tr
                     onClick={() => setGoogleOpen(o => !o)}
-                    className="cursor-pointer select-none bg-blue-50/60 dark:bg-blue-500/[0.06] hover:bg-blue-100/70 dark:hover:bg-blue-500/[0.10] border-t-2 border-gray-200 dark:border-white/[0.08] transition-colors"
+                    className="cursor-pointer select-none bg-gray-100 dark:bg-[#0b0f1c] hover:bg-gray-200/70 dark:hover:bg-[#0d1120] border-t-2 border-gray-200 dark:border-white/[0.08] transition-colors"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -741,8 +741,8 @@ export default function PaidAdsPage() {
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">{totals.chConv}</td>
-                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-blue-50 dark:bg-[#1c2138]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
+                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-100 dark:bg-[#0e1628]">{totals.chConv}</td>
+                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-100 dark:bg-[#0e1628]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
                   </tr>
                 )}
                 {(view !== 'campaigns' || googleOpen) && filtered.map((row, i) => {
