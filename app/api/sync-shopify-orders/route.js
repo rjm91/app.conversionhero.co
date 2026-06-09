@@ -32,7 +32,8 @@ const ORDERS_QUERY = `
           createdAt
           email
           totalPriceSet { shopMoney { amount } }
-          customer { firstName lastName email }
+          billingAddress { firstName lastName }
+          shippingAddress { firstName lastName }
           lineItems(first: 5) { edges { node { title quantity } } }
           customerJourneySummary {
             lastVisit { utmParameters { campaign source medium content } }
@@ -63,9 +64,9 @@ async function syncOne(conn, start, end) {
       rows.push({
         lead_id:      `shopify_${numericId}`,                    // deterministic → re-sync upserts, no dupes
         client_id:    conn.client_id,
-        first_name:   node.customer?.firstName || null,
-        last_name:    node.customer?.lastName || null,
-        email:        node.customer?.email || node.email || null,
+        first_name:   node.billingAddress?.firstName || node.shippingAddress?.firstName || null,
+        last_name:    node.billingAddress?.lastName  || node.shippingAddress?.lastName  || null,
+        email:        node.email || null,
         sale_amount:  node.totalPriceSet?.shopMoney?.amount ? Number(node.totalPriceSet.shopMoney.amount) : null,
         lead_status:  'Customer',
         ch_notes:     products ? `Shopify order ${node.name}: ${products}` : `Shopify order ${node.name}`,
