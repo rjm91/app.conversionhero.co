@@ -65,3 +65,33 @@ App ID, App Secret, System User token, and the client's `act_` ad account ID.
 
 ### Attribution context (the Shopify side)
 Conversions are matched by injecting the platform's campaign ID into the URL (Google: tracking template `{campaignid}`; Meta: equivalent URL param), which Shopify captures in the order's UTM/customer-journey data. Pull via Shopify Admin GraphQL API (`customerJourneySummary.lastVisit.utmParameters.campaign`) and join `utmParameters.campaign` → the platform campaign ID.
+
+---
+
+## Shopify Order Sync — Status & Remaining Steps (as of 2026-06-08)
+
+**Goal:** Pull each Shopify order's customer name, email, product, amount, and UTM data, write it into the existing `client_lead` table so customers show on the Leads page AND auto-route to the right campaign via the existing `fetchAttribution()` UTM→campaign match (no new attribution logic). Product → lead Notes (`ch_notes`); amount → `sale_amount`; `utm_campaign` = the Google campaign ID.
+
+### Built & deployed
+- `shopify_connections` table (`sql/2026-06-08_shopify_connections.sql`) — stores per-client `{ shop_domain, access_token }`. **Run in Supabase ✅**
+- OAuth connect flow: `lib/shopify.js`, `app/api/shopify/auth`, `app/api/shopify/callback` (commit d337dc8). Verifies HMAC, exchanges code, upserts token.
+
+### Two Shopify apps (Partner org "ConversionHero", partners.shopify.com)
+- **Public app** (Client ID `d3fee78b04750a82a9ad7aba82aac010…`) — public distribution. **Blocked: live-store install requires App Store review** (not submitted; for unlisted agency use this path is heavy). Parked as the future multi-client OAuth path.
+- **CH - ShieldTech app** (Client ID `5482b9b88550933e34f471dbd02366cd`) — **Custom distribution** locked to `ek14hy-03.myshopify.com`. This is the one for client #1 (ShieldTech = client `ch069`).
+
+### BLOCKER (2026-06-08): need real store-owner admin access
+Ryan does not have true owner-level admin on the ShieldTech store. Installing the custom app + revealing its token both require it. **Plan: finish on a call with an actual store admin.**
+
+Gotchas already hit: legacy in-admin "Develop apps" is retired on this store; custom-dist apps can't use our standard OAuth `/authorize` ("installation link invalid"); the custom install link kept redirecting to the app login and eating the token until **"Embed app in Shopify admin" was unchecked** (new version released).
+
+### To finish (with the admin on the call)
+1. Open the custom install link while logged into the ShieldTech admin as owner:
+   `https://admin.shopify.com/oauth/install_custom_app?client_id=5482b9b88550933e34f471dbd02366cd&no_redirect=true&signature=…` (full signed link saved in chat 2026-06-08).
+2. With embedded now off + `no_redirect=true`, it should display the **Admin API access token** (`shpat_…`). Copy it.
+3. Insert the connection row in Supabase:
+   `insert into shopify_connections (client_id, shop_domain, access_token, scope) values ('ch069', 'ek14hy-03.myshopify.com', '<shpat_…>', 'read_orders,read_customer_events');`
+4. Then build the **order sync** (step 3): `/api/sync-shopify-orders` reads the row, pulls orders via Admin GraphQL (`customerJourneySummary.lastVisit.utmParameters` + name/email/total/lineItems), upserts into `client_lead` keyed off the Shopify order ID (dedup), status "Customer", product in `ch_notes`. CH columns then populate automatically.
+5. Add a **"Connect Shopify"** button in the UI (step 4).
+
+Note: env vars `SHOPIFY_API_KEY`/`SHOPIFY_API_SECRET` were pointed at the CH-ShieldTech app, but the sync does NOT use them (it reads the token straight from `shopify_connections`), so they don't matter for client #1.
