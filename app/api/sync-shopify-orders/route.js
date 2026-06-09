@@ -40,7 +40,8 @@ const ORDERS_QUERY = `
           shippingLine { title }
           lineItems(first: 50) { edges { node { title quantity } } }
           customerJourneySummary {
-            lastVisit { utmParameters { campaign source medium content } }
+            firstVisit { utmParameters { campaign source medium content term } }
+            lastVisit  { utmParameters { campaign source medium content term } }
           }
         }
       }
@@ -76,7 +77,12 @@ async function syncOne(conn, start, end) {
     const data = await shopifyGraphQL(conn.shop_domain, conn.access_token, ORDERS_QUERY, { cursor, q })
     const orders = data.orders
     for (const { node } of orders.edges) {
-      const utm = node.customerJourneySummary?.lastVisit?.utmParameters || {}
+      const cjs   = node.customerJourneySummary || {}
+      const first = cjs.firstVisit?.utmParameters || {}
+      const last  = cjs.lastVisit?.utmParameters  || {}
+      // Per-field: prefer last-touch, fall back to first-touch — Meta ad IDs
+      // (campaign/content/term) usually live on the first visit, not the last.
+      const utmPick = (k) => last[k] || first[k] || null
       const lineItems = node.lineItems.edges.map(e => e.node)
       const products = lineItems
         .map(li => li.title + (li.quantity > 1 ? ` ×${li.quantity}` : ''))
@@ -92,10 +98,11 @@ async function syncOne(conn, start, end) {
         sale_amount:  node.totalPriceSet?.shopMoney?.amount ? Number(node.totalPriceSet.shopMoney.amount) : null,
         lead_status:  'Customer',
         ch_notes:     products ? `Shopify order ${node.name}: ${products}` : `Shopify order ${node.name}`,
-        utm_campaign: utm.campaign || null,                      // = Google campaign ID → auto-routes
-        utm_source:   utm.source || null,
-        utm_medium:   utm.medium || null,
-        utm_content:  utm.content || null,
+        utm_campaign: utmPick('campaign'),                       // = ad-platform campaign ID → auto-routes
+        utm_source:   utmPick('source'),
+        utm_medium:   utmPick('medium'),
+        utm_content:  utmPick('content'),                        // = ad ID
+        utm_term:     utmPick('term'),                           // = ad set ID (Meta)
         created_at:   node.createdAt,
         shopify_data: {                                          // ecom-only fields for the Shopify-style Contacts view
           order_name:         node.name,
