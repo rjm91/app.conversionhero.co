@@ -415,9 +415,9 @@ export default function SynergySprayFoam({
               <div className="logo">
                 <img className="brand-logo" src={logoUrl} alt="Synergy Home" />
               </div>
-              <a className="btn btn-yellow" href="tel:+18592031533">
+              <a className="btn btn-yellow" href="tel:+18596870553">
                 <svg width="15" height="15" viewBox="0 0 14 14"><path d="M3 4.5C3 3.7 3.7 3 4.5 3H6L7 5L5.8 6.2C6.5 7.5 7.5 8.5 8.8 9.2L10 8L12 9V10.5C12 11.3 11.3 12 10.5 12C6.4 12 3 8.6 3 4.5Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round"/></svg>
-                Call (859) 203-1533
+                Call (859) 687-0553
               </a>
             </div>
           </div>

@@ -54,7 +54,7 @@ function CompleteCard({ city, firstName }) {
           <div className="next-row"><span className="next-num">2</span><span className="next-label">On-site home assessment <em>· typically within a week</em></span></div>
           <div className="next-row"><span className="next-num">3</span><span className="next-label">Honest recommendation, no obligation</span></div>
         </div>
-        <a className="call-btn" href="tel:+18592031533">
+        <a className="call-btn" href="tel:+18596870553">
           Call us now
           <svg width="15" height="15" viewBox="0 0 14 14"><path d="M3 4.5C3 3.7 3.7 3 4.5 3H6L7 5L5.8 6.2C6.5 7.5 7.5 8.5 8.8 9.2L10 8L12 9V10.5C12 11.3 11.3 12 10.5 12C6.4 12 3 8.6 3 4.5Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round"/></svg>
         </a>
