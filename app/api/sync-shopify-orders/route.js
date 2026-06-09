@@ -31,10 +31,14 @@ const ORDERS_QUERY = `
           name
           createdAt
           email
+          sourceName
+          displayFinancialStatus
+          displayFulfillmentStatus
           totalPriceSet { shopMoney { amount } }
           billingAddress { firstName lastName }
           shippingAddress { firstName lastName }
-          lineItems(first: 5) { edges { node { title quantity } } }
+          shippingLine { title }
+          lineItems(first: 50) { edges { node { title quantity } } }
           customerJourneySummary {
             lastVisit { utmParameters { campaign source medium content } }
           }
@@ -45,6 +49,22 @@ const ORDERS_QUERY = `
 `
 
 function isoDay(d) { return d.toISOString().slice(0, 10) }
+
+// Map Shopify's raw sourceName to a friendly sales-channel label.
+function channelLabel(sourceName) {
+  if (!sourceName) return null
+  const map = {
+    web: 'Online Store',
+    pos: 'Point of Sale',
+    shopify_draft_order: 'Draft Order',
+    'shopify_draft': 'Draft Order',
+    iphone: 'Mobile',
+    android: 'Mobile',
+  }
+  if (map[sourceName]) return map[sourceName]
+  // Fallback: title-case the raw value
+  return sourceName.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
 async function syncOne(conn, start, end) {
   const db = admin()
@@ -57,9 +77,11 @@ async function syncOne(conn, start, end) {
     const orders = data.orders
     for (const { node } of orders.edges) {
       const utm = node.customerJourneySummary?.lastVisit?.utmParameters || {}
-      const products = node.lineItems.edges
-        .map(e => e.node.title + (e.node.quantity > 1 ? ` ×${e.node.quantity}` : ''))
+      const lineItems = node.lineItems.edges.map(e => e.node)
+      const products = lineItems
+        .map(li => li.title + (li.quantity > 1 ? ` ×${li.quantity}` : ''))
         .join(', ')
+      const itemCount = lineItems.reduce((n, li) => n + (li.quantity || 0), 0)
       const numericId = node.id.split('/').pop()
       rows.push({
         lead_id:      `shopify_${numericId}`,                    // deterministic → re-sync upserts, no dupes
@@ -75,6 +97,14 @@ async function syncOne(conn, start, end) {
         utm_medium:   utm.medium || null,
         utm_content:  utm.content || null,
         created_at:   node.createdAt,
+        shopify_data: {                                          // ecom-only fields for the Shopify-style Contacts view
+          order_name:         node.name,
+          channel:            channelLabel(node.sourceName),
+          financial_status:   node.displayFinancialStatus || null,
+          fulfillment_status: node.displayFulfillmentStatus || null,
+          item_count:         itemCount,
+          delivery_method:    node.shippingLine?.title || null,
+        },
       })
     }
     cursor = orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null

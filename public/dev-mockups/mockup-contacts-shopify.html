@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contacts — Shopify Orders style (ShieldTech)</title>
+  <style>
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0b0e1a; --surface:#111528; --surface2:#161b30; --border:rgba(255,255,255,0.06);
+      --border2:rgba(255,255,255,0.10); --text:#e8ecf4; --muted:#7a8bb5; --dim:#4a5678;
+      --blue:#3b82f6; --green:#34d399; --amber:#fbbf24;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif; background:var(--bg); color:var(--text); font-size:14px; -webkit-font-smoothing:antialiased; padding:32px; }
+    .head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+    h1 { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+    .sub { color:var(--dim); font-size:13px; margin-top:4px; }
+    .search { background:var(--surface2); border:1px solid var(--border2); border-radius:9px; padding:8px 14px; color:var(--text); font-size:13px; width:280px; outline:none; }
+    .btn-blue { background:var(--blue); color:#fff; font-size:13px; font-weight:600; padding:8px 16px; border-radius:9px; border:none; cursor:pointer; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    thead { background:var(--surface2); }
+    th { text-align:left; padding:11px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted); white-space:nowrap; }
+    th.r, td.r { text-align:right; }
+    th.c, td.c { text-align:center; }
+    td { padding:13px 14px; font-size:13px; border-top:1px solid var(--border); white-space:nowrap; }
+    tbody tr:hover { background:rgba(255,255,255,0.02); }
+    .order { font-weight:700; color:var(--text); }
+    .cust { font-weight:600; }
+    .muted { color:var(--dim); }
+    .total { font-weight:600; }
+    .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .pill .dot { width:6px; height:6px; border-radius:50%; }
+    .paid { background:rgba(52,211,153,0.12); color:var(--green); }
+    .paid .dot { background:var(--green); }
+    .pending { background:rgba(251,191,36,0.12); color:var(--amber); }
+    .pending .dot { background:var(--amber); }
+    .fulfilled { background:rgba(122,139,181,0.14); color:#a9b6d6; }
+    .fulfilled .dot { background:#7a8bb5; }
+    .unfulfilled { background:rgba(251,191,36,0.12); color:var(--amber); }
+    .unfulfilled .dot { background:var(--amber); }
+    .chan { display:inline-flex; align-items:center; gap:7px; }
+    .chan .ci { width:16px; height:16px; border-radius:4px; display:inline-grid; place-items:center; font-size:9px; font-weight:800; color:#fff; }
+    .ci.web { background:#4b5563; } .ci.fb { background:#0866FF; }
+    .cb { width:14px; height:14px; border:1.5px solid var(--border2); border-radius:3px; display:inline-block; vertical-align:middle; }
+    .note { font-size:12px; color:var(--dim); margin-top:14px; line-height:1.5; }
+    .tag { display:inline-block; font-size:11px; font-weight:700; color:var(--green); background:rgba(52,211,153,0.12); border-radius:6px; padding:2px 8px; margin-left:8px; vertical-align:middle; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <div>
+      <h1>Contacts <span class="tag">Shopify-connected</span></h1>
+      <div class="sub">1,073 orders · synced from Shopify</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input class="search" placeholder="Search by name, email, order #…" />
+      <button class="btn-blue">Export</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:34px"><span class="cb"></span></th>
+          <th>Order</th>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Channel</th>
+          <th class="r">Total</th>
+          <th class="c">Payment</th>
+          <th class="c">Fulfillment</th>
+          <th class="c">Items</th>
+          <th>Delivery method</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="cb"></span></td><td class="order">#3846</td><td class="muted">Jun 9, 9:24 AM</td><td class="cust">Mark Brown</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$297.20</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">1</td><td class="muted">Free Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3845</td><td class="muted">Jun 9, 9:13 AM</td><td class="cust">Wayne Winter</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$279.61</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">1</td><td class="muted">Free Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3844</td><td class="muted">Jun 9, 7:04 AM</td><td class="cust">Paul Fawson</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$0.00</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill unfulfilled"><span class="dot"></span>Unfulfilled</span></td><td class="c">1</td><td class="muted">Standard Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3843</td><td class="muted">Jun 9, 7:04 AM</td><td class="cust">Dennis Coplen</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$274.05</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">1</td><td class="muted">Free Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3841</td><td class="muted">Jun 9, 8:32 AM</td><td class="cust">Lori Gould</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$390.42</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">2</td><td class="muted">Free Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3838</td><td class="muted">Jun 9, 12:55 AM</td><td class="cust">Keaton Bayuga</td><td><span class="chan"><span class="ci web">S</span>Online Store</span></td><td class="r total">$472.47</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">1</td><td class="muted">Free Shipping</td></tr>
+        <tr><td><span class="cb"></span></td><td class="order">#3837</td><td class="muted">Jun 8, 8:56 PM</td><td class="cust">Curt Weicke</td><td><span class="chan"><span class="ci fb">f</span>Facebook</span></td><td class="r total">$307.06</td><td class="c"><span class="pill paid"><span class="dot"></span>Paid</span></td><td class="c"><span class="pill fulfilled"><span class="dot"></span>Fulfilled</span></td><td class="c">1</td><td class="muted">Free Shipping</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    Columns mirror the Shopify Orders table. <b>Customer · Total · Date · Channel</b> we already capture. <b>Payment status · Fulfillment status · Items · Delivery method</b> need to be added to the sync (one more pass on the Admin API query).<br>
+    The hidden UTM/campaign data still drives attribution behind the scenes — clicking an order could open a detail drawer showing the campaign it's attributed to. Non-Shopify clients keep the existing Contacts columns.
+  </p>
+</body>
+</html>

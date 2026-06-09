@@ -24,6 +24,33 @@ const statusColors = {
   'Sale Lost':               'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
+// Shopify order status → pill colors (Contacts page in ecom mode)
+const SHOPIFY_STATUS_STYLES = {
+  PAID:                'bg-[#34CC93]/10 text-[#1a9e6e] dark:bg-[#34d399]/10 dark:text-[#34d399]',
+  PARTIALLY_PAID:      'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  PENDING:             'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  AUTHORIZED:          'bg-[#5b97e6]/10 text-[#3a72c4] dark:bg-[#5b97e6]/10 dark:text-[#5b97e6]',
+  REFUNDED:            'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+  PARTIALLY_REFUNDED:  'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+  VOIDED:              'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+  FULFILLED:           'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300',
+  UNFULFILLED:         'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  PARTIALLY_FULFILLED: 'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
+  RESTOCKED:           'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400',
+}
+
+function ShopifyPill({ status }) {
+  if (!status) return <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>
+  const label = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace(/_/g, ' ')
+  const cls = SHOPIFY_STATUS_STYLES[status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+  return <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${cls}`}>{label}</span>
+}
+
+function fmtMoney(n) {
+  if (n === null || n === undefined || n === '') return '—'
+  return '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 // Human-readable labels for meta_key names
 const META_LABELS = {
   reason:      'Outage Frequency',
@@ -263,6 +290,9 @@ export default function ContactsPage() {
     }
   }
 
+  // Ecom (Shopify-connected) account → render the Shopify Orders-style columns.
+  const isEcom = leads.some(l => String(l.lead_id || '').startsWith('shopify_'))
+
   const filtered = leads.filter(l => {
     const q = search.toLowerCase()
     return (
@@ -270,7 +300,8 @@ export default function ContactsPage() {
       l.last_name?.toLowerCase().includes(q) ||
       l.email?.toLowerCase().includes(q) ||
       l.phone?.includes(q) ||
-      l.city?.toLowerCase().includes(q)
+      l.city?.toLowerCase().includes(q) ||
+      l.shopify_data?.order_name?.toLowerCase().includes(q)
     )
   })
 
@@ -343,14 +374,30 @@ export default function ContactsPage() {
                     className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Name</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Email</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Phone</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Location</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Lead Status</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Appt Status</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Sale Status</th>
-                <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
+                {isEcom ? (
+                  <>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Order</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Customer</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Channel</th>
+                    <th className="text-right text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Total</th>
+                    <th className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Payment</th>
+                    <th className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Fulfillment</th>
+                    <th className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Items</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Delivery method</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Name</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Email</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Phone</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Location</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Lead Status</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Appt Status</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Sale Status</th>
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 py-3">Date</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="whitespace-nowrap">
@@ -371,47 +418,74 @@ export default function ContactsPage() {
                       className="rounded border-gray-300 dark:border-white/20 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
                   </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-blue-700 dark:text-blue-400 text-xs font-semibold">
-                          {(lead.first_name?.[0] || '') + (lead.last_name?.[0] || '')}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {lead.first_name} {lead.last_name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.email || '—'}</td>
-                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{lead.phone || '—'}</td>
-                  <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
-                    {lead.city && lead.state ? `${lead.city}, ${lead.state}` : '—'}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {lead.lead_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.lead_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
-                        {lead.lead_status}
-                      </span>
-                    ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {lead.appt_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
-                        {lead.appt_status}
-                      </span>
-                    ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {lead.sale_status ? (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.sale_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
-                        {lead.sale_status}
-                      </span>
-                    ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
-                    {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
-                  </td>
+                  {isEcom ? (
+                    <>
+                      <td className="px-4 py-3.5 text-sm font-bold text-gray-900 dark:text-white">{lead.shopify_data?.order_name || '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
+                        {lead.created_at ? new Date(lead.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-blue-700 dark:text-blue-400 text-xs font-semibold">
+                              {(lead.first_name?.[0] || '') + (lead.last_name?.[0] || '')}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.channel || '—'}</td>
+                      <td className="px-4 py-3.5 text-right text-sm font-semibold text-gray-900 dark:text-white">{fmtMoney(lead.sale_amount)}</td>
+                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.shopify_data?.financial_status} /></td>
+                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.shopify_data?.fulfillment_status} /></td>
+                      <td className="px-4 py-3.5 text-center text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.item_count ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.delivery_method || '—'}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-blue-700 dark:text-blue-400 text-xs font-semibold">
+                              {(lead.first_name?.[0] || '') + (lead.last_name?.[0] || '')}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {lead.first_name} {lead.last_name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.email || '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{lead.phone || '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                        {lead.city && lead.state ? `${lead.city}, ${lead.state}` : '—'}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {lead.lead_status ? (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.lead_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                            {lead.lead_status}
+                          </span>
+                        ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {lead.appt_status ? (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.appt_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                            {lead.appt_status}
+                          </span>
+                        ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {lead.sale_status ? (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColors[lead.sale_status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                            {lead.sale_status}
+                          </span>
+                        ) : <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
+                        {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
