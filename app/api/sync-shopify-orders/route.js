@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
-import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL } from '../../../lib/shopify'
+import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL, ORDER_GQL_FIELDS, orderNodeToLeadRow } from '../../../lib/shopify'
 
 // Pulls Shopify orders and writes them into client_lead so they appear on the
 // Leads page and auto-route to the right campaign via the existing UTM→campaign
@@ -25,47 +25,12 @@ const ORDERS_QUERY = `
   query Orders($cursor: String, $q: String) {
     orders(first: 50, after: $cursor, query: $q, sortKey: CREATED_AT) {
       pageInfo { hasNextPage endCursor }
-      edges {
-        node {
-          id
-          name
-          createdAt
-          email
-          sourceName
-          displayFinancialStatus
-          displayFulfillmentStatus
-          totalPriceSet { shopMoney { amount } }
-          billingAddress { firstName lastName }
-          shippingAddress { firstName lastName }
-          shippingLine { title }
-          lineItems(first: 50) { edges { node { title quantity } } }
-          customerJourneySummary {
-            firstVisit { utmParameters { campaign source medium content term } }
-            lastVisit  { utmParameters { campaign source medium content term } }
-          }
-        }
-      }
+      edges { node { ${ORDER_GQL_FIELDS} } }
     }
   }
 `
 
 function isoDay(d) { return d.toISOString().slice(0, 10) }
-
-// Map Shopify's raw sourceName to a friendly sales-channel label.
-function channelLabel(sourceName) {
-  if (!sourceName) return null
-  const map = {
-    web: 'Online Store',
-    pos: 'Point of Sale',
-    shopify_draft_order: 'Draft Order',
-    'shopify_draft': 'Draft Order',
-    iphone: 'Mobile',
-    android: 'Mobile',
-  }
-  if (map[sourceName]) return map[sourceName]
-  // Fallback: title-case the raw value
-  return sourceName.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
 
 async function syncOne(conn, start, end) {
   const db = admin()
@@ -77,42 +42,7 @@ async function syncOne(conn, start, end) {
     const data = await shopifyGraphQL(conn.shop_domain, conn.access_token, ORDERS_QUERY, { cursor, q })
     const orders = data.orders
     for (const { node } of orders.edges) {
-      const cjs   = node.customerJourneySummary || {}
-      const first = cjs.firstVisit?.utmParameters || {}
-      const last  = cjs.lastVisit?.utmParameters  || {}
-      // Per-field: prefer last-touch, fall back to first-touch — Meta ad IDs
-      // (campaign/content/term) usually live on the first visit, not the last.
-      const utmPick = (k) => last[k] || first[k] || null
-      const lineItems = node.lineItems.edges.map(e => e.node)
-      const products = lineItems
-        .map(li => li.title + (li.quantity > 1 ? ` ×${li.quantity}` : ''))
-        .join(', ')
-      const itemCount = lineItems.reduce((n, li) => n + (li.quantity || 0), 0)
-      const numericId = node.id.split('/').pop()
-      rows.push({
-        lead_id:      `shopify_${numericId}`,                    // deterministic → re-sync upserts, no dupes
-        client_id:    conn.client_id,
-        first_name:   node.billingAddress?.firstName || node.shippingAddress?.firstName || null,
-        last_name:    node.billingAddress?.lastName  || node.shippingAddress?.lastName  || null,
-        email:        node.email || null,
-        sale_amount:  node.totalPriceSet?.shopMoney?.amount ? Number(node.totalPriceSet.shopMoney.amount) : null,
-        lead_status:  'Customer',
-        ch_notes:     products ? `Shopify order ${node.name}: ${products}` : `Shopify order ${node.name}`,
-        utm_campaign: utmPick('campaign'),                       // = ad-platform campaign ID → auto-routes
-        utm_source:   utmPick('source'),
-        utm_medium:   utmPick('medium'),
-        utm_content:  utmPick('content'),                        // = ad ID
-        utm_term:     utmPick('term'),                           // = ad set ID (Meta)
-        created_at:   node.createdAt,
-        shopify_data: {                                          // ecom-only fields for the Shopify-style Contacts view
-          order_name:         node.name,
-          channel:            channelLabel(node.sourceName),
-          financial_status:   node.displayFinancialStatus || null,
-          fulfillment_status: node.displayFulfillmentStatus || null,
-          item_count:         itemCount,
-          delivery_method:    node.shippingLine?.title || null,
-        },
-      })
+      rows.push(orderNodeToLeadRow(conn.client_id, node))
     }
     cursor = orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null
   } while (cursor)
