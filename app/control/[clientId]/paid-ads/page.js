@@ -720,7 +720,7 @@ export default function PaidAdsPage() {
                 {view === 'campaigns' && filtered.length > 0 && (
                   <tr
                     onClick={() => setGoogleOpen(o => !o)}
-                    className="cursor-pointer select-none bg-gray-200 dark:bg-[#070a13] hover:bg-gray-300/70 dark:hover:bg-[#0a0e18] border-y-2 border-gray-300 dark:border-black/40 transition-colors"
+                    className="cursor-pointer select-none bg-gray-200 dark:bg-[#0d1020] hover:bg-gray-300/70 dark:hover:bg-[#11162b] border-y-2 border-gray-300 dark:border-black/40 transition-colors"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -741,8 +741,8 @@ export default function PaidAdsPage() {
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCpc)}</td>
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{totals.conv.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-2.5 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt$(totalCostPerConv)}</td>
-                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-200 dark:bg-[#070a13]">{totals.chConv}</td>
-                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-200 dark:bg-[#070a13]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
+                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-200 dark:bg-[#0d1020]">{totals.chConv}</td>
+                    <td className="px-2.5 py-3 text-right font-bold text-blue-700 dark:text-[#34d399] bg-gray-200 dark:bg-[#0d1020]">{totals.chConv > 0 ? fmt$(totalChCost) : '—'}</td>
                   </tr>
                 )}
                 {(view !== 'campaigns' || googleOpen) && filtered.map((row, i) => {
