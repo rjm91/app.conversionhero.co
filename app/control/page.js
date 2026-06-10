@@ -80,7 +80,7 @@ const STAGE_COLORS = {
   blue: 'bg-blue-500/15 text-blue-400',
   purple: 'bg-violet-500/15 text-violet-400',
   yellow: 'bg-amber-500/15 text-amber-400',
-  gray: 'bg-gray-500/15 text-gray-400',
+  gray: 'bg-gray-500/15 text-gray-500 dark:text-gray-400',
 }
 
 const SUMMARY_COLORS = {
@@ -215,11 +215,11 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
     },
     headerStats: [
       { value: fmt$(totalCash), label: 'Revenue', color: 'text-emerald-400' },
-      { value: String(totalCampaignIds.size), label: 'Campaigns', color: totalCampaignIds.size > 0 ? 'text-white' : 'text-gray-500' },
-      { value: fmt$(totalAdSpend), label: 'Ad Spend', color: totalAdSpend > 0 ? 'text-white' : 'text-gray-500' },
-      { value: String(totalLeads), label: 'Leads', color: totalLeads > 0 ? 'text-white' : 'text-gray-500' },
-      { value: String(totalAppts), label: 'Appts', color: totalAppts > 0 ? 'text-white' : 'text-gray-500' },
-      { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-white' : 'text-gray-500' },
+      { value: String(totalCampaignIds.size), label: 'Campaigns', color: totalCampaignIds.size > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: fmt$(totalAdSpend), label: 'Ad Spend', color: totalAdSpend > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: String(totalLeads), label: 'Leads', color: totalLeads > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: String(totalAppts), label: 'Appts', color: totalAppts > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
     ],
     rows: clientRows,
   }
@@ -357,7 +357,7 @@ function CellContent({ cell, onStatusChange, notesApi }) {
         onMouseEnter={e => has && notesApi?.hover(cell.value, e)}
         onMouseLeave={() => notesApi?.hoverOut()}
         title={has ? '' : 'Add note'}
-        className={`inline-flex items-center justify-center w-7 h-7 rounded-lg transition ${has ? 'text-blue-400 hover:bg-blue-500/10' : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'}`}
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-lg transition ${has ? 'text-blue-400 hover:bg-blue-500/10' : 'text-gray-600 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'}`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l1.3-3.9A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -379,9 +379,9 @@ function CellContent({ cell, onStatusChange, notesApi }) {
         className={`appearance-none cursor-pointer px-3 py-1 rounded-full text-[11px] font-semibold border-0 outline-none ${colorCls} bg-transparent`}
         style={{ backgroundImage: 'none' }}
       >
-        <option value="" className="bg-[#1a1f36] text-gray-400">—</option>
+        <option value="" className="bg-white dark:bg-[#1a1f36] text-gray-500 dark:text-gray-400">—</option>
         {cell.options.map(opt => (
-          <option key={opt} value={opt} className="bg-[#1a1f36] text-gray-300">{displayStatus(opt)}</option>
+          <option key={opt} value={opt} className="bg-white dark:bg-[#1a1f36] text-gray-600 dark:text-gray-300">{displayStatus(opt)}</option>
         ))}
       </select>
     )
@@ -410,7 +410,7 @@ function CellContent({ cell, onStatusChange, notesApi }) {
         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: cell.iconBg }}>
           {cell.icon}
         </div>
-        <span className="font-semibold text-white">{cell.client}</span>
+        <span className="font-semibold text-gray-900 dark:text-white">{cell.client}</span>
       </div>
     )
   }
@@ -557,7 +557,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
   const colSpanAll = columns.length + (selectable ? 1 : 0)
 
   return (
-    <div className={nested ? 'border-b border-white/[0.04]' : 'mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden'}>
+    <div className={nested ? 'border-b border-gray-100 dark:border-white/[0.04]' : 'mb-3 border border-gray-200 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#1a1f36] overflow-hidden'}>
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
         <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: columns.length > 10 ? '1200px' : undefined }}>
           <thead>
@@ -566,19 +566,19 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
               onClick={toggle}
             >
               {headerStats ? (
-                <td colSpan={columns.length} className="py-3.5 px-5 border-b border-white/[0.06]">
+                <td colSpan={columns.length} className="py-3.5 px-5 border-b border-gray-200 dark:border-white/[0.06]">
                   <div className="flex items-center gap-3">
                     <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}>
                       ▾
                     </span>
-                    <span className="text-[15px] font-bold text-white">{title}</span>
-                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400">
+                    <span className="text-[15px] font-bold text-gray-900 dark:text-white">{title}</span>
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-gray-100 dark:bg-white/[0.08] text-xs font-bold text-gray-500 dark:text-gray-400">
                       {count}
                     </span>
                     <div className="flex-1" />
                     <div className="flex items-center">
                       {headerStats.map((stat, si) => (
-                        <div key={si} className={`flex flex-col items-center px-3.5 min-w-[70px] ${si < headerStats.length - 1 ? 'border-r border-white/5' : ''}`}>
+                        <div key={si} className={`flex flex-col items-center px-3.5 min-w-[70px] ${si < headerStats.length - 1 ? 'border-r border-gray-200 dark:border-white/5' : ''}`}>
                           <span className={`text-[15px] font-extrabold leading-tight ${stat.color}`}>{stat.value}</span>
                           <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">{stat.label}</span>
                         </div>
@@ -588,16 +588,16 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 </td>
               ) : (
                 <>
-                  {selectable && <td className="w-10 px-4 border-b border-white/[0.06]" />}
+                  {selectable && <td className="w-10 px-4 border-b border-gray-200 dark:border-white/[0.06]" />}
                   <td
                     colSpan={Math.min(titleColspan, columns.length)}
-                    className="py-3.5 px-5 border-b border-white/[0.06] whitespace-nowrap"
+                    className="py-3.5 px-5 border-b border-gray-200 dark:border-white/[0.06] whitespace-nowrap"
                   >
                     <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 mr-2 ${collapsed ? '-rotate-90' : ''}`}>
                       ▾
                     </span>
-                    <span className="text-[15px] font-bold text-white">{title}</span>
-                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 ml-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400 align-middle">
+                    <span className="text-[15px] font-bold text-gray-900 dark:text-white">{title}</span>
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 ml-2 rounded-full bg-gray-100 dark:bg-white/[0.08] text-xs font-bold text-gray-500 dark:text-gray-400 align-middle">
                       {count}
                     </span>
                   </td>
@@ -606,7 +606,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                     const isLast = colIdx === columns.length - 1
                     if (isLast && (headerAction || selectable)) {
                       return (
-                        <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06] text-right">
+                        <td key={colIdx} className="py-3.5 px-4 border-b border-gray-200 dark:border-white/[0.06] text-right">
                           {selectable && checked.size > 0 ? (
                             <button onClick={handleDelete} disabled={deleting}
                               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition whitespace-nowrap disabled:opacity-50">
@@ -618,10 +618,10 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                       )
                     }
                     const summary = summaryMap[colIdx]
-                    if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-white/[0.06]" />
-                    const colorCls = summary.color ? (SUMMARY_COLORS[summary.color] || 'text-gray-300') : (summary.dim ? 'text-gray-500' : 'text-gray-200')
+                    if (!summary) return <td key={colIdx} className="py-3.5 px-4 border-b border-gray-200 dark:border-white/[0.06]" />
+                    const colorCls = summary.color ? (SUMMARY_COLORS[summary.color] || 'text-gray-600 dark:text-gray-300') : (summary.dim ? 'text-gray-500' : 'text-gray-700 dark:text-gray-200')
                     return (
-                      <td key={colIdx} className={`py-3.5 px-4 border-b border-white/[0.06] text-[13px] font-bold whitespace-nowrap ${colorCls}`}>
+                      <td key={colIdx} className={`py-3.5 px-4 border-b border-gray-200 dark:border-white/[0.06] text-[13px] font-bold whitespace-nowrap ${colorCls}`}>
                         {summary.value}
                       </td>
                     )
@@ -633,15 +633,15 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
             {!collapsed && (
               <tr className="col-headers">
                 {selectable && (
-                  <th className="w-10 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                  <th className="w-10 px-4 py-3 border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
                     <input type="checkbox" checked={allChecked} onChange={toggleAll}
-                      className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer align-middle" />
+                      className="h-4 w-4 rounded border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/5 accent-blue-600 cursor-pointer align-middle" />
                   </th>
                 )}
                 {columns.map((col, i) => (
                   <th
                     key={i}
-                    className="text-left py-3 px-4 text-[11px] text-gray-500 uppercase tracking-wide font-semibold border-b border-white/[0.06] bg-white/[0.02] relative"
+                    className="text-left py-3 px-4 text-[11px] text-gray-500 uppercase tracking-wide font-semibold border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02] relative"
                   >
                     {col}
                   </th>
@@ -662,21 +662,21 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 rows.map((row, ri) => (
                   <tr
                     key={ri}
-                    className={`hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''} ${row._lead && checked.has(row._lead.id) ? 'bg-red-500/[0.06]' : ''}`}
+                    className={`hover:bg-gray-100 dark:hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''} ${row._lead && checked.has(row._lead.id) ? 'bg-red-500/[0.06]' : ''}`}
                     onClick={() => onRowClick && row._lead && onRowClick(row._lead)}
                   >
                     {selectable && (
-                      <td className="px-4 py-3.5 border-b border-white/[0.04]" onClick={e => e.stopPropagation()}>
+                      <td className="px-4 py-3.5 border-b border-gray-100 dark:border-white/[0.04]" onClick={e => e.stopPropagation()}>
                         {row._lead && (
                           <input type="checkbox" checked={checked.has(row._lead.id)} onChange={e => toggleRow(row._lead.id, e)}
-                            className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer align-middle" />
+                            className="h-4 w-4 rounded border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/5 accent-blue-600 cursor-pointer align-middle" />
                         )}
                       </td>
                     )}
                     {row.map((cell, ci) => (
                       <td
                         key={ci}
-                        className="py-3.5 px-4 text-[13px] text-gray-400 border-b border-white/[0.04]"
+                        className="py-3.5 px-4 text-[13px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/[0.04]"
                       >
                         <CellContent cell={cell} onStatusChange={onStatusChange} notesApi={notesApi} />
                       </td>
@@ -709,7 +709,7 @@ function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCus
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-[13px] font-medium text-gray-300 hover:bg-white/[0.08] transition"
+        className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-[13px] font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.08] transition"
       >
         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -722,7 +722,7 @@ function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCus
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 bg-[#1a1f36] border border-white/10 rounded-xl p-1.5 min-w-[200px] z-50 shadow-xl">
+        <div className="absolute right-0 top-full mt-1.5 bg-white dark:bg-[#1a1f36] border border-gray-200 dark:border-white/10 rounded-xl p-1.5 min-w-[200px] z-50 shadow-xl">
           {DATE_PRESETS.map(p => (
             <button
               key={p.key}
@@ -731,21 +731,21 @@ function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCus
                 if (p.key !== 'custom') setOpen(false)
               }}
               className={`w-full text-left px-3 py-2 text-[13px] rounded-lg transition ${
-                preset === p.key ? 'bg-blue-600 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                preset === p.key ? 'bg-blue-600 text-white font-medium' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
               }`}
             >
               {p.label}
             </button>
           ))}
           {preset === 'custom' && (
-            <div className="border-t border-white/[0.06] mt-1.5 pt-2 px-2 pb-1 flex flex-col gap-2">
+            <div className="border-t border-gray-200 dark:border-white/[0.06] mt-1.5 pt-2 px-2 pb-1 flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <label className="text-[11px] text-gray-500 w-10">From</label>
                 <input
                   type="date"
                   value={customStart}
                   onChange={e => onCustomChange(e.target.value, customEnd)}
-                  className="flex-1 bg-white/[0.06] border border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-300 outline-none focus:border-blue-500/50"
+                  className="flex-1 bg-gray-100 dark:bg-white/[0.06] border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 dark:text-gray-300 outline-none focus:border-blue-500/50"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -754,7 +754,7 @@ function DateRangePicker({ preset, onPresetChange, customStart, customEnd, onCus
                   type="date"
                   value={customEnd}
                   onChange={e => onCustomChange(customStart, e.target.value)}
-                  className="flex-1 bg-white/[0.06] border border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-300 outline-none focus:border-blue-500/50"
+                  className="flex-1 bg-gray-100 dark:bg-white/[0.06] border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 dark:text-gray-300 outline-none focus:border-blue-500/50"
                 />
               </div>
               <button
@@ -776,7 +776,7 @@ const PROJ_PRIORITY_META = {
   critical: { label: 'Critical', cls: 'bg-red-500/10 text-red-400' },
   high:     { label: 'High',     cls: 'bg-orange-500/10 text-orange-400' },
   medium:   { label: 'Medium',   cls: 'bg-yellow-500/10 text-yellow-400' },
-  low:      { label: 'Low',      cls: 'bg-white/10 text-gray-400' },
+  low:      { label: 'Low',      cls: 'bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400' },
 }
 const PROJ_STATUS_META = {
   active:    { label: 'Active',    dot: 'bg-green-500' },
@@ -789,7 +789,7 @@ const PROJ_TYPE_LABELS = { client: 'Client', dev: 'Dev', internal: 'Internal', m
 const PROJ_TASK_STATUS = ['todo', 'in_progress', 'done']
 const PROJ_TASK_STATUS_LABEL = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }
 const PROJ_TASK_STATUS_CLS = {
-  todo:        'bg-white/10 text-gray-400',
+  todo:        'bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400',
   in_progress: 'bg-blue-500/10 text-blue-400',
   done:        'bg-green-500/10 text-green-400',
 }
@@ -948,13 +948,13 @@ function ProjectsSection() {
   return (
     <>
       {/* Top-level Projects accordion */}
-      <div className="bg-[#171B33] rounded-2xl border border-white/5 mt-4 overflow-hidden">
+      <div className="bg-white dark:bg-[#171B33] rounded-2xl border border-gray-200 dark:border-white/5 mt-4 overflow-hidden">
         <button onClick={() => setProjectsOpen(o => !o)}
-          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition">
-          <svg className={`w-4 h-4 text-gray-400 transition-transform ${projectsOpen ? 'rotate-90' : ''}`}
+          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-100 dark:hover:bg-white/[0.02] transition">
+          <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${projectsOpen ? 'rotate-90' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          <span className="text-[15px] font-bold text-white">Projects</span>
-          <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
+          <span className="text-[15px] font-bold text-gray-900 dark:text-white">Projects</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold bg-gray-100 dark:bg-white/5 px-2.5 py-0.5 rounded-full">{projects.length}</span>
           {criticalCount > 0 && (
             <span className="flex items-center gap-1.5 ml-2">
               <span className="relative flex h-3 w-3">
@@ -976,20 +976,20 @@ function ProjectsSection() {
           <div className="flex-1" />
           {!loading && (
             <div className="flex items-center">
-              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className={`text-[15px] font-extrabold leading-tight ${activeCount > 0 ? 'text-white' : 'text-gray-500'}`}>{activeCount}</span>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                <span className={`text-[15px] font-extrabold leading-tight ${activeCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{activeCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Active</span>
               </div>
-              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className={`text-[15px] font-extrabold leading-tight ${onHoldCount > 0 ? 'text-white' : 'text-gray-500'}`}>{onHoldCount}</span>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                <span className={`text-[15px] font-extrabold leading-tight ${onHoldCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{onHoldCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">On Hold</span>
               </div>
-              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                <span className={`text-[15px] font-extrabold leading-tight ${completedCount > 0 ? 'text-white' : 'text-gray-500'}`}>{completedCount}</span>
+              <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                <span className={`text-[15px] font-extrabold leading-tight ${completedCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{completedCount}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Completed</span>
               </div>
               <div className="flex flex-col items-center px-3.5 min-w-[70px]">
-                <span className={`text-[15px] font-extrabold leading-tight ${doneTasks > 0 ? 'text-white' : 'text-gray-500'}`}>{doneTasks}/{totalTasks}</span>
+                <span className={`text-[15px] font-extrabold leading-tight ${doneTasks > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{doneTasks}/{totalTasks}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Tasks Done</span>
               </div>
             </div>
@@ -1002,7 +1002,7 @@ function ProjectsSection() {
         </button>
 
         <Collapse open={projectsOpen}>
-          <div className="border-t border-white/5">
+          <div className="border-t border-gray-200 dark:border-white/5">
             {loading ? (
               <div className="px-5 py-4 text-sm text-gray-500">Loading projects...</div>
             ) : projects.length === 0 ? (
@@ -1016,12 +1016,12 @@ function ProjectsSection() {
                 return (
                   <div key={status}>
                     <button onClick={() => toggleGroup(status)}
-                      className="w-full flex items-center gap-3 px-5 py-3 pl-10 hover:bg-white/[0.02] transition border-b border-white/[0.03]">
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      className="w-full flex items-center gap-3 px-5 py-3 pl-10 hover:bg-gray-100 dark:hover:bg-white/[0.02] transition border-b border-gray-100 dark:border-white/[0.03]">
+                      <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       <div className={`w-2 h-2 rounded-full ${sm.dot}`} />
-                      <span className="text-sm font-semibold text-white text-left">{sm.label}</span>
-                      <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{group.length}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white text-left">{sm.label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold bg-gray-100 dark:bg-white/5 px-2.5 py-0.5 rounded-full">{group.length}</span>
                     </button>
 
                     {isOpen && group.map(p => {
@@ -1032,12 +1032,12 @@ function ProjectsSection() {
                       const isExpanded = expandedProjectId === p.id
                       return (
                         <div key={p.id}>
-                          <div className={`flex items-center gap-3 px-5 py-3 pl-[72px] cursor-pointer transition border-b border-white/[0.03] hover:bg-white/[0.02] ${isExpanded ? 'bg-blue-500/[0.04]' : ''}`}
+                          <div className={`flex items-center gap-3 px-5 py-3 pl-[72px] cursor-pointer transition border-b border-gray-100 dark:border-white/[0.03] hover:bg-gray-100 dark:hover:bg-white/[0.02] ${isExpanded ? 'bg-blue-500/[0.04]' : ''}`}
                             onClick={() => toggleProject(p)}>
                             {editingNameId === p.id ? (
                               <input
                                 autoFocus
-                                className="text-sm font-semibold text-white flex-1 min-w-0 bg-white/5 border border-white/10 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500"
+                                className="text-sm font-semibold text-gray-900 dark:text-white flex-1 min-w-0 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500"
                                 value={editingNameVal}
                                 onClick={e => e.stopPropagation()}
                                 onChange={e => setEditingNameVal(e.target.value)}
@@ -1046,29 +1046,29 @@ function ProjectsSection() {
                               />
                             ) : (
                               <span
-                                className="text-sm font-semibold text-white flex-1 min-w-0 truncate hover:text-blue-300 transition"
+                                className="text-sm font-semibold text-gray-900 dark:text-white flex-1 min-w-0 truncate hover:text-blue-300 transition"
                                 onDoubleClick={e => { e.stopPropagation(); setEditingNameId(p.id); setEditingNameVal(p.name) }}
                                 title="Double-click to rename"
                               >{p.name}</span>
                             )}
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pm.cls}`}>{pm.label}</span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-gray-400">{PROJ_TYPE_LABELS[p.type] || p.type}</span>
-                              {p.owner && <span className="text-[11px] text-gray-400">{p.owner}</span>}
-                              {p.due_date && <span className="text-[11px] text-gray-400">Due {new Date(p.due_date).toLocaleDateString()}</span>}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">{PROJ_TYPE_LABELS[p.type] || p.type}</span>
+                              {p.owner && <span className="text-[11px] text-gray-500 dark:text-gray-400">{p.owner}</span>}
+                              {p.due_date && <span className="text-[11px] text-gray-500 dark:text-gray-400">Due {new Date(p.due_date).toLocaleDateString()}</span>}
                               {tasks_.length > 0 && (
                                 <>
-                                  <div className="w-14 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                  <div className="w-14 h-1.5 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct_}%` }} />
                                   </div>
-                                  <span className="text-[10px] text-gray-400 font-semibold w-8 text-right">{done_}/{tasks_.length}</span>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold w-8 text-right">{done_}/{tasks_.length}</span>
                                 </>
                               )}
                               <button onClick={e => { e.stopPropagation(); setEditProject(p) }}
-                                className="p-1 rounded hover:bg-white/10 transition text-gray-400 hover:text-gray-200" title="Edit project">
+                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-white/10 transition text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" title="Edit project">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                               </button>
-                              <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </div>
                           </div>
@@ -1076,12 +1076,12 @@ function ProjectsSection() {
                           {isExpanded && (
                             <div className="bg-black/15">
                               {tasksLoading ? (
-                                <p className="pl-24 py-4 text-xs text-gray-400">Loading tasks...</p>
+                                <p className="pl-24 py-4 text-xs text-gray-500 dark:text-gray-400">Loading tasks...</p>
                               ) : expandedTasks.length === 0 && !addingTaskFor ? (
                                 <div className="pl-24 py-4 flex items-center gap-3">
-                                  <span className="text-xs text-gray-400">No tasks yet</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">No tasks yet</span>
                                   <button onClick={() => { setAddingTaskFor(p.id); setTaskForm(emptyTask) }}
-                                    className="text-xs text-gray-400 border border-dashed border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
+                                    className="text-xs text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
                                     + Add task
                                   </button>
                                 </div>
@@ -1089,27 +1089,27 @@ function ProjectsSection() {
                                 <>
                                   {expandedTasks.map(task => (
                                     <div key={task.id}
-                                      className={`flex items-center gap-3 px-5 py-2.5 pl-24 border-b border-white/[0.03] hover:bg-white/5 transition cursor-pointer ${task.status === 'done' ? 'opacity-60' : ''}`}
+                                      className={`flex items-center gap-3 px-5 py-2.5 pl-24 border-b border-gray-100 dark:border-white/[0.03] hover:bg-gray-100 dark:hover:bg-white/5 transition cursor-pointer ${task.status === 'done' ? 'opacity-60' : ''}`}
                                       onClick={() => setEditingTask(task)}>
                                       <button onClick={e => { e.stopPropagation(); cycleTaskStatus(task) }}
-                                        className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${task.status === 'done' ? 'bg-green-500 border-green-500' : task.status === 'in_progress' ? 'border-blue-500' : 'border-white/20'}`}>
-                                        {task.status === 'done' && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                        className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${task.status === 'done' ? 'bg-green-500 border-green-500' : task.status === 'in_progress' ? 'border-blue-500' : 'border-gray-300 dark:border-white/20'}`}>
+                                        {task.status === 'done' && <svg className="w-2.5 h-2.5 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                                         {task.status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
                                       </button>
-                                      <span className={`text-sm flex-1 text-gray-300 ${task.status === 'done' ? 'line-through' : ''}`}>{task.title}</span>
-                                      {task.assignee && <span className="text-[11px] text-gray-400">{task.assignee}</span>}
-                                      {task.due_date && <span className="text-[11px] text-gray-400">{new Date(task.due_date).toLocaleDateString()}</span>}
+                                      <span className={`text-sm flex-1 text-gray-600 dark:text-gray-300 ${task.status === 'done' ? 'line-through' : ''}`}>{task.title}</span>
+                                      {task.assignee && <span className="text-[11px] text-gray-500 dark:text-gray-400">{task.assignee}</span>}
+                                      {task.due_date && <span className="text-[11px] text-gray-500 dark:text-gray-400">{new Date(task.due_date).toLocaleDateString()}</span>}
                                       <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${PROJ_TASK_STATUS_CLS[task.status]}`}>{PROJ_TASK_STATUS_LABEL[task.status]}</span>
                                     </div>
                                   ))}
                                   {addingTaskFor === p.id ? (
                                     <div className="pl-24 pr-5 py-3">
                                       <input autoFocus placeholder="Task title"
-                                        className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                                        className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                                         value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
                                         onKeyDown={e => { if (e.key === 'Enter') addTask(p.id); if (e.key === 'Escape') setAddingTaskFor(null) }} />
                                       <div className="flex gap-2 justify-end">
-                                        <button onClick={() => { setAddingTaskFor(null); setTaskForm(emptyTask) }} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition">Cancel</button>
+                                        <button onClick={() => { setAddingTaskFor(null); setTaskForm(emptyTask) }} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition">Cancel</button>
                                         <button onClick={() => addTask(p.id)} disabled={taskSaving || !taskForm.title.trim()} className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-60">
                                           {taskSaving ? 'Saving...' : 'Add Task'}
                                         </button>
@@ -1118,7 +1118,7 @@ function ProjectsSection() {
                                   ) : (
                                     <div className="pl-24 py-2">
                                       <button onClick={() => { setAddingTaskFor(p.id); setTaskForm(emptyTask) }}
-                                        className="text-[11px] text-gray-400 border border-dashed border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
+                                        className="text-[11px] text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-white/10 px-3 py-1 rounded hover:text-blue-500 hover:border-blue-500 transition">
                                         + Add task
                                       </button>
                                     </div>
@@ -1142,13 +1142,13 @@ function ProjectsSection() {
       {editProject && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setEditProject(null)} />
-          <div className="fixed top-0 right-0 h-full w-[480px] bg-[#171B33] shadow-2xl z-40 flex flex-col border-l border-white/5">
-            <div className="flex items-start justify-between px-6 py-5 border-b border-white/5">
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col border-l border-gray-200 dark:border-white/5">
+            <div className="flex items-start justify-between px-6 py-5 border-b border-gray-200 dark:border-white/5">
               <div className="flex-1 min-w-0 pr-4">
-                <h2 className="font-semibold text-white text-base">{editProject.name}</h2>
-                {editProject.description && <p className="text-xs text-gray-400 mt-1">{editProject.description}</p>}
+                <h2 className="font-semibold text-gray-900 dark:text-white text-base">{editProject.name}</h2>
+                {editProject.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{editProject.description}</p>}
               </div>
-              <button onClick={() => setEditProject(null)} className="text-gray-400 hover:text-gray-200 p-1.5 rounded-lg hover:bg-white/10 transition flex-shrink-0">
+              <button onClick={() => setEditProject(null)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -1160,16 +1160,16 @@ function ProjectsSection() {
                   { label: 'Owner', field: 'owner', type: 'text' },
                   { label: 'Due Date', field: 'due_date', type: 'date' },
                 ].map(({ label, field, type, options }) => (
-                  <div key={field} className="bg-white/5 rounded-lg px-3 py-2">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+                  <div key={field} className="bg-gray-100 dark:bg-white/5 rounded-lg px-3 py-2">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{label}</p>
                     {type === 'select' ? (
-                      <select className="w-full text-xs bg-transparent text-white focus:outline-none"
+                      <select className="w-full text-xs bg-transparent text-gray-900 dark:text-white focus:outline-none"
                         value={editProject[field] || ''}
                         onChange={e => patchProject(editProject.id, { [field]: e.target.value })}>
                         {options.map(o => <option key={o} value={o}>{o.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())}</option>)}
                       </select>
                     ) : (
-                      <input type={type} className="w-full text-xs bg-transparent text-white focus:outline-none"
+                      <input type={type} className="w-full text-xs bg-transparent text-gray-900 dark:text-white focus:outline-none"
                         value={editProject[field] || ''}
                         onChange={e => setEditProject(p => ({ ...p, [field]: e.target.value }))}
                         onBlur={e => patchProject(editProject.id, { [field]: e.target.value })} />
@@ -1178,8 +1178,8 @@ function ProjectsSection() {
                 ))}
               </div>
               <div className="mt-4">
-                <label className="text-xs text-gray-400 mb-1 block">Description</label>
-                <textarea rows={3} className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white resize-none"
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Description</label>
+                <textarea rows={3} className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white resize-none"
                   value={editProject.description || ''} onChange={e => setEditProject(p => ({ ...p, description: e.target.value }))}
                   onBlur={e => patchProject(editProject.id, { description: e.target.value })} />
               </div>
@@ -1192,56 +1192,56 @@ function ProjectsSection() {
       {editingTask && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setEditingTask(null)} />
-          <div className="fixed top-0 right-0 h-full w-[380px] bg-[#1a1f3a] shadow-2xl z-40 flex flex-col border-l border-white/5">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-              <h3 className="text-sm font-semibold text-white">Edit Task</h3>
-              <button onClick={() => setEditingTask(null)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+          <div className="fixed top-0 right-0 h-full w-[380px] bg-white dark:bg-[#1a1f3a] shadow-2xl z-40 flex flex-col border-l border-gray-200 dark:border-white/5">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-white/5">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Edit Task</h3>
+              <button onClick={() => setEditingTask(null)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 text-sm">
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Title</label>
-                <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Title</label>
+                <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                   value={editingTask.title} onChange={e => setEditingTask(p => ({ ...p, title: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Description</label>
-                <textarea rows={3} className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white resize-none"
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Description</label>
+                <textarea rows={3} className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white resize-none"
                   value={editingTask.description || ''} onChange={e => setEditingTask(p => ({ ...p, description: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Status</label>
-                  <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Status</label>
+                  <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                     value={editingTask.status} onChange={e => setEditingTask(p => ({ ...p, status: e.target.value }))}>
                     <option value="todo">To Do</option><option value="in_progress">In Progress</option><option value="done">Done</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Priority</label>
-                  <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Priority</label>
+                  <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                     value={editingTask.priority} onChange={e => setEditingTask(p => ({ ...p, priority: e.target.value }))}>
                     <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Assignee</label>
-                  <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Assignee</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                     value={editingTask.assignee || ''} onChange={e => setEditingTask(p => ({ ...p, assignee: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Due Date</label>
-                  <input type="date" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Due Date</label>
+                  <input type="date" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                     value={editingTask.due_date || ''} onChange={e => setEditingTask(p => ({ ...p, due_date: e.target.value }))} />
                 </div>
               </div>
             </div>
-            <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between">
+            <div className="px-5 py-3 border-t border-gray-200 dark:border-white/5 flex items-center justify-between">
               <button onClick={() => deleteTask(editingTask.id)} className="px-3 py-1.5 text-xs font-medium text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition">Delete</button>
               <div className="flex items-center gap-2">
                 {taskSaveMsg && <span className="text-xs text-green-400">{taskSaveMsg}</span>}
-                <button onClick={() => setEditingTask(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-white/10 rounded-lg hover:bg-white/5 transition">Cancel</button>
+                <button onClick={() => setEditingTask(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition">Cancel</button>
                 <button onClick={() => patchTask(editingTask.id, { title: editingTask.title, description: editingTask.description, status: editingTask.status, priority: editingTask.priority, assignee: editingTask.assignee, due_date: editingTask.due_date })}
                   className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">Save</button>
               </div>
@@ -1254,59 +1254,59 @@ function ProjectsSection() {
       {creating && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setCreating(false)} />
-          <div className="fixed top-0 right-0 h-full w-[480px] bg-[#171B33] shadow-2xl z-40 flex flex-col border-l border-white/5">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
-              <div><h2 className="font-semibold text-white">New Project</h2><p className="text-xs text-gray-400">Fill in the details below</p></div>
-              <button onClick={() => setCreating(false)} className="text-gray-400 hover:text-gray-200 p-1.5 rounded-lg hover:bg-white/10 transition">
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col border-l border-gray-200 dark:border-white/5">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-white/5">
+              <div><h2 className="font-semibold text-gray-900 dark:text-white">New Project</h2><p className="text-xs text-gray-500 dark:text-gray-400">Fill in the details below</p></div>
+              <button onClick={() => setCreating(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-sm">
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Project Name *</label>
-                <input autoFocus className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Project Name *</label>
+                <input autoFocus className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                   value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') handleCreate() }} />
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Description</label>
-                <textarea rows={3} className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white resize-none"
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Description</label>
+                <textarea rows={3} className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white resize-none"
                   value={newForm.description} onChange={e => setNewForm(p => ({ ...p, description: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Type</label>
-                  <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Type</label>
+                  <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                     value={newForm.type} onChange={e => setNewForm(p => ({ ...p, type: e.target.value }))}>
                     <option value="internal">Internal</option><option value="client">Client</option><option value="dev">Dev</option><option value="marketing">Marketing</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Priority</label>
-                  <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Priority</label>
+                  <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                     value={newForm.priority} onChange={e => setNewForm(p => ({ ...p, priority: e.target.value }))}>
                     <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Owner</label>
-                  <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Owner</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                     placeholder="e.g. Ryan" value={newForm.owner} onChange={e => setNewForm(p => ({ ...p, owner: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Created By</label>
-                  <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Created By</label>
+                  <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                     placeholder="e.g. Ryan" value={newForm.created_by} onChange={e => setNewForm(p => ({ ...p, created_by: e.target.value }))} />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-400 mb-1 block">Due Date</label>
-                  <input type="date" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Due Date</label>
+                  <input type="date" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                     value={newForm.due_date} onChange={e => setNewForm(p => ({ ...p, due_date: e.target.value }))} />
                 </div>
               </div>
               {newError && <p className="text-xs text-red-500">{newError}</p>}
             </div>
-            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-2">
-              <button onClick={() => setCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/5 flex justify-end gap-2">
+              <button onClick={() => setCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition">Cancel</button>
               <button onClick={handleCreate} disabled={newSaving || !newForm.name.trim()} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60">
                 {newSaving ? 'Creating...' : 'Create Project'}
               </button>
@@ -1433,15 +1433,15 @@ function PlansSection() {
     || [...plans].sort((a, b) => new Date(a.start_date) - new Date(b.start_date))[0]
 
   return (
-    <div className="bg-[#171B33] rounded-2xl border border-white/5 mt-4 overflow-hidden">
+    <div className="bg-white dark:bg-[#171B33] rounded-2xl border border-gray-200 dark:border-white/5 mt-4 overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition">
-        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-100 dark:hover:bg-white/[0.02] transition">
+        <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-        <span className="text-[15px] font-bold text-white">Plans</span>
-        <span className="text-xs text-gray-400 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full">{plans.length}</span>
+        <span className="text-[15px] font-bold text-gray-900 dark:text-white">Plans</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold bg-gray-100 dark:bg-white/5 px-2.5 py-0.5 rounded-full">{plans.length}</span>
         {next && (
-          <span className="text-[11px] font-semibold text-gray-400 ml-2 hidden sm:inline">
+          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 ml-2 hidden sm:inline">
             ✈ Next: {next.name} · {new Date(next.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         )}
@@ -1451,16 +1451,16 @@ function PlansSection() {
         <div className="flex-1" />
         {!loading && (
           <div className="flex items-center">
-            <div className="flex flex-col items-center px-3.5 min-w-[80px] border-r border-white/5">
+            <div className="flex flex-col items-center px-3.5 min-w-[80px] border-r border-gray-200 dark:border-white/5">
               <span className={`text-[15px] font-extrabold leading-tight ${budget > 0 ? 'text-green-400' : 'text-gray-500'}`}>{planMoney(budget)}</span>
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Budget</span>
             </div>
-            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-              <span className={`text-[15px] font-extrabold leading-tight ${nts > 0 ? 'text-white' : 'text-gray-500'}`}>{nts}</span>
+            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+              <span className={`text-[15px] font-extrabold leading-tight ${nts > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{nts}</span>
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Nights</span>
             </div>
-            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-              <span className={`text-[15px] font-extrabold leading-tight ${planCount > 0 ? 'text-white' : 'text-gray-500'}`}>{planCount}</span>
+            <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+              <span className={`text-[15px] font-extrabold leading-tight ${planCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{planCount}</span>
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Plans</span>
             </div>
             <div className="flex flex-col items-center px-3.5 min-w-[70px]">
@@ -1477,7 +1477,7 @@ function PlansSection() {
       </button>
 
       <Collapse open={open}>
-        <div className="border-t border-white/5 p-5">
+        <div className="border-t border-gray-200 dark:border-white/5 p-5">
           {loading ? (
             <div className="text-sm text-gray-500">Loading plans…</div>
           ) : plans.length === 0 ? (
@@ -1534,12 +1534,12 @@ function stayFormFromPlan(p) {
   }
 }
 
-const stayInputCls = 'w-full px-3 py-2 text-sm rounded-lg bg-[#171B33] border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 [color-scheme:dark]'
+const stayInputCls = 'w-full px-3 py-2 text-sm rounded-lg bg-white dark:bg-[#171B33] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 [color-scheme:dark]'
 
 function StayField({ label, children }) {
   return (
     <div>
-      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">{label}</label>
+      <label className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">{label}</label>
       {children}
     </div>
   )
@@ -1563,22 +1563,22 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
   return (
     <div className="fixed inset-0 z-[200] flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#111528] border-l border-white/10 shadow-2xl overflow-y-auto">
+      <div className="relative w-full max-w-md h-full bg-white dark:bg-[#111528] border-l border-gray-200 dark:border-white/10 shadow-2xl overflow-y-auto">
 
         {/* Header — editable name + location */}
-        <div className="flex items-start gap-3 px-6 py-5 border-b border-white/5">
+        <div className="flex items-start gap-3 px-6 py-5 border-b border-gray-200 dark:border-white/5">
           <span className="w-3.5 h-3.5 rounded-full mt-2 flex-shrink-0" style={{ background: form.color }} />
           <div className="min-w-0 flex-1">
             <input value={form.name} onChange={e => set('name', e.target.value)} onBlur={blurSave} placeholder={isStay ? 'Lodging name' : 'Title'}
-              className="w-full bg-transparent text-lg font-bold text-white placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 py-0.5" />
+              className="w-full bg-transparent text-lg font-bold text-gray-900 dark:text-white placeholder-gray-600 focus:outline-none focus:bg-gray-100 dark:focus:bg-white/5 rounded px-1.5 -mx-1.5 py-0.5" />
             <input value={form.city} onChange={e => set('city', e.target.value)} onBlur={blurSave} placeholder={isStay ? 'City' : 'Location'}
-              className="w-full bg-transparent text-sm text-gray-400 placeholder-gray-600 focus:outline-none focus:bg-white/5 rounded px-1.5 -mx-1.5 mt-0.5" />
+              className="w-full bg-transparent text-sm text-gray-500 dark:text-gray-400 placeholder-gray-600 focus:outline-none focus:bg-gray-100 dark:focus:bg-white/5 rounded px-1.5 -mx-1.5 mt-0.5" />
           </div>
           {/* Save status */}
           <span className="text-[11px] font-semibold flex-shrink-0 mt-1 min-w-[46px] text-right">
-            {saving ? <span className="text-gray-400">Saving…</span> : saved ? <span className="text-green-400">Saved ✓</span> : null}
+            {saving ? <span className="text-gray-500 dark:text-gray-400">Saving…</span> : saved ? <span className="text-green-400">Saved ✓</span> : null}
           </span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0 mt-0.5">
+          <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex-shrink-0 mt-0.5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -1591,7 +1591,7 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
               const active = type === t
               return (
                 <button key={t} onClick={() => pickType(t)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${active ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}>
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'}`}>
                   <span className="leading-none">{m.emoji}</span>{m.label}
                 </button>
               )
@@ -1603,7 +1603,7 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
             <div className="flex gap-6">
               <div>
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nights</p>
-                <p className="text-lg font-extrabold text-white">{nts}</p>
+                <p className="text-lg font-extrabold text-gray-900 dark:text-white">{nts}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total</p>
@@ -1623,7 +1623,7 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
               {form.start_time && (
                 <div>
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Time</p>
-                  <p className="text-lg font-extrabold text-white">{planFmtTime(form.start_time)}</p>
+                  <p className="text-lg font-extrabold text-gray-900 dark:text-white">{planFmtTime(form.start_time)}</p>
                 </div>
               )}
             </div>
@@ -1647,7 +1647,7 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
             <div className="flex gap-2 flex-wrap">
               {STAY_COLORS.map(c => (
                 <button key={c} onClick={() => setAndSave('color', c)}
-                  className={`w-7 h-7 rounded-lg ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-[#111528] ring-white' : ''}`} style={{ background: c }} />
+                  className={`w-7 h-7 rounded-lg ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#111528] ring-white' : ''}`} style={{ background: c }} />
               ))}
             </div>
           </StayField>
@@ -1658,9 +1658,9 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
               <div className="grid grid-cols-2 gap-3">
                 {STAY_CATS.map(c => (
                   <div key={c.key}>
-                    <label className="text-[11px] text-gray-400">{c.label}</label>
+                    <label className="text-[11px] text-gray-500 dark:text-gray-400">{c.label}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">$</span>
                       <input type="number" min="0" value={form[c.key]} onChange={e => set(c.key, e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
                     </div>
                   </div>
@@ -1670,7 +1670,7 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
           ) : (
             <StayField label="Cost">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">$</span>
                 <input type="number" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} onBlur={blurSave} placeholder="0" className={stayInputCls + ' pl-7'} />
               </div>
             </StayField>
@@ -1715,12 +1715,12 @@ function PlanPanel({ form, set, setAndSave, autosave, onCreate, saving, saved, e
                 {saving ? 'Saving…' : `Add ${meta.label.toLowerCase()}`}
               </button>
               <button onClick={onClose} disabled={saving}
-                className="px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/5 rounded-lg transition">Cancel</button>
+                className="px-4 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition">Cancel</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 pt-1">
               <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-white/5 hover:bg-white/10 text-gray-200 rounded-lg transition">Done</button>
+                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-lg transition">Done</button>
               <button onClick={onDelete} disabled={saving}
                 className="px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 rounded-lg transition">Delete</button>
             </div>
@@ -2062,13 +2062,13 @@ export default function ControlPage() {
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide bg-blue-600/10 text-blue-400 mb-3">
             Agency Mode
           </span>
-          <h1 className="text-2xl font-bold text-white">Agency Control Center</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agency Control Center</h1>
           <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
         </div>
         <div className="pt-6 flex items-center gap-4">
           <button
             onClick={() => setShowDemo(d => !d)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition ${showDemo ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-white/10 bg-white/[0.04] text-gray-500 hover:text-gray-300'}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition ${showDemo ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${showDemo ? 'border-yellow-400 bg-yellow-400' : 'border-gray-500'}`}>
               {showDemo && <svg className="w-2 h-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
@@ -2078,12 +2078,12 @@ export default function ControlPage() {
           <select
             value={clientFilter}
             onChange={e => setClientFilter(e.target.value)}
-            className="appearance-none px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-[13px] font-medium text-gray-300 hover:bg-white/[0.08] transition cursor-pointer outline-none"
+            className="appearance-none px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-[13px] font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.08] transition cursor-pointer outline-none"
             style={{ backgroundImage: 'none' }}
           >
-            <option value="active" className="bg-[#1a1f36] text-gray-300">Active Clients</option>
-            <option value="inactive" className="bg-[#1a1f36] text-gray-300">Inactive Clients</option>
-            <option value="all" className="bg-[#1a1f36] text-gray-300">All Clients</option>
+            <option value="active" className="bg-white dark:bg-[#1a1f36] text-gray-600 dark:text-gray-300">Active Clients</option>
+            <option value="inactive" className="bg-white dark:bg-[#1a1f36] text-gray-600 dark:text-gray-300">Inactive Clients</option>
+            <option value="all" className="bg-white dark:bg-[#1a1f36] text-gray-600 dark:text-gray-300">All Clients</option>
           </select>
           <DateRangePicker
             preset={preset}
@@ -2119,33 +2119,33 @@ export default function ControlPage() {
               .filter(l => l.sale_amount && l.sale_status !== 'Sale Lost')
               .reduce((s, l) => s + (Number(l.sale_amount) || 0), 0)
             return (
-              <div className="mb-3 border border-white/[0.06] rounded-xl bg-[#1a1f36] overflow-hidden">
+              <div className="mb-3 border border-gray-200 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#1a1f36] overflow-hidden">
                 <div
-                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition select-none"
+                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/[0.02] transition select-none"
                   onClick={() => setSalesPipelineOpen(o => !o)}
                 >
-                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${salesPipelineOpen ? 'rotate-90' : ''}`}
+                  <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${salesPipelineOpen ? 'rotate-90' : ''}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  <span className="text-[15px] font-bold text-white">Sales Pipeline</span>
-                  <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-white/[0.08] text-xs font-bold text-gray-400">
+                  <span className="text-[15px] font-bold text-gray-900 dark:text-white">Sales Pipeline</span>
+                  <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-gray-100 dark:bg-white/[0.08] text-xs font-bold text-gray-500 dark:text-gray-400">
                     {totalLeads}
                   </span>
                   <div className="flex-1" />
                   <div className="flex items-center">
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${leadCount > 0 ? 'text-white' : 'text-gray-500'}`}>{leadCount}</span>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                      <span className={`text-[15px] font-extrabold leading-tight ${leadCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{leadCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Leads</span>
                     </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${apptCount > 0 ? 'text-white' : 'text-gray-500'}`}>{apptCount}</span>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                      <span className={`text-[15px] font-extrabold leading-tight ${apptCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{apptCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Appts</span>
                     </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${salCount > 0 ? 'text-white' : 'text-gray-500'}`}>{salCount}</span>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                      <span className={`text-[15px] font-extrabold leading-tight ${salCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{salCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">In Sales</span>
                     </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${onbCount > 0 ? 'text-white' : 'text-gray-500'}`}>{onbCount}</span>
+                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
+                      <span className={`text-[15px] font-extrabold leading-tight ${onbCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{onbCount}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Onboarding</span>
                     </div>
                     <div className="flex flex-col items-center px-3.5 min-w-[70px]">
@@ -2163,7 +2163,7 @@ export default function ControlPage() {
                 </div>
 
                 <Collapse open={salesPipelineOpen}>
-                  <div className="border-t border-white/[0.06]">
+                  <div className="border-t border-gray-200 dark:border-white/[0.06]">
                     {SALES_PIPELINE_KEYS.map(key => (
                       <PipelineAccordion
                         key={key}
@@ -2194,62 +2194,62 @@ export default function ControlPage() {
       {newOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setNewOpen(false)} />
-          <div className="relative w-full max-w-md bg-[#171B33] border border-white/10 rounded-2xl shadow-2xl p-6">
+          <div className="relative w-full max-w-md bg-white dark:bg-[#171B33] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold text-white">New Lead</h2>
-              <button onClick={() => setNewOpen(false)} className="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10 transition">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">New Lead</h2>
+              <button onClick={() => setNewOpen(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">First name</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">First name</label>
                   <input autoFocus value={newRecord.first_name} onChange={e => setNewRecord(p => ({ ...p, first_name: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Last name</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Last name</label>
                   <input value={newRecord.last_name} onChange={e => setNewRecord(p => ({ ...p, last_name: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Email</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Email</label>
                 <input type="email" value={newRecord.email} onChange={e => setNewRecord(p => ({ ...p, email: e.target.value }))}
-                  className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                  className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Phone</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Phone</label>
                   <input value={newRecord.phone} onChange={e => setNewRecord(p => ({ ...p, phone: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Company</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Company</label>
                   <input value={newRecord.company} onChange={e => setNewRecord(p => ({ ...p, company: e.target.value }))}
-                    className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                    className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                 </div>
               </div>
 
               {/* Optional appointment */}
-              <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <div className="mt-1 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] p-3">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" checked={newRecord.withAppt} onChange={e => setNewRecord(p => ({ ...p, withAppt: e.target.checked }))}
-                    className="h-4 w-4 rounded border-white/20 bg-white/5 accent-blue-600 cursor-pointer" />
-                  <span className="text-sm text-white font-medium">Schedule an appointment</span>
+                    className="h-4 w-4 rounded border-gray-300 dark:border-white/20 bg-gray-100 dark:bg-white/5 accent-blue-600 cursor-pointer" />
+                  <span className="text-sm text-gray-900 dark:text-white font-medium">Schedule an appointment</span>
                 </label>
                 {newRecord.withAppt && (
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Date</label>
+                      <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Date</label>
                       <input type="date" value={newRecord.appt_date} onChange={e => setNewRecord(p => ({ ...p, appt_date: e.target.value }))}
-                        className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                        className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Time</label>
+                      <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Time</label>
                       <input type="time" value={newRecord.appt_time} onChange={e => setNewRecord(p => ({ ...p, appt_time: e.target.value }))}
-                        className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white" />
+                        className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white" />
                     </div>
                   </div>
                 )}
@@ -2263,7 +2263,7 @@ export default function ControlPage() {
             </p>
             {createError && <p className="text-xs text-red-400 mt-2">{createError}</p>}
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setNewOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition">Cancel</button>
+              <button onClick={() => setNewOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition">Cancel</button>
               <button onClick={submitNew}
                 disabled={createSaving || !(newRecord.first_name.trim() || newRecord.last_name.trim() || newRecord.email.trim() || newRecord.company.trim()) || (newRecord.withAppt && !newRecord.appt_date)}
                 className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
@@ -2277,7 +2277,7 @@ export default function ControlPage() {
       {/* ─── Lead Detail Drawer ─── */}
       {/* ── Pipeline-row note: hover preview tooltip ── */}
       {notesHover && !notesPopover && (
-        <div className="fixed z-[70] max-w-xs bg-[#0c0e18] border border-white/10 rounded-lg shadow-xl px-3 py-2 text-xs text-gray-200 whitespace-pre-wrap pointer-events-none"
+        <div className="fixed z-[70] max-w-xs bg-gray-800 dark:bg-[#0c0e18] border border-gray-200 dark:border-white/10 rounded-lg shadow-xl px-3 py-2 text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap pointer-events-none"
           style={{ left: Math.min(notesHover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 280), top: notesHover.y + 14 }}>
           {notesHover.text}
         </div>
@@ -2287,16 +2287,16 @@ export default function ControlPage() {
       {notesPopover && (
         <>
           <div className="fixed inset-0 z-[70]" onClick={() => setNotesPopover(null)} />
-          <div className="fixed z-[71] w-72 bg-[#1a1f36] border border-white/10 rounded-xl shadow-2xl p-3"
+          <div className="fixed z-[71] w-72 bg-white dark:bg-[#1a1f36] border border-gray-200 dark:border-white/10 rounded-xl shadow-2xl p-3"
             style={{ left: Math.min(notesPopover.x, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 300), top: Math.min(notesPopover.y, (typeof window !== 'undefined' ? window.innerHeight : 9999) - 200) }}
             onClick={e => e.stopPropagation()}>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">Note</p>
+            <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Note</p>
             <textarea autoFocus rows={4} value={notesPopover.value}
               onChange={e => setNotesPopover(p => ({ ...p, value: e.target.value }))}
               placeholder="Add a note…"
-              className="w-full text-sm rounded-lg bg-[#111528] border border-white/10 text-white p-2 outline-none focus:border-blue-500 resize-none" />
+              className="w-full text-sm rounded-lg bg-white dark:bg-[#111528] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white p-2 outline-none focus:border-blue-500 resize-none" />
             <div className="flex justify-end gap-2 mt-2">
-              <button onClick={() => setNotesPopover(null)} className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white">Cancel</button>
+              <button onClick={() => setNotesPopover(null)} className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Cancel</button>
               <button onClick={saveNote} disabled={notesSaving}
                 className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50">
                 {notesSaving ? 'Saving…' : 'Save'}
@@ -2309,15 +2309,15 @@ export default function ControlPage() {
       {selectedLead && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setSelectedLead(null)} />
-          <div className="fixed top-0 right-0 h-full w-[480px] bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-white/5">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+          <div className="fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-[#171B33] shadow-2xl z-40 flex flex-col overflow-hidden border-l border-gray-200 dark:border-white/5">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-white/5">
               <div>
-                <h2 className="font-semibold text-white">{selectedLead.first_name} {selectedLead.last_name}</h2>
-                <p className="text-xs text-gray-400">{selectedLead.agency_funnels?.name || 'Agency Lead'}</p>
+                <h2 className="font-semibold text-gray-900 dark:text-white">{selectedLead.first_name} {selectedLead.last_name}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{selectedLead.agency_funnels?.name || 'Agency Lead'}</p>
               </div>
               <button
                 onClick={() => setSelectedLead(null)}
-                className="text-gray-400 hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-white/10"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2327,58 +2327,58 @@ export default function ControlPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Contact</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Contact</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">First Name</label>
-                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">First Name</label>
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.first_name || ''} onChange={e => setSelectedLead(p => ({ ...p, first_name: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Last Name</label>
-                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Last Name</label>
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.last_name || ''} onChange={e => setSelectedLead(p => ({ ...p, last_name: e.target.value }))} />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-400 mb-1 block">Email</label>
-                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Email</label>
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.email || ''} onChange={e => setSelectedLead(p => ({ ...p, email: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Phone</label>
-                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Phone</label>
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.phone || ''} onChange={e => setSelectedLead(p => ({ ...p, phone: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Company</label>
-                    <input className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Company</label>
+                    <input className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.company || ''} onChange={e => setSelectedLead(p => ({ ...p, company: e.target.value }))} />
                   </div>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Status</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Status</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Lead Status</label>
-                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Lead Status</label>
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                       value={selectedLead.lead_status || ''} onChange={e => setSelectedLead(p => ({ ...p, lead_status: e.target.value }))}>
                       <option value="">—</option>
                       {LEAD_STATUSES.map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appointment Status</label>
-                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appointment Status</label>
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                       value={selectedLead.appt_status || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_status: e.target.value }))}>
                       <option value="">—</option>
                       {APPT_STATUSES.map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Sale Status</label>
-                    <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Sale Status</label>
+                    <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                       value={selectedLead.sale_status || ''} onChange={e => {
                         const val = e.target.value
                         setSelectedLead(p => ({
@@ -2395,15 +2395,15 @@ export default function ControlPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Sale Amount</label>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Sale Amount</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">$</span>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         placeholder="0.00"
-                        className="w-full text-sm border border-white/10 rounded-lg pl-6 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                        className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg pl-6 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                         value={selectedLead.sale_amount ?? ''}
                         onChange={e => setSelectedLead(p => ({ ...p, sale_amount: e.target.value === '' ? null : Number(e.target.value) }))}
                       />
@@ -2424,11 +2424,11 @@ export default function ControlPage() {
 
               {selectedLead.sale_status === 'Sold' && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Onboarding</p>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Onboarding</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Onboarding Status</label>
-                      <select className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#1e2340] text-white"
+                      <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Onboarding Status</label>
+                      <select className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white"
                         value={selectedLead.onboarding_status || ''} onChange={e => setSelectedLead(p => ({ ...p, onboarding_status: e.target.value }))}>
                         <option value="">—</option>
                         {ONBOARDING_STATUSES.map(s => <option key={s}>{s}</option>)}
@@ -2447,48 +2447,48 @@ export default function ControlPage() {
               )}
 
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Appointment</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appointment Date</label>
-                    <input type="date" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appointment Date</label>
+                    <input type="date" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.appt_date || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_date: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Appointment Time</label>
-                    <input type="time" className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Appointment Time</label>
+                    <input type="time" className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white"
                       value={selectedLead.appt_time || ''} onChange={e => setSelectedLead(p => ({ ...p, appt_time: e.target.value }))} />
                   </div>
                 </div>
                 {(selectedLead.selected_date || selectedLead.selected_time) && (
-                  <p className="text-xs text-gray-400 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Lead requested: {[selectedLead.selected_date, selectedLead.selected_time].filter(Boolean).join(' • ')}
                   </p>
                 )}
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Notes</p>
-                <textarea rows={4} className="w-full text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white/5 text-white placeholder-gray-500"
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Notes</p>
+                <textarea rows={4} className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-500"
                   placeholder="Add notes about this lead..."
                   value={selectedLead.ch_notes || ''} onChange={e => setSelectedLead(p => ({ ...p, ch_notes: e.target.value }))} />
               </div>
 
               {selectedLead.meta && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Source</p>
-                  <pre className="bg-white/5 rounded-lg p-3 text-[11px] text-gray-300 overflow-x-auto">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Source</p>
+                  <pre className="bg-gray-100 dark:bg-white/5 rounded-lg p-3 text-[11px] text-gray-600 dark:text-gray-300 overflow-x-auto">
 {JSON.stringify(selectedLead.meta, null, 2)}
                   </pre>
                 </div>
               )}
 
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Submitted {selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleString() : '—'}
               </p>
             </div>
 
-            <div className="px-6 py-4 border-t border-white/5 flex items-center justify-end gap-2">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/5 flex items-center justify-end gap-2">
               {drawerSaveSuccess && (
                 <span className="text-xs text-green-400 mr-auto">Saved ✓</span>
               )}
@@ -2498,7 +2498,7 @@ export default function ControlPage() {
                   <button
                     onClick={() => setConfirmDelete(false)}
                     disabled={deleting}
-                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                    className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition"
                   >
                     Cancel
                   </button>
@@ -2514,13 +2514,13 @@ export default function ControlPage() {
                 <>
                   <button
                     onClick={() => setConfirmDelete(true)}
-                    className="px-4 py-2 text-sm font-medium text-red-400 bg-white/5 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition mr-auto"
+                    className="px-4 py-2 text-sm font-medium text-red-400 bg-gray-100 dark:bg-white/5 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition mr-auto"
                   >
                     Delete
                   </button>
                   <button
                     onClick={() => setSelectedLead(null)}
-                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                    className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition"
                   >
                     Close
                   </button>
@@ -2543,47 +2543,47 @@ export default function ControlPage() {
         <>
           <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setCreateClientLead(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-white">Create Client from Lead</h3>
-              <p className="text-sm text-gray-400">
-                This will create a new active client record for <span className="text-white font-medium">{createClientLead.company || `${createClientLead.first_name} ${createClientLead.last_name}`}</span>.
+            <div className="bg-white dark:bg-[#1a1a2e] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create Client from Lead</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                This will create a new active client record for <span className="text-gray-900 dark:text-white font-medium">{createClientLead.company || `${createClientLead.first_name} ${createClientLead.last_name}`}</span>.
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Client Name</label>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Client Name</label>
                   <input
                     type="text"
                     defaultValue={createClientLead.company || `${createClientLead.first_name} ${createClientLead.last_name}`}
                     id="create-client-name"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Industry</label>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Industry</label>
                   <input
                     type="text"
                     defaultValue={createClientLead.meta?.industry || ''}
                     id="create-client-industry"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">City</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">City</label>
                     <input
                       type="text"
                       defaultValue={createClientLead.meta?.city || ''}
                       id="create-client-city"
-                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">State</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">State</label>
                     <input
                       type="text"
                       defaultValue={createClientLead.meta?.state || ''}
                       id="create-client-state"
-                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -2591,7 +2591,7 @@ export default function ControlPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setCreateClientLead(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition"
                 >
                   Cancel
                 </button>
