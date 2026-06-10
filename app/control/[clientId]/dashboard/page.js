@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../../lib/supabase'
 import MetricCard from '../../../../components/MetricCard'
+import EcomControlCenter from '../../../../components/EcomControlCenter'
 
 function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
 function fmtPct(n) { return (Math.round((n || 0) * 10) / 10) + '%' }
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [appliedEnd,   setAppliedEnd]   = useState(initEnd)
 
   const [clientName,     setClientName]     = useState('')
+  const [accountType,    setAccountType]    = useState(null)
   const [loading,        setLoading]        = useState(true)
   const [metrics,        setMetrics]        = useState(null)
   const [chartData,      setChartData]      = useState({ labels: [], leads: [] })
@@ -73,8 +75,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    supabase.from('client').select('client_name').eq('client_id', clientId).single()
-      .then(({ data }) => { if (data) setClientName(data.client_name) })
+    supabase.from('client').select('client_name, account_type').eq('client_id', clientId).single()
+      .then(({ data }) => { if (data) { setClientName(data.client_name); setAccountType(data.account_type || 'home_service') } })
   }, [clientId])
 
   const fetchData = useCallback(async (start, end) => {
@@ -235,6 +237,11 @@ export default function DashboardPage() {
 
   function fmtDate(d) {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  // Ecom accounts get the single-page Control Center instead of the lead-gen KPI grid.
+  if (accountType === 'ecom') {
+    return <EcomControlCenter clientId={clientId} clientName={clientName} />
   }
 
   return (

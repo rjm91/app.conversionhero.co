@@ -12,11 +12,13 @@ function admin() {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { client_name, industry, city, state } = body
+    const { client_name, industry, city, state, account_type } = body
 
     if (!client_name) {
       return NextResponse.json({ error: 'client_name is required' }, { status: 400 })
     }
+
+    const acctType = account_type === 'ecom' ? 'ecom' : 'home_service'
 
     const db = admin()
 
@@ -44,6 +46,8 @@ export async function POST(request) {
         city: city || null,
         state: state || null,
         status: 'Active',
+        account_type: acctType,
+        is_ecom: acctType === 'ecom',
       })
       .select('*')
       .single()

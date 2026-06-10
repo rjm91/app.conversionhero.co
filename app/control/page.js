@@ -1970,6 +1970,7 @@ export default function ControlPage() {
         industry: document.getElementById('create-client-industry')?.value || '',
         city: document.getElementById('create-client-city')?.value || '',
         state: document.getElementById('create-client-state')?.value || '',
+        account_type: document.getElementById('create-client-account-type')?.value || 'home_service',
       }
       const res = await fetch('/api/clients', {
         method: 'POST',
@@ -2566,6 +2567,18 @@ export default function ControlPage() {
                     id="create-client-industry"
                     className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Account Type</label>
+                  <select
+                    id="create-client-account-type"
+                    defaultValue="home_service"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="home_service">Home Service</option>
+                    <option value="ecom">Ecommerce</option>
+                  </select>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Ecom accounts get the Shopify Control Center + Customers/Orders. Home Service gets the leads/appointments setup.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

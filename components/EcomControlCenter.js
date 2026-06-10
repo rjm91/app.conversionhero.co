@@ -1,0 +1,331 @@
+'use client'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+
+const fmt$    = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
+const fmt$2   = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtNum  = (n) => Number(n || 0).toLocaleString()
+const fmtPct  = (n) => (Math.round((n || 0) * 1000) / 10) + '%'
+const fmtRoas = (n) => (Math.round((n || 0) * 100) / 100) + 'x'
+
+function defaultDates() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 30)
+  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+}
+
+// One accordion section with inline KPI summary in the header bar.
+function Section({ id, icon, name, count, kpis, open, onToggle, children }) {
+  return (
+    <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
+      <div
+        onClick={() => onToggle(id)}
+        className="flex items-center gap-3.5 px-4 py-4 cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-[#161b30] transition"
+      >
+        <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+        </svg>
+        {icon}
+        <div className="min-w-0">
+          <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
+          {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-6 flex-shrink-0">
+          {kpis.map((k, i) => (
+            <div key={i} className="text-right">
+              <div className={`text-base font-bold leading-tight ${k.ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{k.value}</div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{k.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {open && <div className="border-t border-gray-100 dark:border-white/[0.06]">{children}</div>}
+    </div>
+  )
+}
+
+const platformIcon = {
+  overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#3b82f6,#34CC93)' }}>∑</div>,
+  google:   <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
+  meta:     <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#0866FF] text-white text-sm font-extrabold flex-shrink-0">f</div>,
+  orders:   <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg,#34CC93,#22CBE3)' }}>🛍</div>,
+}
+
+const SHOPIFY_PILL = {
+  PAID: 'bg-[#34CC93]/10 text-[#1a9e6e] dark:text-[#34CC93]', PENDING: 'bg-[#FFD024]/10 text-[#b89600] dark:text-[#FFD024]',
+  FULFILLED: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300', UNFULFILLED: 'bg-[#FFD024]/10 text-[#b89600] dark:text-[#FFD024]',
+}
+function Pill({ status }) {
+  if (!status) return <span className="text-gray-300 dark:text-gray-600">—</span>
+  const label = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace(/_/g, ' ')
+  return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SHOPIFY_PILL[status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>{label}</span>
+}
+
+export default function EcomControlCenter({ clientId, clientName }) {
+  const defaults = defaultDates()
+  const [startDate, setStartDate]   = useState(defaults.start)
+  const [endDate, setEndDate]       = useState(defaults.end)
+  const [appliedStart, setAppliedStart] = useState(defaults.start)
+  const [appliedEnd, setAppliedEnd]     = useState(defaults.end)
+
+  const [orders, setOrders]       = useState([])
+  const [campaigns, setCampaigns] = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [open, setOpen] = useState({ overview: true, google: true, meta: false, orders: false })
+  const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const [ordersRes, campRes] = await Promise.all([
+      supabase.from('client_lead')
+        .select('lead_id, sale_amount, utm_campaign, shopify_data, created_at, first_name, last_name')
+        .eq('client_id', clientId)
+        .like('lead_id', 'shopify_%')
+        .gte('created_at', appliedStart)
+        .lte('created_at', appliedEnd + 'T23:59:59-12:00')
+        .order('created_at', { ascending: false }),
+      supabase.from('client_yt_campaigns')
+        .select('*')
+        .eq('client_id', clientId)
+        .ilike('campaign_name', `%${clientId}%`)
+        .gte('date', appliedStart)
+        .lte('date', appliedEnd),
+    ])
+
+    setOrders(ordersRes.data || [])
+
+    // Aggregate Google campaign rows per campaign_id
+    const map = {}
+    for (const row of (campRes.data || [])) {
+      const id = row.campaign_id
+      if (!map[id]) map[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, cost: 0, clicks: 0, conversions: 0, synced_at: row.synced_at }
+      map[id].cost += Number(row.cost) || 0
+      map[id].clicks += Number(row.clicks) || 0
+      map[id].conversions += Number(row.conversions) || 0
+      if (row.synced_at > map[id].synced_at) { map[id].status = row.status; map[id].synced_at = row.synced_at }
+    }
+    setCampaigns(Object.values(map).sort((a, b) => b.cost - a.cost))
+    setLoading(false)
+  }, [clientId, appliedStart, appliedEnd])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  function applyDates() { setAppliedStart(startDate); setAppliedEnd(endDate) }
+
+  // Per-campaign attribution from orders (utm_campaign → orders/revenue)
+  const campaignAttr = useMemo(() => {
+    const m = {}
+    for (const o of orders) {
+      const c = (o.utm_campaign || '').trim()
+      if (!c) continue
+      if (!m[c]) m[c] = { count: 0, revenue: 0 }
+      m[c].count++
+      m[c].revenue += Number(o.sale_amount) || 0
+    }
+    return m
+  }, [orders])
+
+  const m = useMemo(() => {
+    const revenue = orders.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
+    const orderCount = orders.length
+    const tracked = orders.filter(o => (o.utm_campaign || '').trim())
+    const trackedRevenue = tracked.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
+    const adSpend = campaigns.reduce((s, c) => s + c.cost, 0)
+    const clicks = campaigns.reduce((s, c) => s + c.clicks, 0)
+    const byChannel = {}
+    for (const o of orders) {
+      const ch = o.shopify_data?.channel || 'Other'
+      byChannel[ch] = (byChannel[ch] || 0) + (Number(o.sale_amount) || 0)
+    }
+    // Google attribution rollup
+    const gConv = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
+    const gRev  = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    return {
+      revenue, orderCount,
+      aov: orderCount ? revenue / orderCount : 0,
+      trackedRevenue, trackedCount: tracked.length,
+      attrRate: orderCount ? tracked.length / orderCount : 0,
+      adSpend, clicks,
+      roas: adSpend ? revenue / adSpend : 0,
+      costPerOrder: orderCount ? adSpend / orderCount : 0,
+      convRate: clicks ? orderCount / clicks : 0,
+      byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
+      gConv, gRev, gRoas: adSpend ? gRev / adSpend : 0,
+    }
+  }, [orders, campaigns, campaignAttr])
+
+  const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
+  const channelColor = (name) => name === 'Facebook' ? '#0866FF' : name === 'Online Store' ? '#4b5563' : name === 'Google' ? '#4285F4' : '#7a8bb5'
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <span className="inline-block text-[10px] font-bold text-[#34CC93] bg-[#34CC93]/12 rounded px-2 py-0.5 mb-1.5">ECOM</span>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control Center</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{clientName || clientId} at a glance. Click any section to expand.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={applyDates} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Apply</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-400 text-sm p-8">Loading…</p>
+      ) : (
+        <>
+          {/* Overview */}
+          <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
+            kpis={[
+              { label: 'Revenue', value: fmt$(m.revenue) },
+              { label: 'Ad Spend', value: fmt$(m.adSpend) },
+              { label: 'Blended ROAS', value: fmtRoas(m.roas) },
+              { label: 'Orders', value: fmtNum(m.orderCount) },
+              { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
+            ]}>
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
+                {m.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : m.byChannel.map(([name, val]) => (
+                  <div key={name} className="flex items-center gap-3 py-1.5">
+                    <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
+                    <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
+                      <div className="h-full rounded" style={{ width: `${(val / channelMax) * 100}%`, background: channelColor(name) }} />
+                    </div>
+                    <span className="w-16 text-right text-xs font-semibold text-gray-700 dark:text-gray-200">{fmt$(val)}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    ['AOV', fmt$2(m.aov)],
+                    ['Cost / Order', fmt$2(m.costPerOrder)],
+                    ['Conversion Rate', fmtPct(m.convRate)],
+                    ['Tracked Revenue (CH)', fmt$(m.trackedRevenue), true],
+                  ].map(([label, value, ch]) => (
+                    <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3">
+                      <div className={`text-xl font-bold ${ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{value}</div>
+                      <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* Google Ads */}
+          <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${campaigns.length} campaign${campaigns.length === 1 ? '' : 's'}`} open={open.google} onToggle={toggle}
+            kpis={[
+              { label: 'Spend', value: fmt$(m.adSpend) },
+              { label: 'Clicks', value: fmtNum(m.clicks) },
+              { label: 'Conv (CH)', value: fmtNum(m.gConv), ch: true },
+              { label: 'ROAS (CH)', value: fmtRoas(m.gRoas), ch: true },
+            ]}>
+            {campaigns.length === 0 ? (
+              <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Campaign</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cost</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Clicks</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Revenue (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    {campaigns.map(c => {
+                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
+                      const roas = c.cost > 0 ? a.revenue / c.cost : 0
+                      return (
+                        <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[320px]">{c.campaign_name}</div>
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(c.cost)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.clicks)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{fmt$(a.revenue)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+
+          {/* Meta — placeholder until the integration lands */}
+          <Section id="meta" icon={platformIcon.meta} name="Meta (Facebook)" open={open.meta} onToggle={toggle}
+            kpis={[{ label: 'Not connected', value: '—' }]}>
+            <div className="flex items-center gap-4 px-5 py-5">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Connect Meta Ads</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Pull Facebook spend and match it to CH-attributed orders — the UTM IDs are already captured and waiting.</p>
+              </div>
+              <button className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">Connect Meta →</button>
+            </div>
+          </Section>
+
+          {/* Orders */}
+          <Section id="orders" icon={platformIcon.orders} name="Orders" count={`${fmtNum(m.orderCount)} total`} open={open.orders} onToggle={toggle}
+            kpis={[
+              { label: 'Revenue', value: fmt$(m.revenue) },
+              { label: 'AOV', value: fmt$2(m.aov) },
+              { label: 'Tracked (CH)', value: fmtNum(m.trackedCount), ch: true },
+              { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
+            ]}>
+            {orders.length === 0 ? (
+              <p className="text-sm text-gray-400 p-6">No orders in range.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Order</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Channel</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fulfillment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    {orders.slice(0, 25).map(o => (
+                      <tr key={o.lead_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-gray-900 dark:text-white">{o.shopify_data?.order_name || '—'}</td>
+                        <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{o.first_name} {o.last_name}</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{o.shopify_data?.channel || '—'}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
+                        <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.financial_status} /></td>
+                        <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.fulfillment_status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {orders.length > 25 && <p className="text-xs text-gray-400 px-4 py-3">Showing 25 of {fmtNum(orders.length)} orders.</p>}
+              </div>
+            )}
+          </Section>
+        </>
+      )}
+    </div>
+  )
+}
