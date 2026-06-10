@@ -720,7 +720,7 @@ export default function PaidAdsPage() {
                 {view === 'campaigns' && filtered.length > 0 && (
                   <tr
                     onClick={() => setGoogleOpen(o => !o)}
-                    className="cursor-pointer select-none bg-gray-200 dark:bg-[#0d1020] hover:bg-gray-300/70 dark:hover:bg-[#11162b] border-y-2 border-gray-300 dark:border-black/40 transition-colors"
+                    className="cursor-pointer select-none bg-gray-200 dark:bg-[#0d1020] hover:bg-gray-300/70 dark:hover:bg-[#11162b] transition-colors"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
