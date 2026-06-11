@@ -78,17 +78,36 @@ export default function AgentPanel({ mode = 'client' }) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Auto-grow the message box as you type (up to a max), unless manually resized
-  const userResizedInput = useRef(false)
-  const resizeStartH = useRef(0)
+  // Message box height: null = auto-grow with content; a number = user dragged it
+  const [inputHeight, setInputHeight] = useState(null)
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
-    if (input === '') userResizedInput.current = false // reset to 1 line after send/clear
-    if (userResizedInput.current) return
+    if (inputHeight !== null) { el.style.height = inputHeight + 'px'; return }
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 240) + 'px'
-  }, [input])
+  }, [input, inputHeight])
+
+  // Drag the grip above the input to pull the box up/taller
+  function startInputResize(e) {
+    e.preventDefault(); e.stopPropagation()
+    const startY = e.clientY
+    const startH = inputRef.current?.offsetHeight || 40
+    const maxH = Math.round(window.innerHeight * 0.6)
+    document.body.style.cursor = 'ns-resize'
+    function onMove(ev) {
+      const h = Math.max(36, Math.min(maxH, startH + (startY - ev.clientY)))
+      if (inputRef.current) inputRef.current.style.height = h + 'px'
+      setInputHeight(h)
+    }
+    function onUp() {
+      document.body.style.cursor = ''
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // ⌘K / Ctrl+K to toggle
   useEffect(() => {
@@ -224,6 +243,7 @@ export default function AgentPanel({ mode = 'client' }) {
     const next = [...messages, { role: 'user', text }]
     setMessages(next)
     setInput('')
+    setInputHeight(null) // collapse box back to one line after sending
     setSending(true)
     try {
       const apiMessages = next.map(m => ({
@@ -402,21 +422,24 @@ export default function AgentPanel({ mode = 'client' }) {
 
           {/* Input */}
           <div className="p-3 border-t border-gray-100 dark:border-white/10 flex-shrink-0">
+            {/* Drag this grip up to make the box taller */}
+            <div
+              onPointerDown={startInputResize}
+              title="Drag to resize"
+              className="group h-3 -mt-1 mb-1 flex items-center justify-center cursor-ns-resize"
+            >
+              <div className="w-9 h-1 rounded-full bg-gray-300 dark:bg-white/20 group-hover:bg-gray-400 dark:group-hover:bg-white/40 transition-colors" />
+            </div>
             <div className="flex items-end gap-2 bg-gray-100 dark:bg-white/5 rounded-2xl px-3 py-2">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                onPointerDown={e => { e.stopPropagation(); resizeStartH.current = inputRef.current?.offsetHeight || 0 }}
-                onPointerUp={() => {
-                  // If the user dragged the resize handle, respect their height from then on
-                  const el = inputRef.current
-                  if (el && Math.abs(el.offsetHeight - resizeStartH.current) > 2) userResizedInput.current = true
-                }}
+                onPointerDown={e => e.stopPropagation()}
                 placeholder={lastRejectedProposal ? `What should I change about "${lastRejectedProposal}"?` : `Ask the agent about ${pageLabel.toLowerCase()}…`}
                 rows={1}
-                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-y min-h-[24px] max-h-[60vh]"
+                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none overflow-y-auto min-h-[24px]"
               />
               <button
                 onClick={send}
@@ -428,7 +451,7 @@ export default function AgentPanel({ mode = 'client' }) {
                 </svg>
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">⌘K to toggle · drag header to move · drag edges to resize</p>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">⌘K to toggle · drag header to move · drag grip above to resize the box</p>
           </div>
 
           {/* Resize handles */}
