@@ -23,7 +23,7 @@ export async function GET() {
   let accessible_customers = null
   if (accessToken) {
     try {
-      const versions = ['v20', 'v19', 'v18']
+      const versions = ['v21', 'v22']
       for (const v of versions) {
         const res = await fetch(
           `https://googleads.googleapis.com/${v}/customers:listAccessibleCustomers`,
@@ -42,7 +42,8 @@ export async function GET() {
           accessible_customers = data?.resourceNames || []
           break
         }
-        if (res.status !== 404) {
+        const deprecated = /UNSUPPORTED_VERSION|deprecated/i.test(text || '')
+        if (res.status !== 404 && !deprecated) {
           ads_api_error = `HTTP ${res.status} (${v}): ${text.slice(0, 500)}`
           break
         }

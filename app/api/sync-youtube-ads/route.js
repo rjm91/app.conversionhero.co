@@ -20,7 +20,7 @@ async function safeJson(res) {
 
 // Helper: run a GAQL query against Google Ads API, trying multiple API versions
 async function runGaqlQuery(accessToken, customerId, query, label = 'Google Ads') {
-  const versions = ['v20', 'v21', 'v22', 'v19']
+  const versions = ['v21', 'v22']
   let lastError = ''
 
   for (const version of versions) {
@@ -51,7 +51,9 @@ async function runGaqlQuery(accessToken, customerId, query, label = 'Google Ads'
       )
     }
 
-    if (status !== 404) {
+    // Skip to the next version if this one is missing (404) or deprecated/blocked.
+    const deprecated = /UNSUPPORTED_VERSION|deprecated/i.test(rawText || '')
+    if (status !== 404 && !deprecated) {
       throw new Error(`[${label} ${version}] HTTP ${status}: ${rawText}`)
     }
 
