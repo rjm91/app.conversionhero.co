@@ -8,6 +8,31 @@ import { Line } from 'react-chartjs-2'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
+const RANGE_OPTIONS = [
+  ['last_7',    'Last 7 Days'],
+  ['last_14',   'Last 14 Days'],
+  ['last_30',   'Last 30 Days'],
+  ['last_90',   'Last 90 Days'],
+  ['this_year', 'This Year'],
+  ['last_year', 'Last Year'],
+  ['all_time',  'All Time'],
+]
+
+function rangeBounds(range) {
+  const now = new Date()
+  const day = 86400000
+  switch (range) {
+    case 'last_7':    return { start: new Date(now - 7 * day),  end: now }
+    case 'last_14':   return { start: new Date(now - 14 * day), end: now }
+    case 'last_90':   return { start: new Date(now - 90 * day), end: now }
+    case 'this_year': return { start: new Date(now.getFullYear(), 0, 1), end: now }
+    case 'last_year': return { start: new Date(now.getFullYear() - 1, 0, 1), end: new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59) }
+    case 'all_time':  return { start: null, end: now }
+    case 'last_30':
+    default:          return { start: new Date(now - 30 * day), end: now }
+  }
+}
+
 const statusColors = {
   // Lead Status — yellow = leads, purple = appt set
   'New / Not Yet Contacted': 'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]',
@@ -119,6 +144,8 @@ export default function ContactsPage() {
   const [resending,   setResending]   = useState(false)
   const [resendResult, setResendResult] = useState(null)      // 'sent' | 'error'
   const [leadMeta,    setLeadMeta]    = useState([])           // client_lead_meta rows
+  const [chartRange,  setChartRange]  = useState('last_30')    // orders-over-time range
+  const [chartSeries, setChartSeries] = useState({ labels: [], counts: [] })
 
   useEffect(() => { fetchLeads() }, [clientId])
 
@@ -297,21 +324,44 @@ export default function ContactsPage() {
   // Ecom (Shopify-connected) account → render the Shopify Orders-style columns.
   const isEcom = leads.some(l => String(l.lead_id || '').startsWith('shopify_'))
 
-  // Orders-over-time series (one point per day) for the ecom chart.
-  const orderChart = useMemo(() => {
-    if (!isEcom) return null
-    const byDay = {}
-    for (const o of leads) {
-      if (!o.created_at) continue
-      const key = new Date(o.created_at).toISOString().slice(0, 10)
-      byDay[key] = (byDay[key] || 0) + 1
-    }
-    const days = Object.keys(byDay).sort()
-    return {
-      labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
-      counts: days.map(d => byDay[d]),
-    }
-  }, [leads, isEcom])
+  // Orders-over-time chart: pull daily order counts for the selected range
+  // straight from the DB (the loaded list is capped at 1,000 rows).
+  useEffect(() => {
+    if (!isEcom) return
+    let cancelled = false
+    ;(async () => {
+      const { start, end } = rangeBounds(chartRange)
+      const all = []
+      for (let from = 0; ; from += 1000) {
+        let q = supabase
+          .from('client_lead')
+          .select('created_at')
+          .eq('client_id', clientId)
+          .neq('lead_status', 'in_progress')
+          .order('created_at', { ascending: true })
+          .range(from, from + 999)
+        if (start) q = q.gte('created_at', start.toISOString())
+        if (end)   q = q.lte('created_at', end.toISOString())
+        const { data, error } = await q
+        if (error || !data?.length) break
+        all.push(...data)
+        if (data.length < 1000) break
+      }
+      if (cancelled) return
+      const byDay = {}
+      for (const o of all) {
+        if (!o.created_at) continue
+        const key = new Date(o.created_at).toISOString().slice(0, 10)
+        byDay[key] = (byDay[key] || 0) + 1
+      }
+      const days = Object.keys(byDay).sort()
+      setChartSeries({
+        labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+        counts: days.map(d => byDay[d]),
+      })
+    })()
+    return () => { cancelled = true }
+  }, [isEcom, chartRange, clientId])
 
   const filtered = leads.filter(l => {
     const q = search.toLowerCase()
@@ -370,16 +420,28 @@ export default function ContactsPage() {
       </div>
 
       {/* Orders over time (ecom) */}
-      {isEcom && orderChart && orderChart.labels.length > 0 && (
+      {isEcom && (
         <div className="mb-5 bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Orders Over Time</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Orders Over Time</p>
+            <select
+              value={chartRange}
+              onChange={e => setChartRange(e.target.value)}
+              className="text-xs font-medium border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-700 dark:text-gray-200 bg-white dark:bg-[#161b30] outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              {RANGE_OPTIONS.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+            </select>
+          </div>
+          {chartSeries.labels.length === 0 ? (
+            <div style={{ height: 180 }} className="flex items-center justify-center text-sm text-gray-400">No orders in this range.</div>
+          ) : (
           <div style={{ height: 180 }}>
             <Line
               data={{
-                labels: orderChart.labels,
+                labels: chartSeries.labels,
                 datasets: [{
                   label: 'Orders',
-                  data: orderChart.counts,
+                  data: chartSeries.counts,
                   borderColor: '#34CC93',
                   backgroundColor: (ctx) => {
                     const { ctx: c } = ctx.chart
@@ -391,7 +453,7 @@ export default function ContactsPage() {
                   borderWidth: 2.5,
                   fill: true,
                   tension: 0.4,
-                  pointRadius: orderChart.labels.length > 40 ? 0 : 2.5,
+                  pointRadius: chartSeries.labels.length > 40 ? 0 : 2.5,
                   pointBackgroundColor: '#34CC93',
                 }],
               }}
@@ -409,6 +471,7 @@ export default function ContactsPage() {
               }}
             />
           </div>
+          )}
         </div>
       )}
 
