@@ -78,6 +78,18 @@ export default function AgentPanel({ mode = 'client' }) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // Auto-grow the message box as you type (up to a max), unless manually resized
+  const userResizedInput = useRef(false)
+  const resizeStartH = useRef(0)
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    if (input === '') userResizedInput.current = false // reset to 1 line after send/clear
+    if (userResizedInput.current) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 240) + 'px'
+  }, [input])
+
   // ⌘K / Ctrl+K to toggle
   useEffect(() => {
     function onKey(e) {
@@ -396,9 +408,15 @@ export default function AgentPanel({ mode = 'client' }) {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                onPointerDown={e => { e.stopPropagation(); resizeStartH.current = inputRef.current?.offsetHeight || 0 }}
+                onPointerUp={() => {
+                  // If the user dragged the resize handle, respect their height from then on
+                  const el = inputRef.current
+                  if (el && Math.abs(el.offsetHeight - resizeStartH.current) > 2) userResizedInput.current = true
+                }}
                 placeholder={lastRejectedProposal ? `What should I change about "${lastRejectedProposal}"?` : `Ask the agent about ${pageLabel.toLowerCase()}…`}
                 rows={1}
-                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none max-h-32"
+                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-y min-h-[24px] max-h-[60vh]"
               />
               <button
                 onClick={send}
