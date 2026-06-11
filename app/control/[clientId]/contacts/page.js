@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
+import { Line } from 'react-chartjs-2'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const statusColors = {
   // Lead Status — yellow = leads, purple = appt set
@@ -293,6 +297,22 @@ export default function ContactsPage() {
   // Ecom (Shopify-connected) account → render the Shopify Orders-style columns.
   const isEcom = leads.some(l => String(l.lead_id || '').startsWith('shopify_'))
 
+  // Orders-over-time series (one point per day) for the ecom chart.
+  const orderChart = useMemo(() => {
+    if (!isEcom) return null
+    const byDay = {}
+    for (const o of leads) {
+      if (!o.created_at) continue
+      const key = new Date(o.created_at).toISOString().slice(0, 10)
+      byDay[key] = (byDay[key] || 0) + 1
+    }
+    const days = Object.keys(byDay).sort()
+    return {
+      labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+      counts: days.map(d => byDay[d]),
+    }
+  }, [leads, isEcom])
+
   const filtered = leads.filter(l => {
     const q = search.toLowerCase()
     return (
@@ -348,6 +368,49 @@ export default function ContactsPage() {
           )}
         </div>
       </div>
+
+      {/* Orders over time (ecom) */}
+      {isEcom && orderChart && orderChart.labels.length > 0 && (
+        <div className="mb-5 bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Orders Over Time</p>
+          <div style={{ height: 180 }}>
+            <Line
+              data={{
+                labels: orderChart.labels,
+                datasets: [{
+                  label: 'Orders',
+                  data: orderChart.counts,
+                  borderColor: '#34CC93',
+                  backgroundColor: (ctx) => {
+                    const { ctx: c } = ctx.chart
+                    const g = c.createLinearGradient(0, 0, 0, 180)
+                    g.addColorStop(0, 'rgba(52,204,147,0.28)')
+                    g.addColorStop(1, 'rgba(52,204,147,0)')
+                    return g
+                  },
+                  borderWidth: 2.5,
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: orderChart.labels.length > 40 ? 0 : 2.5,
+                  pointBackgroundColor: '#34CC93',
+                }],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 16 }, border: { display: false } },
+                  y: { grid: { color: 'rgba(107,114,128,0.1)' }, ticks: { color: '#6b7280', font: { size: 11 }, precision: 0 }, border: { display: false }, beginAtZero: true },
+                },
+                plugins: {
+                  tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} order${ctx.parsed.y === 1 ? '' : 's'}` } },
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm overflow-x-auto">
