@@ -1762,6 +1762,7 @@ export default function ControlPage() {
   const [clientError, setClientError] = useState(null)
   const [showDemo, setShowDemo] = useState(false)
   const [clientFilter, setClientFilter] = useState('active')
+  const [googleSyncing, setGoogleSyncing] = useState(false)
 
   // Manual create: unified New (lead, optionally with appointment) modal
   const emptyNew = { first_name: '', last_name: '', email: '', phone: '', company: '', withAppt: false, appt_date: '', appt_time: '' }
@@ -1881,6 +1882,27 @@ export default function ControlPage() {
       setPipelines(buildPipelines(clientsData, agencyLeads, showDemo, clientFilter))
     }
   }, [showDemo, clientFilter])
+
+  // Pull the latest Google Ads data for all active clients, then reload the dashboard
+  async function handleGoogleRefresh() {
+    if (googleSyncing) return
+    setGoogleSyncing(true)
+    try {
+      let qs = ''
+      if (preset === 'custom') {
+        if (customStart && customEnd) qs = `?start=${customStart}&end=${customEnd}`
+      } else {
+        const { start, end } = getDateRange(preset)
+        if (start && end) qs = `?start=${start}&end=${end}`
+      }
+      await fetch(`/api/sync-youtube-ads${qs}`, { cache: 'no-store' })
+      await fetchData(preset, customStart, customEnd)
+    } catch (e) {
+      console.error('[Control] Google refresh failed:', e)
+    } finally {
+      setGoogleSyncing(false)
+    }
+  }
 
   function handlePresetChange(key) {
     setPreset(key)
@@ -2067,6 +2089,16 @@ export default function ControlPage() {
           <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
         </div>
         <div className="pt-6 flex items-center gap-4">
+          <button
+            onClick={handleGoogleRefresh}
+            disabled={googleSyncing}
+            title="Pull the latest Google Ads data for all active clients"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-[12px] font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.08] transition disabled:opacity-50"
+          >
+            <span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[10px] font-extrabold text-[#4285F4] leading-none">G</span>
+            <svg className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            {googleSyncing ? 'Syncing…' : 'Google Refresh'}
+          </button>
           <button
             onClick={() => setShowDemo(d => !d)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition ${showDemo ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
