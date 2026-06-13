@@ -17,7 +17,7 @@ function defaultDates() {
 }
 
 // One accordion section with inline KPI summary in the header bar.
-function Section({ id, icon, name, count, kpis, open, onToggle, children }) {
+function Section({ id, icon, name, count, kpis, open, onToggle, children, action }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
       <div
@@ -33,6 +33,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children }) {
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
         </div>
         <div className="flex-1" />
+        {action}
         <div className="flex items-center gap-6 flex-shrink-0">
           {kpis.map((k, i) => (
             <div key={i} className="text-right">
@@ -193,16 +194,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
             className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
           <button onClick={applyDates} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Apply</button>
-          <button
-            onClick={handleGoogleRefresh}
-            disabled={googleSyncing}
-            title="Pull the latest Google Ads data for this client"
-            className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50"
-          >
-            <span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[10px] font-extrabold text-[#4285F4] leading-none">G</span>
-            <svg className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            {googleSyncing ? 'Syncing…' : 'Google Refresh'}
-          </button>
         </div>
       </div>
 
@@ -253,6 +244,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
           {/* Google Ads */}
           <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${campaigns.length} campaign${campaigns.length === 1 ? '' : 's'}`} open={open.google} onToggle={toggle}
+            action={
+              <button
+                onClick={(e) => { e.stopPropagation(); handleGoogleRefresh() }}
+                disabled={googleSyncing}
+                title="Pull the latest Google Ads data for this client"
+                className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50 flex-shrink-0"
+              >
+                <span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[10px] font-extrabold text-[#4285F4] leading-none">G</span>
+                <svg className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                {googleSyncing ? 'Syncing…' : 'Refresh'}
+              </button>
+            }
             kpis={[
               { label: 'Spend', value: fmt$(m.adSpend) },
               { label: 'Clicks', value: fmtNum(m.clicks) },
