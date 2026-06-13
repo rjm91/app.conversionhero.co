@@ -74,6 +74,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading]     = useState(true)
+  const [googleSyncing, setGoogleSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, google: true, meta: false, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -115,6 +116,20 @@ export default function EcomControlCenter({ clientId, clientName }) {
   useEffect(() => { fetchData() }, [fetchData])
 
   function applyDates() { setAppliedStart(startDate); setAppliedEnd(endDate) }
+
+  // Pull the latest Google Ads data for this client, then reload
+  async function handleGoogleRefresh() {
+    if (googleSyncing) return
+    setGoogleSyncing(true)
+    try {
+      await fetch(`/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' })
+      await fetchData()
+    } catch (e) {
+      console.error('[EcomControlCenter] Google refresh failed:', e)
+    } finally {
+      setGoogleSyncing(false)
+    }
+  }
 
   // Per-campaign attribution from orders (utm_campaign → orders/revenue)
   const campaignAttr = useMemo(() => {
@@ -178,6 +193,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
             className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
           <button onClick={applyDates} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Apply</button>
+          <button
+            onClick={handleGoogleRefresh}
+            disabled={googleSyncing}
+            title="Pull the latest Google Ads data for this client"
+            className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+          >
+            <span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[10px] font-extrabold text-[#4285F4] leading-none">G</span>
+            <svg className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            {googleSyncing ? 'Syncing…' : 'Google Refresh'}
+          </button>
         </div>
       </div>
 
