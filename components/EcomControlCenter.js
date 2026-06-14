@@ -74,6 +74,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
+  const [metaCampaigns, setMetaCampaigns] = useState([])
   const [loading, setLoading]     = useState(true)
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, google: true, meta: false, orders: false })
@@ -81,7 +82,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [ordersRes, campRes] = await Promise.all([
+    const [ordersRes, campRes, metaRes] = await Promise.all([
       supabase.from('client_lead')
         .select('lead_id, sale_amount, utm_campaign, shopify_data, created_at, first_name, last_name')
         .eq('client_id', clientId)
@@ -93,6 +94,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
         .select('*')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)
+        .gte('date', appliedStart)
+        .lte('date', appliedEnd),
+      supabase.from('client_meta_campaigns')
+        .select('*')
+        .eq('client_id', clientId)
         .gte('date', appliedStart)
         .lte('date', appliedEnd),
     ])
@@ -111,6 +117,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
       if (row.synced_at > map[id].synced_at) { map[id].status = row.status; map[id].budget = row.budget; map[id].synced_at = row.synced_at }
     }
     setCampaigns(Object.values(map).sort((a, b) => b.cost - a.cost))
+
+    // Aggregate Meta campaign rows per campaign_id
+    const mmap = {}
+    for (const row of (metaRes.data || [])) {
+      const id = row.campaign_id
+      if (!mmap[id]) mmap[id] = { campaign_id: id, campaign_name: row.campaign_name, spend: 0, impressions: 0, clicks: 0 }
+      mmap[id].spend += Number(row.spend) || 0
+      mmap[id].impressions += Number(row.impressions) || 0
+      mmap[id].clicks += Number(row.clicks) || 0
+    }
+    setMetaCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend))
     setLoading(false)
   }, [clientId, appliedStart, appliedEnd])
 
@@ -150,31 +167,39 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const orderCount = orders.length
     const tracked = orders.filter(o => (o.utm_campaign || '').trim())
     const trackedRevenue = tracked.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
-    const adSpend = campaigns.reduce((s, c) => s + c.cost, 0)
-    const clicks = campaigns.reduce((s, c) => s + c.clicks, 0)
+    const googleSpend  = campaigns.reduce((s, c) => s + c.cost, 0)
+    const googleClicks = campaigns.reduce((s, c) => s + c.clicks, 0)
+    const metaSpend    = metaCampaigns.reduce((s, c) => s + c.spend, 0)
+    const metaClicks   = metaCampaigns.reduce((s, c) => s + c.clicks, 0)
+    const adSpend = googleSpend + metaSpend     // blended
+    const clicks  = googleClicks + metaClicks
     const byChannel = {}
     for (const o of orders) {
       const ch = o.shopify_data?.channel || 'Other'
       byChannel[ch] = (byChannel[ch] || 0) + (Number(o.sale_amount) || 0)
     }
-    // Google attribution rollup
+    // Per-platform CH rollups (orders' utm_campaign matched to each platform's campaign IDs)
     const gConv = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
     const gRev  = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
     const gConvGoogle = campaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
+    const mConv = metaCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
+    const mRev  = metaCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
     return {
       gConvGoogle,
       revenue, orderCount,
       aov: orderCount ? revenue / orderCount : 0,
       trackedRevenue, trackedCount: tracked.length,
       attrRate: orderCount ? tracked.length / orderCount : 0,
+      googleSpend, googleClicks, metaSpend, metaClicks,
       adSpend, clicks,
       roas: adSpend ? revenue / adSpend : 0,
       costPerOrder: orderCount ? adSpend / orderCount : 0,
       convRate: clicks ? orderCount / clicks : 0,
       byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
-      gConv, gRev, gRoas: adSpend ? gRev / adSpend : 0,
+      gConv, gRev, gRoas: googleSpend ? gRev / googleSpend : 0,
+      mConv, mRev, mRoas: metaSpend ? mRev / metaSpend : 0,
     }
-  }, [orders, campaigns, campaignAttr])
+  }, [orders, campaigns, metaCampaigns, campaignAttr])
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
   const channelColor = (name) => name === 'Facebook' ? '#0866FF' : name === 'Online Store' ? '#4b5563' : name === 'Google' ? '#4285F4' : '#7a8bb5'
@@ -257,8 +282,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
               </button>
             }
             kpis={[
-              { label: 'Spend', value: fmt$(m.adSpend) },
-              { label: 'Clicks', value: fmtNum(m.clicks) },
+              { label: 'Spend', value: fmt$(m.googleSpend) },
+              { label: 'Clicks', value: fmtNum(m.googleClicks) },
               { label: 'Conv', value: fmtNum(m.gConvGoogle) },
               { label: 'Conv (CH)', value: fmtNum(m.gConv), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.gRoas), ch: true },
@@ -319,16 +344,62 @@ export default function EcomControlCenter({ clientId, clientName }) {
             )}
           </Section>
 
-          {/* Meta — placeholder until the integration lands */}
-          <Section id="meta" icon={platformIcon.meta} name="Meta (Facebook)" open={open.meta} onToggle={toggle}
-            kpis={[{ label: 'Not connected', value: '—' }]}>
-            <div className="flex items-center gap-4 px-5 py-5">
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Connect Meta Ads</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Pull Facebook spend and match it to CH-attributed orders — the UTM IDs are already captured and waiting.</p>
+          {/* Meta (Facebook) */}
+          <Section id="meta" icon={platformIcon.meta} name="Meta (Facebook)"
+            count={metaCampaigns.length ? `${metaCampaigns.length} campaign${metaCampaigns.length === 1 ? '' : 's'}` : null}
+            open={open.meta} onToggle={toggle}
+            kpis={metaCampaigns.length ? [
+              { label: 'Spend', value: fmt$(m.metaSpend) },
+              { label: 'Clicks', value: fmtNum(m.metaClicks) },
+              { label: 'Conv (CH)', value: fmtNum(m.mConv), ch: true },
+              { label: 'ROAS (CH)', value: fmtRoas(m.mRoas), ch: true },
+            ] : [{ label: 'Not connected', value: '—' }]}>
+            {metaCampaigns.length === 0 ? (
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">No Meta data in range</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Connect Meta or widen the date range. Spend matches to CH-attributed orders via the captured campaign IDs.</p>
               </div>
-              <button className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">Connect Meta →</button>
-            </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm whitespace-nowrap">
+                  <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                    <tr>
+                      {['Campaign', 'Spend', 'Impr', 'CTR', 'Clicks', 'CPC'].map((h, i) => (
+                        <th key={h} className={`${i === 0 ? 'text-left' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
+                      ))}
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    {metaCampaigns.map(c => {
+                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
+                      const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
+                      const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
+                      const chCost = a.count > 0 ? c.spend / a.count : 0
+                      const roas = c.spend > 0 ? a.revenue / c.spend : 0
+                      return (
+                        <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(c.spend)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.impressions)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(ctr)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.clicks)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Section>
 
           {/* Orders */}

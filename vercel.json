@@ -11,6 +11,10 @@
     {
       "path": "/api/sync-shopify-orders",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/sync-meta-ads",
+      "schedule": "30 8 * * *"
     }
   ]
 }
