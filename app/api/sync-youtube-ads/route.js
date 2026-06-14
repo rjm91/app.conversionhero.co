@@ -80,7 +80,7 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       metrics.cost_per_conversion,
       segments.date
     FROM campaign
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY campaign.name, segments.date
   `
@@ -99,7 +99,7 @@ async function fetchAllCampaigns(accessToken, customerId) {
       campaign.advertising_channel_type,
       campaign_budget.amount_micros
     FROM campaign
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND campaign.status IN ('ENABLED', 'PAUSED')
     ORDER BY campaign.name
   `
@@ -121,7 +121,7 @@ async function fetchAdGroups(accessToken, customerId, startDate, endDate) {
       metrics.cost_per_conversion,
       segments.date
     FROM ad_group
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY ad_group.name, segments.date
   `
@@ -137,7 +137,7 @@ async function fetchAllAdGroups(accessToken, customerId) {
       ad_group.name,
       ad_group.status
     FROM ad_group
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND ad_group.status IN ('ENABLED', 'PAUSED')
     ORDER BY ad_group.name
   `
@@ -161,7 +161,7 @@ async function fetchAds(accessToken, customerId, startDate, endDate) {
       metrics.cost_per_conversion,
       segments.date
     FROM ad_group_ad
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY ad_group_ad.ad.id, segments.date
   `
@@ -179,7 +179,7 @@ async function fetchAllAds(accessToken, customerId) {
       ad_group_ad.ad.type,
       ad_group_ad.status
     FROM ad_group_ad
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND ad_group_ad.status IN ('ENABLED', 'PAUSED')
     ORDER BY ad_group_ad.ad.id
   `
@@ -193,7 +193,7 @@ async function fetchAdVideos(accessToken, customerId) {
       ad_group_ad.ad.id,
       asset.youtube_video_asset.youtube_video_id
     FROM ad_group_ad_asset_view
-    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING')
+    WHERE campaign.advertising_channel_type IN ('VIDEO', 'DEMAND_GEN', 'PERFORMANCE_MAX', 'SHOPPING', 'SEARCH')
       AND asset.type = 'YOUTUBE_VIDEO'
   `
 
