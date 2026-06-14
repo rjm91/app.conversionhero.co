@@ -18,6 +18,21 @@ const RANGE_OPTIONS = [
   ['all_time',  'All Time'],
 ]
 
+// Toggleable chart metrics. unit drives which y-axis a line uses
+// ('count' → left axis, 'money' → right $ axis). Add a new metric by adding
+// one entry here plus its per-day series in the chart effect below.
+const CHART_METRICS = [
+  { key: 'orders',  label: 'Orders',     color: '#34CC93', unit: 'count' },
+  { key: 'sales',   label: 'Sales $',    color: '#5b97e6', unit: 'money' },
+  { key: 'adspend', label: 'Ad Spend $', color: '#f0a73b', unit: 'money' },
+  { key: 'aov',     label: 'AOV',        color: '#a78bfa', unit: 'money' },
+]
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
 function rangeBounds(range) {
   const now = new Date()
   const day = 86400000
@@ -145,8 +160,9 @@ export default function ContactsPage() {
   const [resendResult, setResendResult] = useState(null)      // 'sent' | 'error'
   const [leadMeta,    setLeadMeta]    = useState([])           // client_lead_meta rows
   const [chartRange,  setChartRange]  = useState('last_30')    // orders-over-time range
-  const [chartMetric, setChartMetric] = useState('orders')     // 'orders' | 'sales'
-  const [chartSeries, setChartSeries] = useState({ labels: [], counts: [], sales: [] })
+  const [activeMetrics, setActiveMetrics] = useState({ orders: true }) // which lines are shown
+  const [chartSeries, setChartSeries] = useState({ labels: [], orders: [], sales: [], adspend: [], aov: [] })
+  const toggleMetric = (key) => setActiveMetrics(m => ({ ...m, [key]: !m[key] }))
 
   useEffect(() => { fetchLeads() }, [clientId])
 
@@ -348,20 +364,37 @@ export default function ContactsPage() {
         all.push(...data)
         if (data.length < 1000) break
       }
+      // Daily Google Ads spend over the same range
+      let spendQ = supabase
+        .from('client_yt_campaigns')
+        .select('date, cost')
+        .eq('client_id', clientId)
+      if (start) spendQ = spendQ.gte('date', start.toISOString().slice(0, 10))
+      if (end)   spendQ = spendQ.lte('date', end.toISOString().slice(0, 10))
+      const { data: spendRows } = await spendQ
       if (cancelled) return
-      const byDay = {}
-      const bySales = {}
+
+      const byDay = {}, bySales = {}, bySpend = {}
       for (const o of all) {
         if (!o.created_at) continue
         const key = new Date(o.created_at).toISOString().slice(0, 10)
         byDay[key] = (byDay[key] || 0) + 1
         bySales[key] = (bySales[key] || 0) + (Number(o.sale_amount) || 0)
       }
-      const days = Object.keys(byDay).sort()
+      for (const r of (spendRows || [])) {
+        if (!r.date) continue
+        const key = String(r.date).slice(0, 10)
+        bySpend[key] = (bySpend[key] || 0) + (Number(r.cost) || 0)
+      }
+      // Unified, sorted day axis across orders + ad spend
+      const days = Array.from(new Set([...Object.keys(byDay), ...Object.keys(bySpend)])).sort()
+      const round2 = n => Math.round((n || 0) * 100) / 100
       setChartSeries({
         labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
-        counts: days.map(d => byDay[d]),
-        sales: days.map(d => Math.round((bySales[d] || 0) * 100) / 100),
+        orders: days.map(d => byDay[d] || 0),
+        sales: days.map(d => round2(bySales[d])),
+        adspend: days.map(d => round2(bySpend[d])),
+        aov: days.map(d => (byDay[d] > 0 ? round2(bySales[d] / byDay[d]) : 0)),
       })
     })()
     return () => { cancelled = true }
@@ -426,19 +459,24 @@ export default function ContactsPage() {
       {/* Orders over time (ecom) */}
       {isEcom && (
         <div className="mb-5 bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{chartMetric === 'sales' ? 'Daily Sales' : 'Orders Over Time'}</p>
-              <div className="inline-flex rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
-                <button
-                  onClick={() => setChartMetric('orders')}
-                  className={`px-2.5 py-1 text-[11px] font-semibold transition ${chartMetric === 'orders' ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
-                >Orders</button>
-                <button
-                  onClick={() => setChartMetric('sales')}
-                  className={`px-2.5 py-1 text-[11px] font-semibold transition ${chartMetric === 'sales' ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
-                >Sales $</button>
-              </div>
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Over Time</p>
+              {CHART_METRICS.map(m => {
+                const on = !!activeMetrics[m.key]
+                return (
+                  <button
+                    key={m.key}
+                    onClick={() => toggleMetric(m.key)}
+                    title={`Toggle ${m.label}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                    style={on ? { backgroundColor: m.color } : undefined}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: on ? '#fff' : m.color }} />
+                    {m.label}
+                  </button>
+                )
+              })}
             </div>
             <select
               value={chartRange}
@@ -448,35 +486,38 @@ export default function ContactsPage() {
               {RANGE_OPTIONS.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
             </select>
           </div>
-          {chartSeries.labels.length === 0 ? (
-            <div style={{ height: 180 }} className="flex items-center justify-center text-sm text-gray-400">No orders in this range.</div>
+          {chartSeries.labels.length === 0 || !CHART_METRICS.some(m => activeMetrics[m.key]) ? (
+            <div style={{ height: 180 }} className="flex items-center justify-center text-sm text-gray-400">
+              {chartSeries.labels.length === 0 ? 'No data in this range.' : 'Select a metric to plot.'}
+            </div>
           ) : (
           <div style={{ height: 180 }}>
             <Line
               data={{
                 labels: chartSeries.labels,
-                datasets: [{
-                  label: chartMetric === 'sales' ? 'Sales' : 'Orders',
-                  data: chartMetric === 'sales' ? chartSeries.sales : chartSeries.counts,
-                  borderColor: chartMetric === 'sales' ? '#5b97e6' : '#34CC93',
-                  backgroundColor: (ctx) => {
-                    const { ctx: c } = ctx.chart
-                    const g = c.createLinearGradient(0, 0, 0, 180)
-                    if (chartMetric === 'sales') {
-                      g.addColorStop(0, 'rgba(91,151,230,0.28)')
-                      g.addColorStop(1, 'rgba(91,151,230,0)')
-                    } else {
-                      g.addColorStop(0, 'rgba(52,204,147,0.28)')
-                      g.addColorStop(1, 'rgba(52,204,147,0)')
-                    }
-                    return g
-                  },
-                  borderWidth: 2.5,
-                  fill: true,
-                  tension: 0.4,
-                  pointRadius: chartSeries.labels.length > 40 ? 0 : 2.5,
-                  pointBackgroundColor: chartMetric === 'sales' ? '#5b97e6' : '#34CC93',
-                }],
+                datasets: CHART_METRICS.filter(m => activeMetrics[m.key]).map(m => {
+                  const [r, g, b] = hexToRgb(m.color)
+                  const single = CHART_METRICS.filter(x => activeMetrics[x.key]).length === 1
+                  return {
+                    label: m.label,
+                    data: chartSeries[m.key] || [],
+                    yAxisID: m.unit === 'money' ? 'y1' : 'y',
+                    _unit: m.unit,
+                    borderColor: m.color,
+                    backgroundColor: (ctx) => {
+                      if (!single) return 'transparent'
+                      const grad = ctx.chart.ctx.createLinearGradient(0, 0, 0, 180)
+                      grad.addColorStop(0, `rgba(${r},${g},${b},0.28)`)
+                      grad.addColorStop(1, `rgba(${r},${g},${b},0)`)
+                      return grad
+                    },
+                    borderWidth: 2.5,
+                    fill: single,
+                    tension: 0.4,
+                    pointRadius: chartSeries.labels.length > 40 ? 0 : 2,
+                    pointBackgroundColor: m.color,
+                  }
+                }),
               }}
               options={{
                 responsive: true,
@@ -485,18 +526,27 @@ export default function ContactsPage() {
                 scales: {
                   x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 16 }, border: { display: false } },
                   y: {
+                    display: CHART_METRICS.some(m => activeMetrics[m.key] && m.unit === 'count'),
+                    position: 'left',
                     grid: { color: 'rgba(107,114,128,0.1)' },
-                    ticks: {
-                      color: '#6b7280', font: { size: 11 }, precision: 0,
-                      callback: v => chartMetric === 'sales' ? '$' + Number(v).toLocaleString() : v,
-                    },
+                    ticks: { color: '#6b7280', font: { size: 11 }, precision: 0 },
+                    border: { display: false }, beginAtZero: true,
+                  },
+                  y1: {
+                    display: CHART_METRICS.some(m => activeMetrics[m.key] && m.unit === 'money'),
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#6b7280', font: { size: 11 }, callback: v => '$' + Number(v).toLocaleString() },
                     border: { display: false }, beginAtZero: true,
                   },
                 },
                 plugins: {
-                  tooltip: { callbacks: { label: ctx => chartMetric === 'sales'
-                    ? ` $${Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : ` ${ctx.parsed.y} order${ctx.parsed.y === 1 ? '' : 's'}` } },
+                  tooltip: { callbacks: { label: ctx => {
+                    const v = ctx.parsed.y
+                    return ctx.dataset._unit === 'money'
+                      ? ` ${ctx.dataset.label}: $${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : ` ${ctx.dataset.label}: ${v}`
+                  } } },
                 },
               }}
             />
