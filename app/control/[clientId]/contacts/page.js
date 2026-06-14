@@ -145,7 +145,8 @@ export default function ContactsPage() {
   const [resendResult, setResendResult] = useState(null)      // 'sent' | 'error'
   const [leadMeta,    setLeadMeta]    = useState([])           // client_lead_meta rows
   const [chartRange,  setChartRange]  = useState('last_30')    // orders-over-time range
-  const [chartSeries, setChartSeries] = useState({ labels: [], counts: [] })
+  const [chartMetric, setChartMetric] = useState('orders')     // 'orders' | 'sales'
+  const [chartSeries, setChartSeries] = useState({ labels: [], counts: [], sales: [] })
 
   useEffect(() => { fetchLeads() }, [clientId])
 
@@ -335,7 +336,7 @@ export default function ContactsPage() {
       for (let from = 0; ; from += 1000) {
         let q = supabase
           .from('client_lead')
-          .select('created_at')
+          .select('created_at, sale_amount')
           .eq('client_id', clientId)
           .neq('lead_status', 'in_progress')
           .order('created_at', { ascending: true })
@@ -349,15 +350,18 @@ export default function ContactsPage() {
       }
       if (cancelled) return
       const byDay = {}
+      const bySales = {}
       for (const o of all) {
         if (!o.created_at) continue
         const key = new Date(o.created_at).toISOString().slice(0, 10)
         byDay[key] = (byDay[key] || 0) + 1
+        bySales[key] = (bySales[key] || 0) + (Number(o.sale_amount) || 0)
       }
       const days = Object.keys(byDay).sort()
       setChartSeries({
         labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
         counts: days.map(d => byDay[d]),
+        sales: days.map(d => Math.round((bySales[d] || 0) * 100) / 100),
       })
     })()
     return () => { cancelled = true }
@@ -423,7 +427,19 @@ export default function ContactsPage() {
       {isEcom && (
         <div className="mb-5 bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Orders Over Time</p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{chartMetric === 'sales' ? 'Daily Sales' : 'Orders Over Time'}</p>
+              <div className="inline-flex rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
+                <button
+                  onClick={() => setChartMetric('orders')}
+                  className={`px-2.5 py-1 text-[11px] font-semibold transition ${chartMetric === 'orders' ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                >Orders</button>
+                <button
+                  onClick={() => setChartMetric('sales')}
+                  className={`px-2.5 py-1 text-[11px] font-semibold transition ${chartMetric === 'sales' ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                >Sales $</button>
+              </div>
+            </div>
             <select
               value={chartRange}
               onChange={e => setChartRange(e.target.value)}
@@ -440,21 +456,26 @@ export default function ContactsPage() {
               data={{
                 labels: chartSeries.labels,
                 datasets: [{
-                  label: 'Orders',
-                  data: chartSeries.counts,
-                  borderColor: '#34CC93',
+                  label: chartMetric === 'sales' ? 'Sales' : 'Orders',
+                  data: chartMetric === 'sales' ? chartSeries.sales : chartSeries.counts,
+                  borderColor: chartMetric === 'sales' ? '#5b97e6' : '#34CC93',
                   backgroundColor: (ctx) => {
                     const { ctx: c } = ctx.chart
                     const g = c.createLinearGradient(0, 0, 0, 180)
-                    g.addColorStop(0, 'rgba(52,204,147,0.28)')
-                    g.addColorStop(1, 'rgba(52,204,147,0)')
+                    if (chartMetric === 'sales') {
+                      g.addColorStop(0, 'rgba(91,151,230,0.28)')
+                      g.addColorStop(1, 'rgba(91,151,230,0)')
+                    } else {
+                      g.addColorStop(0, 'rgba(52,204,147,0.28)')
+                      g.addColorStop(1, 'rgba(52,204,147,0)')
+                    }
                     return g
                   },
                   borderWidth: 2.5,
                   fill: true,
                   tension: 0.4,
                   pointRadius: chartSeries.labels.length > 40 ? 0 : 2.5,
-                  pointBackgroundColor: '#34CC93',
+                  pointBackgroundColor: chartMetric === 'sales' ? '#5b97e6' : '#34CC93',
                 }],
               }}
               options={{
@@ -463,10 +484,19 @@ export default function ContactsPage() {
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
                   x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 16 }, border: { display: false } },
-                  y: { grid: { color: 'rgba(107,114,128,0.1)' }, ticks: { color: '#6b7280', font: { size: 11 }, precision: 0 }, border: { display: false }, beginAtZero: true },
+                  y: {
+                    grid: { color: 'rgba(107,114,128,0.1)' },
+                    ticks: {
+                      color: '#6b7280', font: { size: 11 }, precision: 0,
+                      callback: v => chartMetric === 'sales' ? '$' + Number(v).toLocaleString() : v,
+                    },
+                    border: { display: false }, beginAtZero: true,
+                  },
                 },
                 plugins: {
-                  tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} order${ctx.parsed.y === 1 ? '' : 's'}` } },
+                  tooltip: { callbacks: { label: ctx => chartMetric === 'sales'
+                    ? ` $${Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : ` ${ctx.parsed.y} order${ctx.parsed.y === 1 ? '' : 's'}` } },
                 },
               }}
             />
