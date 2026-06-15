@@ -86,6 +86,38 @@ function rangeFor(preset) {
 }
 
 // One accordion section with inline KPI summary in the header bar.
+// Small ⓘ icon that reveals an explanation on hover/focus. Uses fixed
+// positioning so the tooltip escapes the section's overflow-hidden clipping.
+function InfoTip({ text }) {
+  const [pos, setPos] = useState(null)
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = Math.min(Math.max(r.left + r.width / 2, 120), (typeof window !== 'undefined' ? window.innerWidth : 1200) - 120)
+    setPos({ x, y: r.bottom + 6 })
+  }
+  const hide = () => setPos(null)
+  return (
+    <span
+      tabIndex={0}
+      onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex align-middle ml-1 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-300 cursor-help outline-none"
+    >
+      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-5a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+      </svg>
+      {pos && (
+        <span
+          style={{ position: 'fixed', left: pos.x, top: pos.y, transform: 'translateX(-50%)', zIndex: 60 }}
+          className="pointer-events-none w-56 rounded-lg bg-gray-900 dark:bg-black/95 text-white text-[11px] font-normal normal-case tracking-normal leading-snug px-3 py-2 shadow-xl ring-1 ring-white/10"
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
+
 function Section({ id, icon, name, count, kpis, open, onToggle, children, action }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
@@ -107,7 +139,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
           {kpis.map((k, i) => (
             <div key={i} className="text-right">
               <div className={`text-base font-bold leading-tight ${k.ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{k.value}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{k.label}</div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{k.label}{k.info && <InfoTip text={k.info} />}</div>
             </div>
           ))}
         </div>
@@ -412,11 +444,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
           {/* Overview */}
           <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
             kpis={[
-              { label: 'Revenue', value: fmt$(m.revenue) },
-              { label: 'Ad Spend', value: fmt$(m.adSpend) },
-              { label: 'Blended ROAS', value: fmtRoas(m.roas) },
-              { label: 'Orders', value: fmtNum(m.orderCount) },
-              { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
+              { label: 'Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
+              { label: 'Ad Spend', value: fmt$(m.adSpend), info: 'Blended Google Ads + Meta Ads spend. Other channels like email and organic carry no ad cost.' },
+              { label: 'Blended ROAS', value: fmtRoas(m.roas), info: 'Total revenue ÷ blended ad spend (Google + Meta). All-channel revenue measured against paid spend only.' },
+              { label: 'Orders', value: fmtNum(m.orderCount), info: 'Count of all Shopify orders in this range, across every channel.' },
+              { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders carrying a campaign ID we can match to a Google/Meta campaign — ConversionHero first-party attribution.' },
             ]}>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -435,14 +467,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    ['AOV', fmt$2(m.aov)],
-                    ['Cost / Order', fmt$2(m.costPerOrder)],
-                    ['Conversion Rate', fmtPct(m.convRate)],
-                    ['Tracked Revenue (CH)', fmt$(m.trackedRevenue), true],
-                  ].map(([label, value, ch]) => (
+                    ['AOV', fmt$2(m.aov), false, 'Average order value = total revenue ÷ total orders.'],
+                    ['Cost / Order', fmt$2(m.costPerOrder), false, 'Blended ad spend (Google + Meta) ÷ all orders. Spreads paid spend across every order, including email/organic/direct — so true cost per ad-driven order is higher.'],
+                    ['Conversion Rate', fmtPct(m.convRate), false, 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.'],
+                    ['Tracked Revenue (CH)', fmt$(m.trackedRevenue), true, "Revenue from orders matched to a Google/Meta campaign ID — ConversionHero's first-party attributed revenue."],
+                  ].map(([label, value, ch, info]) => (
                     <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3">
                       <div className={`text-xl font-bold ${ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{value}</div>
-                      <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
+                      <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{label}{info && <InfoTip text={info} />}</div>
                     </div>
                   ))}
                 </div>
