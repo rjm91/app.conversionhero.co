@@ -316,44 +316,62 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm whitespace-nowrap">
+              <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
+                <PaidColGroup />
                 <thead className="bg-gray-50 dark:bg-[#0d1020]">
                   <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Platform</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Spend</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Clicks</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Conv</th>
+                    {['Platform', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
+                      <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
+                    ))}
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Rev (CH)</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                   <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[9px] font-extrabold text-[#4285F4]">G</span>Google Ads</span></td>
+                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$(m.googleBudget)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.googleSpend)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(m.googleImpr)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(m.googleImpr > 0 ? m.googleClicks / m.googleImpr : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(m.googleClicks)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.googleClicks > 0 ? m.googleSpend / m.googleClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.gConvGoogle || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gConvGoogle > 0 ? fmt$2(m.googleSpend / m.gConvGoogle) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{fmt$(m.gRev)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
                   </tr>
                   <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-[#0866FF] grid place-items-center text-[9px] font-extrabold text-white">f</span>Meta</span></td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-[#0866FF] grid place-items-center text-[9px] font-extrabold text-white">f</span>Meta Ads</span></td>
+                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.metaBudget > 0 ? fmt$(m.metaBudget) : '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.metaSpend)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(m.metaImpr)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(m.metaImpr > 0 ? m.metaClicks / m.metaImpr : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(m.metaClicks)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.metaClicks > 0 ? m.metaSpend / m.metaClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.mConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mConvPlatform > 0 ? fmt$2(m.metaSpend / m.mConvPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{fmt$(m.mRev)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
                   </tr>
                   <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10">
                     <td className="px-4 py-3">Blended</td>
+                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    <td className="px-4 py-3 text-right">{fmt$(m.googleBudget + m.metaBudget)}</td>
                     <td className="px-4 py-3 text-right">{fmt$2(m.adSpend)}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(m.googleImpr + m.metaImpr)}</td>
+                    <td className="px-4 py-3 text-right">{fmtPct((m.googleImpr + m.metaImpr) > 0 ? m.clicks / (m.googleImpr + m.metaImpr) : 0)}</td>
                     <td className="px-4 py-3 text-right">{fmtNum(m.clicks)}</td>
+                    <td className="px-4 py-3 text-right">{fmt$2(m.clicks > 0 ? m.adSpend / m.clicks : 0)}</td>
                     <td className="px-4 py-3 text-right">{Number(m.blendedConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{m.blendedConvPlatform > 0 ? fmt$2(m.adSpend / m.blendedConvPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{fmt$(m.blendedRevCH)}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedRoas > 0 ? fmtRoas(m.blendedRoas) : '—'}</td>
                   </tr>
                 </tbody>
