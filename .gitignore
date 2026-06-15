@@ -30,3 +30,8 @@ Thumbs.db
 
 # Local data drops (CSV imports, scratch) — never commit
 data/
+
+# Client planning docs — repo is PUBLIC, so keep client material local-only.
+# Commit only the convention (README), never the actual client docs.
+docs/clients/*
+!docs/clients/README.md
