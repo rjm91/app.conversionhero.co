@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synergy Home — Website Makeover Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            sgreen:  { DEFAULT: '#016838', dark: '#014f2a', light: '#1f9d5c', glow: '#34c97f' },
+            snavy:   { DEFAULT: '#262263', deep: '#1a1747', mid: '#353074' },
+            syellow: { DEFAULT: '#ffe600', dark: '#e6cf00' },
+          },
+          boxShadow: {
+            card: '0 14px 44px -18px rgba(38,34,99,0.30)',
+            cta: '0 14px 30px -8px rgba(1,104,56,0.50)',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .dotgrid { background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px); background-size: 22px 22px; }
+    html { scroll-behavior: smooth; }
+    .reveal { opacity: 0; transform: translateY(18px); transition: all .6s cubic-bezier(.2,.7,.2,1); }
+    .reveal.in { opacity: 1; transform: none; }
+  </style>
+</head>
+<body class="bg-white text-snavy-deep antialiased">
+
+  <!-- mockup ribbon -->
+  <div class="bg-snavy-deep text-white/70 text-center text-[11px] font-semibold uppercase tracking-widest py-1.5">
+    Website Makeover Mockup · Synergy Home (ch014) · for owner review
+  </div>
+
+  <!-- Utility bar -->
+  <div class="bg-snavy text-white text-sm hidden md:block">
+    <div class="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
+      <div class="flex items-center gap-6 text-white/80">
+        <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-syellow" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v4a1 1 0 00.55.9l3 1.5a1 1 0 10.9-1.8L11 10.4V7z"/></svg>Mon–Sat 7am–7pm · 24/7 Emergency Service</span>
+        <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-syellow" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a6 6 0 00-6 6c0 4.2 6 10 6 10s6-5.8 6-10a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd"/></svg>Serving Lexington &amp; Central Kentucky</span>
+      </div>
+      <div class="flex items-center gap-2 text-white/90 font-semibold">
+        <span class="text-syellow">★★★★★</span> 4.9 · 200+ Google Reviews
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
+    <div class="max-w-7xl mx-auto px-5 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+      <img src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/brand/logo-1780679768602.svg"
+           alt="Synergy Home" class="h-10 sm:h-12 w-auto" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-2xl font-extrabold text-sgreen',textContent:'Synergy Home'}))" />
+      <nav class="hidden lg:flex items-center gap-8 text-[15px] font-semibold text-slate-600">
+        <a href="#services" class="hover:text-sgreen transition">Services</a>
+        <a href="#why" class="hover:text-sgreen transition">Why Synergy</a>
+        <a href="#offers" class="hover:text-sgreen transition">Offers</a>
+        <a href="#reviews" class="hover:text-sgreen transition">Reviews</a>
+        <a href="#area" class="hover:text-sgreen transition">Service Area</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="tel:8592031533" class="hidden sm:flex items-center gap-2.5 bg-sgreen hover:bg-sgreen-dark text-white rounded-xl px-5 py-3 shadow-cta transition-all hover:-translate-y-0.5">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
+          <span class="leading-tight text-left"><span class="block text-[10px] font-semibold uppercase tracking-wider text-white/70">Call 24/7</span><span class="block font-extrabold">(859) 203-1533</span></span>
+        </a>
+        <a href="#contact" class="bg-syellow hover:bg-syellow-dark text-snavy-deep font-bold rounded-xl px-5 py-3 transition">Book Now</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative bg-snavy-deep text-white overflow-hidden">
+    <div class="absolute inset-0 dotgrid opacity-50"></div>
+    <div class="absolute -top-32 -left-32 w-[28rem] h-[28rem] rounded-full bg-sgreen/30 blur-3xl"></div>
+    <div class="absolute -bottom-40 right-0 w-[30rem] h-[30rem] rounded-full bg-snavy-mid/50 blur-3xl"></div>
+    <div class="relative max-w-7xl mx-auto px-6 py-16 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
+      <div>
+        <span class="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-wider text-syellow bg-syellow/10 ring-1 ring-syellow/30 rounded-full px-3.5 py-1.5">Heating · Cooling · Solar · Insulation · Generators</span>
+        <h1 class="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold leading-[1.05] tracking-tight mt-5">
+          Central Kentucky's <span class="text-syellow">All-In-One</span> Home Comfort Experts
+        </h1>
+        <p class="text-lg text-white/70 leading-relaxed mt-5 max-w-xl">
+          One trusted local team for HVAC, geothermal, solar, spray foam insulation, and Generac backup power — keeping your home comfortable, efficient, and protected year-round.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-3 mt-8">
+          <a href="#contact" class="inline-flex items-center justify-center gap-2 bg-syellow hover:bg-syellow-dark text-snavy-deep text-lg font-bold rounded-xl px-7 py-4 transition-all hover:-translate-y-0.5">
+            Get Your Free Estimate
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M6 12h12"/></svg>
+          </a>
+          <a href="tel:8592031533" class="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/20 text-white text-lg font-bold rounded-xl px-7 py-4 transition">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
+            (859) 203-1533
+          </a>
+        </div>
+        <div class="flex items-center gap-3 mt-7">
+          <svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#fff" d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9a5 5 0 01-2.2 3.3v2.7h3.6c2.1-2 3.2-4.9 3.2-7.8z"/><path fill="#fff" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.7c-1 .7-2.3 1.1-3.6 1.1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A11 11 0 0012 23z" opacity=".8"/></svg>
+          <div class="flex items-center gap-2"><span class="text-syellow text-lg">★★★★★</span><span class="font-bold">4.9</span><span class="text-white/60 text-sm">· 200+ Google reviews</span></div>
+        </div>
+      </div>
+
+      <!-- hero image placeholder -->
+      <div class="relative">
+        <div class="rounded-3xl border-2 border-dashed border-white/25 bg-white/[0.04] aspect-[4/3] flex flex-col items-center justify-center text-center p-8">
+          <svg class="w-16 h-16 text-white/40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.16-5.16a2.25 2.25 0 013.18 0l5.16 5.16m-1.5-1.5l1.41-1.41a2.25 2.25 0 013.18 0l2.16 2.16M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"/></svg>
+          <p class="text-white font-bold mt-4">Synergy Home team &amp; branded fleet photo</p>
+          <p class="text-white/40 text-xs mt-1">Hi-res hero image drops in here</p>
+        </div>
+        <div class="absolute -bottom-5 -left-5 bg-white text-snavy-deep rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3">
+          <span class="grid place-items-center w-11 h-11 rounded-xl bg-sgreen/10 text-sgreen"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4l3.3 3.3 7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg></span>
+          <div class="leading-tight"><p class="font-extrabold text-sm">Satisfaction Guaranteed</p><p class="text-xs text-slate-500">Or we make it right</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust strip -->
+  <section class="bg-slate-50 border-y border-slate-100">
+    <div class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5 text-center">
+      <div><p class="font-extrabold text-snavy-deep">Generac</p><p class="text-xs text-slate-500">Authorized Dealer</p></div>
+      <div><p class="font-extrabold text-snavy-deep">NATE</p><p class="text-xs text-slate-500">Certified Techs</p></div>
+      <div><p class="font-extrabold text-snavy-deep">Licensed</p><p class="text-xs text-slate-500">&amp; Fully Insured</p></div>
+      <div><p class="font-extrabold text-snavy-deep">Financing</p><p class="text-xs text-slate-500">0% Options Avail.</p></div>
+      <div><p class="font-extrabold text-snavy-deep">24/7</p><p class="text-xs text-slate-500">Emergency Service</p></div>
+      <div><p class="font-extrabold text-snavy-deep">Locally</p><p class="text-xs text-slate-500">Owned &amp; Operated</p></div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section id="services" class="max-w-7xl mx-auto px-6 py-20">
+    <div class="text-center max-w-2xl mx-auto reveal">
+      <span class="text-sgreen font-bold uppercase tracking-wider text-sm">What We Do</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">Complete home comfort, under one roof</h2>
+      <p class="text-slate-500 text-lg mt-3">From a broken A/C at midnight to a whole-home efficiency upgrade — one trusted team handles it all.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12" id="serviceGrid"></div>
+  </section>
+
+  <!-- Why Synergy -->
+  <section id="why" class="bg-snavy-deep text-white relative overflow-hidden">
+    <div class="absolute inset-0 dotgrid opacity-40"></div>
+    <div class="relative max-w-7xl mx-auto px-6 py-20 grid lg:grid-cols-2 gap-14 items-center">
+      <div class="reveal">
+        <span class="text-syellow font-bold uppercase tracking-wider text-sm">Why Homeowners Choose Synergy</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">The neighbors your neighbors recommend</h2>
+        <p class="text-white/70 text-lg mt-4">We've built our reputation in Central Kentucky one honest visit at a time — upfront pricing, certified technicians, and work we stand behind.</p>
+        <div class="grid grid-cols-3 gap-4 mt-9">
+          <div class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 text-center"><p class="text-3xl font-extrabold text-syellow">15+</p><p class="text-xs text-white/60 mt-1">Years serving KY</p></div>
+          <div class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 text-center"><p class="text-3xl font-extrabold text-syellow">5,000+</p><p class="text-xs text-white/60 mt-1">Homes served</p></div>
+          <div class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 text-center"><p class="text-3xl font-extrabold text-syellow">4.9★</p><p class="text-xs text-white/60 mt-1">Google rating</p></div>
+        </div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4 reveal" id="whyGrid"></div>
+    </div>
+  </section>
+
+  <!-- Offers -->
+  <section id="offers" class="max-w-7xl mx-auto px-6 py-20">
+    <div class="text-center max-w-2xl mx-auto reveal">
+      <span class="text-sgreen font-bold uppercase tracking-wider text-sm">Current Offers</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">Save on the work you were already planning</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 mt-12" id="offerGrid"></div>
+  </section>
+
+  <!-- How it works -->
+  <section class="bg-slate-50 border-y border-slate-100">
+    <div class="max-w-7xl mx-auto px-6 py-20">
+      <div class="text-center max-w-2xl mx-auto reveal">
+        <span class="text-sgreen font-bold uppercase tracking-wider text-sm">Simple From Start To Finish</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">Getting comfortable is easy</h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8 mt-12" id="stepGrid"></div>
+    </div>
+  </section>
+
+  <!-- Reviews -->
+  <section id="reviews" class="max-w-7xl mx-auto px-6 py-20">
+    <div class="text-center max-w-2xl mx-auto reveal">
+      <span class="text-sgreen font-bold uppercase tracking-wider text-sm">Real Reviews</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">Trusted by 5,000+ Kentucky homeowners</h2>
+      <div class="flex items-center justify-center gap-2 mt-3"><span class="text-syellow text-2xl">★★★★★</span><span class="font-bold">4.9 / 5</span><span class="text-slate-500">on Google</span></div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 mt-12" id="reviewGrid"></div>
+  </section>
+
+  <!-- Service area -->
+  <section id="area" class="bg-snavy text-white">
+    <div class="max-w-7xl mx-auto px-6 py-20 grid lg:grid-cols-2 gap-12 items-center">
+      <div class="reveal">
+        <span class="text-syellow font-bold uppercase tracking-wider text-sm">Service Area</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2">Proudly serving Lexington &amp; Central Kentucky</h2>
+        <p class="text-white/70 text-lg mt-4">Fast, local response across the Bluegrass. If you're nearby, we've got you covered.</p>
+        <div class="flex flex-wrap gap-2.5 mt-7" id="areaList"></div>
+      </div>
+      <div class="rounded-3xl border-2 border-dashed border-white/25 bg-white/[0.04] aspect-[5/3] flex flex-col items-center justify-center text-center p-8">
+        <svg class="w-14 h-14 text-white/40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.5-13.5l4.4 1.5a1 1 0 01.6.95v11.6a.5.5 0 01-.66.47L15 17.25l-6 3-4.9-1.68A1 1 0 013.5 17.6V6a.5.5 0 01.66-.47L9 6.75l6-3z"/></svg>
+        <p class="text-white font-bold mt-4">Service-area map</p>
+        <p class="text-white/40 text-xs mt-1">Google Map of the Bluegrass region drops in here</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section id="contact" class="bg-sgreen text-white relative overflow-hidden">
+    <div class="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-3xl"></div>
+    <div class="relative max-w-4xl mx-auto px-6 py-20 text-center reveal">
+      <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight">Ready for year-round comfort?</h2>
+      <p class="text-white/85 text-lg mt-4 max-w-xl mx-auto">Get a fast, no-pressure free estimate from the team Central Kentucky trusts. Same-day appointments often available.</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center mt-9">
+        <a href="#" class="inline-flex items-center justify-center gap-2 bg-syellow hover:bg-syellow-dark text-snavy-deep text-lg font-bold rounded-xl px-8 py-4 transition-all hover:-translate-y-0.5">Get My Free Estimate</a>
+        <a href="tel:8592031533" class="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 ring-1 ring-white/30 text-white text-lg font-bold rounded-xl px-8 py-4 transition">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
+          Call (859) 203-1533
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-snavy-deep text-white/70">
+    <div class="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div>
+        <img src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/brand/logo-1780679768602.svg" alt="Synergy Home" class="h-11 w-auto brightness-0 invert opacity-90" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-xl font-extrabold text-white',textContent:'Synergy Home'}))" />
+        <p class="text-sm mt-4 leading-relaxed">Central Kentucky's all-in-one home comfort company — HVAC, geothermal, solar, insulation &amp; backup power.</p>
+        <div class="flex items-center gap-2 mt-4"><span class="text-syellow">★★★★★</span><span class="text-sm">4.9 · 200+ reviews</span></div>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-3">Services</h4>
+        <ul class="space-y-2 text-sm"><li><a href="#services" class="hover:text-syellow">Heating &amp; Cooling</a></li><li><a href="#services" class="hover:text-syellow">Geothermal</a></li><li><a href="#services" class="hover:text-syellow">Solar</a></li><li><a href="#services" class="hover:text-syellow">Spray Foam Insulation</a></li><li><a href="#services" class="hover:text-syellow">Generac Generators</a></li></ul>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-3">Company</h4>
+        <ul class="space-y-2 text-sm"><li><a href="#why" class="hover:text-syellow">Why Synergy</a></li><li><a href="#reviews" class="hover:text-syellow">Reviews</a></li><li><a href="#offers" class="hover:text-syellow">Offers</a></li><li><a href="#area" class="hover:text-syellow">Service Area</a></li><li><a href="#contact" class="hover:text-syellow">Contact</a></li></ul>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-3">Get In Touch</h4>
+        <ul class="space-y-2 text-sm">
+          <li><a href="tel:8592031533" class="hover:text-syellow font-semibold text-white">(859) 203-1533</a></li>
+          <li>Lexington, KY</li>
+          <li>Mon–Sat 7am–7pm</li>
+          <li>24/7 Emergency Service</li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-white/10">
+      <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/40">
+        <span>© 2026 Synergy Home. All rights reserved. · KY License #M00000</span>
+        <span>Locally owned · Licensed &amp; insured</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const SVG = {
+      hvac: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M7 4v3m5-3v3m5-3v3"/>',
+      geo: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m0 0c-3.5 0-6-2.5-6-6 0-2 1-3.5 2-5m4 11c3.5 0 6-2.5 6-6 0-2-1-3.5-2-5M12 3c-2 1.5-4 3.5-4 6M12 3c2 1.5 4 3.5 4 6"/>',
+      solar: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2M5 12H3m18 0h-2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18M12 8a4 4 0 100 8 4 4 0 000-8z"/>',
+      foam: '<path stroke-linecap="round" stroke-linejoin="round" d="M4 8a3 3 0 013-3 3 3 0 015.2-1A3 3 0 0117 6a3 3 0 013 5 3 3 0 01-2 4 3 3 0 01-5 1 3 3 0 01-5-1 3 3 0 01-2-4 3 3 0 010-3z"/>',
+      gen: '<path stroke-linecap="round" stroke-linejoin="round" d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13l0-8z"/>',
+      shield: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/>',
+    };
+    const services = [
+      { i:'hvac',  t:'Heating &amp; Cooling',     d:'Repair, maintenance, and high-efficiency replacement for furnaces, A/C, and heat pumps — done fast and done right.' },
+      { i:'geo',   t:'Geothermal',               d:'Tap the constant temperature underground for the most efficient heating and cooling money can buy.' },
+      { i:'solar', t:'Solar',                     d:'Cut your power bill and gain energy independence with professionally installed home solar.' },
+      { i:'foam',  t:'Spray Foam Insulation',    d:'Seal your home tight to slash energy waste, boost comfort, and control humidity.' },
+      { i:'gen',   t:'Generac Generators',        d:'Whole-home backup power that kicks on automatically the moment the grid goes down.' },
+      { i:'shield',t:'Maintenance Plans',         d:'Affordable membership plans that keep every system tuned, prioritized, and protected.' },
+    ];
+    const why = [
+      { t:'Upfront, honest pricing', d:'Clear quotes before we start — no surprises, no pressure.' },
+      { t:'Certified, background-checked techs', d:'NATE-certified pros who respect your home.' },
+      { t:'Flexible financing', d:'0% and low-monthly options so comfort fits your budget.' },
+      { t:'24/7 emergency service', d:'No heat? No power? We answer day or night.' },
+      { t:'One team, every system', d:'HVAC to solar to generators — no juggling contractors.' },
+      { t:'Satisfaction guaranteed', d:'We are not done until you are happy. Period.' },
+    ];
+    const offers = [
+      { tag:'Free Offer', accent:'sgreen', t:'Free HVAC Second Opinion', d:'Before you spend thousands on a replacement, let our experts verify your quote — 100% free.', cta:'Schedule Free Second Opinion' },
+      { tag:'Flexible Financing', accent:'snavy', t:'Beat The Storms: Generac Financing', d:'Professional installation by certified electricians. Ask about interest-free payment options.', cta:'Request Free Generator Quote' },
+      { tag:'Limited Time', accent:'syellow', t:'20% Off Spray Foam Insulation', d:'Keep cool air in, reduce A/C workload, decrease humidity. Expires 6/30/26.', cta:'Claim 20% Off Coupon' },
+    ];
+    const steps = [
+      { n:'1', t:'Reach out', d:'Call or book online in 60 seconds. Tell us what is going on.' },
+      { n:'2', t:'Free assessment', d:'A certified tech diagnoses the issue and gives you upfront options.' },
+      { n:'3', t:'Done right', d:'We complete the work cleanly, on time, and guaranteed.' },
+    ];
+    const reviews = [
+      { n:'Brad M.', s:'Generator install', q:'Power went out for our whole street during the ice storm — our Generac kicked on instantly. Best home investment we have made.' },
+      { n:'Karen D.', s:'HVAC replacement', q:'They gave us a free second opinion and saved us $4,000 over another company. Honest, on time, and professional.' },
+      { n:'Mike R.', s:'Spray foam insulation', q:'Our upstairs is finally comfortable and the power bill dropped noticeably. The crew was clean and respectful.' },
+    ];
+    const areas = ['Lexington','Nicholasville','Georgetown','Versailles','Richmond','Winchester','Frankfort','Paris','Lawrenceburg','Berea','Midway','Wilmore'];
+    const ACC = { sgreen:{b:'border-sgreen/40',f:'bg-sgreen',c:'text-sgreen'}, snavy:{b:'border-snavy-mid/50',f:'bg-snavy-mid',c:'text-snavy'}, syellow:{b:'border-syellow',f:'bg-syellow text-snavy-deep',c:'text-snavy'} };
+
+    document.getElementById('serviceGrid').innerHTML = services.map(s => `
+      <a href="#contact" class="group reveal block bg-white rounded-2xl border border-slate-100 shadow-card p-7 hover:-translate-y-1 transition-all hover:border-sgreen/30">
+        <div class="grid place-items-center w-14 h-14 rounded-2xl bg-sgreen/10 text-sgreen group-hover:bg-sgreen group-hover:text-white transition">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">${SVG[s.i]}</svg>
+        </div>
+        <h3 class="text-xl font-extrabold mt-5">${s.t}</h3>
+        <p class="text-slate-500 mt-2 leading-relaxed">${s.d}</p>
+        <span class="inline-flex items-center gap-1.5 text-sgreen font-bold mt-4 text-sm">Learn more <svg class="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M6 12h12"/></svg></span>
+      </a>`).join('');
+
+    document.getElementById('whyGrid').innerHTML = why.map(w => `
+      <div class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5">
+        <div class="grid place-items-center w-9 h-9 rounded-lg bg-syellow text-snavy-deep mb-3"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4l3.3 3.3 7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg></div>
+        <h3 class="font-bold text-white">${w.t}</h3>
+        <p class="text-white/60 text-sm mt-1">${w.d}</p>
+      </div>`).join('');
+
+    document.getElementById('offerGrid').innerHTML = offers.map(o => { const a=ACC[o.accent]; return `
+      <div class="relative bg-white rounded-2xl border-2 ${a.b} shadow-card p-7 reveal flex flex-col">
+        <span class="absolute -top-3 left-6 text-[11px] font-bold uppercase tracking-wide rounded-full px-3 py-1 ${a.f}">${o.tag}</span>
+        <h3 class="text-xl font-extrabold mt-2">${o.t}</h3>
+        <p class="text-slate-500 mt-2 leading-relaxed flex-1">${o.d}</p>
+        <a href="#contact" class="mt-5 inline-flex items-center justify-center gap-2 bg-sgreen hover:bg-sgreen-dark text-white font-bold rounded-xl px-5 py-3 transition">${o.cta}</a>
+      </div>`; }).join('');
+
+    document.getElementById('stepGrid').innerHTML = steps.map(s => `
+      <div class="text-center reveal">
+        <div class="grid place-items-center w-16 h-16 rounded-2xl bg-sgreen text-white text-2xl font-extrabold mx-auto shadow-cta">${s.n}</div>
+        <h3 class="text-xl font-extrabold mt-5">${s.t}</h3>
+        <p class="text-slate-500 mt-2">${s.d}</p>
+      </div>`).join('');
+
+    document.getElementById('reviewGrid').innerHTML = reviews.map(r => `
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-card p-7 reveal">
+        <div class="flex items-center justify-between">
+          <span class="text-syellow text-lg">★★★★★</span>
+          <svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9a5 5 0 01-2.2 3.3v2.7h3.6c2.1-2 3.2-4.9 3.2-7.8z"/><path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.7c-1 .7-2.3 1.1-3.6 1.1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A11 11 0 0012 23z"/><path fill="#FBBC05" d="M6 14.4a6.6 6.6 0 010-4.2V7.4H2.3a11 11 0 000 9.8L6 14.4z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1A11 11 0 002.3 7.4L6 10.2C6.9 7.7 9.2 5.4 12 5.4z"/></svg>
+        </div>
+        <p class="text-slate-600 mt-4 leading-relaxed">"${r.q}"</p>
+        <div class="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
+          <span class="grid place-items-center w-10 h-10 rounded-full bg-snavy text-white font-bold">${r.n[0]}</span>
+          <div><p class="font-bold text-snavy-deep text-sm">${r.n}</p><p class="text-xs text-slate-400">${r.s}</p></div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('areaList').innerHTML = areas.map(a => `<span class="bg-white/10 ring-1 ring-white/15 rounded-full px-4 py-1.5 text-sm font-medium">${a}</span>`).join('');
+
+    // scroll reveal
+    const io = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  </script>
+</body>
+</html>
