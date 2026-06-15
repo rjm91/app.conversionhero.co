@@ -151,6 +151,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [campaigns, setCampaigns] = useState([])
   const [metaCampaigns, setMetaCampaigns] = useState([])
   const [loading, setLoading]     = useState(true)
+  const [firstLoad, setFirstLoad] = useState(true)
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
@@ -207,6 +208,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
     setMetaCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend))
     setLoading(false)
+    setFirstLoad(false)
   }, [clientId, appliedStart, appliedEnd])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -348,10 +350,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
         </div>
       </div>
 
-      {loading ? (
+      {firstLoad ? (
         <p className="text-gray-400 text-sm p-8">Loading…</p>
       ) : (
-        <>
+        <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           {/* Overview */}
           <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
             kpis={[
@@ -686,7 +688,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               </div>
             )}
           </Section>
-        </>
+        </div>
       )}
     </div>
   )
