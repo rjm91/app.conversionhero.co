@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../../lib/supabase'
+import { createClient } from '../../../lib/supabase-browser'
+
+const supabase = createClient()
 
 // {{variable}} substitution — mirrors lib/email-templates render()
 function render(str, vars = {}) {
