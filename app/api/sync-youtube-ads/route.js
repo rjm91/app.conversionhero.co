@@ -77,6 +77,7 @@ async function fetchYouTubeCampaigns(accessToken, customerId, startDate, endDate
       metrics.clicks,
       metrics.average_cpc,
       metrics.conversions,
+      metrics.conversions_value,
       metrics.cost_per_conversion,
       segments.date
     FROM campaign
@@ -239,6 +240,7 @@ async function saveCampaigns(clientId, customerId, campaigns, allCampaigns, star
     cpc:                 (row.metrics?.averageCpc || 0) / 1_000_000,
     conversions:         row.metrics?.conversions || 0,
     cost_per_conversion: row.metrics?.costPerConversion || 0,
+    conversions_value:   Number(row.metrics?.conversionsValue || 0),
     date:                row.segments?.date || startDate,
     date_range_start:    startDate,
     date_range_end:      endDate,
@@ -264,6 +266,7 @@ async function saveCampaigns(clientId, customerId, campaigns, allCampaigns, star
         cpc:                 0,
         conversions:         0,
         cost_per_conversion: 0,
+        conversions_value:   0,
         date:                startDate,
         date_range_start:    startDate,
         date_range_end:      endDate,

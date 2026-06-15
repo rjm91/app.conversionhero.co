@@ -77,7 +77,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
 
 // Shared column widths so the Google and Meta tables line up as one master
 // grid (table-fixed + this colgroup in both). 13 columns, must sum to 100%.
-const PAID_COL_WIDTHS = ['20%', '8%', '7%', '7%', '7%', '5%', '6%', '6%', '6%', '7%', '7%', '8%', '6%']
+const PAID_COL_WIDTHS = ['18%', '7%', '7%', '7%', '6%', '5%', '6%', '6%', '6%', '7%', '6%', '7%', '6%', '6%']
 function PaidColGroup() {
   return <colgroup>{PAID_COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -186,11 +186,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const map = {}
     for (const row of (campRes.data || [])) {
       const id = row.campaign_id
-      if (!map[id]) map[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, cost: 0, impressions: 0, clicks: 0, conversions: 0, synced_at: row.synced_at }
+      if (!map[id]) map[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, cost: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
       map[id].cost += Number(row.cost) || 0
       map[id].impressions += Number(row.impressions) || 0
       map[id].clicks += Number(row.clicks) || 0
       map[id].conversions += Number(row.conversions) || 0
+      map[id].conversions_value += Number(row.conversions_value) || 0
       if (row.synced_at > map[id].synced_at) { map[id].status = row.status; map[id].budget = row.budget; map[id].synced_at = row.synced_at }
     }
     setCampaigns(Object.values(map).sort((a, b) => b.cost - a.cost))
@@ -199,11 +200,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const mmap = {}
     for (const row of (metaRes.data || [])) {
       const id = row.campaign_id
-      if (!mmap[id]) mmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, synced_at: row.synced_at }
+      if (!mmap[id]) mmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
       mmap[id].spend += Number(row.spend) || 0
       mmap[id].impressions += Number(row.impressions) || 0
       mmap[id].clicks += Number(row.clicks) || 0
       mmap[id].conversions += Number(row.conversions) || 0
+      mmap[id].conversions_value += Number(row.conversions_value) || 0
       if (row.synced_at > mmap[id].synced_at) { mmap[id].status = row.status; mmap[id].budget = row.budget; mmap[id].synced_at = row.synced_at }
     }
     setMetaCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend))
@@ -293,6 +295,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const mRev  = metaCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
     const mConvPlatform = metaCampaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
     const metaBudget    = metaCampaigns.reduce((s, c) => s + (Number(c.budget) || 0), 0)
+    // Platform-reported conversion value → platform ROAS (value ÷ spend)
+    const googleConvValue = campaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
+    const metaConvValue   = metaCampaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
     return {
       gConvGoogle,
       revenue, orderCount,
@@ -307,6 +312,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
       byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
       gConv, gRev, gRoas: googleSpend ? gRev / googleSpend : 0,
       mConv, mRev, mConvPlatform, metaBudget, mRoas: metaSpend ? mRev / metaSpend : 0,
+      // Platform-reported ROAS (the platform's own conversion value ÷ spend)
+      googleConvValue, metaConvValue,
+      gRoasPlatform: googleSpend ? googleConvValue / googleSpend : 0,
+      mRoasPlatform: metaSpend ? metaConvValue / metaSpend : 0,
+      blendedRoasPlatform: (googleSpend + metaSpend) ? (googleConvValue + metaConvValue) / (googleSpend + metaSpend) : 0,
       // Blended (Google + Meta)
       blendedConvPlatform: gConvGoogle + mConvPlatform,
       blendedConvCH: gConv + mConv,
@@ -417,6 +427,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     {['Platform', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                       <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                     ))}
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
@@ -434,6 +445,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.googleClicks > 0 ? m.googleSpend / m.googleClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.gConvGoogle || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gConvGoogle > 0 ? fmt$2(m.googleSpend / m.gConvGoogle) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
@@ -449,6 +461,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.metaClicks > 0 ? m.metaSpend / m.metaClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.mConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mConvPlatform > 0 ? fmt$2(m.metaSpend / m.mConvPlatform) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
@@ -464,6 +477,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right">{fmt$2(m.clicks > 0 ? m.adSpend / m.clicks : 0)}</td>
                     <td className="px-4 py-3 text-right">{Number(m.blendedConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right">{m.blendedConvPlatform > 0 ? fmt$2(m.adSpend / m.blendedConvPlatform) : '—'}</td>
+                    <td className="px-4 py-3 text-right">{m.blendedRoasPlatform > 0 ? fmtRoas(m.blendedRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedRoas > 0 ? fmtRoas(m.blendedRoas) : '—'}</td>
@@ -494,6 +508,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
@@ -512,6 +527,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{fmt$2(m.googleClicks > 0 ? m.googleSpend / m.googleClicks : 0)}</td>
                       <td className="px-4 py-3 text-right">{Number(m.gConvGoogle || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                       <td className="px-4 py-3 text-right">{m.gConvGoogle > 0 ? fmt$2(m.googleSpend / m.gConvGoogle) : '—'}</td>
+                      <td className="px-4 py-3 text-right">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
@@ -544,6 +560,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.cost > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.cost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td>
@@ -582,6 +599,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th>
@@ -600,6 +618,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{fmt$2(m.metaClicks > 0 ? m.metaSpend / m.metaClicks : 0)}</td>
                       <td className="px-4 py-3 text-right">{Number(m.mConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                       <td className="px-4 py-3 text-right">{m.mConvPlatform > 0 ? fmt$2(m.metaSpend / m.mConvPlatform) : '—'}</td>
+                      <td className="px-4 py-3 text-right">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
@@ -634,6 +653,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.spend > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.spend) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td>
