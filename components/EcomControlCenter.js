@@ -9,6 +9,31 @@ const fmtNum  = (n) => Number(n || 0).toLocaleString()
 const fmtPct  = (n) => (Math.round((n || 0) * 1000) / 10) + '%'
 const fmtRoas = (n) => (Math.round((n || 0) * 100) / 100) + 'x'
 
+// Process layer: classify an order into a MARKETING SOURCE bucket (what drove
+// the sale), not Shopify's sales channel. UTM is preferred because ad-driven
+// website orders carry it even when Shopify's sourceName says "Online Store".
+// Native marketplace channels have no website UTM, so we fall back to the
+// Shopify sales-channel id. IDs confirmed via Shopify channelInformation:
+//   2329312 = Facebook & Instagram channel, 3890849 = Shop app.
+const CHANNEL_BY_SOURCENAME = {
+  '2329312': 'Meta',
+  '3890849': 'Shop',
+}
+function deriveChannel(o) {
+  const src = (o.utm_source || '').toLowerCase()
+  const med = (o.utm_medium || '').toLowerCase()
+  if (/facebook|meta|instagram|fb|^ig$/.test(src)) return 'Meta'
+  if (/google|adwords|gads|youtube/.test(src))      return 'Google'
+  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(src) || /email/.test(med)) return 'Email'
+  if (/shop_app|shopapp|^shop$/.test(src)) return 'Shop'
+  if (src) return src.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  // No useful UTM → fall back to the Shopify sales channel.
+  const ch = o.shopify_data?.channel
+  if (ch && CHANNEL_BY_SOURCENAME[ch]) return CHANNEL_BY_SOURCENAME[ch]
+  if (ch === 'Online Store') return 'Direct'
+  return ch || 'Other'
+}
+
 function defaultDates() {
   const end = new Date()
   const start = new Date()
@@ -284,7 +309,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const clicks  = googleClicks + metaClicks
     const byChannel = {}
     for (const o of orders) {
-      const ch = o.shopify_data?.channel || 'Other'
+      const ch = deriveChannel(o)
       byChannel[ch] = (byChannel[ch] || 0) + (Number(o.sale_amount) || 0)
     }
     // Per-platform CH rollups (orders' utm_campaign matched to each platform's campaign IDs)
@@ -329,7 +354,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
-  const channelColor = (name) => name === 'Facebook' ? '#0866FF' : name === 'Online Store' ? '#4b5563' : name === 'Google' ? '#4285F4' : '#7a8bb5'
+  const channelColor = (name) => ({
+    Meta: '#0866FF', Google: '#4285F4', Email: '#f59e0b',
+    Direct: '#4b5563', Shop: '#5a31f4', 'Draft Order': '#64748b',
+  }[name] || '#7a8bb5')
 
   return (
     <div className="p-6">
@@ -696,7 +724,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                         <td className="px-4 py-3 font-bold text-gray-900 dark:text-white">{o.shopify_data?.order_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{o.first_name} {o.last_name}</td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{o.shopify_data?.channel || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{deriveChannel(o)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
                         <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.financial_status} /></td>
                         <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.fulfillment_status} /></td>
