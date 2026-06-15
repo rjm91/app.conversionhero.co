@@ -456,7 +456,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           </Section>
 
           {/* Meta (Facebook) */}
-          <Section id="meta" icon={platformIcon.meta} name="Meta (Facebook)"
+          <Section id="meta" icon={platformIcon.meta} name="Meta Ads"
             count={metaCampaigns.length ? `${metaCampaigns.length} campaign${metaCampaigns.length === 1 ? '' : 's'}` : null}
             open={open.meta} onToggle={toggle}
             action={
