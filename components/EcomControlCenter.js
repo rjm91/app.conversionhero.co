@@ -16,6 +16,33 @@ function defaultDates() {
   return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
 }
 
+// Preset date ranges (primary selector). 'custom' falls back to the date inputs.
+const RANGE_OPTIONS = [
+  ['last_7',    'Last 7 Days'],
+  ['last_14',   'Last 14 Days'],
+  ['last_30',   'Last 30 Days'],
+  ['last_90',   'Last 90 Days'],
+  ['this_year', 'This Year'],
+  ['last_year', 'Last Year'],
+  ['all_time',  'All Time'],
+  ['custom',    'Custom'],
+]
+function rangeFor(preset) {
+  const today = new Date()
+  const end = today.toISOString().slice(0, 10)
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
+  switch (preset) {
+    case 'last_7':    return { start: daysAgo(7),  end }
+    case 'last_14':   return { start: daysAgo(14), end }
+    case 'last_30':   return { start: daysAgo(30), end }
+    case 'last_90':   return { start: daysAgo(90), end }
+    case 'this_year': return { start: `${today.getFullYear()}-01-01`, end }
+    case 'last_year': { const y = today.getFullYear() - 1; return { start: `${y}-01-01`, end: `${y}-12-31` } }
+    case 'all_time':  return { start: '2000-01-01', end }
+    default:          return null // custom
+  }
+}
+
 // One accordion section with inline KPI summary in the header bar.
 function Section({ id, icon, name, count, kpis, open, onToggle, children, action }) {
   return (
@@ -118,6 +145,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [endDate, setEndDate]       = useState(defaults.end)
   const [appliedStart, setAppliedStart] = useState(defaults.start)
   const [appliedEnd, setAppliedEnd]     = useState(defaults.end)
+  const [preset, setPreset]             = useState('last_30')
 
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
@@ -183,7 +211,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  function applyDates() { setAppliedStart(startDate); setAppliedEnd(endDate) }
+  function applyDates() { setPreset('custom'); setAppliedStart(startDate); setAppliedEnd(endDate) }
+
+  // Preset dropdown — applies the range to ALL data on the page immediately
+  function onPresetChange(key) {
+    setPreset(key)
+    if (key === 'custom') return // user picks dates + Apply
+    const r = rangeFor(key)
+    if (!r) return
+    setStartDate(r.start); setEndDate(r.end)
+    setAppliedStart(r.start); setAppliedEnd(r.end)
+  }
 
   // Pull the latest Google Ads data for this client, then reload
   async function handleGoogleRefresh() {
@@ -290,12 +328,23 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control Center</h1>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{clientName || clientId} at a glance. Click any section to expand.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-            className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-            className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
-          <button onClick={applyDates} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Apply</button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={preset}
+            onChange={e => onPresetChange(e.target.value)}
+            className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          >
+            {RANGE_OPTIONS.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+          </select>
+          {preset === 'custom' && (
+            <>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:bg-[#161b30] dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+              <button onClick={applyDates} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Apply</button>
+            </>
+          )}
         </div>
       </div>
 
