@@ -335,12 +335,8 @@ export default function SynergyHVAC({
       try { sessionStorage.removeItem(sessionKey) } catch {}
 
       const params = new URLSearchParams({ name: contact.name, city })
-      if (disableTracking) {
-        window.location.href = `/dev/funnel-preview/thank-you?${params.toString()}`
-      } else {
-        const slug = funnelSlug || 'hvac-second-opinion'
-        window.location.href = `/f/${slug}/thanks?${params.toString()}`
-      }
+      const slug = funnelSlug || 'hvac-second-opinion'
+      window.location.href = `/f/${slug}/thanks?${params.toString()}`
       return
     }
 

@@ -221,12 +221,8 @@ export default function SynergyGeneratorV3({
     try { sessionStorage.removeItem(sessionKey) } catch {}
 
     const params = new URLSearchParams({ name: contact.name, city })
-    if (disableTracking) {
-      window.location.href = `/dev/funnel-preview/thank-you?${params.toString()}`
-    } else {
-      const slug = funnelSlug || 'generator-quote'
-      window.location.href = `/f/${slug}/thanks?${params.toString()}`
-    }
+    const slug = funnelSlug || 'generator-quote'
+    window.location.href = `/f/${slug}/thanks?${params.toString()}`
   }
 
   return (

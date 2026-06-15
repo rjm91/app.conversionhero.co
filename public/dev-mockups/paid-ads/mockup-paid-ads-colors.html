@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Paid Ads — Refined Color Scheme (Light + Dark Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:#e9ebf2;}
+  .mock-flag{background:#fff7e6;color:#7a5b00;font-size:12px;font-weight:600;text-align:center;padding:8px;border-bottom:1px solid #f0d98a;}
+
+  /* ── Theme tokens ── */
+  .skin{padding:30px 26px;}
+  .skin-label{max-width:1080px;margin:0 auto 12px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+
+  .skin.light{
+    background:#f6f7fb;
+    --card:#ffffff; --line:#eceef3;
+    --ink:#0f172a; --body:#475569; --muted:#94a3b8;
+    --head-bg:#f8fafc; --head-text:#64748b; --row-hover:#f8fafc;
+    --tot-bg:#eef1f6; --tot-border:#dfe3ec;
+    --ch-head-bg:#eef0ff; --ch-head-text:#4f46e5; --ch-cell-bg:#f5f6ff;
+    --ch-val:#4f46e5; --ch-zero:#a5a9c9; --ch-tot-bg:#e4e6ff; --ch-row-hover:#eef0ff;
+    --ok-bg:#ecfdf3; --ok-text:#079455; --ok-dot:#16b364;
+    --glogo-bg:#fff;
+  }
+  .skin.light .skin-label{color:#64748b;}
+
+  .skin.dark{
+    background:#0a0d18;
+    --card:#141829; --line:rgba(255,255,255,.07);
+    --ink:#f1f5f9; --body:#aeb6c8; --muted:#6b7488;
+    --head-bg:#0e1322; --head-text:#8b94a8; --row-hover:rgba(255,255,255,.025);
+    --tot-bg:#0b0e1a; --tot-border:rgba(0,0,0,.45);
+    --ch-head-bg:#1b1f3a; --ch-head-text:#a5b4fc; --ch-cell-bg:#171a30;
+    --ch-val:#a5b4fc; --ch-zero:#565d7e; --ch-tot-bg:#1d2142; --ch-row-hover:#1d2142;
+    --ok-bg:rgba(22,179,100,.13); --ok-text:#34d399; --ok-dot:#34d399;
+    --glogo-bg:#fff;
+  }
+  .skin.dark .skin-label{color:#7c879e;}
+
+  /* ── Table component (uses tokens) ── */
+  .card{max-width:1080px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.04);overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead tr{background:var(--head-bg);border-bottom:1px solid var(--line);}
+  th{padding:11px 10px;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--head-text);white-space:nowrap;}
+  th.l{text-align:left;padding-left:20px;white-space:normal;}
+  th.c{text-align:center;}
+  th.r{text-align:right;}
+  th.ch{background:var(--ch-head-bg);color:var(--ch-head-text);}
+
+  td{padding:13px 10px;color:var(--body);white-space:nowrap;}
+  td.l{text-align:left;padding-left:20px;white-space:normal;max-width:300px;}
+  td.c{text-align:center;}
+  td.r{text-align:right;}
+  td.ch{background:var(--ch-cell-bg);text-align:right;font-weight:700;color:var(--ch-val);}
+  td.ch.zero{color:var(--ch-zero);font-weight:600;}
+
+  tbody tr{border-bottom:1px solid var(--line);}
+  tbody tr.camp:hover{background:var(--row-hover);}
+  tbody tr.camp:hover td.ch{background:var(--ch-row-hover);}
+
+  .name{font-weight:600;color:var(--ink);font-size:13.5px;}
+  .cid{display:block;margin-top:3px;font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px;}
+
+  tr.totals{background:var(--tot-bg);border-top:2px solid var(--tot-border);border-bottom:2px solid var(--tot-border);}
+  tr.totals td{color:var(--ink);font-weight:800;}
+  tr.totals td.ch{background:var(--ch-tot-bg);color:var(--ch-head-text);}
+  .plat{display:flex;align-items:center;gap:10px;}
+  .chev{color:var(--muted);font-size:12px;}
+  .glogo{width:22px;height:22px;border-radius:6px;background:var(--glogo-bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:800;font-size:12px;color:#4285F4;}
+  .plat-name{font-weight:800;color:var(--ink);font-size:13.5px;}
+  .plat-count{font-weight:500;color:var(--muted);font-size:12px;}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--ok-bg);color:var(--ok-text);}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ok-dot);}
+</style>
+</head>
+<body>
+  <div class="mock-flag">MOCKUP — Paid Ads refined color scheme · slate base · indigo CH accent · emerald status · not live</div>
+
+  <!-- ===== LIGHT ===== -->
+  <div class="skin light">
+    <div class="skin-label">Light theme</div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th class="l">Campaign ↓</th><th class="c">Status</th><th class="r">Budget / Day</th><th class="r">Cost</th>
+          <th class="r">Clicks</th><th class="r">CPC</th><th class="r">Conv.</th><th class="r">Cost / Conv.</th>
+          <th class="r ch">Conv. (CH)</th><th class="r ch">Cost / Conv. (CH)</th>
+        </tr></thead>
+        <tbody>
+          <tr class="totals">
+            <td class="l"><div class="plat"><span class="chev">▾</span><span class="glogo">G</span><span class="plat-name">Google Ads</span><span class="plat-count">4 campaigns</span></div></td>
+            <td class="c" style="color:var(--muted);font-weight:600;">—</td>
+            <td class="r">$479</td><td class="r">$484.84</td><td class="r">406</td><td class="r">$1.19</td><td class="r">5</td><td class="r">$96.97</td>
+            <td class="ch">3</td><td class="ch">$161.61</td>
+          </tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_PMax_Prospecting_US_AllProducts_launched_2026-06-02-1203-AZT</span><span class="cid">ID: 23868142839</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$133</td><td class="r">$419.17</td><td class="r">331</td><td class="r">$1.27</td><td class="r">2</td><td class="r">$139.72</td><td class="ch">3</td><td class="ch">$139.72</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_Shopping_Prospecting_US_AllProducts_launched_2026-06-02-1334-AZT_scaled</span><span class="cid">ID: 23903417651</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$156</td><td class="r">$34.92</td><td class="r">50</td><td class="r">$0.70</td><td class="r">2</td><td class="r">$17.46</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_DemandGen_Prospecting_US_Broad-25-64_2026-06-07-1655-AZT</span><span class="cid">ID: 23913273798</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$95</td><td class="r">$28.53</td><td class="r">17</td><td class="r">$1.68</td><td class="r">0</td><td class="r">$0.00</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_DemandGen_Prospecting_US_AllUsersAndInterest-25-65+_2026-06-08-0910-AZT</span><span class="cid">ID: 23915939484</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$95</td><td class="r">$2.23</td><td class="r">8</td><td class="r">$0.28</td><td class="r">0</td><td class="r">$0.00</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== DARK ===== -->
+  <div class="skin dark">
+    <div class="skin-label">Dark theme</div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th class="l">Campaign ↓</th><th class="c">Status</th><th class="r">Budget / Day</th><th class="r">Cost</th>
+          <th class="r">Clicks</th><th class="r">CPC</th><th class="r">Conv.</th><th class="r">Cost / Conv.</th>
+          <th class="r ch">Conv. (CH)</th><th class="r ch">Cost / Conv. (CH)</th>
+        </tr></thead>
+        <tbody>
+          <tr class="totals">
+            <td class="l"><div class="plat"><span class="chev">▾</span><span class="glogo">G</span><span class="plat-name">Google Ads</span><span class="plat-count">4 campaigns</span></div></td>
+            <td class="c" style="color:var(--muted);font-weight:600;">—</td>
+            <td class="r">$479</td><td class="r">$484.84</td><td class="r">406</td><td class="r">$1.19</td><td class="r">5</td><td class="r">$96.97</td>
+            <td class="ch">3</td><td class="ch">$161.61</td>
+          </tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_PMax_Prospecting_US_AllProducts_launched_2026-06-02-1203-AZT</span><span class="cid">ID: 23868142839</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$133</td><td class="r">$419.17</td><td class="r">331</td><td class="r">$1.27</td><td class="r">2</td><td class="r">$139.72</td><td class="ch">3</td><td class="ch">$139.72</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_Shopping_Prospecting_US_AllProducts_launched_2026-06-02-1334-AZT_scaled</span><span class="cid">ID: 23903417651</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$156</td><td class="r">$34.92</td><td class="r">50</td><td class="r">$0.70</td><td class="r">2</td><td class="r">$17.46</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_DemandGen_Prospecting_US_Broad-25-64_2026-06-07-1655-AZT</span><span class="cid">ID: 23913273798</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$95</td><td class="r">$28.53</td><td class="r">17</td><td class="r">$1.68</td><td class="r">0</td><td class="r">$0.00</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+          <tr class="camp"><td class="l"><span class="name">ch069_Ryan_DemandGen_Prospecting_US_AllUsersAndInterest-25-65+_2026-06-08-0910-AZT</span><span class="cid">ID: 23915939484</span></td><td class="c"><span class="pill"><span class="dot"></span>Enabled</span></td><td class="r">$95</td><td class="r">$2.23</td><td class="r">8</td><td class="r">$0.28</td><td class="r">0</td><td class="r">$0.00</td><td class="ch zero">0</td><td class="ch zero">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
