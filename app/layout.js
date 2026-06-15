@@ -10,9 +10,9 @@ export const metadata = {
 const themeScript = `
   (function() {
     try {
-      var t = localStorage.getItem('ca_theme');
-      if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      if (t === 'dark' || t === 'brand') document.documentElement.classList.add('dark');
+      var t = localStorage.getItem('ca_theme') || 'system';
+      var osDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (t === 'dark' || t === 'brand' || (t === 'system' && osDark)) document.documentElement.classList.add('dark');
     } catch(e) {}
   })();
 `
