@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
-import { getMetaConnection, getAllMetaConnections, fetchMetaCampaignInsights, metaInsightToRow } from '../../../lib/meta'
+import { getMetaConnection, getAllMetaConnections, fetchMetaCampaignInsights, fetchMetaCampaignDetails, metaInsightToRow } from '../../../lib/meta'
 
 // Pulls Meta (Facebook) campaign spend into client_meta_campaigns.
 //   /api/sync-meta-ads?client_id=ch069                          (one client)
@@ -21,7 +21,10 @@ function isoDay(d) { return d.toISOString().slice(0, 10) }
 
 async function syncOne(conn, start, end) {
   const insights = await fetchMetaCampaignInsights(conn, start, end)
-  const rows = insights.map(r => metaInsightToRow(conn.client_id, r))
+  // Status + daily budget come from a separate endpoint; don't fail the whole
+  // sync (spend/conversions) if this call lacks permission.
+  const details = await fetchMetaCampaignDetails(conn).catch(() => ({}))
+  const rows = insights.map(r => metaInsightToRow(conn.client_id, r, details))
   if (rows.length) {
     const { error } = await admin()
       .from('client_meta_campaigns')
