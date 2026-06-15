@@ -398,7 +398,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           {/* Blended Paid Ads (Google + Meta) */}
           <Section
             id="blended"
-            icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#4285F4,#0866FF)' }}>∑</div>}
+            icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#3b82f6,#34CC93)' }}>∑</div>}
             name="Paid Ads — Blended"
             count="Google + Meta"
             open={open.blended} onToggle={toggle}
