@@ -139,8 +139,19 @@ function TrendChart({ dates, a, b, compare }) {
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
   const labels = dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  // Vertical fill gradient: saturated near the top of the plot (the peaks),
+  // fading to transparent at the baseline.
+  const fillGrad = (color) => (ctx) => {
+    const { chart } = ctx
+    const area = chart.chartArea
+    if (!area) return color + '00'
+    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom)
+    g.addColorStop(0, color + '59')   // ~35% alpha at the top
+    g.addColorStop(1, color + '00')   // transparent at the baseline
+    return g
+  }
   const line = (label, data, color, axis, dashed) => ({
-    label, data, borderColor: color, backgroundColor: 'transparent',
+    label, data, borderColor: color, backgroundColor: fillGrad(color), fill: true,
     yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2,
     pointRadius: 0, pointHoverRadius: 3, borderDash: dashed ? [5, 4] : [],
   })
@@ -186,7 +197,7 @@ function TrendChart({ dates, a, b, compare }) {
               } } },
             },
             scales: {
-              x:  { grid: { display: false }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
+              x:  { grid: { display: true, color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
               y:  { display: anyCount, position: 'left',  grid: { color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, precision: 0 } },
               y1: { display: anyMoney, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#9aa4bf', font: { size: 10 }, callback: (v) => '$' + v.toLocaleString() } },
             },
