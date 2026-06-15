@@ -48,6 +48,13 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
   )
 }
 
+// Shared column widths so the Google and Meta tables line up as one master
+// grid (table-fixed + this colgroup in both). 13 columns, must sum to 100%.
+const PAID_COL_WIDTHS = ['20%', '8%', '7%', '7%', '7%', '5%', '6%', '6%', '6%', '7%', '7%', '8%', '6%']
+function PaidColGroup() {
+  return <colgroup>{PAID_COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+}
+
 const platformIcon = {
   overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#3b82f6,#34CC93)' }}>∑</div>,
   google:   <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
@@ -77,6 +84,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [metaCampaigns, setMetaCampaigns] = useState([])
   const [loading, setLoading]     = useState(true)
   const [googleSyncing, setGoogleSyncing] = useState(false)
+  const [metaSyncing, setMetaSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -148,6 +156,20 @@ export default function EcomControlCenter({ clientId, clientName }) {
       console.error('[EcomControlCenter] Google refresh failed:', e)
     } finally {
       setGoogleSyncing(false)
+    }
+  }
+
+  // Pull the latest Meta (Facebook) data for this client, then reload
+  async function handleMetaRefresh() {
+    if (metaSyncing) return
+    setMetaSyncing(true)
+    try {
+      await fetch(`/api/sync-meta-ads?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' })
+      await fetchData()
+    } catch (e) {
+      console.error('[EcomControlCenter] Meta refresh failed:', e)
+    } finally {
+      setMetaSyncing(false)
     }
   }
 
@@ -364,7 +386,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
               <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm whitespace-nowrap">
+                <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
+                  <PaidColGroup />
                   <thead className="bg-gray-50 dark:bg-[#0d1020]">
                     <tr>
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
@@ -436,6 +459,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section id="meta" icon={platformIcon.meta} name="Meta (Facebook)"
             count={metaCampaigns.length ? `${metaCampaigns.length} campaign${metaCampaigns.length === 1 ? '' : 's'}` : null}
             open={open.meta} onToggle={toggle}
+            action={
+              <button
+                onClick={(e) => { e.stopPropagation(); handleMetaRefresh() }}
+                disabled={metaSyncing}
+                title="Pull the latest Meta (Facebook) data for this client"
+                className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50 flex-shrink-0"
+              >
+                <span className="w-4 h-4 rounded bg-[#0866FF] grid place-items-center text-[10px] font-extrabold text-white leading-none">f</span>
+                <svg className={`w-3.5 h-3.5 ${metaSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                {metaSyncing ? 'Syncing…' : 'Refresh'}
+              </button>
+            }
             kpis={open.meta ? [] : (metaCampaigns.length ? [
               { label: 'Spend', value: fmt$(m.metaSpend) },
               { label: 'Clicks', value: fmtNum(m.metaClicks) },
@@ -449,7 +484,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm whitespace-nowrap">
+                <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
+                  <PaidColGroup />
                   <thead className="bg-gray-50 dark:bg-[#0d1020]">
                     <tr>
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
