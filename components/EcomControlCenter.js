@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
+import { Line } from 'react-chartjs-2'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
 const fmt$    = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
 const fmt$2   = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -118,6 +122,81 @@ function InfoTip({ text }) {
   )
 }
 
+// Toggleable trend-chart metrics. axis 'money' → right $ axis, 'count' → left.
+const TREND_METRICS = [
+  { key: 'spend',       label: 'Spend',        axis: 'money', color: '#3b82f6' },
+  { key: 'chRev',       label: 'Revenue (CH)', axis: 'money', color: '#34CC93' },
+  { key: 'impressions', label: 'Impr',         axis: 'count', color: '#a855f7' },
+  { key: 'clicks',      label: 'Clicks',       axis: 'count', color: '#f59e0b' },
+  { key: 'conversions', label: 'Conv',         axis: 'count', color: '#06b6d4' },
+  { key: 'chConv',      label: 'Conv (CH)',    axis: 'count', color: '#10b981' },
+]
+
+// Time-series chart for an accordion. Single platform → pass `a`. Blended
+// comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
+function TrendChart({ dates, a, b, compare }) {
+  const [active, setActive] = useState({ spend: true })
+  const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
+  if (!dates.length) return null
+  const labels = dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  const line = (label, data, color, axis, dashed) => ({
+    label, data, borderColor: color, backgroundColor: 'transparent',
+    yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2,
+    pointRadius: 0, pointHoverRadius: 3, borderDash: dashed ? [5, 4] : [],
+  })
+  const datasets = []
+  for (const md of TREND_METRICS) {
+    if (!active[md.key]) continue
+    if (compare) {
+      datasets.push(line(`${md.label} · Google`, a[md.key], '#4285F4', md.axis, false))
+      datasets.push(line(`${md.label} · Meta`,   b[md.key], '#0866FF', md.axis, true))
+    } else {
+      datasets.push(line(md.label, a[md.key], md.color, md.axis, false))
+    }
+  }
+  const anyMoney = TREND_METRICS.some(md => active[md.key] && md.axis === 'money')
+  const anyCount = TREND_METRICS.some(md => active[md.key] && md.axis === 'count')
+  return (
+    <div className="px-5 pt-5 pb-1">
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {TREND_METRICS.map(md => {
+          const on = !!active[md.key]
+          return (
+            <button key={md.key} onClick={() => toggle(md.key)}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
+              style={on ? { background: md.color } : undefined}>
+              {md.label}
+            </button>
+          )
+        })}
+        {compare && <span className="text-[10px] text-gray-400 dark:text-gray-500 self-center ml-1">solid = Google · dashed = Meta</span>}
+      </div>
+      <div className="h-52">
+        {datasets.length === 0 ? (
+          <div className="h-full grid place-items-center text-sm text-gray-400">Select a metric to plot.</div>
+        ) : (
+          <Line data={{ labels, datasets }} options={{
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: compare, labels: { boxWidth: 10, font: { size: 10 }, color: '#9aa4bf' } },
+              tooltip: { callbacks: { label: (c) => {
+                const money = /Spend|Revenue/.test(c.dataset.label)
+                return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
+              } } },
+            },
+            scales: {
+              x:  { grid: { display: false }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
+              y:  { display: anyCount, position: 'left',  grid: { color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, precision: 0 } },
+              y1: { display: anyMoney, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#9aa4bf', font: { size: 10 }, callback: (v) => '$' + v.toLocaleString() } },
+            },
+          }} />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Section({ id, icon, name, count, kpis, open, onToggle, children, action }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
@@ -224,6 +303,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
   const [metaCampaigns, setMetaCampaigns] = useState([])
+  const [googleDaily, setGoogleDaily] = useState([])
+  const [metaDaily, setMetaDaily]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [firstLoad, setFirstLoad] = useState(true)
   const [googleSyncing, setGoogleSyncing] = useState(false)
@@ -255,6 +336,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
     ])
 
     setOrders(ordersRes.data || [])
+    setGoogleDaily(campRes.data || [])
+    setMetaDaily(metaRes.data || [])
 
     // Aggregate Google campaign rows per campaign_id
     const map = {}
@@ -399,6 +482,48 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }, [orders, campaigns, metaCampaigns, campaignAttr])
 
+  // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
+  // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
+  // date and split by which platform's campaign id the order matched.
+  const trend = useMemo(() => {
+    const dates = []
+    const d1 = new Date(appliedEnd + 'T00:00:00')
+    for (let d = new Date(appliedStart + 'T00:00:00'); d <= d1; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().slice(0, 10))
+    }
+    const idx = Object.fromEntries(dates.map((d, i) => [d, i]))
+    const blank = () => ({
+      spend: Array(dates.length).fill(0), impressions: Array(dates.length).fill(0),
+      clicks: Array(dates.length).fill(0), conversions: Array(dates.length).fill(0),
+      chConv: Array(dates.length).fill(0), chRev: Array(dates.length).fill(0),
+    })
+    const google = blank(), meta = blank()
+    for (const r of googleDaily) {
+      const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
+      google.spend[i]       += Number(r.cost) || 0
+      google.impressions[i] += Number(r.impressions) || 0
+      google.clicks[i]      += Number(r.clicks) || 0
+      google.conversions[i] += Number(r.conversions) || 0
+    }
+    for (const r of metaDaily) {
+      const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
+      meta.spend[i]       += Number(r.spend) || 0
+      meta.impressions[i] += Number(r.impressions) || 0
+      meta.clicks[i]      += Number(r.clicks) || 0
+      meta.conversions[i] += Number(r.conversions) || 0
+    }
+    const gIds = new Set(campaigns.map(c => String(c.campaign_id)))
+    const mIds = new Set(metaCampaigns.map(c => String(c.campaign_id)))
+    for (const o of orders) {
+      const i = idx[String(o.created_at).slice(0, 10)]; if (i == null) continue
+      const c = (o.utm_campaign || '').trim(); if (!c) continue
+      const rev = Number(o.sale_amount) || 0
+      if (gIds.has(c))      { google.chConv[i] += 1; google.chRev[i] += rev }
+      else if (mIds.has(c)) { meta.chConv[i]   += 1; meta.chRev[i]   += rev }
+    }
+    return { dates, google, meta }
+  }, [appliedStart, appliedEnd, googleDaily, metaDaily, orders, campaigns, metaCampaigns])
+
   const googleSynced = useMemo(() => campaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [campaigns])
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
 
@@ -496,6 +621,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
@@ -577,6 +703,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
             {campaigns.length === 0 ? (
               <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
             ) : (
+              <>
+              <TrendChart dates={trend.dates} a={trend.google} />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                   <PaidColGroup />
@@ -647,6 +775,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </Section>
 
@@ -668,6 +797,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <p className="text-xs text-gray-500 dark:text-gray-400">Connect Meta or widen the date range. Spend matches to CH-attributed orders via the captured campaign IDs.</p>
               </div>
             ) : (
+              <>
+              <TrendChart dates={trend.dates} a={trend.meta} />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                   <PaidColGroup />
@@ -740,6 +871,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </Section>
 
