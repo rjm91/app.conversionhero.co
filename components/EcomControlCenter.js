@@ -19,16 +19,33 @@ const CHANNEL_BY_SOURCENAME = {
   '2329312': 'Meta',
   '3890849': 'Shop',
 }
+// Detect an ad platform in a single attribution string (source/medium/campaign).
+function platformOf(str) {
+  const s = (str || '').toLowerCase()
+  if (/facebook|meta|instagram|\bfb\b/.test(s)) return 'Meta'
+  if (/google|adwords|gads|youtube/.test(s))    return 'Google'
+  return null
+}
 function deriveChannel(o) {
-  const src = (o.utm_source || '').toLowerCase()
-  const med = (o.utm_medium || '').toLowerCase()
-  if (/facebook|meta|instagram|fb|^ig$/.test(src)) return 'Meta'
-  if (/google|adwords|gads|youtube/.test(src))      return 'Google'
-  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(src) || /email/.test(med)) return 'Email'
-  if (/shop_app|shopapp|^shop$/.test(src)) return 'Shop'
-  if (src) return src.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  // No useful UTM → fall back to the Shopify sales channel.
-  const ch = o.shopify_data?.channel
+  const sd = o.shopify_data || {}
+  // RULE: if Google or Facebook appears ANYWHERE in the journey (first OR last
+  // visit, or the merged top-level UTM), attribute the order to that platform —
+  // even if the last click was email/Klaviyo. Prefer last-touch platform, then
+  // first-touch, then the merged top-level UTM (for rows synced before we kept
+  // both visits).
+  const lastP   = platformOf([sd.last_utm?.source,  sd.last_utm?.medium,  sd.last_utm?.campaign].join(' '))
+  const firstP  = platformOf([sd.first_utm?.source, sd.first_utm?.medium, sd.first_utm?.campaign].join(' '))
+  const mergedP = platformOf([o.utm_source, o.utm_medium, o.utm_campaign, o.utm_content].join(' '))
+  const platform = lastP || firstP || mergedP
+  if (platform) return platform
+  // No platform anywhere → next strongest signal across every source we have.
+  const blob = [o.utm_source, o.utm_medium, sd.first_utm?.source, sd.first_utm?.medium, sd.last_utm?.source, sd.last_utm?.medium]
+    .filter(Boolean).join(' ').toLowerCase()
+  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(blob)) return 'Email'
+  if (/shop_app|shopapp|\bshop\b/.test(blob)) return 'Shop'
+  if (o.utm_source) return o.utm_source.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  // Last resort: the Shopify sales channel.
+  const ch = sd.channel
   if (ch && CHANNEL_BY_SOURCENAME[ch]) return CHANNEL_BY_SOURCENAME[ch]
   if (ch === 'Online Store') return 'Direct'
   return ch || 'Other'
@@ -186,7 +203,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     setLoading(true)
     const [ordersRes, campRes, metaRes] = await Promise.all([
       supabase.from('client_lead')
-        .select('lead_id, sale_amount, utm_campaign, shopify_data, created_at, first_name, last_name')
+        .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name')
         .eq('client_id', clientId)
         .like('lead_id', 'shopify_%')
         .gte('created_at', appliedStart)
