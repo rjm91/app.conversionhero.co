@@ -83,10 +83,10 @@ function PaidColGroup() {
 }
 
 const platformIcon = {
-  overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#3b82f6,#34CC93)' }}>∑</div>,
+  overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>,
   google:   <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
   meta:     <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#0866FF] text-white text-sm font-extrabold flex-shrink-0">f</div>,
-  orders:   <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg,#34CC93,#22CBE3)' }}>🛍</div>,
+  orders:   <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>🛍</div>,
 }
 
 const SHOPIFY_PILL = {
@@ -398,7 +398,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           {/* Blended Paid Ads (Google + Meta) */}
           <Section
             id="blended"
-            icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#3b82f6,#34CC93)' }}>∑</div>}
+            icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>}
             name="Paid Ads — Blended"
             count="Google + Meta"
             open={open.blended} onToggle={toggle}
