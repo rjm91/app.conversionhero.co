@@ -2,7 +2,7 @@
 
 import { useTheme } from './ThemeProvider'
 
-const options = ['System', 'Dark', 'Light']
+const options = ['System', 'Dark', 'Light', 'Brand']
 
 export default function ThemeSelector() {
   const { theme, setTheme } = useTheme()

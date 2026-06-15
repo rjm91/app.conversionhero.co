@@ -4,12 +4,14 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext({ theme: 'dark', setTheme: () => {} })
 
-const THEMES = ['system', 'dark', 'light']
+const THEMES = ['system', 'dark', 'light', 'brand']
 
 function applyTheme(theme) {
   const root = document.documentElement
   root.classList.remove('dark', 'system')
-  if (theme === 'dark') root.classList.add('dark')
+  // 'brand' = the dark UI with the client's brand accent (the accent swap is
+  // handled in the client layout, which knows the brand color).
+  if (theme === 'dark' || theme === 'brand') root.classList.add('dark')
   else if (theme === 'system') root.classList.add('system')
 }
 

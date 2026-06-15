@@ -5,7 +5,23 @@ import Link from 'next/link'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
 import ThemeSelector from '../../../components/ThemeSelector'
+import { useTheme } from '../../../components/ThemeProvider'
 import AgentPanel from '../../../components/AgentPanel'
+
+// Build a 10-step blue scale (as "r g b" channel strings) from one brand hex,
+// lightening toward white for 50–500 and darkening toward black for 700–900.
+function brandScale(hex) {
+  const h = String(hex || '').replace('#', '')
+  if (h.length !== 6) return null
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  const mix = (t) => {
+    const target = t > 0 ? 255 : 0, amt = Math.abs(t)
+    const c = (x) => Math.round(x * (1 - amt) + target * amt)
+    return `${c(r)} ${c(g)} ${c(b)}`
+  }
+  return { 50: mix(0.92), 100: mix(0.84), 200: mix(0.68), 300: mix(0.48), 400: mix(0.24), 500: mix(0.10), 600: mix(0), 700: mix(-0.16), 800: mix(-0.30), 900: mix(-0.42) }
+}
+const BLUE_KEYS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900']
 
 /* ─── Nav structure ─── */
 const NAV_GROUPS = {
@@ -184,6 +200,7 @@ export default function ClientLayout({ children }) {
   const [clientName, setClientName] = useState('')
   const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
   const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
+  const { theme } = useTheme()
   const [clients, setClients] = useState([])
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
@@ -230,6 +247,19 @@ export default function ClientLayout({ children }) {
       if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
     })
   }, [clientId])
+
+  // "Brand" theme → repoint the whole blue accent scale to this client's brand
+  // color. Any other theme (or no brand color) reverts to the default blue.
+  useEffect(() => {
+    const root = document.documentElement
+    const scale = theme === 'brand' ? brandScale(brandColor) : null
+    if (scale) {
+      for (const k of BLUE_KEYS) root.style.setProperty(`--blue-${k}`, scale[k])
+    } else {
+      for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`)
+    }
+    return () => { for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`) }
+  }, [theme, brandColor])
 
   // Load active clients for the account switcher
   useEffect(() => {
