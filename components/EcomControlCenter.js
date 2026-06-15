@@ -611,7 +611,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section
             id="blended"
             icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>}
-            name="Paid Ads — Blended"
+            name="Blended"
             count="Google + Meta"
             open={open.blended} onToggle={toggle}
             kpis={open.blended ? [] : [
