@@ -474,6 +474,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             kpis={open.meta ? [] : (metaCampaigns.length ? [
               { label: 'Spend', value: fmt$(m.metaSpend) },
               { label: 'Clicks', value: fmtNum(m.metaClicks) },
+              { label: 'Conv', value: fmtNum(m.mConvPlatform) },
               { label: 'Conv (CH)', value: fmtNum(m.mConv), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.mRoas), ch: true },
             ] : [{ label: 'Not connected', value: '—' }])}>
