@@ -198,8 +198,8 @@ function TrendChart({ dates, a, b, compare }) {
             },
             scales: {
               x:  { grid: { display: true, color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
-              y:  { display: anyCount, position: 'left',  grid: { color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, precision: 0 } },
-              y1: { display: anyMoney, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#9aa4bf', font: { size: 10 }, callback: (v) => '$' + v.toLocaleString() } },
+              y:  { display: anyCount, position: 'left',  grid: { color: 'rgba(148,163,184,0.14)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, precision: 0, count: 8 } },
+              y1: { display: anyMoney, position: 'right', grid: { drawOnChartArea: !anyCount, color: 'rgba(148,163,184,0.14)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, count: 8, callback: (v) => '$' + v.toLocaleString() } },
             },
           }} />
         )}
