@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synergy Home — Dynamic Hero Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            sgreen:  { DEFAULT: '#016838', dark: '#014f2a', light: '#1f9d5c', glow: '#34c97f' },
+            snavy:   { DEFAULT: '#262263', deep: '#1a1747', mid: '#353074' },
+            syellow: { DEFAULT: '#ffe600', dark: '#e6cf00' },
+          },
+          boxShadow: {
+            card: '0 10px 40px -12px rgba(38,34,99,0.25)',
+            cta: '0 12px 28px -8px rgba(1,104,56,0.55)',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .state-enter { animation: fade 0.45s ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .dotgrid { background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px); background-size: 22px 22px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-snavy-deep antialiased">
+
+  <!-- ===== DEV TOGGLE BAR (mockup control — not part of the real page) ===== -->
+  <div class="sticky top-0 z-50 bg-snavy-deep text-white">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center gap-3">
+      <span class="text-[11px] font-semibold uppercase tracking-widest text-white/50">Toggle Ad Traffic View</span>
+      <div class="flex gap-1.5 bg-white/5 p-1 rounded-xl ring-1 ring-white/10" id="tabs">
+        <button data-state="hvac"        class="tab px-4 py-1.5 rounded-lg text-sm font-semibold transition">HVAC</button>
+        <button data-state="generators"  class="tab px-4 py-1.5 rounded-lg text-sm font-semibold transition">Generators</button>
+        <button data-state="insulation"  class="tab px-4 py-1.5 rounded-lg text-sm font-semibold transition">Solar &amp; Insulation</button>
+      </div>
+      <span class="ml-auto text-[11px] text-white/40 hidden sm:block">Same frame, copy &amp; offer mutate to match the ad intent →</span>
+    </div>
+  </div>
+
+  <!-- ===== LANDING PAGE FRAME ===== -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div class="bg-white rounded-3xl shadow-card overflow-hidden ring-1 ring-slate-200/70">
+
+      <!-- Header -->
+      <header class="flex items-center justify-between gap-4 px-5 sm:px-8 py-4 border-b border-slate-100">
+        <img src="https://mbodzggsefkpesqcxskv.supabase.co/storage/v1/object/public/funnel-assets/clients/ch014/brand/logo-1780679768602.svg"
+             alt="Synergy Home" class="h-9 sm:h-11 w-auto" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block'" />
+        <span id="logoFallback" style="display:none" class="text-xl font-extrabold text-sgreen">Synergy<span class="text-snavy"> Home</span></span>
+
+        <a href="tel:8592031533"
+           class="group inline-flex items-center gap-2.5 sm:gap-3 bg-sgreen hover:bg-sgreen-dark text-white rounded-xl px-4 sm:px-6 py-2.5 sm:py-3.5 shadow-cta transition-all hover:-translate-y-0.5">
+          <span class="grid place-items-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/15">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
+          </span>
+          <span class="text-left leading-tight">
+            <span class="block text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/70">Call 24/7</span>
+            <span class="block text-base sm:text-xl font-extrabold tracking-tight">(859) 203-1533</span>
+          </span>
+        </a>
+      </header>
+
+      <!-- Hero split -->
+      <div class="grid lg:grid-cols-2">
+
+        <!-- LEFT: dynamic content + conversion -->
+        <div class="px-6 sm:px-10 lg:px-12 py-9 lg:py-14 flex flex-col">
+          <div id="hero" class="state-enter flex flex-col gap-6">
+
+            <span id="eyebrow" class="inline-flex items-center gap-2 self-start text-[12px] font-bold uppercase tracking-wider text-sgreen bg-sgreen/10 rounded-full px-3.5 py-1.5"></span>
+
+            <h1 id="headline" class="text-3xl sm:text-4xl lg:text-[2.85rem] font-extrabold leading-[1.08] tracking-tight text-snavy-deep"></h1>
+
+            <p id="subhead" class="text-lg text-slate-500 leading-relaxed max-w-xl"></p>
+
+            <!-- High-intent offer card -->
+            <div id="offerCard" class="relative rounded-2xl border-2 p-5 sm:p-6 bg-gradient-to-br from-white to-slate-50">
+              <span id="offerFlag" class="absolute -top-3 left-5 text-[11px] font-bold uppercase tracking-wide text-white rounded-full px-3 py-1"></span>
+              <div class="flex items-start gap-4 pt-1">
+                <div id="offerIcon" class="shrink-0 grid place-items-center w-12 h-12 rounded-xl text-white"></div>
+                <div>
+                  <h3 id="offerTitle" class="text-xl font-extrabold text-snavy-deep"></h3>
+                  <p id="offerBody" class="text-[15px] text-slate-500 leading-snug mt-1"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Primary CTA -->
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+              <a href="#" id="cta" class="inline-flex items-center justify-center gap-2 bg-sgreen hover:bg-sgreen-dark text-white text-lg font-bold rounded-xl px-7 py-4 shadow-cta transition-all hover:-translate-y-0.5">
+                <span id="ctaText"></span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M6 12h12"/></svg>
+              </a>
+              <span class="text-sm text-slate-400">or call <a href="tel:8592031533" class="font-semibold text-sgreen hover:underline">(859) 203-1533</a></span>
+            </div>
+
+            <!-- Integrated trust: Google reviews + badges -->
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 mt-1 border-t border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9a5 5 0 01-2.2 3.3v2.7h3.6c2.1-2 3.2-4.9 3.2-7.8z"/><path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.7c-1 .7-2.3 1.1-3.6 1.1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A11 11 0 0012 23z"/><path fill="#FBBC05" d="M6 14.4a6.6 6.6 0 010-4.2V7.4H2.3a11 11 0 000 9.8L6 14.4z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1A11 11 0 002.3 7.4L6 10.2C6.9 7.7 9.2 5.4 12 5.4z"/></svg>
+                <div class="leading-tight">
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-extrabold text-snavy-deep">4.9</span>
+                    <span class="text-syellow-dark text-lg leading-none">★★★★★</span>
+                  </div>
+                  <span class="text-xs text-slate-400">from 200+ Google reviews</span>
+                </div>
+              </div>
+              <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+              <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-sm font-medium text-slate-500">
+                <li class="flex items-center gap-1.5"><svg class="w-4 h-4 text-sgreen-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4l3.3 3.3 7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>Locally owned</li>
+                <li class="flex items-center gap-1.5"><svg class="w-4 h-4 text-sgreen-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4l3.3 3.3 7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>Licensed &amp; insured</li>
+                <li class="flex items-center gap-1.5"><svg class="w-4 h-4 text-sgreen-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4l3.3 3.3 7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>Same-day service</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: visual trust (team + fleet photo) -->
+        <div class="relative min-h-[420px] lg:min-h-0 bg-snavy-deep overflow-hidden">
+          <!-- dynamic accent wash -->
+          <div id="rightWash" class="absolute inset-0 transition-colors duration-500"></div>
+          <div class="absolute inset-0 dotgrid opacity-60"></div>
+          <div class="absolute -top-24 -right-24 w-80 h-80 rounded-full blur-3xl opacity-30" id="rightGlow"></div>
+
+          <!-- photo placeholder frame -->
+          <div class="relative h-full w-full flex items-center justify-center p-8">
+            <div class="w-full max-w-md rounded-2xl border-2 border-dashed border-white/25 bg-white/[0.04] backdrop-blur-sm p-8 text-center">
+              <svg class="w-14 h-14 mx-auto text-white/40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.16-5.16a2.25 2.25 0 013.18 0l5.16 5.16m-1.5-1.5l1.41-1.41a2.25 2.25 0 013.18 0l2.16 2.16M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"/></svg>
+              <p class="text-white font-bold mt-4">Synergy Home team &amp; branded fleet photo</p>
+              <p id="imageLabel" class="text-sm mt-1 font-semibold"></p>
+              <p class="text-white/40 text-xs mt-3">Hi-res hero image drops in here</p>
+            </div>
+          </div>
+
+          <!-- floating trust chip -->
+          <div class="absolute bottom-5 left-5 right-5 flex items-center gap-3 bg-white rounded-2xl shadow-2xl px-4 py-3">
+            <span class="grid place-items-center w-11 h-11 rounded-xl bg-sgreen/10 text-sgreen shrink-0">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 1l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8 4.8 17.1l1-5.8L1.5 7.2l5.9-.9L10 1z" clip-rule="evenodd"/></svg>
+            </span>
+            <div class="leading-tight">
+              <p class="font-extrabold text-snavy-deep text-sm" id="floatTitle"></p>
+              <p class="text-xs text-slate-500" id="floatSub"></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-400 mt-4">Mockup · Synergy Home (ch014) Dynamic Hero · one frame, three ad-intent states</p>
+  </div>
+
+  <script>
+    const ACCENTS = {
+      sgreen: { chip: 'text-sgreen bg-sgreen/10', icon: 'bg-sgreen', flag: 'bg-sgreen', border: 'border-sgreen/40', wash: 'bg-gradient-to-br from-sgreen-dark/70 to-snavy-deep', glow: 'background:#1f9d5c', label: 'text-sgreen-glow' },
+      snavy:  { chip: 'text-snavy bg-snavy/10', icon: 'bg-snavy-mid', flag: 'bg-snavy-mid', border: 'border-snavy-mid/50', wash: 'bg-gradient-to-br from-snavy-mid/80 to-snavy-deep', glow: 'background:#4285F4', label: 'text-sky-300' },
+      syellow:{ chip: 'text-snavy bg-syellow/30', icon: 'bg-syellow text-snavy-deep', flag: 'bg-syellow text-snavy-deep', border: 'border-syellow', wash: 'bg-gradient-to-br from-sgreen-dark/60 to-snavy-deep', glow: 'background:#ffe600', label: 'text-syellow' },
+    };
+
+    const ICONS = {
+      hvac: '<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M7 4v3m5-3v3m5-3v3"/></svg>',
+      generators: '<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13l0-8z"/></svg>',
+      insulation: '<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1018 0 9 9 0 00-18 0zm9-9v18m-6.4-3.6l12.8-12.8"/></svg>',
+    };
+
+    const STATES = {
+      hvac: {
+        accent: 'sgreen',
+        eyebrow: 'HVAC · Heating · Cooling · Geothermal',
+        headline: "Lexington's Choice For Fast HVAC Repair &amp; Replacement",
+        subhead: "Expert cooling, heating, and geothermal service from the team your neighbors keep calling.",
+        flag: 'Free Offer',
+        offerTitle: 'Free HVAC Second Opinion',
+        offerBody: 'Before you spend thousands on a system replacement, let our expert team verify your quote 100% free.',
+        cta: 'Schedule Free Second Opinion',
+        imageLabel: 'Certified HVAC technicians',
+        floatTitle: 'NATE-certified technicians',
+        floatSub: 'Trusted across Central Kentucky',
+      },
+      generators: {
+        accent: 'snavy',
+        eyebrow: 'Generac · Whole-Home Backup Power',
+        headline: 'Never Lose Power: Whole-Home Generac Backup Generators',
+        subhead: "Don't wait for the next storm. Protect your home, family, and appliances with an always-on power backup system.",
+        flag: 'Flexible Financing',
+        offerTitle: 'Beat The Storms: Flexible Financing',
+        offerBody: 'Professional installation by certified electricians. Ask about our interest-free payment options to fit your budget.',
+        cta: 'Request Free Generator Quote',
+        imageLabel: 'Certified Generac installers',
+        floatTitle: 'Generac Authorized Dealer',
+        floatSub: 'Certified electricians, code-compliant installs',
+      },
+      insulation: {
+        accent: 'syellow',
+        eyebrow: 'Spray Foam · Energy Efficiency',
+        headline: 'Lower Your Energy Bills with Premium Spray Foam Insulation',
+        subhead: 'Improve home comfort, reduce heating/cooling wear and tear, and trap climate-controlled air inside.',
+        flag: 'Limited Time',
+        offerTitle: 'Limited Time: 20% Off Spray Foam',
+        offerBody: 'Keep cool air in, reduce A/C workload, and decrease humidity. Expires 6/30/26.',
+        cta: 'Claim 20% Off Coupon',
+        imageLabel: 'Spray foam specialists',
+        floatTitle: 'Save up to 20% on energy bills',
+        floatSub: 'Insulation that pays for itself',
+      },
+    };
+
+    const FLAG_BASE = 'absolute -top-3 left-5 text-[11px] font-bold uppercase tracking-wide rounded-full px-3 py-1';
+    const ICON_BASE = 'shrink-0 grid place-items-center w-12 h-12 rounded-xl';
+    const CARD_BASE = 'relative rounded-2xl border-2 p-5 sm:p-6 bg-gradient-to-br from-white to-slate-50';
+    const CHIP_BASE = 'inline-flex items-center gap-2 self-start text-[12px] font-bold uppercase tracking-wider rounded-full px-3.5 py-1.5';
+
+    function render(key) {
+      const s = STATES[key], a = ACCENTS[s.accent];
+      document.getElementById('eyebrow').className   = CHIP_BASE + ' ' + a.chip;
+      document.getElementById('eyebrow').textContent = s.eyebrow;
+      document.getElementById('headline').innerHTML  = s.headline;
+      document.getElementById('subhead').innerHTML   = s.subhead;
+
+      document.getElementById('offerCard').className = CARD_BASE + ' ' + a.border;
+      const flag = document.getElementById('offerFlag');
+      flag.className = FLAG_BASE + ' ' + a.flag;
+      flag.textContent = s.flag;
+      const icon = document.getElementById('offerIcon');
+      icon.className = ICON_BASE + ' ' + a.icon;
+      icon.innerHTML = ICONS[key];
+      document.getElementById('offerTitle').textContent = s.offerTitle;
+      document.getElementById('offerBody').textContent  = s.offerBody;
+      document.getElementById('ctaText').textContent    = s.cta;
+
+      document.getElementById('imageLabel').className   = 'text-sm mt-1 font-semibold ' + a.label;
+      document.getElementById('imageLabel').textContent = s.imageLabel;
+      document.getElementById('rightWash').className     = 'absolute inset-0 transition-colors duration-500 ' + a.wash;
+      document.getElementById('rightGlow').setAttribute('style', a.glow + ';' + 'width:20rem;height:20rem');
+      document.getElementById('floatTitle').textContent = s.floatTitle;
+      document.getElementById('floatSub').textContent   = s.floatSub;
+
+      // re-trigger entrance animation
+      const hero = document.getElementById('hero');
+      hero.classList.remove('state-enter'); void hero.offsetWidth; hero.classList.add('state-enter');
+
+      // tab active styling
+      document.querySelectorAll('.tab').forEach(t => {
+        const on = t.dataset.state === key;
+        t.className = 'tab px-4 py-1.5 rounded-lg text-sm font-semibold transition ' +
+          (on ? 'bg-white text-snavy-deep shadow' : 'text-white/60 hover:text-white');
+      });
+    }
+
+    document.getElementById('tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.tab'); if (btn) render(btn.dataset.state);
+    });
+    render('hvac');
+  </script>
+</body>
+</html>
