@@ -183,6 +183,7 @@ export default function ClientLayout({ children }) {
   const pathname = usePathname()
   const [clientName, setClientName] = useState('')
   const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
+  const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
   const [clients, setClients] = useState([])
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
@@ -216,8 +217,15 @@ export default function ClientLayout({ children }) {
   // Fetch client name and role
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('client').select('client_name, is_ecom').eq('client_id', clientId).single()
-      .then(({ data }) => { if (data) { setClientName(data.client_name); setIsEcom(!!data.is_ecom) } })
+    supabase.from('client').select('client_name, is_ecom, branding').eq('client_id', clientId).single()
+      .then(({ data }) => {
+        if (!data) return
+        setClientName(data.client_name)
+        setIsEcom(!!data.is_ecom)
+        const colors = Array.isArray(data.branding?.colors) ? data.branding.colors : []
+        const primary = colors.find(c => (c?.role || '').toLowerCase() === 'primary')?.hex || colors[0]?.hex || null
+        setBrandColor(primary)
+      })
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
     })
@@ -291,7 +299,8 @@ export default function ClientLayout({ children }) {
           {/* Icon — toggles collapse */}
           <button
             onClick={toggleCollapse}
-            className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 hover:brightness-110 transition text-white text-[10px] font-bold"
+            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:brightness-110 transition text-white text-[10px] font-bold"
+            style={{ backgroundColor: brandColor || '#2563eb' }}
             title="Toggle sidebar"
           >
             {clientInitials}
