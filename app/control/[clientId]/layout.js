@@ -329,8 +329,7 @@ export default function ClientLayout({ children }) {
           {/* Icon — toggles collapse */}
           <button
             onClick={toggleCollapse}
-            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:brightness-110 transition text-white text-[10px] font-bold"
-            style={{ backgroundColor: brandColor || '#2563eb' }}
+            className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 hover:brightness-110 transition text-white text-[10px] font-bold"
             title="Toggle sidebar"
           >
             {clientInitials}
