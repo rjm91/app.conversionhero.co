@@ -72,6 +72,46 @@ function Pill({ status }) {
   return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SHOPIFY_PILL[status] || 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>{label}</span>
 }
 
+// Anthropic-style relative timestamp
+function relativeTime(ts, now) {
+  if (!ts) return null
+  const s = Math.max(0, Math.floor((now - new Date(ts).getTime()) / 1000))
+  if (s < 10) return 'just now'
+  if (s < 60) return 'less than a minute ago'
+  const min = Math.floor(s / 60)
+  if (min < 60) return min === 1 ? '1 minute ago' : `${min} minutes ago`
+  const h = Math.floor(min / 60)
+  if (h < 24) return h === 1 ? '1 hour ago' : `${h} hours ago`
+  const d = Math.floor(h / 24)
+  return d === 1 ? '1 day ago' : `${d} days ago`
+}
+
+// "Last updated: X ago" + a circular refresh arrow (replaces the refresh button)
+function LastUpdated({ syncedAt, syncing, onRefresh }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000)
+    return () => clearInterval(id)
+  }, [])
+  const rel = syncing ? 'updating…' : relativeTime(syncedAt, now)
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+      {rel && <span>Last updated: {rel}</span>}
+      <button
+        onClick={(e) => { e.stopPropagation(); onRefresh() }}
+        disabled={syncing}
+        title="Refresh"
+        className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition disabled:opacity-50"
+      >
+        <svg className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-2.64-6.36" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 3v6h-6" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 export default function EcomControlCenter({ clientId, clientName }) {
   const defaults = defaultDates()
   const [startDate, setStartDate]   = useState(defaults.start)
@@ -235,6 +275,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }, [orders, campaigns, metaCampaigns, campaignAttr])
 
+  const googleSynced = useMemo(() => campaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [campaigns])
+  const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
+
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
   const channelColor = (name) => name === 'Facebook' ? '#0866FF' : name === 'Online Store' ? '#4b5563' : name === 'Google' ? '#4285F4' : '#7a8bb5'
 
@@ -381,18 +424,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
           {/* Google Ads */}
           <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${campaigns.length} campaign${campaigns.length === 1 ? '' : 's'}`} open={open.google} onToggle={toggle}
-            action={
-              <button
-                onClick={(e) => { e.stopPropagation(); handleGoogleRefresh() }}
-                disabled={googleSyncing}
-                title="Pull the latest Google Ads data for this client"
-                className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50 flex-shrink-0"
-              >
-                <span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[10px] font-extrabold text-[#4285F4] leading-none">G</span>
-                <svg className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                {googleSyncing ? 'Syncing…' : 'Refresh'}
-              </button>
-            }
+            action={<LastUpdated syncedAt={googleSynced} syncing={googleSyncing} onRefresh={handleGoogleRefresh} />}
             kpis={open.google ? [] : [
               { label: 'Spend', value: fmt$(m.googleSpend) },
               { label: 'Clicks', value: fmtNum(m.googleClicks) },
@@ -477,18 +509,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section id="meta" icon={platformIcon.meta} name="Meta Ads"
             count={metaCampaigns.length ? `${metaCampaigns.length} campaign${metaCampaigns.length === 1 ? '' : 's'}` : null}
             open={open.meta} onToggle={toggle}
-            action={
-              <button
-                onClick={(e) => { e.stopPropagation(); handleMetaRefresh() }}
-                disabled={metaSyncing}
-                title="Pull the latest Meta (Facebook) data for this client"
-                className="flex items-center gap-2 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] hover:bg-gray-100 dark:hover:bg-white/[0.08] text-gray-600 dark:text-gray-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50 flex-shrink-0"
-              >
-                <span className="w-4 h-4 rounded bg-[#0866FF] grid place-items-center text-[10px] font-extrabold text-white leading-none">f</span>
-                <svg className={`w-3.5 h-3.5 ${metaSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                {metaSyncing ? 'Syncing…' : 'Refresh'}
-              </button>
-            }
+            action={<LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />}
             kpis={open.meta ? [] : (metaCampaigns.length ? [
               { label: 'Spend', value: fmt$(m.metaSpend) },
               { label: 'Clicks', value: fmtNum(m.metaClicks) },
