@@ -161,10 +161,13 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
     g.addColorStop(1, color + '00')    // transparent at the baseline
     return g
   }
+  // Short ranges (e.g. "Today") have too few points to draw a visible line,
+  // so show dots; longer ranges stay as clean lines.
+  const fewPoints = labels.length <= 2
   const line = (label, data, color, axis, dashed, fill = true) => ({
     label, data, borderColor: color, backgroundColor: fill ? fillGrad(color) : 'transparent', fill,
     yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2.25,
-    pointRadius: 0, pointHoverRadius: 3, pointHoverBackgroundColor: color,
+    pointRadius: fewPoints ? 5 : 0, pointBackgroundColor: color, pointHoverRadius: fewPoints ? 6 : 3, pointHoverBackgroundColor: color,
     borderDash: dashed ? [5, 4] : [],
   })
   // Each metric keeps its own color so multiple metrics stay distinguishable;
