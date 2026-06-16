@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import ClientProjectsTasks from './ClientProjectsTasks'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -156,6 +157,7 @@ const ICON = {
   video:  <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#FF0000] text-white flex-shrink-0"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23 12s0-3.9-.5-5.8a3 3 0 00-2.1-2.1C18.5 3.5 12 3.5 12 3.5s-6.5 0-8.4.6A3 3 0 001.5 6.2C1 8.1 1 12 1 12s0 3.9.5 5.8a3 3 0 002.1 2.1c1.9.6 8.4.6 8.4.6s6.5 0 8.4-.6a3 3 0 002.1-2.1C23 15.9 23 12 23 12zM9.8 15.5v-7l6 3.5-6 3.5z"/></svg></div>,
   funnels: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/></svg></div>,
   leads: <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#34CC93] text-white flex-shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-1a4 4 0 00-3-3.87M9 20H4v-1a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z"/></svg></div>,
+  projects: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #a78bfa, #6d28d9)' }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg></div>,
 }
 
 export default function HomeServiceControlCenter({ clientId, clientName }) {
@@ -173,7 +175,7 @@ export default function HomeServiceControlCenter({ clientId, clientName }) {
   const [steps, setSteps]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [firstLoad, setFirstLoad] = useState(true)
-  const [open, setOpen] = useState({ overview: true, google: true, video: false, funnels: false, leads: false })
+  const [open, setOpen] = useState({ overview: true, google: true, video: false, funnels: false, leads: false, projects: false })
   const [funnelOpen, setFunnelOpen] = useState({})
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -535,6 +537,11 @@ export default function HomeServiceControlCenter({ clientId, clientName }) {
                 {leads.length > 30 && <p className="px-4 py-3 text-xs text-gray-400">Showing 30 of {leads.length}. <a href={`/control/${clientId}/contacts`} className="text-blue-500 hover:underline">See all →</a></p>}
               </div>
             )}
+          </Section>
+
+          {/* Projects & Tasks */}
+          <Section id="projects" icon={ICON.projects} name="Projects & Tasks" open={open.projects} onToggle={toggle}>
+            <ClientProjectsTasks clientId={clientId} />
           </Section>
 
         </div>

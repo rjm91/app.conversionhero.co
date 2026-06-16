@@ -12,12 +12,15 @@ function db() {
   )
 }
 
-export async function GET() {
-  const { data, error } = await db()
+export async function GET(request) {
+  const clientId = request.nextUrl.searchParams.get('client_id')
+  let q = db()
     .from('projects')
     .select('*, project_tasks(id, status)')
     .neq('status', 'archived')
     .order('created_at', { ascending: false })
+  if (clientId) q = q.eq('client_id', clientId)
+  const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ projects: data || [] })
 }

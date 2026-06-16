@@ -248,7 +248,7 @@ export default function DashboardPage() {
   // Home Service accordion Control Center (Overview, Google Ads, YouTube ad
   // videos, Funnels w/ nested steps, Leads). Scoped to a rollout allowlist for
   // now — flip the whole `home_service` type here once it's validated.
-  const HS_CONTROL_CENTER = ['ch014']
+  const HS_CONTROL_CENTER = ['ch014', 'ch070']
   if (accountType === 'home_service' && HS_CONTROL_CENTER.includes(clientId)) {
     return <HomeServiceControlCenter clientId={clientId} clientName={clientName} />
   }
