@@ -161,10 +161,10 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6' }) {
   for (const md of TREND_METRICS) {
     if (!active[md.key]) continue
     if (compare) {
-      // Both platforms in the client's brand color — Google solid (filled),
-      // Meta dashed (line only) so they read as one brand-colored comparison.
+      // Both platforms in the client's brand color, both with the gradient
+      // fill — Google solid, Meta dashed — so they read as one brand comparison.
       datasets.push(line(`${md.label} · Google`, a[md.key], brandColor, md.axis, false, true))
-      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor, md.axis, true, false))
+      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor, md.axis, true, true))
     } else {
       datasets.push(line(md.label, a[md.key], md.color, md.axis, false))
     }
