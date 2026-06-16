@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../../lib/supabase'
 import MetricCard from '../../../../components/MetricCard'
 import EcomControlCenter from '../../../../components/EcomControlCenter'
+import HomeServiceControlCenter from '../../../../components/HomeServiceControlCenter'
 
 function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString() }
 function fmtPct(n) { return (Math.round((n || 0) * 10) / 10) + '%' }
@@ -242,6 +243,14 @@ export default function DashboardPage() {
   // Ecom accounts get the single-page Control Center instead of the lead-gen KPI grid.
   if (accountType === 'ecom') {
     return <EcomControlCenter clientId={clientId} clientName={clientName} />
+  }
+
+  // Home Service accordion Control Center (Overview, Google Ads, YouTube ad
+  // videos, Funnels w/ nested steps, Leads). Scoped to a rollout allowlist for
+  // now — flip the whole `home_service` type here once it's validated.
+  const HS_CONTROL_CENTER = ['ch014']
+  if (accountType === 'home_service' && HS_CONTROL_CENTER.includes(clientId)) {
+    return <HomeServiceControlCenter clientId={clientId} clientName={clientName} />
   }
 
   return (
