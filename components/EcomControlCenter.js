@@ -644,6 +644,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
         </div>
       </div>
 
+      {/* Data-accuracy notice for clients */}
+      <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/[0.08] px-4 py-3">
+        <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <p className="text-[13px] leading-relaxed text-amber-800 dark:text-amber-200/90">
+          <span className="font-semibold">Heads up:</span> ad attribution (the green <span className="font-semibold">"CH"</span> columns) is still being calibrated and may be inaccurate right now. <span className="font-semibold">Shopify orders/revenue and Google &amp; Meta ad data are accurate</span> for the selected date range.
+        </p>
+      </div>
+
       {firstLoad ? (
         <DashboardSkeleton />
       ) : (
