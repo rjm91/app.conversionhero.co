@@ -129,6 +129,7 @@ const TREND_METRICS = [
   { key: 'clicks',      label: 'Clicks',       axis: 'count', color: '#f59e0b' },
   { key: 'conversions', label: 'Conv',         axis: 'count', color: '#06b6d4' },
   { key: 'chConv',      label: 'Conv (CH)',    axis: 'count', color: '#10b981' },
+  { key: 'aov',         label: 'AOV',          axis: 'money', color: '#a855f7' },
 ]
 
 // Is a hex color light enough that white text on it would be unreadable?
@@ -210,7 +211,7 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
             plugins: {
               legend: { display: compare, labels: { boxWidth: 10, font: { size: 10 }, color: '#9aa4bf' } },
               tooltip: { callbacks: { label: (c) => {
-                const money = /Spend|Revenue/.test(c.dataset.label)
+                const money = /Spend|Revenue|AOV/.test(c.dataset.label)
                 return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
               } } },
             },
@@ -581,6 +582,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       spend: Array(dates.length).fill(0), impressions: Array(dates.length).fill(0),
       clicks: Array(dates.length).fill(0), conversions: Array(dates.length).fill(0),
       chConv: Array(dates.length).fill(0), chRev: Array(dates.length).fill(0),
+      aov: Array(dates.length).fill(0),
     })
     const google = blank(), meta = blank()
     for (const r of googleDaily) {
@@ -605,6 +607,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
       const rev = Number(o.sale_amount) || 0
       if (gIds.has(c))      { google.chConv[i] += 1; google.chRev[i] += rev }
       else if (mIds.has(c)) { meta.chConv[i]   += 1; meta.chRev[i]   += rev }
+    }
+    // AOV per day = attributed revenue / attributed orders
+    for (let i = 0; i < dates.length; i++) {
+      google.aov[i] = google.chConv[i] > 0 ? google.chRev[i] / google.chConv[i] : 0
+      meta.aov[i]   = meta.chConv[i]   > 0 ? meta.chRev[i]   / meta.chConv[i]   : 0
     }
     return { dates, google, meta }
   }, [appliedStart, appliedEnd, googleDaily, metaDaily, orders, campaigns, metaCampaigns])
