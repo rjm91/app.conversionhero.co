@@ -134,7 +134,7 @@ const TREND_METRICS = [
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor = '#4285F4' }) {
+function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor = '#4285F4', lineColor }) {
   const [active, setActive] = useState({ spend: true })
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
@@ -166,7 +166,7 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor 
       datasets.push(line(`${md.label} · Google`, a[md.key], googleColor, md.axis, false, true))
       datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor,  md.axis, true, true))
     } else {
-      datasets.push(line(md.label, a[md.key], md.color, md.axis, false))
+      datasets.push(line(md.label, a[md.key], lineColor || md.color, md.axis, false))
     }
   }
   const anyMoney = TREND_METRICS.some(md => active[md.key] && md.axis === 'money')
@@ -179,7 +179,7 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor 
           return (
             <button key={md.key} onClick={() => toggle(md.key)}
               className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
-              style={on ? { background: compare ? brandColor : md.color } : undefined}>
+              style={on ? { background: compare ? brandColor : (lineColor || md.color) } : undefined}>
               {md.label}
             </button>
           )
@@ -743,7 +743,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
             ) : (
               <>
-              <TrendChart dates={trend.dates} a={trend.google} />
+              <TrendChart dates={trend.dates} a={trend.google} lineColor={googleColor} />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                   <PaidColGroup />
