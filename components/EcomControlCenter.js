@@ -236,7 +236,7 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
   )
 }
 
-function Section({ id, icon, name, count, kpis, open, onToggle, children, action }) {
+function Section({ id, icon, name, count, kpis, open, onToggle, children, action, headerCtrl }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
       <div
@@ -251,6 +251,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
           <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
         </div>
+        {headerCtrl && <div className="ml-5 flex-shrink-0">{headerCtrl}</div>}
         <div className="flex-1" />
         {action}
         <div className="flex items-center gap-6 flex-shrink-0">
@@ -381,6 +382,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [firstLoad, setFirstLoad] = useState(true)
   const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
   const [isDark, setIsDark] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
@@ -537,6 +539,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }
 
+  // Status filter (shared by Google/Meta/Blended). Filters campaigns + the
+  // daily rows feeding the charts, so the whole ad view reflects the selection.
+  const matchStatus = (s) => statusFilter === 'all' || (statusFilter === 'enabled' ? s === 'ENABLED' : s !== 'ENABLED')
+  const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status)),     [campaigns, statusFilter])
+  const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status)), [metaCampaigns, statusFilter])
+  const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status)),   [googleDaily, statusFilter])
+  const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status)),     [metaDaily, statusFilter])
+
   // Per-campaign attribution from orders (utm_campaign → orders/revenue)
   const campaignAttr = useMemo(() => {
     const m = {}
@@ -555,13 +565,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const orderCount = orders.length
     const tracked = orders.filter(o => (o.utm_campaign || '').trim())
     const trackedRevenue = tracked.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
-    const googleSpend  = campaigns.reduce((s, c) => s + c.cost, 0)
-    const googleClicks = campaigns.reduce((s, c) => s + c.clicks, 0)
-    const googleBudget = campaigns.reduce((s, c) => s + (Number(c.budget) || 0), 0)
-    const googleImpr   = campaigns.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
-    const metaSpend    = metaCampaigns.reduce((s, c) => s + c.spend, 0)
-    const metaClicks   = metaCampaigns.reduce((s, c) => s + c.clicks, 0)
-    const metaImpr     = metaCampaigns.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
+    const googleSpend  = fCampaigns.reduce((s, c) => s + c.cost, 0)
+    const googleClicks = fCampaigns.reduce((s, c) => s + c.clicks, 0)
+    const googleBudget = fCampaigns.reduce((s, c) => s + (Number(c.budget) || 0), 0)
+    const googleImpr   = fCampaigns.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
+    const metaSpend    = fMeta.reduce((s, c) => s + c.spend, 0)
+    const metaClicks   = fMeta.reduce((s, c) => s + c.clicks, 0)
+    const metaImpr     = fMeta.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
     const adSpend = googleSpend + metaSpend     // blended
     const clicks  = googleClicks + metaClicks
     const byChannel = {}
@@ -570,16 +580,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
       byChannel[ch] = (byChannel[ch] || 0) + (Number(o.sale_amount) || 0)
     }
     // Per-platform CH rollups (orders' utm_campaign matched to each platform's campaign IDs)
-    const gConv = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
-    const gRev  = campaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
-    const gConvGoogle = campaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
-    const mConv = metaCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
-    const mRev  = metaCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
-    const mConvPlatform = metaCampaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
-    const metaBudget    = metaCampaigns.reduce((s, c) => s + (Number(c.budget) || 0), 0)
+    const gConv = fCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
+    const gRev  = fCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    const gConvGoogle = fCampaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
+    const mConv = fMeta.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
+    const mRev  = fMeta.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    const mConvPlatform = fMeta.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
+    const metaBudget    = fMeta.reduce((s, c) => s + (Number(c.budget) || 0), 0)
     // Platform-reported conversion value → platform ROAS (value ÷ spend)
-    const googleConvValue = campaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
-    const metaConvValue   = metaCampaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
+    const googleConvValue = fCampaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
+    const metaConvValue   = fMeta.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
     return {
       gConvGoogle,
       revenue, orderCount,
@@ -605,7 +615,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       blendedRevCH: gRev + mRev,
       blendedRoas: (googleSpend + metaSpend) ? (gRev + mRev) / (googleSpend + metaSpend) : 0,
     }
-  }, [orders, campaigns, metaCampaigns, campaignAttr])
+  }, [orders, fCampaigns, fMeta, campaignAttr])
 
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
@@ -624,22 +634,22 @@ export default function EcomControlCenter({ clientId, clientName }) {
       aov: Array(dates.length).fill(0),
     })
     const google = blank(), meta = blank()
-    for (const r of googleDaily) {
+    for (const r of fGoogleDaily) {
       const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
       google.spend[i]       += Number(r.cost) || 0
       google.impressions[i] += Number(r.impressions) || 0
       google.clicks[i]      += Number(r.clicks) || 0
       google.conversions[i] += Number(r.conversions) || 0
     }
-    for (const r of metaDaily) {
+    for (const r of fMetaDaily) {
       const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
       meta.spend[i]       += Number(r.spend) || 0
       meta.impressions[i] += Number(r.impressions) || 0
       meta.clicks[i]      += Number(r.clicks) || 0
       meta.conversions[i] += Number(r.conversions) || 0
     }
-    const gIds = new Set(campaigns.map(c => String(c.campaign_id)))
-    const mIds = new Set(metaCampaigns.map(c => String(c.campaign_id)))
+    const gIds = new Set(fCampaigns.map(c => String(c.campaign_id)))
+    const mIds = new Set(fMeta.map(c => String(c.campaign_id)))
     for (const o of orders) {
       const i = idx[String(o.created_at).slice(0, 10)]; if (i == null) continue
       const c = (o.utm_campaign || '').trim(); if (!c) continue
@@ -653,7 +663,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       meta.aov[i]   = meta.chConv[i]   > 0 ? meta.chRev[i]   / meta.chConv[i]   : 0
     }
     return { dates, google, meta }
-  }, [appliedStart, appliedEnd, googleDaily, metaDaily, orders, campaigns, metaCampaigns])
+  }, [appliedStart, appliedEnd, fGoogleDaily, fMetaDaily, orders, fCampaigns, fMeta])
 
   const googleSynced = useMemo(() => campaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [campaigns])
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
@@ -671,6 +681,22 @@ export default function EcomControlCenter({ clientId, clientName }) {
     Meta: '#0866FF', Google: googleColor, Email: lighten(brandColor, 0.45),
     Direct: brandColor, Shop: '#5a31f4', 'Draft Order': '#64748b',
   }[name] || '#7a8bb5')
+
+  // Status filter dropdown for the ad-section headers (sits over the Status
+  // column). Shared state, so picking it on Blended updates Google + Meta too.
+  const statusSelect = () => (
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      title="Filter campaigns by status"
+      className="text-[11px] font-semibold border border-gray-200 dark:border-white/10 rounded-md px-2 py-1 bg-white dark:bg-[#161b30] text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+    >
+      <option value="all">All statuses</option>
+      <option value="enabled">Enabled</option>
+      <option value="paused">Paused</option>
+    </select>
+  )
 
   return (
     <div className="p-6">
@@ -762,6 +788,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>}
             name="Blended"
             count="Google + Meta"
+            headerCtrl={statusSelect()}
             open={open.blended} onToggle={toggle}
             kpis={open.blended ? [] : [
               { label: 'Spend', value: fmt$(m.adSpend) },
@@ -840,7 +867,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           </Section>
 
           {/* Google Ads */}
-          <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${campaigns.length} campaign${campaigns.length === 1 ? '' : 's'}`} open={open.google} onToggle={toggle}
+          <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${fCampaigns.length} campaign${fCampaigns.length === 1 ? '' : 's'}`} headerCtrl={statusSelect()} open={open.google} onToggle={toggle}
             action={<LastUpdated syncedAt={googleSynced} syncing={googleSyncing} onRefresh={handleGoogleRefresh} />}
             kpis={open.google ? [] : [
               { label: 'Spend', value: fmt$(m.googleSpend) },
@@ -886,7 +913,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
                     </tr>
-                    {campaigns.map(c => {
+                    {fCampaigns.map(c => {
                       const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
                       const cpc = c.clicks > 0 ? c.cost / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
@@ -930,7 +957,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
           {/* Meta (Facebook) */}
           <Section id="meta" icon={platformIcon.meta} name="Meta Ads"
-            count={metaCampaigns.length ? `${metaCampaigns.length} campaign${metaCampaigns.length === 1 ? '' : 's'}` : null}
+            count={metaCampaigns.length ? `${fMeta.length} campaign${fMeta.length === 1 ? '' : 's'}` : null}
+            headerCtrl={metaCampaigns.length ? statusSelect() : null}
             open={open.meta} onToggle={toggle}
             action={<LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />}
             kpis={open.meta ? [] : (metaCampaigns.length ? [
@@ -980,7 +1008,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
                     </tr>
-                    {metaCampaigns.map(c => {
+                    {fMeta.map(c => {
                       const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
                       const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
