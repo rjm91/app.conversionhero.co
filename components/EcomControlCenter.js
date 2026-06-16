@@ -134,7 +134,7 @@ const TREND_METRICS = [
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare }) {
+function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6' }) {
   const [active, setActive] = useState({ spend: true })
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
@@ -150,17 +150,20 @@ function TrendChart({ dates, a, b, compare }) {
     g.addColorStop(1, color + '00')   // transparent at the baseline
     return g
   }
-  const line = (label, data, color, axis, dashed) => ({
-    label, data, borderColor: color, backgroundColor: fillGrad(color), fill: true,
-    yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2,
-    pointRadius: 0, pointHoverRadius: 3, borderDash: dashed ? [5, 4] : [],
+  const line = (label, data, color, axis, dashed, fill = true) => ({
+    label, data, borderColor: color, backgroundColor: fill ? fillGrad(color) : 'transparent', fill,
+    yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2.25,
+    pointRadius: 0, pointHoverRadius: 3, pointHoverBackgroundColor: color,
+    borderDash: dashed ? [5, 4] : [],
   })
   const datasets = []
   for (const md of TREND_METRICS) {
     if (!active[md.key]) continue
     if (compare) {
-      datasets.push(line(`${md.label} · Google`, a[md.key], '#4285F4', md.axis, false))
-      datasets.push(line(`${md.label} · Meta`,   b[md.key], '#0866FF', md.axis, true))
+      // Both platforms in the client's brand color — Google solid (filled),
+      // Meta dashed (line only) so they read as one brand-colored comparison.
+      datasets.push(line(`${md.label} · Google`, a[md.key], brandColor, md.axis, false, true))
+      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor, md.axis, true, false))
     } else {
       datasets.push(line(md.label, a[md.key], md.color, md.axis, false))
     }
@@ -175,7 +178,7 @@ function TrendChart({ dates, a, b, compare }) {
           return (
             <button key={md.key} onClick={() => toggle(md.key)}
               className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
-              style={on ? { background: md.color } : undefined}>
+              style={on ? { background: compare ? brandColor : md.color } : undefined}>
               {md.label}
             </button>
           )
@@ -318,6 +321,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [metaDaily, setMetaDaily]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [firstLoad, setFirstLoad] = useState(true)
+  const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
@@ -382,6 +386,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }, [clientId, appliedStart, appliedEnd])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Client brand primary color (for the trend chart). Falls back to blue.
+  useEffect(() => {
+    let cancelled = false
+    supabase.from('client').select('branding').eq('client_id', clientId).single().then(({ data }) => {
+      if (cancelled) return
+      const colors = data?.branding?.colors || []
+      const primary = colors.find(c => /primary/i.test(c.role || ''))?.hex || colors[0]?.hex
+      if (primary) setBrandColor(primary)
+    })
+    return () => { cancelled = true }
+  }, [clientId])
 
   function applyDates() { setPreset('custom'); setAppliedStart(startDate); setAppliedEnd(endDate) }
 
@@ -632,7 +648,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare brandColor={brandColor} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
