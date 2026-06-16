@@ -148,7 +148,13 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
   const [active, setActive] = useState({ spend: true })
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
-  const labels = dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  // A single day (e.g. "Today") can't draw a line, and a lone point sits at the
+  // left edge. Render it as a centered pyramid: baseline → peak (middle) → baseline.
+  const single = dates.length === 1
+  const dayLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const labels = single ? ['', dayLabel(dates[0]), ''] : dates.map(dayLabel)
+  const toSeries = (arr) => single ? [0, Number(arr?.[0]) || 0, 0] : arr
+  const fewPoints = labels.length <= 2
   // Vertical fill gradient: saturated near the top of the plot (the peaks),
   // fading to transparent at the baseline.
   const fillGrad = (color) => (ctx) => {
@@ -161,13 +167,11 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
     g.addColorStop(1, color + '00')    // transparent at the baseline
     return g
   }
-  // Short ranges (e.g. "Today") have too few points to draw a visible line,
-  // so show dots; longer ranges stay as clean lines.
-  const fewPoints = labels.length <= 2
   const line = (label, data, color, axis, dashed, fill = true) => ({
-    label, data, borderColor: color, backgroundColor: fill ? fillGrad(color) : 'transparent', fill,
-    yAxisID: axis === 'money' ? 'y1' : 'y', tension: 0.3, borderWidth: 2.25,
-    pointRadius: fewPoints ? 5 : 0, pointBackgroundColor: color, pointHoverRadius: fewPoints ? 6 : 3, pointHoverBackgroundColor: color,
+    label, data: toSeries(data), borderColor: color, backgroundColor: fill ? fillGrad(color) : 'transparent', fill,
+    yAxisID: axis === 'money' ? 'y1' : 'y', tension: single ? 0 : 0.3, borderWidth: 2.25,
+    pointRadius: single ? [0, 5, 0] : (fewPoints ? 5 : 0), pointBackgroundColor: color,
+    pointHoverRadius: single ? [0, 6, 0] : (fewPoints ? 6 : 3), pointHoverBackgroundColor: color,
     borderDash: dashed ? [5, 4] : [],
   })
   // Each metric keeps its own color so multiple metrics stay distinguishable;
