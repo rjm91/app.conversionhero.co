@@ -19,6 +19,12 @@ const themeScript = `
       // page (and scrollbars/native controls) never flash light on refresh.
       root.style.colorScheme = dark ? 'dark' : 'light';
       root.style.backgroundColor = dark ? '#0f1117' : '#f9fafb';
+      // Brand theme: apply the cached client accent scale before first paint so
+      // the nav doesn't flash the default blue before the brand color loads.
+      if (t === 'brand') {
+        var sc = JSON.parse(localStorage.getItem('ca_brand_scale') || 'null');
+        if (sc) for (var k in sc) root.style.setProperty('--blue-' + k, sc[k]);
+      }
     } catch(e) {}
   })();
 `

@@ -252,13 +252,18 @@ export default function ClientLayout({ children }) {
   // color. Any other theme (or no brand color) reverts to the default blue.
   useEffect(() => {
     const root = document.documentElement
-    const scale = theme === 'brand' ? brandScale(brandColor) : null
-    if (scale) {
-      for (const k of BLUE_KEYS) root.style.setProperty(`--blue-${k}`, scale[k])
+    if (theme === 'brand') {
+      // Only (re)apply once we have the real color; until then keep whatever the
+      // inline head script applied from cache — so there's no default-blue flash.
+      if (brandColor) {
+        const scale = brandScale(brandColor)
+        for (const k of BLUE_KEYS) root.style.setProperty(`--blue-${k}`, scale[k])
+        try { localStorage.setItem('ca_brand_scale', JSON.stringify(scale)) } catch {}
+      }
     } else {
       for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`)
+      try { localStorage.removeItem('ca_brand_scale') } catch {}
     }
-    return () => { for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`) }
   }, [theme, brandColor])
 
   // Load active clients for the account switcher
