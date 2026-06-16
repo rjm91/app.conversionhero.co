@@ -318,6 +318,39 @@ function LastUpdated({ syncedAt, syncing, onRefresh }) {
   )
 }
 
+// Skeleton placeholder that mirrors the accordion layout — shimmer in, no
+// spinner flash or layout jump when real data swaps in.
+function DashboardSkeleton() {
+  const bar = 'bg-gray-200/70 dark:bg-white/[0.06] animate-pulse rounded'
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2, 3, 4].map(i => (
+        <div key={i} className="rounded-xl border border-gray-100 dark:border-white/[0.06] bg-white dark:bg-[#111528] overflow-hidden">
+          <div className="flex items-center gap-3.5 px-4 py-4">
+            <span className={`w-4 h-4 ${bar}`} />
+            <span className={`w-7 h-7 rounded-lg ${bar}`} />
+            <span className={`h-3.5 w-36 ${bar}`} />
+            <div className="flex-1" />
+            <div className="hidden sm:flex items-end gap-6">
+              {[0, 1, 2, 3].map(j => (
+                <div key={j} className="flex flex-col items-end gap-1.5">
+                  <span className={`h-4 w-14 ${bar}`} />
+                  <span className={`h-2 w-9 ${bar}`} style={{ opacity: 0.6 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          {i === 0 && (
+            <div className="border-t border-gray-100 dark:border-white/[0.06] p-5">
+              <div className={`h-44 w-full ${bar}`} style={{ opacity: 0.5 }} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function EcomControlCenter({ clientId, clientName }) {
   const defaults = defaultDates()
   const [startDate, setStartDate]   = useState(defaults.start)
@@ -613,13 +646,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       </div>
 
       {firstLoad ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-28 text-gray-400 dark:text-gray-500">
-          <svg className="w-8 h-8 animate-spin text-gray-300 dark:text-white/25" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-            <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-          </svg>
-          <span className="text-sm font-medium">Loading dashboard…</span>
-        </div>
+        <DashboardSkeleton />
       ) : (
         <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           {/* Overview */}
