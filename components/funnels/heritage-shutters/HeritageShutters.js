@@ -325,7 +325,8 @@ export default function HeritageShutters({
             <header className="stage-top stage-top--centered">
               <div className="stage-eyebrow">Custom window treatments</div>
               <h1 className="stage-headline">
-                Get a free quote on <span className="hl">custom shutters, blinds &amp; shades</span> for your home.
+                Get a free quote on <span className="hl">custom shutters, blinds &amp; shades</span>{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>for your home.</span>
               </h1>
               <div className="progress-row" aria-hidden="true">
                 <div className="progress-bar">
