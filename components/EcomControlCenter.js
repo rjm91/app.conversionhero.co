@@ -613,7 +613,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
       </div>
 
       {firstLoad ? (
-        <p className="text-gray-400 text-sm p-8">Loading…</p>
+        <div className="flex flex-col items-center justify-center gap-3 py-28 text-gray-400 dark:text-gray-500">
+          <svg className="w-8 h-8 animate-spin text-gray-300 dark:text-white/25" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+            <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <span className="text-sm font-medium">Loading dashboard…</span>
+        </div>
       ) : (
         <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           {/* Overview */}

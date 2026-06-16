@@ -12,7 +12,13 @@ const themeScript = `
     try {
       var t = localStorage.getItem('ca_theme') || 'system';
       var osDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (t === 'dark' || t === 'brand' || (t === 'system' && osDark)) document.documentElement.classList.add('dark');
+      var dark = (t === 'dark' || t === 'brand' || (t === 'system' && osDark));
+      var root = document.documentElement;
+      if (dark) root.classList.add('dark');
+      // Paint the right background + native UI scheme BEFORE first paint so the
+      // page (and scrollbars/native controls) never flash light on refresh.
+      root.style.colorScheme = dark ? 'dark' : 'light';
+      root.style.backgroundColor = dark ? '#0f1117' : '#f9fafb';
     } catch(e) {}
   })();
 `
