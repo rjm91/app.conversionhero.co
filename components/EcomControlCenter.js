@@ -126,7 +126,6 @@ function InfoTip({ text }) {
 const TREND_METRICS = [
   { key: 'spend',       label: 'Spend',        axis: 'money', color: '#3b82f6' },
   { key: 'chRev',       label: 'Revenue (CH)', axis: 'money', color: '#34CC93' },
-  { key: 'impressions', label: 'Impr',         axis: 'count', color: '#a855f7' },
   { key: 'clicks',      label: 'Clicks',       axis: 'count', color: '#f59e0b' },
   { key: 'conversions', label: 'Conv',         axis: 'count', color: '#06b6d4' },
   { key: 'chConv',      label: 'Conv (CH)',    axis: 'count', color: '#10b981' },
