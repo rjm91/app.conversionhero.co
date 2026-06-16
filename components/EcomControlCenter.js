@@ -134,7 +134,7 @@ const TREND_METRICS = [
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6' }) {
+function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor = '#4285F4' }) {
   const [active, setActive] = useState({ spend: true })
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
@@ -161,10 +161,10 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6' }) {
   for (const md of TREND_METRICS) {
     if (!active[md.key]) continue
     if (compare) {
-      // Both platforms in the client's brand color, both with the gradient
-      // fill — Google solid, Meta dashed — so they read as one brand comparison.
-      datasets.push(line(`${md.label} · Google`, a[md.key], brandColor, md.axis, false, true))
-      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor, md.axis, true, true))
+      // Google = white (near-black in light mode), Meta = brand color. Both
+      // dashed/solid + gradient filled so they read as one comparison.
+      datasets.push(line(`${md.label} · Google`, a[md.key], googleColor, md.axis, false, true))
+      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor,  md.axis, true, true))
     } else {
       datasets.push(line(md.label, a[md.key], md.color, md.axis, false))
     }
@@ -323,6 +323,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [loading, setLoading]     = useState(true)
   const [firstLoad, setFirstLoad] = useState(true)
   const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
+  const [isDark, setIsDark] = useState(false)
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
@@ -387,6 +388,15 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }, [clientId, appliedStart, appliedEnd])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Track dark mode so "Google = white" stays visible in light mode too.
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains('dark'))
+    check()
+    const obs = new MutationObserver(check)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   // Client brand primary color (for the trend chart). Falls back to blue.
   useEffect(() => {
@@ -556,8 +566,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
+  const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
   const channelColor = (name) => ({
-    Meta: '#0866FF', Google: '#4285F4', Email: '#f59e0b',
+    Meta: '#0866FF', Google: googleColor, Email: '#f59e0b',
     Direct: brandColor, Shop: '#5a31f4', 'Draft Order': '#64748b',
   }[name] || '#7a8bb5')
 
@@ -649,7 +660,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare brandColor={brandColor} />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare brandColor={brandColor} googleColor={googleColor} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
