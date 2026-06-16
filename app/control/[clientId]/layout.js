@@ -417,6 +417,23 @@ export default function ClientLayout({ children }) {
           Dashboard
         </Link>
 
+        {/* Command Hub — ShieldTech only */}
+        {clientId === 'ch069' && (
+          <Link
+            href={`/control/${clientId}/command-hub`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
+              activeKey === 'command-hub'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8a3 3 0 100-6 3 3 0 000 6zm0 0v3m0 0a3 3 0 100 6 3 3 0 000-6zm-7 3a3 3 0 11-3 3m3-3h7m0 0h7a3 3 0 11-3 3" />
+            </svg>
+            Command Hub
+          </Link>
+        )}
+
         {/* Group buttons — hidden when pinned */}
         {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
           if (group.agencyOnly && !isAgencyAdmin) return null
