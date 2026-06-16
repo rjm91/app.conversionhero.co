@@ -205,6 +205,7 @@ export default function ClientLayout({ children }) {
   const { theme } = useTheme()
   const [clients, setClients] = useState([])
   const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
+  const [roleLoaded, setRoleLoaded] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null) // groupId or 'brand'
@@ -213,6 +214,14 @@ export default function ClientLayout({ children }) {
 
   const activeKey = getActiveKey(pathname, clientId)
   const activeGroup = getGroupForKey(activeKey)
+  // Block client users from agency-only routes (paid-ads, funnels, videos,
+  // contacts, calendar) even via direct URL — redirect them to the dashboard.
+  const agencyOnlyRoute = !!(activeGroup && NAV_GROUPS[activeGroup]?.agencyOnly)
+  useEffect(() => {
+    if (roleLoaded && agencyOnlyRoute && !isAgencyAdmin) {
+      router.replace(`/control/${clientId}/dashboard`)
+    }
+  }, [roleLoaded, agencyOnlyRoute, isAgencyAdmin, clientId, router])
   const hasPins = pinnedGroups.size > 0
 
   // Load pinned state from localStorage
@@ -247,6 +256,7 @@ export default function ClientLayout({ children }) {
       })
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
+      setRoleLoaded(true)
     })
   }, [clientId])
 
@@ -535,7 +545,9 @@ export default function ClientLayout({ children }) {
 
         {/* Main content */}
         <main className="flex-1 min-w-0 bg-gray-50 dark:bg-[#0f1117]">
-          {children}
+          {agencyOnlyRoute && !(roleLoaded && isAgencyAdmin) ? (
+            <div className="p-8 text-sm text-gray-400 dark:text-gray-500">Loading…</div>
+          ) : children}
         </main>
       </div>
 
