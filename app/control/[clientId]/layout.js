@@ -250,21 +250,24 @@ export default function ClientLayout({ children }) {
 
   // "Brand" theme → repoint the whole blue accent scale to this client's brand
   // color. Any other theme (or no brand color) reverts to the default blue.
+  // Client views are branded by default: repoint the accent scale to this
+  // client's brand color (independent of the theme toggle). Until the real
+  // color loads, keep whatever the inline head script applied from cache, so
+  // there's no default-blue flash.
   useEffect(() => {
+    if (!brandColor) return
     const root = document.documentElement
-    if (theme === 'brand') {
-      // Only (re)apply once we have the real color; until then keep whatever the
-      // inline head script applied from cache — so there's no default-blue flash.
-      if (brandColor) {
-        const scale = brandScale(brandColor)
-        for (const k of BLUE_KEYS) root.style.setProperty(`--blue-${k}`, scale[k])
-        try { localStorage.setItem('ca_brand_scale', JSON.stringify(scale)) } catch {}
-      }
-    } else {
-      for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`)
-      try { localStorage.removeItem('ca_brand_scale') } catch {}
-    }
-  }, [theme, brandColor])
+    const scale = brandScale(brandColor)
+    for (const k of BLUE_KEYS) root.style.setProperty(`--blue-${k}`, scale[k])
+    try { localStorage.setItem('ca_brand_scale', JSON.stringify(scale)) } catch {}
+  }, [brandColor])
+
+  // Leaving the client area → drop the brand accent so the agency UI is default.
+  useEffect(() => () => {
+    const root = document.documentElement
+    for (const k of BLUE_KEYS) root.style.removeProperty(`--blue-${k}`)
+    try { localStorage.removeItem('ca_brand_scale') } catch {}
+  }, [])
 
   // Load active clients for the account switcher
   useEffect(() => {
