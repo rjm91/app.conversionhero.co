@@ -27,6 +27,7 @@ const BLUE_KEYS = ['50', '100', '200', '300', '400', '500', '600', '700', '800',
 const NAV_GROUPS = {
   marketing: {
     label: 'Marketing',
+    agencyOnly: true, // hidden from client users; agency admins only
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -40,6 +41,7 @@ const NAV_GROUPS = {
   },
   contacts: {
     label: 'Contacts',
+    agencyOnly: true, // "Customers" for ecom — hidden from client users; agency admins only
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -405,6 +407,7 @@ export default function ClientLayout({ children }) {
 
         {/* Group buttons — hidden when pinned */}
         {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
+          if (group.agencyOnly && !isAgencyAdmin) return null
           if (pinnedGroups.has(groupId)) return null
           // Filter items by role
           const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
@@ -483,6 +486,7 @@ export default function ClientLayout({ children }) {
         >
           <nav className="flex-1 px-1.5 py-1.5 overflow-y-auto">
             {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
+              if (group.agencyOnly && !isAgencyAdmin) return null
               if (!pinnedGroups.has(groupId)) return null
               const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
               return (
