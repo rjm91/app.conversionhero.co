@@ -64,6 +64,7 @@ function defaultDates() {
 
 // Preset date ranges (primary selector). 'custom' falls back to the date inputs.
 const RANGE_OPTIONS = [
+  ['today',     'Today'],
   ['last_7',    'Last 7 Days'],
   ['last_14',   'Last 14 Days'],
   ['last_30',   'Last 30 Days'],
@@ -78,6 +79,7 @@ function rangeFor(preset) {
   const end = today.toISOString().slice(0, 10)
   const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
   switch (preset) {
+    case 'today':     return { start: end, end }
     case 'last_7':    return { start: daysAgo(7),  end }
     case 'last_14':   return { start: daysAgo(14), end }
     case 'last_30':   return { start: daysAgo(30), end }
