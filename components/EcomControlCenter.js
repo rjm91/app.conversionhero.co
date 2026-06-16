@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
@@ -438,6 +438,31 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }, [clientId, appliedStart, appliedEnd])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Auto-refresh platform data once per page open: cached data shows
+  // immediately (above), then we sync Google + Meta + Shopify in the
+  // background and reload — so the user never has to click Refresh.
+  const didAutoSync = useRef(false)
+  useEffect(() => {
+    if (didAutoSync.current) return
+    didAutoSync.current = true
+    ;(async () => {
+      setGoogleSyncing(true); setMetaSyncing(true)
+      try {
+        await Promise.allSettled([
+          fetch(`/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
+          fetch(`/api/sync-meta-ads?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
+          fetch(`/api/sync-shopify-orders?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
+        ])
+        await fetchData()
+      } catch (e) {
+        console.error('[EcomControlCenter] auto-refresh failed:', e)
+      } finally {
+        setGoogleSyncing(false); setMetaSyncing(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
 
   // Track dark mode so "Google = white" stays visible in light mode too.
   useEffect(() => {
