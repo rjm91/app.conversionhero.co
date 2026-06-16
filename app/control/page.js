@@ -224,9 +224,20 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
     rows: clientRows,
   }
 
-  // Exclude agency leads that already appear as Active Clients
+  // Exclude agency leads that already appear as Active Clients — UNLESS the lead
+  // is an in-progress deal still being worked (an agreement/invoice that hasn't
+  // closed yet). This covers the "backwards" case where a client account was set
+  // up before the deal was formally closed: the deal stays in the Sales pipeline
+  // until it's Sold/Lost/Paid, even though a matching client already exists.
+  const ACTIVE_DEAL_STATUSES = new Set([
+    'Agreement Pending', 'Agreement Drafted', 'Agreement Sent',
+    'Agreement Viewed', 'Agreement Signed', 'Invoice Sent',
+  ])
   const clientNames = new Set(clientsWithData.map(c => (c.client_name || '').toLowerCase().trim()))
-  const remainingLeads = agencyLeads.filter(l => !clientNames.has((l.company || '').toLowerCase().trim()))
+  const remainingLeads = agencyLeads.filter(l => {
+    if (!clientNames.has((l.company || '').toLowerCase().trim())) return true
+    return ACTIVE_DEAL_STATUSES.has(l.sale_status)
+  })
 
   // ── Agency Leads (from agency_leads table) for all pipeline sections below Active Clients ──
   function agencyLeadRow(l) {
