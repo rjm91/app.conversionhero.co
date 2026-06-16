@@ -141,7 +141,7 @@ function isLightHex(hex) {
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor = '#4285F4', lineColor }) {
+function TrendChart({ dates, a, b, compare, primaryColor }) {
   const [active, setActive] = useState({ spend: true })
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
@@ -164,16 +164,20 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor 
     pointRadius: 0, pointHoverRadius: 3, pointHoverBackgroundColor: color,
     borderDash: dashed ? [5, 4] : [],
   })
+  // Each metric keeps its own color so multiple metrics stay distinguishable;
+  // only the primary "Spend" metric is overridden (white for Google, red for
+  // Blended). In compare mode both platforms share the metric color (Google
+  // solid, Meta dashed).
+  const colorFor = (md) => (md.key === 'spend' && primaryColor) ? primaryColor : md.color
   const datasets = []
   for (const md of TREND_METRICS) {
     if (!active[md.key]) continue
+    const col = colorFor(md)
     if (compare) {
-      // Google = white (near-black in light mode), Meta = brand color. Both
-      // dashed/solid + gradient filled so they read as one comparison.
-      datasets.push(line(`${md.label} · Google`, a[md.key], googleColor, md.axis, false, true))
-      datasets.push(line(`${md.label} · Meta`,   b[md.key], brandColor,  md.axis, true, true))
+      datasets.push(line(`${md.label} · Google`, a[md.key], col, md.axis, false, true))
+      datasets.push(line(`${md.label} · Meta`,   b[md.key], col, md.axis, true, true))
     } else {
-      datasets.push(line(md.label, a[md.key], lineColor || md.color, md.axis, false))
+      datasets.push(line(md.label, a[md.key], col, md.axis, false))
     }
   }
   const anyMoney = TREND_METRICS.some(md => active[md.key] && md.axis === 'money')
@@ -183,7 +187,7 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor 
       <div className="flex flex-wrap gap-1.5 mb-3">
         {TREND_METRICS.map(md => {
           const on = !!active[md.key]
-          const bg = compare ? brandColor : (lineColor || md.color)
+          const bg = colorFor(md)
           // White pills (Google) need readable text — use the Google "G" blue.
           const txt = isLightHex(bg) ? '#4285F4' : '#ffffff'
           return (
@@ -713,7 +717,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare brandColor={brandColor} googleColor={googleColor} />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
@@ -796,7 +800,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
             ) : (
               <>
-              <TrendChart dates={trend.dates} a={trend.google} lineColor={googleColor} />
+              <TrendChart dates={trend.dates} a={trend.google} primaryColor={googleColor} />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                   <PaidColGroup />
