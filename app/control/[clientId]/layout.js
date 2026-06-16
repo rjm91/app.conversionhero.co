@@ -533,7 +533,7 @@ export default function ClientLayout({ children }) {
       </div>
 
       <Toast message={toast} />
-      <AgentPanel />
+      <AgentPanel clientName={clientName} />
 
       {/* Fade-in animation for toast */}
       <style jsx global>{`
