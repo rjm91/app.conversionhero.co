@@ -446,6 +446,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Always reload with the CURRENT range (not whatever was selected when an
+  // async sync started), so a slow sync can't overwrite the chosen range.
+  const fetchDataRef = useRef(fetchData)
+  useEffect(() => { fetchDataRef.current = fetchData }, [fetchData])
+
   // Auto-refresh platform data once per page open: cached data shows
   // immediately (above), then we sync Google + Meta + Shopify in the
   // background and reload — so the user never has to click Refresh.
@@ -461,7 +466,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           fetch(`/api/sync-meta-ads?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
           fetch(`/api/sync-shopify-orders?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
         ])
-        await fetchData()
+        await fetchDataRef.current()
       } catch (e) {
         console.error('[EcomControlCenter] auto-refresh failed:', e)
       } finally {
