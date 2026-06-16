@@ -621,8 +621,15 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
   const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
+  // Lighten a hex toward white (for the Email channel = lighter brand red)
+  const lighten = (hex, amt) => {
+    const h = String(hex || '').replace('#', '')
+    if (h.length !== 6) return hex
+    const ch = (i) => { const x = parseInt(h.slice(i, i + 2), 16); return Math.round(x + (255 - x) * amt).toString(16).padStart(2, '0') }
+    return `#${ch(0)}${ch(2)}${ch(4)}`
+  }
   const channelColor = (name) => ({
-    Meta: '#0866FF', Google: googleColor, Email: '#f59e0b',
+    Meta: '#0866FF', Google: googleColor, Email: lighten(brandColor, 0.45),
     Direct: brandColor, Shop: '#5a31f4', 'Draft Order': '#64748b',
   }[name] || '#7a8bb5')
 
