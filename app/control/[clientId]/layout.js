@@ -200,6 +200,7 @@ function Toast({ message }) {
 export default function ClientLayout({ children }) {
   const { clientId } = useParams()
   const pathname = usePathname()
+  const router = useRouter()
   const [clientName, setClientName] = useState('')
   const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
   const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
