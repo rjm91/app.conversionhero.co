@@ -7,6 +7,7 @@ import { createClient } from '../../../lib/supabase-browser'
 import ThemeSelector from '../../../components/ThemeSelector'
 import { useTheme } from '../../../components/ThemeProvider'
 import AgentPanel from '../../../components/AgentPanel'
+import ErrorBoundary from '../../../components/ErrorBoundary'
 
 // Build a 10-step blue scale (as "r g b" channel strings) from one brand hex,
 // lightening toward white for 50–500 and darkening toward black for 700–900.
@@ -547,7 +548,7 @@ export default function ClientLayout({ children }) {
         <main className="flex-1 min-w-0 bg-gray-50 dark:bg-[#0f1117]">
           {agencyOnlyRoute && !(roleLoaded && isAgencyAdmin) ? (
             <div className="p-8 text-sm text-gray-400 dark:text-gray-500">Loading…</div>
-          ) : children}
+          ) : <ErrorBoundary key={pathname}>{children}</ErrorBoundary>}
         </main>
       </div>
 
