@@ -132,6 +132,14 @@ const TREND_METRICS = [
   { key: 'chConv',      label: 'Conv (CH)',    axis: 'count', color: '#10b981' },
 ]
 
+// Is a hex color light enough that white text on it would be unreadable?
+function isLightHex(hex) {
+  const h = String(hex || '').replace('#', '')
+  if (h.length < 6) return false
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 180
+}
+
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
 function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor = '#4285F4', lineColor }) {
@@ -176,10 +184,13 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6', googleColor 
       <div className="flex flex-wrap gap-1.5 mb-3">
         {TREND_METRICS.map(md => {
           const on = !!active[md.key]
+          const bg = compare ? brandColor : (lineColor || md.color)
+          // White pills (Google) need readable text — use the Google "G" blue.
+          const txt = isLightHex(bg) ? '#4285F4' : '#ffffff'
           return (
             <button key={md.key} onClick={() => toggle(md.key)}
-              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
-              style={on ? { background: compare ? brandColor : (lineColor || md.color) } : undefined}>
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
+              style={on ? { background: bg, color: txt } : undefined}>
               {md.label}
             </button>
           )
