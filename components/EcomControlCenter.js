@@ -146,8 +146,9 @@ function TrendChart({ dates, a, b, compare, brandColor = '#3b82f6' }) {
     const area = chart.chartArea
     if (!area) return color + '00'
     const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom)
-    g.addColorStop(0, color + '59')   // ~35% alpha at the top
-    g.addColorStop(1, color + '00')   // transparent at the baseline
+    g.addColorStop(0, color + '80')    // ~50% alpha at the top (peaks)
+    g.addColorStop(0.55, color + '24') // ~14% mid
+    g.addColorStop(1, color + '00')    // transparent at the baseline
     return g
   }
   const line = (label, data, color, axis, dashed, fill = true) => ({
@@ -557,7 +558,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
   const channelColor = (name) => ({
     Meta: '#0866FF', Google: '#4285F4', Email: '#f59e0b',
-    Direct: '#4b5563', Shop: '#5a31f4', 'Draft Order': '#64748b',
+    Direct: brandColor, Shop: '#5a31f4', 'Draft Order': '#64748b',
   }[name] || '#7a8bb5')
 
   return (
