@@ -218,7 +218,7 @@ export default function ClientLayout({ children }) {
   const activeGroup = getGroupForKey(activeKey)
   // Block client users from agency-only routes (paid-ads, funnels, videos,
   // contacts, calendar) even via direct URL — redirect them to the dashboard.
-  const agencyOnlyRoute = !!(activeGroup && NAV_GROUPS[activeGroup]?.agencyOnly)
+  const agencyOnlyRoute = activeKey === 'command-hub' || !!(activeGroup && NAV_GROUPS[activeGroup]?.agencyOnly)
   useEffect(() => {
     if (roleLoaded && agencyOnlyRoute && !isAgencyAdmin) {
       router.replace(`/control/${clientId}/dashboard`)
@@ -417,8 +417,8 @@ export default function ClientLayout({ children }) {
           Dashboard
         </Link>
 
-        {/* Command Hub — ShieldTech only */}
-        {clientId === 'ch069' && (
+        {/* Command Hub — ShieldTech only, agency admins only */}
+        {clientId === 'ch069' && isAgencyAdmin && (
           <Link
             href={`/control/${clientId}/command-hub`}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
