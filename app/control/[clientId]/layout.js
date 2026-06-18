@@ -234,7 +234,7 @@ export default function ClientLayout({ children }) {
   // changing real permissions. Every agency-only gate reads this derived flag.
   const isAgencyAdmin = realAgencyAdmin && !viewAsClient
   useEffect(() => { try { setViewAsClient(localStorage.getItem('ca_view_as_client') === '1') } catch {} }, [])
-  const toggleViewAs = () => setViewAsClient(v => { const n = !v; try { localStorage.setItem('ca_view_as_client', n ? '1' : '0') } catch {} ; return n })
+  const toggleViewAs = () => setViewAsClient(v => { const n = !v; try { localStorage.setItem('ca_view_as_client', n ? '1' : '0') } catch {} ; try { window.dispatchEvent(new Event('ca:viewas')) } catch {} ; return n })
 
   // Per-client tab visibility: a tab is visible to client users only if the
   // agency has shipped it (tab_access[key] === true). Agency admins see all.

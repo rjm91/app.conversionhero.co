@@ -21,6 +21,15 @@ export default function ClientTabAccess({ clientId }) {
   const [isEcom, setIsEcom] = useState(false)
   const [access, setAccess] = useState({})
   const [saving, setSaving] = useState(null) // key currently saving
+  const [viewAs, setViewAs] = useState(false) // respect the "View as client" preview
+
+  useEffect(() => {
+    const read = () => { try { setViewAs(localStorage.getItem('ca_view_as_client') === '1') } catch {} }
+    read()
+    window.addEventListener('ca:viewas', read)
+    window.addEventListener('storage', read)
+    return () => { window.removeEventListener('ca:viewas', read); window.removeEventListener('storage', read) }
+  }, [])
 
   useEffect(() => {
     (async () => {
@@ -56,7 +65,7 @@ export default function ClientTabAccess({ clientId }) {
     }
   }
 
-  if (!ready || !isAdmin) return null
+  if (!ready || !isAdmin || viewAs) return null
   const tabs = SHIPPABLE_TABS.filter(t => !t.ecomOnly || isEcom)
 
   return (
