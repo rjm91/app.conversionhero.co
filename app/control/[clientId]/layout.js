@@ -217,11 +217,13 @@ export default function ClientLayout({ children }) {
   const [clientName, setClientName] = useState('')
   const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
   const [tabAccess, setTabAccess] = useState({}) // per-client: which agency tabs are shipped to client users
+  const [standardHidden, setStandardHidden] = useState({}) // tabs a client_admin hid from client_standard
   const [clientLoaded, setClientLoaded] = useState(false)
   const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
   const { theme } = useTheme()
   const [clients, setClients] = useState([])
   const [realAgencyAdmin, setRealAgencyAdmin] = useState(false)
+  const [userRole, setUserRole] = useState('')
   const [viewAsClient, setViewAsClient] = useState(false)
   const [roleLoaded, setRoleLoaded] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
@@ -239,7 +241,13 @@ export default function ClientLayout({ children }) {
   // Per-client tab visibility: a tab is visible to client users only if the
   // agency has shipped it (tab_access[key] === true). Agency admins see all.
   const visibleToClient = (key) => tabAccess?.[key] === true
-  const canViewItem = (group, item) => isAgencyAdmin || ((group.agencyOnly || item.agencyOnly) ? visibleToClient(item.key) : true)
+  // Standard team members can be further restricted by their client_admin.
+  const blockedForStandard = (key) => userRole === 'client_standard' && standardHidden?.[key] === true
+  const canViewItem = (group, item) => {
+    if (isAgencyAdmin) return true
+    const base = (group.agencyOnly || item.agencyOnly) ? visibleToClient(item.key) : true
+    return base && !blockedForStandard(item.key)
+  }
 
   const activeKey = getActiveKey(pathname, clientId)
   const activeGroup = getGroupForKey(activeKey)
@@ -249,7 +257,8 @@ export default function ClientLayout({ children }) {
   // an agency-only item. Client users can reach it only once it's been shipped to
   // them (tab_access) — otherwise redirect to the dashboard.
   const activeAgencyGated = activeKey === 'command-hub' || !!activeGroupObj?.agencyOnly || !!activeItem?.agencyOnly
-  const canAccessActive = isAgencyAdmin || (activeAgencyGated ? visibleToClient(activeKey) : true)
+  const baseAccessActive = isAgencyAdmin || (activeAgencyGated ? visibleToClient(activeKey) : true)
+  const canAccessActive = baseAccessActive && !blockedForStandard(activeKey)
   useEffect(() => {
     if (roleLoaded && clientLoaded && !canAccessActive) {
       router.replace(`/control/${clientId}/dashboard`)
@@ -278,19 +287,22 @@ export default function ClientLayout({ children }) {
   // Fetch client name and role
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('client').select('client_name, is_ecom, branding, tab_access').eq('client_id', clientId).single()
+    supabase.from('client').select('client_name, is_ecom, branding, tab_access, standard_hidden_tabs').eq('client_id', clientId).single()
       .then(({ data }) => {
         if (!data) { setClientLoaded(true); return }
         setClientName(data.client_name)
         setIsEcom(!!data.is_ecom)
         setTabAccess(data.tab_access || {})
+        setStandardHidden(data.standard_hidden_tabs || {})
         const colors = Array.isArray(data.branding?.colors) ? data.branding.colors : []
         const primary = colors.find(c => (c?.role || '').toLowerCase() === 'primary')?.hex || colors[0]?.hex || null
         setBrandColor(primary)
         setClientLoaded(true)
       })
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.role === 'agency_admin') setRealAgencyAdmin(true)
+      const role = user?.user_metadata?.role || ''
+      setUserRole(role)
+      if (role === 'agency_admin') setRealAgencyAdmin(true)
       setRoleLoaded(true)
     })
   }, [clientId])

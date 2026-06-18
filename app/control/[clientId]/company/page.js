@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../../lib/supabase-browser'
 import ClientTabAccess from '../../../../components/ClientTabAccess'
+import StandardTabAccess from '../../../../components/StandardTabAccess'
 
 const roleColors = {
   agency_admin:    'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
@@ -499,6 +500,8 @@ export default function CompanyPage() {
 
       {/* Agency-only: ship/retract tabs for this client's users (renders null for non-admins) */}
       <ClientTabAccess clientId={clientId} />
+      {/* Client-admin (or agency): restrict tabs from Standard team members */}
+      <StandardTabAccess clientId={clientId} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
 
