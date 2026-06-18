@@ -106,6 +106,14 @@ export default function ManufacturingCenter({ clientName }) {
   const avgMaxCAC = calcs.reduce((t, c) => t + c.maxCAC, 0) / (calcs.length || 1)
   const invValue = Object.values(MAT).reduce((t, m) => t + m.cost * m.stock, 0)
 
+  // Factory floor → checkout aggregates (manufacturing margin → ad headroom → profit)
+  const avgPrice = SKUS.reduce((t, s) => t + s.price, 0) / (SKUS.length || 1)
+  const avgContribution = calcs.reduce((t, c) => t + c.contribution, 0) / (calcs.length || 1)
+  const avgActualCAC = SKUS.reduce((t, s) => t + s.actualCAC, 0) / (SKUS.length || 1)
+  const avgNet = calcs.reduce((t, c, i) => t + (c.contribution - SKUS[i].actualCAC), 0) / (calcs.length || 1)
+  const breakEvenROAS = avgContribution > 0 ? avgPrice / avgContribution : 0
+  const cacScale = Math.max(1, ...SKUS.map((s, i) => Math.max(calcs[i].maxCAC, s.actualCAC)))
+
   const KPI = [
     ['Active SKUs', String(SKUS.length), false, ''],
     ['Avg Gross Margin', pct(avgMargin), true, "Average of every SKU's (Price − COGS) ÷ Price."],
@@ -270,8 +278,64 @@ export default function ManufacturingCenter({ clientName }) {
       {/* explainer */}
       <Section
         icon={<span className="w-7 h-7 rounded-lg grid place-items-center bg-[#34CC93]/15 text-[#34CC93]"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></span>}
-        name="Factory floor → checkout" open={open.explainer} onToggle={() => toggleSec('explainer')}>
-        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl p-5">Each cover's <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The same unit-economics model prices the product <i>and</i> steers the ad budget.</p>
+        name="Factory floor → checkout" count="margin → ad headroom → profit" open={open.explainer} onToggle={() => toggleSec('explainer')}>
+        <div className="p-5 space-y-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">Each cover's <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The gap between them is your <b className="text-gray-800 dark:text-white">profit per order</b> — and your room to scale ad spend.</p>
+
+          {/* blended unit economics */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              ['Avg Order Value', fmt$(avgPrice), false, 'Average selling price across SKUs.'],
+              ['Avg COGS', fmt$(avgCOGS), false, 'Average cost to build one cover.'],
+              ['Avg Contribution', fmt$(avgContribution), false, 'Avg price − COGS − shipping − fees. The cash available per order before ad spend.'],
+              ['Avg Actual CAC', fmt$(avgActualCAC), false, 'Average cost to acquire one customer (from ad data).'],
+              ['Avg Net Profit / Order', fmt$(avgNet), avgNet >= 0, 'Contribution − Actual CAC. What you keep per order after ads.'],
+              ['Break-even ROAS', breakEvenROAS ? breakEvenROAS.toFixed(2) + 'x' : '—', false, 'Revenue ÷ ad spend needed to break even = price ÷ contribution. Run above this to profit.'],
+            ].map(([l, v, g, tip]) => (
+              <div key={l} className="bg-gray-50 dark:bg-[#0d1020] rounded-lg px-3.5 py-3">
+                <div className={`text-lg font-extrabold ${g ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{v}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{l}<InfoTip text={tip} /></div>
+              </div>
+            ))}
+          </div>
+
+          {/* per-SKU CAC headroom */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 font-bold">Ad-spend headroom by SKU<InfoTip text="Each bar = how much you can spend to acquire a customer (Max CAC). Slate = what you currently pay (Actual CAC); green = profit headroom left; red = you're paying more than the margin allows." /></p>
+              <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-slate-500" />Ad cost</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#34CC93]" />Profit headroom</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500" />Over budget</span>
+              </div>
+            </div>
+            <div className="space-y-2.5">
+              {SKUS.map((s, i) => {
+                const c = calcs[i]
+                const maxC = Math.max(0, c.maxCAC)
+                const net = c.contribution - s.actualCAC
+                const over = net < 0
+                const adPct = (Math.min(s.actualCAC, maxC) / cacScale) * 100
+                const profitPct = over ? 0 : ((maxC - s.actualCAC) / cacScale) * 100
+                const overPct = over ? ((s.actualCAC - maxC) / cacScale) * 100 : 0
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="w-48 shrink-0 text-xs text-gray-600 dark:text-gray-300 truncate">{s.name}</span>
+                    <div className="flex-1 flex h-5 rounded-md overflow-hidden bg-gray-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/10">
+                      <div style={{ width: `${adPct}%`, background: '#64748b' }} title={`Ad cost (Actual CAC): ${fmt$(s.actualCAC)}`} />
+                      {profitPct > 0 && <div style={{ width: `${profitPct}%`, background: '#34CC93' }} title={`Profit headroom: ${fmt$(maxC - s.actualCAC)}`} />}
+                      {overPct > 0 && <div style={{ width: `${overPct}%`, background: '#ef4444' }} title={`Over budget: ${fmt$(s.actualCAC - maxC)}`} />}
+                    </div>
+                    <span className="w-28 shrink-0 text-right text-xs">
+                      <span className={`font-bold ${over ? 'text-red-500' : 'text-[#34CC93]'}`}>{over ? '−' : '+'}{fmt$(Math.abs(net))}</span>
+                      <span className="text-gray-400 dark:text-gray-600">/order</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       </Section>
     </div>
   )
