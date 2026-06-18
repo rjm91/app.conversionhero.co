@@ -231,11 +231,14 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
                   }
                   return Object.entries(sums).map(([k, v]) => `★ Blended ${k}: ${isMoney[k] ? '$' + Math.round(v).toLocaleString() : v.toLocaleString()}`)
                 },
-                // Distinct color chip per platform (lines share metric color on the chart).
+                // Chip mirrors the actual line: same color, solid for Google,
+                // dashed/hollow for Meta — matching how they look on the chart.
                 labelColor: (c) => {
-                  const p = String(c.dataset.label).split(' · ')[1]
-                  const col = p === 'Meta' ? '#0866FF' : p === 'Google' ? '#4285F4' : c.dataset.borderColor
-                  return { borderColor: col, backgroundColor: col }
+                  const col = c.dataset.borderColor
+                  const dashed = Array.isArray(c.dataset.borderDash) && c.dataset.borderDash.length > 0
+                  return dashed
+                    ? { borderColor: col, backgroundColor: 'transparent', borderWidth: 2, borderDash: [2, 2] }
+                    : { borderColor: col, backgroundColor: col, borderWidth: 2 }
                 },
                 // Platform-first label so Google vs Meta rows are unmistakable.
                 label: (c) => {
