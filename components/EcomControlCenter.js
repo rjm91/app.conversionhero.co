@@ -144,8 +144,9 @@ function isLightHex(hex) {
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, primaryColor }) {
+function TrendChart({ dates, a, b, compare, primaryColor, orders }) {
   const [active, setActive] = useState({ spend: true })
+  const [selIdx, setSelIdx] = useState(null) // clicked day → drill-down (when orders provided)
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
   if (!dates.length) return null
   // A single day (e.g. "Today") can't draw a line, and a lone point sits at the
@@ -217,6 +218,8 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
           <Line data={{ labels, datasets }} options={{
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (evt, els) => { if (orders && els && els.length) setSelIdx(els[0].index) },
+            onHover: (evt, els) => { const t = evt?.native?.target; if (t) t.style.cursor = (orders && els && els.length) ? 'pointer' : 'default' },
             plugins: {
               legend: { display: compare, labels: { boxWidth: 10, font: { size: 10 }, color: '#9aa4bf' } },
               tooltip: { callbacks: {
@@ -257,6 +260,59 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
           }} />
         )}
       </div>
+      {orders && selIdx != null && (() => {
+        const day = single ? dates[0] : dates[selIdx]
+        if (!day) return null
+        const at = (arr) => single ? (Number(arr?.[0]) || 0) : (Number(arr?.[selIdx]) || 0)
+        const rows = [['Google', a, '#4285F4'], ...(b ? [['Meta', b, '#0866FF']] : [])]
+        const dayOrders = (orders || []).filter(o => String(o.created_at).slice(0, 10) === day)
+        const dayRev = dayOrders.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
+        const totSpend = rows.reduce((s, [, sr]) => s + at(sr.spend), 0)
+        const totClicks = rows.reduce((s, [, sr]) => s + at(sr.clicks), 0)
+        const totConv = rows.reduce((s, [, sr]) => s + at(sr.conversions), 0)
+        const longDate = new Date(day + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+        return (
+          <div className="mt-3 mx-5 mb-1 rounded-xl border border-gray-100 dark:border-white/[0.08] bg-gray-50 dark:bg-[#0d1020] overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.06]">
+              <span className="text-sm font-bold text-gray-900 dark:text-white">{longDate}</span>
+              <span className="text-[11px] text-gray-400">underlying ad + order data</span>
+              <button onClick={() => setSelIdx(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+            </div>
+            <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-white/[0.06]">
+              <div className="p-4">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold mb-2">Ad accounts</p>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-[10px] uppercase text-gray-400"><th className="text-left pb-1">Platform</th><th className="text-right pb-1">Spend</th><th className="text-right pb-1">Clicks</th><th className="text-right pb-1">Conv</th></tr></thead>
+                  <tbody>
+                    {rows.map(([name, sr, col]) => (
+                      <tr key={name} className="text-gray-600 dark:text-gray-300"><td className="py-1"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: col }} />{name}</span></td><td className="py-1 text-right">{fmt$2(at(sr.spend))}</td><td className="py-1 text-right">{fmtNum(at(sr.clicks))}</td><td className="py-1 text-right">{fmtNum(at(sr.conversions))}</td></tr>
+                    ))}
+                    <tr className="font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10"><td className="py-1">Blended</td><td className="py-1 text-right">{fmt$2(totSpend)}</td><td className="py-1 text-right">{fmtNum(totClicks)}</td><td className="py-1 text-right">{fmtNum(totConv)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold mb-2">Shopify orders · {dayOrders.length} · {fmt$(dayRev)}</p>
+                {dayOrders.length === 0 ? <p className="text-xs text-gray-400">No orders this day.</p> : (
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
+                        {dayOrders.map(o => (
+                          <tr key={o.lead_id} className="text-gray-600 dark:text-gray-300">
+                            <td className="py-1 font-medium text-gray-800 dark:text-white">{o.shopify_data?.order_name || '—'}</td>
+                            <td className="py-1 text-gray-400 capitalize">{deriveChannel(o)}</td>
+                            <td className="py-1 text-right font-semibold text-gray-800 dark:text-white">{fmt$2(o.sale_amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -876,7 +932,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
