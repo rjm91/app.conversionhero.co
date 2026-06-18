@@ -144,7 +144,7 @@ function isLightHex(hex) {
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay }) {
+function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay, onBack, canBack }) {
   const [active, setActive] = useState({ spend: true })
   const [selIdx, setSelIdx] = useState(null) // clicked day → drill-down (when orders provided)
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
@@ -283,7 +283,14 @@ function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay }) 
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" /></svg>
                 </button>
               )}
-              <button onClick={() => setSelIdx(null)} className={`${onApplyDay && !single ? '' : 'ml-auto'} text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none`}>×</button>
+              {single && canBack && onBack && (
+                <button onClick={() => { setSelIdx(null); onBack() }}
+                  className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg px-2.5 py-1 transition">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
+                  Back to full range
+                </button>
+              )}
+              <button onClick={() => setSelIdx(null)} className={`${(onApplyDay && !single) || (single && canBack) ? '' : 'ml-auto'} text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none`}>×</button>
             </div>
             <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-white/[0.06]">
               <div className="p-4">
@@ -959,7 +966,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} onApplyDay={applyDay} />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} onApplyDay={applyDay} onBack={backToRange} canBack={!!prevRange} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
