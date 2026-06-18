@@ -220,12 +220,8 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
             plugins: {
               legend: { display: compare, labels: { boxWidth: 10, font: { size: 10 }, color: '#9aa4bf' } },
               tooltip: { callbacks: {
-                label: (c) => {
-                  const money = /Spend|Revenue|AOV/.test(c.dataset.label)
-                  return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
-                },
-                // In compare mode, add a true blended total (Google + Meta) per metric.
-                footer: (items) => {
+                // In compare mode, lead with the true blended total (Google + Meta) per metric.
+                beforeBody: (items) => {
                   if (!compare) return ''
                   const sums = {}, isMoney = {}
                   for (const it of items) {
@@ -233,7 +229,20 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
                     sums[base] = (sums[base] || 0) + (it.parsed.y || 0)
                     isMoney[base] = /Spend|Revenue|AOV/.test(it.dataset.label)
                   }
-                  return Object.entries(sums).map(([k, v]) => `Blended ${k}: ${isMoney[k] ? '$' + Math.round(v).toLocaleString() : v.toLocaleString()}`)
+                  return Object.entries(sums).map(([k, v]) => `★ Blended ${k}: ${isMoney[k] ? '$' + Math.round(v).toLocaleString() : v.toLocaleString()}`)
+                },
+                // Distinct color chip per platform (lines share metric color on the chart).
+                labelColor: (c) => {
+                  const p = String(c.dataset.label).split(' · ')[1]
+                  const col = p === 'Meta' ? '#0866FF' : p === 'Google' ? '#4285F4' : c.dataset.borderColor
+                  return { borderColor: col, backgroundColor: col }
+                },
+                // Platform-first label so Google vs Meta rows are unmistakable.
+                label: (c) => {
+                  const money = /Spend|Revenue|AOV/.test(c.dataset.label)
+                  const parts = String(c.dataset.label).split(' · ')
+                  const lbl = parts[1] ? `${parts[1]} · ${parts[0]}` : c.dataset.label
+                  return `${lbl}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
                 },
               } },
             },
