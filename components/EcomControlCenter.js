@@ -144,7 +144,7 @@ function isLightHex(hex) {
 
 // Time-series chart for an accordion. Single platform → pass `a`. Blended
 // comparison → pass `a` (Google) + `b` (Meta) + compare: Meta renders dashed.
-function TrendChart({ dates, a, b, compare, primaryColor, orders }) {
+function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay }) {
   const [active, setActive] = useState({ spend: true })
   const [selIdx, setSelIdx] = useState(null) // clicked day → drill-down (when orders provided)
   const toggle = (k) => setActive(s => ({ ...s, [k]: !s[k] }))
@@ -276,7 +276,14 @@ function TrendChart({ dates, a, b, compare, primaryColor, orders }) {
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.06]">
               <span className="text-sm font-bold text-gray-900 dark:text-white">{longDate}</span>
               <span className="text-[11px] text-gray-400">underlying ad + order data</span>
-              <button onClick={() => setSelIdx(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+              {onApplyDay && !single && (
+                <button onClick={() => onApplyDay(day)}
+                  className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg px-2.5 py-1 transition">
+                  View this day across the dashboard
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" /></svg>
+                </button>
+              )}
+              <button onClick={() => setSelIdx(null)} className={`${onApplyDay && !single ? '' : 'ml-auto'} text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none`}>×</button>
             </div>
             <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-white/[0.06]">
               <div className="p-4">
@@ -454,6 +461,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [appliedStart, setAppliedStart] = useState(defaults.start)
   const [appliedEnd, setAppliedEnd]     = useState(defaults.end)
   const [preset, setPreset]             = useState('last_30')
+  const [prevRange, setPrevRange]       = useState(null) // restore point after a single-day drill
 
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
@@ -604,16 +612,28 @@ export default function EcomControlCenter({ clientId, clientName }) {
     return () => { cancelled = true }
   }, [clientId])
 
-  function applyDates() { setPreset('custom'); setAppliedStart(startDate); setAppliedEnd(endDate) }
+  function applyDates() { setPreset('custom'); setAppliedStart(startDate); setAppliedEnd(endDate); setPrevRange(null) }
 
   // Preset dropdown — applies the range to ALL data on the page immediately
   function onPresetChange(key) {
-    setPreset(key)
+    setPreset(key); setPrevRange(null)
     if (key === 'custom') return // user picks dates + Apply
     const r = rangeFor(key)
     if (!r) return
     setStartDate(r.start); setEndDate(r.end)
     setAppliedStart(r.start); setAppliedEnd(r.end)
+  }
+
+  // Drill the WHOLE dashboard to a single day (from a chart click), remembering
+  // the previous range so we can offer a one-click "back".
+  function applyDay(day) {
+    setPrevRange(p => p || { preset, start: appliedStart, end: appliedEnd })
+    setPreset('custom'); setStartDate(day); setEndDate(day); setAppliedStart(day); setAppliedEnd(day)
+  }
+  function backToRange() {
+    if (!prevRange) return
+    setPreset(prevRange.preset); setStartDate(prevRange.start); setEndDate(prevRange.end)
+    setAppliedStart(prevRange.start); setAppliedEnd(prevRange.end); setPrevRange(null)
   }
 
   // Pull the latest Google Ads data for this client, then reload
@@ -853,6 +873,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{clientName || clientId} at a glance. Click any section to expand.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {prevRange && (
+            <button onClick={backToRange}
+              className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg px-3 py-1.5 transition">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
+              Back to range
+            </button>
+          )}
           <select
             value={preset}
             onChange={e => onPresetChange(e.target.value)}
@@ -932,7 +959,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
               { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
             ]}>
-            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} />
+            <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} onApplyDay={applyDay} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
                 <PaidColGroup />
