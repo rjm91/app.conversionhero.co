@@ -53,6 +53,19 @@ const NAV_GROUPS = {
       { key: 'calendar', label: 'Calendar', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
     ],
   },
+  operations: {
+    label: 'Operations',
+    agencyOnly: true,
+    ecomOnly: true, // physical-product accounts only
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M4 21V9l5-3v3l5-3v3l5-3v15" />
+      </svg>
+    ),
+    items: [
+      { key: 'manufacturing', label: 'Manufacturing', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M4 21V9l5-3v3l5-3v3l5-3v15M9 21v-4h2v4" /></svg> },
+    ],
+  },
   account: {
     label: 'Account',
     icon: (
@@ -437,6 +450,7 @@ export default function ClientLayout({ children }) {
         {/* Group buttons — hidden when pinned */}
         {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
           if (group.agencyOnly && !isAgencyAdmin) return null
+          if (group.ecomOnly && !isEcom) return null
           if (pinnedGroups.has(groupId)) return null
           // Filter items by role
           const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
@@ -516,6 +530,7 @@ export default function ClientLayout({ children }) {
           <nav className="flex-1 px-1.5 py-1.5 overflow-y-auto">
             {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
               if (group.agencyOnly && !isAgencyAdmin) return null
+              if (group.ecomOnly && !isEcom) return null
               if (!pinnedGroups.has(groupId)) return null
               const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
               return (
