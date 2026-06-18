@@ -219,10 +219,23 @@ function TrendChart({ dates, a, b, compare, primaryColor }) {
             interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: { display: compare, labels: { boxWidth: 10, font: { size: 10 }, color: '#9aa4bf' } },
-              tooltip: { callbacks: { label: (c) => {
-                const money = /Spend|Revenue|AOV/.test(c.dataset.label)
-                return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
-              } } },
+              tooltip: { callbacks: {
+                label: (c) => {
+                  const money = /Spend|Revenue|AOV/.test(c.dataset.label)
+                  return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}`
+                },
+                // In compare mode, add a true blended total (Google + Meta) per metric.
+                footer: (items) => {
+                  if (!compare) return ''
+                  const sums = {}, isMoney = {}
+                  for (const it of items) {
+                    const base = String(it.dataset.label).split(' · ')[0]
+                    sums[base] = (sums[base] || 0) + (it.parsed.y || 0)
+                    isMoney[base] = /Spend|Revenue|AOV/.test(it.dataset.label)
+                  }
+                  return Object.entries(sums).map(([k, v]) => `Blended ${k}: ${isMoney[k] ? '$' + Math.round(v).toLocaleString() : v.toLocaleString()}`)
+                },
+              } },
             },
             scales: {
               x:  { grid: { display: true, color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
