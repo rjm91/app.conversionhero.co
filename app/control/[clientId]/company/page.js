@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../../lib/supabase-browser'
+import ClientTabAccess from '../../../../components/ClientTabAccess'
 
 const roleColors = {
   agency_admin:    'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
@@ -495,6 +496,9 @@ export default function CompanyPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Company</h1>
         <p className="text-sm text-gray-400 mt-0.5">Client details and team members</p>
       </div>
+
+      {/* Agency-only: ship/retract tabs for this client's users (renders null for non-admins) */}
+      <ClientTabAccess clientId={clientId} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
 

@@ -216,6 +216,8 @@ export default function ClientLayout({ children }) {
   const router = useRouter()
   const [clientName, setClientName] = useState('')
   const [isEcom, setIsEcom] = useState(false)   // Shopify-connected account → "Customers / Orders" labels
+  const [tabAccess, setTabAccess] = useState({}) // per-client: which agency tabs are shipped to client users
+  const [clientLoaded, setClientLoaded] = useState(false)
   const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
   const { theme } = useTheme()
   const [clients, setClients] = useState([])
@@ -234,16 +236,25 @@ export default function ClientLayout({ children }) {
   useEffect(() => { try { setViewAsClient(localStorage.getItem('ca_view_as_client') === '1') } catch {} }, [])
   const toggleViewAs = () => setViewAsClient(v => { const n = !v; try { localStorage.setItem('ca_view_as_client', n ? '1' : '0') } catch {} ; return n })
 
+  // Per-client tab visibility: a tab is visible to client users only if the
+  // agency has shipped it (tab_access[key] === true). Agency admins see all.
+  const visibleToClient = (key) => tabAccess?.[key] === true
+  const canViewItem = (group, item) => isAgencyAdmin || ((group.agencyOnly || item.agencyOnly) ? visibleToClient(item.key) : true)
+
   const activeKey = getActiveKey(pathname, clientId)
   const activeGroup = getGroupForKey(activeKey)
-  // Block client users from agency-only routes (paid-ads, funnels, videos,
-  // contacts, calendar) even via direct URL — redirect them to the dashboard.
-  const agencyOnlyRoute = activeKey === 'command-hub' || !!(activeGroup && NAV_GROUPS[activeGroup]?.agencyOnly)
+  const activeGroupObj = activeGroup ? NAV_GROUPS[activeGroup] : null
+  const activeItem = activeGroupObj?.items?.find(i => i.key === activeKey)
+  // A route is agency-gated if it's the command hub, in an agency-only group, or
+  // an agency-only item. Client users can reach it only once it's been shipped to
+  // them (tab_access) — otherwise redirect to the dashboard.
+  const activeAgencyGated = activeKey === 'command-hub' || !!activeGroupObj?.agencyOnly || !!activeItem?.agencyOnly
+  const canAccessActive = isAgencyAdmin || (activeAgencyGated ? visibleToClient(activeKey) : true)
   useEffect(() => {
-    if (roleLoaded && agencyOnlyRoute && !isAgencyAdmin) {
+    if (roleLoaded && clientLoaded && !canAccessActive) {
       router.replace(`/control/${clientId}/dashboard`)
     }
-  }, [roleLoaded, agencyOnlyRoute, isAgencyAdmin, clientId, router])
+  }, [roleLoaded, clientLoaded, canAccessActive, clientId, router])
   const hasPins = pinnedGroups.size > 0
 
   // Load pinned state from localStorage
@@ -267,14 +278,16 @@ export default function ClientLayout({ children }) {
   // Fetch client name and role
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('client').select('client_name, is_ecom, branding').eq('client_id', clientId).single()
+    supabase.from('client').select('client_name, is_ecom, branding, tab_access').eq('client_id', clientId).single()
       .then(({ data }) => {
-        if (!data) return
+        if (!data) { setClientLoaded(true); return }
         setClientName(data.client_name)
         setIsEcom(!!data.is_ecom)
+        setTabAccess(data.tab_access || {})
         const colors = Array.isArray(data.branding?.colors) ? data.branding.colors : []
         const primary = colors.find(c => (c?.role || '').toLowerCase() === 'primary')?.hex || colors[0]?.hex || null
         setBrandColor(primary)
+        setClientLoaded(true)
       })
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.role === 'agency_admin') setRealAgencyAdmin(true)
@@ -456,11 +469,10 @@ export default function ClientLayout({ children }) {
 
         {/* Group buttons — hidden when pinned */}
         {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
-          if (group.agencyOnly && !isAgencyAdmin) return null
           if (group.ecomOnly && !isEcom) return null
           if (pinnedGroups.has(groupId)) return null
-          // Filter items by role
-          const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
+          // Show items the viewer can see (agency = all; client = shipped tabs)
+          const visibleItems = group.items.filter(i => canViewItem(group, i))
           if (visibleItems.length === 0) return null
 
           return (
@@ -551,10 +563,10 @@ export default function ClientLayout({ children }) {
         >
           <nav className="flex-1 px-1.5 py-1.5 overflow-y-auto">
             {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
-              if (group.agencyOnly && !isAgencyAdmin) return null
               if (group.ecomOnly && !isEcom) return null
               if (!pinnedGroups.has(groupId)) return null
-              const visibleItems = group.items.filter(i => !i.agencyOnly || isAgencyAdmin)
+              const visibleItems = group.items.filter(i => canViewItem(group, i))
+              if (visibleItems.length === 0) return null
               return (
                 <div key={groupId} className="mb-1.5">
                   {/* Group header — hidden when collapsed */}
@@ -601,7 +613,7 @@ export default function ClientLayout({ children }) {
 
         {/* Main content */}
         <main className="flex-1 min-w-0 bg-gray-50 dark:bg-[#0f1117]">
-          {agencyOnlyRoute && !(roleLoaded && isAgencyAdmin) ? (
+          {roleLoaded && clientLoaded && !canAccessActive ? (
             <div className="p-8 text-sm text-gray-400 dark:text-gray-500">Loading…</div>
           ) : <ErrorBoundary key={pathname}>{children}</ErrorBoundary>}
         </main>
