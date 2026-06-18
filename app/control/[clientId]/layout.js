@@ -66,6 +66,19 @@ const NAV_GROUPS = {
       { key: 'manufacturing', label: 'Manufacturing', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M4 21V9l5-3v3l5-3v3l5-3v15M9 21v-4h2v4" /></svg> },
     ],
   },
+  legal: {
+    label: 'Legal',
+    agencyOnly: true,
+    clients: ['ch069'], // scoped to ShieldTech for now
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4M5 11v6m14-6v6M3 21h18M9 11v6m6-6v6" />
+      </svg>
+    ),
+    items: [
+      { key: 'legal', label: 'Legal', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4M5 11v6m14-6v6M3 21h18M9 11v6m6-6v6" /></svg> },
+    ],
+  },
   account: {
     label: 'Account',
     icon: (
@@ -482,6 +495,7 @@ export default function ClientLayout({ children }) {
         {/* Group buttons — hidden when pinned */}
         {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
           if (group.ecomOnly && !isEcom) return null
+          if (group.clients && !group.clients.includes(clientId)) return null
           if (pinnedGroups.has(groupId)) return null
           // Show items the viewer can see (agency = all; client = shipped tabs)
           const visibleItems = group.items.filter(i => canViewItem(group, i))
@@ -576,6 +590,7 @@ export default function ClientLayout({ children }) {
           <nav className="flex-1 px-1.5 py-1.5 overflow-y-auto">
             {Object.entries(NAV_GROUPS).map(([groupId, group]) => {
               if (group.ecomOnly && !isEcom) return null
+              if (group.clients && !group.clients.includes(clientId)) return null
               if (!pinnedGroups.has(groupId)) return null
               const visibleItems = group.items.filter(i => canViewItem(group, i))
               if (visibleItems.length === 0) return null
