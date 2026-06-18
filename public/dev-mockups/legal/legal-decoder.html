@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Decoder — Concept B</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] }, colors: { ink:'#0f172a', brand:'#4f46e5' } } } }</script>
+  <style>body{font-family:Inter,system-ui,sans-serif} .jargon{background:#e0e7ff;border-bottom:2px dotted #6366f1;cursor:help;border-radius:2px;padding:0 1px}</style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+  <div class="bg-indigo-600 text-white/80 text-center text-[11px] font-semibold uppercase tracking-widest py-1.5">Concept B · Decoder Workspace · mockup with placeholder data</div>
+
+  <div class="max-w-7xl mx-auto px-6 py-7">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div>
+        <h1 class="text-2xl font-extrabold text-ink">Decode a document</h1>
+        <p class="text-sm text-slate-500 mt-1">Paste legalese on the left → get it in plain English on the right.</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-slate-500"><span class="font-semibold text-ink">Apartment Lease.pdf</span> · decoded just now</div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-5">
+      <!-- LEFT: raw dump -->
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+        <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2"><span class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Original text</span><span class="text-[11px] text-slate-400">· hover the <span class="jargon">highlighted</span> terms</span></div>
+        <div class="p-5 text-[13px] leading-7 text-slate-600 overflow-y-auto max-h-[560px] font-mono">
+          <p class="mb-3">THIS LEASE AGREEMENT ("Agreement") is entered into by and between Bluegrass Property Management ("<span class="jargon" title="The landlord — the party renting the property to you.">Lessor</span>") and the undersigned ("<span class="jargon" title="You — the person renting the property.">Lessee</span>").</p>
+          <p class="mb-3">1. TERM. The <span class="jargon" title="How long the lease lasts — here, 12 months.">term</span> shall commence on March 1, 2026 and continue for twelve (12) months, terminating February 28, 2027, and shall automatically renew on a month-to-month basis absent written notice not less than sixty (60) days prior.</p>
+          <p class="mb-3">2. RENT. Lessee shall pay $1,450 per month, due on the first day of each month. A late charge of $75 shall accrue if rent remains unpaid after the fifth (5th) day. Lessee shall remit a <span class="jargon" title="Money held by the landlord as protection, returned if you leave the place in good shape.">security deposit</span> of $1,450.</p>
+          <p class="mb-3">3. DEFAULT. In the event Lessee fails to cure any <span class="jargon" title="A breach — breaking the rules of the lease, like not paying rent.">default</span> within three (3) days of written notice, Lessor may pursue all remedies, including <span class="jargon" title="Legally removing you from the property through the courts.">eviction</span> and acceleration of all sums due.</p>
+          <p class="mb-3">4. INDEMNIFICATION. Lessee shall <span class="jargon" title="You agree to cover the landlord's costs/losses if something goes wrong that's your fault.">indemnify and hold harmless</span> Lessor from any claims arising from Lessee's use of the premises…</p>
+          <p class="opacity-50">…</p>
+        </div>
+      </div>
+
+      <!-- RIGHT: decoded -->
+      <div class="space-y-4">
+        <div class="bg-indigo-600 text-white rounded-2xl p-5">
+          <p class="text-[11px] font-bold uppercase tracking-wide text-white/60 mb-1">The gist</p>
+          <p class="text-[15px] leading-relaxed">You're renting an apartment for <b>$1,450/mo for 12 months</b>. It <b>auto-renews</b> unless you give 60 days' notice. Miss rent and you have just <b>3 days</b> to fix it before eviction can start. Nothing predatory, but the auto-renew and short cure period are worth noting.</p>
+        </div>
+
+        <div id="acc" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SECTIONS = [
+      { icon:'📖', title:'Glossary — terms decoded', open:true, body:`<div class="space-y-2.5">
+        ${[['Lessor','The landlord (them).'],['Lessee','The renter (you).'],['Indemnify & hold harmless','You cover their losses if something\\'s your fault.'],['Cure period','The window to fix a problem before penalties — here, only 3 days.'],['Acceleration','They can demand ALL remaining rent at once if you default.']].map(([t,d])=>`<div class="flex gap-3 text-sm"><span class="font-bold text-ink w-44 shrink-0">${t}</span><span class="text-slate-600">${d}</span></div>`).join('')}
+      </div>` },
+      { icon:'📌', title:'Key clauses', body:`<ul class="space-y-2 text-sm text-slate-600">
+        <li class="flex gap-2"><span class="text-indigo-500 font-bold">Term</span> 12 months, then auto-renews month-to-month.</li>
+        <li class="flex gap-2"><span class="text-indigo-500 font-bold">Rent</span> $1,450 due 1st, $75 late fee after the 5th.</li>
+        <li class="flex gap-2"><span class="text-indigo-500 font-bold">Default</span> Only 3 days to cure before remedies kick in.</li></ul>` },
+      { icon:'📅', title:'Dates & deadlines', body:`<ul class="space-y-2 text-sm text-slate-600">
+        <li>Rent due — <b>1st of each month</b></li><li>Renewal notice — <b>by Dec 31, 2026</b> (60 days out)</li><li>Lease ends — <b>Feb 28, 2027</b></li></ul>` },
+      { icon:'✅', title:'Action items', body:`<ul class="space-y-2 text-sm">
+        ${['Set a calendar reminder for the 60-day renewal notice','Confirm security deposit terms in writing','Get renters insurance before move-in'].map(a=>`<li class="flex items-center gap-2 text-slate-600"><span class="w-4 h-4 rounded border border-slate-300"></span>${a}</li>`).join('')}</ul>` },
+      { icon:'⚠️', title:'Risks & red flags', danger:true, body:`<ul class="space-y-2 text-sm text-rose-700">
+        <li class="flex gap-2">• <b>3-day cure period</b> is short — one late payment escalates fast.</li>
+        <li class="flex gap-2">• <b>Auto-renew</b> traps you if you forget the 60-day notice.</li>
+        <li class="flex gap-2">• <b>Acceleration clause</b> — a default could make ALL remaining rent due at once.</li></ul>` },
+    ]
+    document.getElementById('acc').innerHTML = SECTIONS.map((s,i)=>`
+      <div class="bg-white rounded-2xl border ${s.danger?'border-rose-200':'border-slate-200'} overflow-hidden">
+        <button onclick="document.getElementById('s${i}').classList.toggle('hidden');this.querySelector('.chev').classList.toggle('rotate-90')" class="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50">
+          <span>${s.icon}</span><span class="font-bold text-ink flex-1">${s.title}</span>
+          <svg class="chev w-4 h-4 text-slate-400 transition-transform ${s.open?'rotate-90':''}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <div id="s${i}" class="${s.open?'':'hidden'} border-t border-slate-100 px-5 py-4">${s.body}</div>
+      </div>`).join('')
+  </script>
+</body>
+</html>

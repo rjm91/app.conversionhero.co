@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Command Center — Concept C</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] }, colors: { ink:'#0f172a', brand:'#4f46e5' } } } }</script>
+  <style>body{font-family:Inter,system-ui,sans-serif}</style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+  <div class="bg-indigo-600 text-white/80 text-center text-[11px] font-semibold uppercase tracking-widest py-1.5">Concept C · Command Center · mockup with placeholder data</div>
+
+  <div class="max-w-6xl mx-auto px-6 py-7">
+    <h1 class="text-2xl font-extrabold text-ink">Legal Command Center</h1>
+    <p class="text-sm text-slate-500 mt-1 mb-5">Your whole legal picture at a glance — dump anything in and it gets sorted, dated, and decoded.</p>
+
+    <!-- dump bar -->
+    <div class="bg-white rounded-2xl border-2 border-dashed border-indigo-200 p-5 mb-5 flex items-center gap-4">
+      <span class="grid place-items-center w-11 h-11 rounded-xl bg-indigo-100 text-brand shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></span>
+      <div class="flex-1"><p class="font-bold text-ink">Dump anything here</p><p class="text-sm text-slate-500">Drop a PDF, paste text, or forward an email — it auto-files into the right category and gets decoded.</p></div>
+      <button class="bg-brand hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 py-2.5">Upload</button>
+    </div>
+
+    <!-- stat cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><div class="flex items-center justify-between"><span class="text-2xl font-extrabold text-ink">14</span><span class="text-indigo-400">📄</span></div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-1">Documents</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><div class="flex items-center justify-between"><span class="text-2xl font-extrabold text-rose-500">2</span><span>⏰</span></div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-1">Deadlines &lt;30d</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><div class="flex items-center justify-between"><span class="text-2xl font-extrabold text-amber-500">5</span><span>✅</span></div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-1">Open action items</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><div class="flex items-center justify-between"><span class="text-2xl font-extrabold text-rose-500">3</span><span>⚠️</span></div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-1">Risk flags</div></div>
+    </div>
+
+    <div id="acc" class="space-y-3"></div>
+  </div>
+
+  <script>
+    const SECTIONS = [
+      { icon:'⏰', title:'Upcoming deadlines', count:'2 within 30 days', open:true, body:`<div class="space-y-2">
+        ${[['Dec 31, 2026','Lease renewal notice (60-day)','Apartment Lease','rose'],['Apr 15, 2026','LLC annual state report','LLC Operating Agreement','amber'],['Monthly · 1st','Rent payment $1,450','Apartment Lease','slate']].map(([d,t,doc,c])=>`
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
+          <div class="text-center w-16 shrink-0"><div class="text-xs font-bold text-${c}-600">${d}</div></div>
+          <div class="flex-1"><div class="font-semibold text-ink text-sm">${t}</div><div class="text-xs text-slate-400">${doc}</div></div>
+          <button class="text-xs font-semibold text-brand">Remind me</button>
+        </div>`).join('')}</div>` },
+      { icon:'✅', title:'Action items', count:'5 open', body:`<div class="space-y-2">
+        ${['Set reminder for lease renewal notice','File LLC annual report','Get renters insurance','Confirm security deposit terms in writing','Review buy-sell clause with partner'].map(a=>`
+        <label class="flex items-center gap-3 text-sm text-slate-600 p-2 rounded hover:bg-slate-50 cursor-pointer"><span class="w-4 h-4 rounded border border-slate-300"></span>${a}</label>`).join('')}</div>` },
+      { icon:'📁', title:'Documents by category', count:'14 total', body:`<div class="grid sm:grid-cols-2 gap-2">
+        ${[['Property','3','sky'],['Business','4','violet'],['Finance','3','amber'],['Personal','4','emerald']].map(([c,n,col])=>`
+        <div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-slate-300 cursor-pointer"><span class="flex items-center gap-2 font-semibold text-ink"><span class="w-2.5 h-2.5 rounded-full bg-${col}-400"></span>${c}</span><span class="text-sm text-slate-400">${n} docs →</span></div>`).join('')}</div>` },
+      { icon:'⚠️', title:'Risk flags', count:'3', danger:true, body:`<ul class="space-y-2 text-sm text-rose-700">
+        <li>• Lease has a <b>3-day cure period</b> + auto-renew — <span class="text-slate-500">Apartment Lease</span></li>
+        <li>• LLC "major decisions" defined broadly, no dispute path — <span class="text-slate-500">Operating Agreement</span></li>
+        <li>• Auto loan allows repo after 2 missed payments — <span class="text-slate-500">Auto Loan</span></li></ul>` },
+      { icon:'👤', title:'People & parties', count:'6', body:`<div class="flex flex-wrap gap-2">
+        ${['Bluegrass Property Mgmt','Synergy Home','ConversionHero LLC','Bluegrass Credit Union','Your business partner','Your attorney'].map(p=>`<span class="text-sm bg-slate-100 rounded-full px-3 py-1.5 text-slate-700">${p}</span>`).join('')}</div>` },
+      { icon:'📖', title:'Your glossary', count:'auto-built', body:`<div class="space-y-2">
+        ${[['Indemnify','You cover their losses if it\\'s your fault.'],['Acceleration','They can demand all remaining money at once.'],['Right of first refusal','Partner gets first chance to buy before outsiders.']].map(([t,d])=>`<div class="flex gap-3 text-sm"><span class="font-bold text-ink w-36 shrink-0">${t}</span><span class="text-slate-600">${d}</span></div>`).join('')}</div>` },
+    ]
+    document.getElementById('acc').innerHTML = SECTIONS.map((s,i)=>`
+      <div class="bg-white rounded-2xl border ${s.danger?'border-rose-200':'border-slate-200'} overflow-hidden">
+        <button onclick="document.getElementById('s${i}').classList.toggle('hidden');this.querySelector('.chev').classList.toggle('rotate-90')" class="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50">
+          <span class="text-lg">${s.icon}</span>
+          <span class="font-bold text-ink">${s.title}</span>
+          <span class="text-xs text-slate-400 font-semibold bg-slate-100 rounded-full px-2 py-0.5">${s.count}</span>
+          <svg class="chev w-4 h-4 text-slate-400 transition-transform ml-auto ${s.open?'rotate-90':''}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <div id="s${i}" class="${s.open?'':'hidden'} border-t border-slate-100 px-5 py-4">${s.body}</div>
+      </div>`).join('')
+  </script>
+</body>
+</html>

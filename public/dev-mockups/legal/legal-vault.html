@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Vault — Concept A</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] }, colors: { ink:'#0f172a', brand:'#4f46e5' } } } }</script>
+  <style>body{font-family:Inter,system-ui,sans-serif}</style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+  <div class="bg-indigo-600 text-white/80 text-center text-[11px] font-semibold uppercase tracking-widest py-1.5">Concept A · Legal Vault · mockup with placeholder data</div>
+
+  <div class="max-w-6xl mx-auto px-6 py-7">
+    <!-- header -->
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl font-extrabold text-ink flex items-center gap-2"><span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M5 10v8m14-8v8M3 21h18M9 10v6m6-6v6"/></svg></span>Legal Vault</h1>
+        <p class="text-sm text-slate-500 mt-1">Everything you've dumped in — organized and decoded into plain English.</p>
+      </div>
+      <button class="bg-brand hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 py-2.5 shadow-sm flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Dump a document</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="bg-white rounded-xl border border-slate-200 px-4 py-3.5"><div class="text-2xl font-extrabold text-ink">14</div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Documents</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 px-4 py-3.5"><div class="text-2xl font-extrabold text-amber-500">3</div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Need review</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 px-4 py-3.5"><div class="text-2xl font-extrabold text-rose-500">2</div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Deadlines &lt;30d</div></div>
+      <div class="bg-white rounded-xl border border-slate-200 px-4 py-3.5"><div class="text-2xl font-extrabold text-ink">5</div><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Action items</div></div>
+    </div>
+
+    <!-- search + filters -->
+    <div class="flex items-center gap-2 flex-wrap mb-4">
+      <div class="relative flex-1 min-w-[220px]">
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+        <input placeholder="Search documents, clauses, people…" class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/40" />
+      </div>
+      <div class="flex gap-1.5">
+        <button class="text-xs font-semibold px-3 py-2 rounded-lg bg-brand text-white">All</button>
+        <button class="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-slate-300">Property</button>
+        <button class="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-slate-300">Business</button>
+        <button class="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-slate-300">Personal</button>
+        <button class="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-slate-300">Finance</button>
+      </div>
+    </div>
+
+    <!-- document accordions -->
+    <div id="docs" class="space-y-3"></div>
+  </div>
+
+  <script>
+    const TYPE = { Property:'bg-sky-100 text-sky-700', Business:'bg-violet-100 text-violet-700', Personal:'bg-emerald-100 text-emerald-700', Finance:'bg-amber-100 text-amber-700' }
+    const DOCS = [
+      { title:'Apartment Lease Agreement', type:'Property', parties:'You ↔ Bluegrass Property Mgmt', date:'Signed Mar 2026', status:'Needs review', risk:'high',
+        summary:"A 12-month lease for $1,450/mo. You're locked in until Feb 2027; breaking it early costs 2 months' rent. Rent is due on the 1st with a $75 late fee after the 5th.",
+        terms:[['Term','12 months, ends 2/28/2027'],['Rent','$1,450/mo, due 1st'],['Deposit','$1,450 (refundable)'],['Early exit','2 months rent penalty']],
+        dates:['Rent due 1st of each month','Renewal notice due by 12/31/2026','Lease ends 2/28/2027'],
+        you:['Pay rent on time','Give 60-day notice to leave','Keep renters insurance'],
+        watch:['Auto-renews unless you give 60-day notice','Landlord can enter with 24h notice'] },
+      { title:'Mutual Non-Disclosure Agreement', type:'Business', parties:'ConversionHero ↔ Synergy Home', date:'Signed Jun 2026', status:'Reviewed', risk:'low',
+        summary:"Standard mutual NDA. Both sides keep each other's confidential info secret for 3 years. Nothing unusual — no non-compete, no IP assignment.",
+        terms:[['Type','Mutual'],['Duration','3 years from disclosure'],['Carve-outs','Public info, prior knowledge']],
+        dates:['Confidentiality expires Jun 2029'],
+        you:['Don\'t share their confidential info','Return/destroy info on request'],
+        watch:['No non-compete (good)','Covers verbal disclosures too'] },
+      { title:'LLC Operating Agreement', type:'Business', parties:'ConversionHero LLC (you + 1 partner)', date:'Filed Jan 2026', status:'Needs review', risk:'medium',
+        summary:"Sets up a 60/40 ownership split. Big decisions need both partners; profits distributed quarterly. A buy-sell clause governs what happens if a partner leaves.",
+        terms:[['Ownership','You 60% / Partner 40%'],['Decisions','Major = unanimous'],['Profit split','Quarterly, by %'],['Buy-sell','90-day right of first refusal']],
+        dates:['Annual report due 4/15','Quarterly distributions'],
+        you:['Maintain capital contributions','File annual state report'],
+        watch:['"Major decisions" defined broadly — could slow you down','No clear dispute-resolution path'] },
+      { title:'Auto Loan Agreement', type:'Finance', parties:'You ↔ Bluegrass Credit Union', date:'Signed 2024', status:'Reviewed', risk:'low',
+        summary:"60-month loan at 6.9% APR. No prepayment penalty — you can pay it off early and save interest. Misc fees are small.",
+        terms:[['Balance','$18,400'],['APR','6.9%'],['Term','60 months'],['Prepay','No penalty']],
+        dates:['Payment due 15th','Payoff date ~2029'],
+        you:['Pay $364/mo','Keep full-coverage insurance'],
+        watch:['Repo possible after 2 missed payments'] },
+    ]
+    const RISK = { high:['bg-rose-100 text-rose-600','High'], medium:['bg-amber-100 text-amber-600','Medium'], low:['bg-emerald-100 text-emerald-600','Low'] }
+    const STATUS = { 'Needs review':'bg-amber-50 text-amber-600 border-amber-200', 'Reviewed':'bg-emerald-50 text-emerald-600 border-emerald-200' }
+    const list = (items) => items.map(i=>`<li class="flex items-start gap-2 text-sm text-slate-600"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>${i}</li>`).join('')
+
+    document.getElementById('docs').innerHTML = DOCS.map((d,i)=>{
+      const [rc,rl]=RISK[d.risk]
+      return `
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <button onclick="document.getElementById('d${i}').classList.toggle('hidden');this.querySelector('.chev').classList.toggle('rotate-90')" class="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50">
+          <svg class="chev w-4 h-4 text-slate-400 transition-transform shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-ink">${d.title}</span><span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${TYPE[d.type]}">${d.type}</span></div>
+            <div class="text-xs text-slate-400 mt-0.5">${d.parties} · ${d.date}</div>
+          </div>
+          <span class="text-[11px] font-semibold px-2 py-1 rounded-full border ${STATUS[d.status]}">${d.status}</span>
+          <span class="text-[11px] font-semibold px-2 py-1 rounded-full ${rc}">${rl} risk</span>
+        </button>
+        <div id="d${i}" class="hidden border-t border-slate-100 px-5 py-5 grid md:grid-cols-2 gap-6">
+          <div class="md:col-span-2 bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-indigo-500 mb-1">In plain English</p>
+            <p class="text-sm text-slate-700 leading-relaxed">${d.summary}</p>
+          </div>
+          <div><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-2">Key terms</p><div class="space-y-1.5">${d.terms.map(([k,v])=>`<div class="flex justify-between text-sm"><span class="text-slate-500">${k}</span><span class="font-semibold text-ink text-right">${v}</span></div>`).join('')}</div></div>
+          <div><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-2">Important dates</p><ul class="space-y-1.5">${list(d.dates)}</ul></div>
+          <div><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-2">What you must do</p><ul class="space-y-1.5">${list(d.you)}</ul></div>
+          <div><p class="text-[11px] font-bold uppercase tracking-wide text-rose-400 mb-2">⚠ Watch-outs</p><ul class="space-y-1.5">${d.watch.map(i=>`<li class="flex items-start gap-2 text-sm text-rose-700"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-300 shrink-0"></span>${i}</li>`).join('')}</ul></div>
+          <div class="md:col-span-2 flex gap-2 pt-1"><button class="text-xs font-semibold text-brand bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-2">View original document →</button><button class="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-2">Ask a question about this</button></div>
+        </div>
+      </div>`
+    }).join('')
+  </script>
+</body>
+</html>
