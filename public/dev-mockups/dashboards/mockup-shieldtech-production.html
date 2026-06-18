@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShieldTech — Production (Mockup)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] }, colors: { ch: { green:'#34CC93', dark:'#0f1117', card:'#111528', row:'#161b30', head:'#0d1020' } } } } }
+  </script>
+  <style>body{font-family:Inter,system-ui,sans-serif}</style>
+</head>
+<body class="bg-ch-dark text-gray-200 antialiased min-h-screen">
+
+  <div class="bg-amber-500/10 border-b border-amber-500/20 text-amber-300 text-center text-[11px] font-semibold uppercase tracking-widest py-1.5">
+    Mockup · ShieldTech (ch069) Production tab · numbers are representative placeholders — overwrite with real costs
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 py-7">
+
+    <!-- header -->
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-6">
+      <div>
+        <div class="text-[11px] text-gray-500 font-semibold">ShieldTech › Production</div>
+        <h1 class="text-2xl font-bold text-white mt-0.5">Production</h1>
+        <p class="text-sm text-gray-500 mt-0.5">Bill of materials, build process, and unit economics for every cover SKU.</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-gray-500">Loaded labor rate</span>
+        <span class="bg-ch-row border border-white/10 rounded-lg px-3 py-1.5 font-semibold text-white">$22.00 / hr</span>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-7"></div>
+
+    <!-- Products / SKUs -->
+    <div class="border border-white/[0.06] rounded-xl bg-ch-card overflow-hidden mb-5">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
+        <span class="w-7 h-7 rounded-lg grid place-items-center text-white" style="background:linear-gradient(135deg,#34CC93,#1a9e6e)"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></span>
+        <div><span class="font-bold text-white">Cover SKUs</span> <span id="skuCount" class="text-xs text-gray-500 ml-1"></span></div>
+        <span class="ml-auto text-[11px] text-gray-500">Click a SKU to see its bill of materials &amp; build process →</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm whitespace-nowrap min-w-[1000px]">
+          <thead class="bg-ch-head">
+            <tr class="text-[11px] uppercase tracking-wide text-gray-400">
+              <th class="text-left px-4 py-3 font-semibold">SKU</th>
+              <th class="text-right px-4 py-3 font-semibold">Price</th>
+              <th class="text-right px-4 py-3 font-semibold">Material</th>
+              <th class="text-right px-4 py-3 font-semibold">Labor</th>
+              <th class="text-right px-4 py-3 font-semibold">COGS</th>
+              <th class="text-right px-4 py-3 font-semibold text-ch-green bg-ch-green/[0.06]">Gross Margin</th>
+              <th class="text-right px-4 py-3 font-semibold">Contribution</th>
+              <th class="text-right px-4 py-3 font-semibold">Max CAC</th>
+              <th class="text-right px-4 py-3 font-semibold">Actual CAC</th>
+              <th class="text-center px-4 py-3 font-semibold">Health</th>
+            </tr>
+          </thead>
+          <tbody id="skuBody" class="divide-y divide-white/[0.05]"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Materials inventory -->
+    <div class="border border-white/[0.06] rounded-xl bg-ch-card overflow-hidden mb-5">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
+        <span class="w-7 h-7 rounded-lg grid place-items-center bg-blue-500/20 text-blue-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/></svg></span>
+        <span class="font-bold text-white">Raw Materials &amp; Inventory</span>
+        <span class="ml-auto text-[11px] text-gray-500">Cost feeds every BOM automatically</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm whitespace-nowrap min-w-[760px]">
+          <thead class="bg-ch-head"><tr class="text-[11px] uppercase tracking-wide text-gray-400">
+            <th class="text-left px-4 py-3 font-semibold">Material</th><th class="text-left px-4 py-3 font-semibold">Unit</th>
+            <th class="text-right px-4 py-3 font-semibold">Cost / Unit</th><th class="text-right px-4 py-3 font-semibold">On Hand</th>
+            <th class="text-right px-4 py-3 font-semibold">Inventory Value</th><th class="text-center px-4 py-3 font-semibold">Status</th>
+          </tr></thead>
+          <tbody id="matBody" class="divide-y divide-white/[0.05]"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Margin → CAC explainer -->
+    <div class="border border-white/[0.06] rounded-xl bg-ch-card p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="w-7 h-7 rounded-lg grid place-items-center bg-ch-green/15 text-ch-green"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></span>
+        <span class="font-bold text-white">Factory floor → checkout</span>
+      </div>
+      <p class="text-sm text-gray-400 leading-relaxed max-w-3xl">Each cover's <span class="text-white font-semibold">contribution margin</span> (price − COGS − shipping − fees) is the <span class="text-white font-semibold">ceiling on what we can spend to acquire a customer</span>. The <span class="text-ch-green font-semibold">Max CAC</span> column is that ceiling; <span class="text-white font-semibold">Actual CAC</span> is pulled from the live Meta + Google ad data already in the dashboard. Green = we're acquiring profitably; red = the ad cost is eating the margin. This is the same unit-economics model that prices the product and steers the ad budget.</p>
+    </div>
+
+    <p class="text-center text-xs text-gray-600 mt-6">Mockup · would live at <span class="font-mono text-gray-500">/control/ch069/production</span></p>
+  </div>
+
+  <script>
+    const fmt$  = n => '$' + (Math.round((n||0)*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
+    const fmt$0 = n => '$' + Math.round(n||0).toLocaleString()
+    const pct   = n => (Math.round((n||0)*1000)/10) + '%'
+    const LABOR_RATE = 22 // $/hr loaded
+
+    // Material master — cost per unit + stock
+    const MAT = {
+      foam:    { name:'Foam (1" XLPE)',        unit:'sq ft', cost:0.85, stock:1240, reorder:600 },
+      vinyl:   { name:'Marine Vinyl (18oz)',   unit:'sq ft', cost:1.10, stock:880,  reorder:500 },
+      magnet:  { name:'Neodymium Disc Magnet', unit:'each',  cost:0.18, stock:8400, reorder:4000 },
+      binding: { name:'Edge Binding',          unit:'ft',    cost:0.25, stock:520,  reorder:800 },
+      grommet: { name:'Grommet / Snap',        unit:'each',  cost:0.12, stock:2600, reorder:1500 },
+      thread:  { name:'UV-Bonded Thread',      unit:'unit',  cost:0.30, stock:9999, reorder:1000 },
+      pack:    { name:'Box + Insert + Label',  unit:'each',  cost:2.40, stock:430,  reorder:300 },
+    }
+
+    // SKUs — real ShieldTech product names. bom = [matKey, qty]. steps = [name, minutes].
+    const SKUS = [
+      { name:'Polaris Ranger (With Wiper) 2016–2026', price:129, ship:9, feePct:0.03, oh:3.00, actualCAC:58,
+        bom:[['foam',6],['vinyl',7],['magnet',14],['binding',18],['grommet',4],['thread',1],['pack',1]],
+        steps:[['Cut foam',6],['Cut vinyl',7],['Set magnets',8],['Sew & bind',18],['QA',3],['Pack',4]] },
+      { name:'Can-Am Defender (With Wiper) 2016–2026', price:129, ship:9, feePct:0.03, oh:3.00, actualCAC:71,
+        bom:[['foam',6],['vinyl',7],['magnet',14],['binding',18],['grommet',4],['thread',1],['pack',1]],
+        steps:[['Cut foam',6],['Cut vinyl',7],['Set magnets',8],['Sew & bind',18],['QA',3],['Pack',4]] },
+      { name:'Polaris Xpedition 2024–2026', price:149, ship:11, feePct:0.03, oh:3.50, actualCAC:64,
+        bom:[['foam',8],['vinyl',9],['magnet',18],['binding',22],['grommet',6],['thread',1],['pack',1]],
+        steps:[['Cut foam',8],['Cut vinyl',9],['Set magnets',11],['Sew & bind',22],['QA',4],['Pack',4]] },
+      { name:'CF Moto UFORCE U10', price:139, ship:10, feePct:0.03, oh:3.20, actualCAC:96,
+        bom:[['foam',7],['vinyl',8],['magnet',16],['binding',20],['grommet',5],['thread',1],['pack',1]],
+        steps:[['Cut foam',7],['Cut vinyl',8],['Set magnets',10],['Sew & bind',20],['QA',3],['Pack',4]] },
+      { name:'Polaris Ranger XD 1500', price:139, ship:10, feePct:0.03, oh:3.20, actualCAC:55,
+        bom:[['foam',7],['vinyl',8],['magnet',16],['binding',20],['grommet',5],['thread',1],['pack',1]],
+        steps:[['Cut foam',7],['Cut vinyl',8],['Set magnets',10],['Sew & bind',20],['QA',3],['Pack',4]] },
+      { name:'Forest River Rockwood Mini Lite 2018–2026', price:99, ship:8, feePct:0.03, oh:2.60, actualCAC:42,
+        bom:[['foam',4],['vinyl',5],['magnet',10],['binding',14],['grommet',3],['thread',1],['pack',1]],
+        steps:[['Cut foam',4],['Cut vinyl',5],['Set magnets',6],['Sew & bind',14],['QA',2],['Pack',3]] },
+      { name:'Jayco Eagle *HORIZONTAL GLASS* 2024–2026', price:115, ship:9, feePct:0.03, oh:2.80, actualCAC:108,
+        bom:[['foam',5],['vinyl',6],['magnet',12],['binding',16],['grommet',4],['thread',1],['pack',1]],
+        steps:[['Cut foam',5],['Cut vinyl',6],['Set magnets',7],['Sew & bind',16],['QA',3],['Pack',3]] },
+    ]
+
+    function calc(s) {
+      const matCost = s.bom.reduce((t,[k,q]) => t + MAT[k].cost * q, 0)
+      const laborMin = s.steps.reduce((t,[,m]) => t + m, 0)
+      const laborCost = laborMin/60 * LABOR_RATE
+      const cogs = matCost + laborCost + s.oh
+      const grossMargin = (s.price - cogs) / s.price
+      const fees = s.price * s.feePct
+      const contribution = s.price - cogs - s.ship - fees
+      const maxCAC = contribution
+      const health = s.actualCAC <= maxCAC * 0.7 ? 'good' : s.actualCAC <= maxCAC ? 'ok' : 'bad'
+      return { matCost, laborMin, laborCost, cogs, grossMargin, fees, contribution, maxCAC, health }
+    }
+
+    // KPIs
+    const calcs = SKUS.map(calc)
+    const avgMargin = calcs.reduce((t,c)=>t+c.grossMargin,0)/calcs.length
+    const avgCOGS = calcs.reduce((t,c)=>t+c.cogs,0)/calcs.length
+    const avgMaxCAC = calcs.reduce((t,c)=>t+c.maxCAC,0)/calcs.length
+    const invValue = Object.values(MAT).reduce((t,m)=>t+m.cost*m.stock,0)
+    const KPI = [
+      ['Active SKUs', SKUS.length],
+      ['Avg Gross Margin', pct(avgMargin), true],
+      ['Avg COGS / Unit', fmt$(avgCOGS)],
+      ['Avg Max CAC', fmt$(avgMaxCAC)],
+      ['Inventory Value', fmt$0(invValue)],
+    ]
+    document.getElementById('kpis').innerHTML = KPI.map(([l,v,g]) => `
+      <div class="bg-ch-card border border-white/[0.06] rounded-xl px-4 py-3.5">
+        <div class="text-2xl font-extrabold ${g?'text-ch-green':'text-white'}">${v}</div>
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">${l}</div>
+      </div>`).join('')
+
+    document.getElementById('skuCount').textContent = `${SKUS.length} SKUs`
+
+    const HEALTH = { good:['bg-emerald-500/10 text-emerald-400','Profitable'], ok:['bg-amber-500/10 text-amber-400','Tight'], bad:['bg-red-500/10 text-red-400','Over margin'] }
+
+    document.getElementById('skuBody').innerHTML = SKUS.map((s,i) => {
+      const c = calcs[i]
+      const [hc,hl] = HEALTH[c.health]
+      const bomRows = s.bom.map(([k,q]) => `<tr class="text-gray-400"><td class="py-1.5 pl-1">${MAT[k].name}</td><td class="py-1.5 text-right">${q} ${MAT[k].unit}</td><td class="py-1.5 text-right">${fmt$(MAT[k].cost)}</td><td class="py-1.5 text-right text-gray-300">${fmt$(MAT[k].cost*q)}</td></tr>`).join('')
+      const stepRows = s.steps.map(([n,m]) => `<tr class="text-gray-400"><td class="py-1.5 pl-1">${n}</td><td class="py-1.5 text-right">${m} min</td><td class="py-1.5 text-right text-gray-300">${fmt$(m/60*LABOR_RATE)}</td></tr>`).join('')
+      return `
+      <tr class="hover:bg-white/[0.02] cursor-pointer" onclick="document.getElementById('det${i}').classList.toggle('hidden');this.querySelector('.chev').classList.toggle('rotate-90')">
+        <td class="px-4 py-3"><span class="inline-flex items-center gap-2"><svg class="chev w-3.5 h-3.5 text-gray-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><span class="font-medium text-white">${s.name}</span></span></td>
+        <td class="px-4 py-3 text-right text-gray-200">${fmt$0(s.price)}</td>
+        <td class="px-4 py-3 text-right text-gray-400">${fmt$(c.matCost)}</td>
+        <td class="px-4 py-3 text-right text-gray-400">${fmt$(c.laborCost)}</td>
+        <td class="px-4 py-3 text-right font-semibold text-gray-200">${fmt$(c.cogs)}</td>
+        <td class="px-4 py-3 text-right font-bold ${c.grossMargin>=0.6?'text-ch-green':c.grossMargin>=0.45?'text-amber-400':'text-red-400'} bg-ch-green/[0.04]">${pct(c.grossMargin)}</td>
+        <td class="px-4 py-3 text-right text-gray-200">${fmt$(c.contribution)}</td>
+        <td class="px-4 py-3 text-right font-semibold text-ch-green">${fmt$(c.maxCAC)}</td>
+        <td class="px-4 py-3 text-right text-gray-300">${fmt$0(s.actualCAC)}</td>
+        <td class="px-4 py-3 text-center"><span class="text-[11px] font-semibold px-2.5 py-1 rounded-full ${hc}">${hl}</span></td>
+      </tr>
+      <tr id="det${i}" class="hidden bg-ch-head/60"><td colspan="10" class="px-4 py-4">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <p class="text-[11px] uppercase tracking-wide text-gray-500 font-bold mb-2">Bill of Materials</p>
+            <table class="w-full text-sm"><thead><tr class="text-[10px] uppercase text-gray-600"><th class="text-left pl-1 pb-1">Material</th><th class="text-right pb-1">Qty</th><th class="text-right pb-1">Cost/Unit</th><th class="text-right pb-1">Ext</th></tr></thead><tbody>${bomRows}
+              <tr class="border-t border-white/10 font-semibold text-white"><td class="py-1.5 pl-1">Material total</td><td></td><td></td><td class="py-1.5 text-right">${fmt$(c.matCost)}</td></tr></tbody></table>
+          </div>
+          <div>
+            <p class="text-[11px] uppercase tracking-wide text-gray-500 font-bold mb-2">Build Process · ${c.laborMin} min</p>
+            <table class="w-full text-sm"><thead><tr class="text-[10px] uppercase text-gray-600"><th class="text-left pl-1 pb-1">Step</th><th class="text-right pb-1">Time</th><th class="text-right pb-1">Labor $</th></tr></thead><tbody>${stepRows}
+              <tr class="border-t border-white/10 font-semibold text-white"><td class="py-1.5 pl-1">Labor total</td><td class="py-1.5 text-right">${c.laborMin} min</td><td class="py-1.5 text-right">${fmt$(c.laborCost)}</td></tr>
+              <tr class="text-gray-400"><td class="py-1.5 pl-1">+ Overhead</td><td></td><td class="py-1.5 text-right">${fmt$(s.oh)}</td></tr>
+              <tr class="border-t border-white/10 font-bold text-ch-green"><td class="py-1.5 pl-1">= COGS / unit</td><td></td><td class="py-1.5 text-right">${fmt$(c.cogs)}</td></tr></tbody></table>
+          </div>
+        </div>
+      </td></tr>`
+    }).join('')
+
+    document.getElementById('matBody').innerHTML = Object.values(MAT).map(m => {
+      const low = m.stock <= m.reorder
+      return `<tr class="hover:bg-white/[0.02]">
+        <td class="px-4 py-3 font-medium text-white">${m.name}</td>
+        <td class="px-4 py-3 text-gray-500">${m.unit}</td>
+        <td class="px-4 py-3 text-right text-gray-300">${fmt$(m.cost)}</td>
+        <td class="px-4 py-3 text-right text-gray-300">${m.stock.toLocaleString()} ${m.unit}</td>
+        <td class="px-4 py-3 text-right text-gray-200 font-semibold">${fmt$0(m.cost*m.stock)}</td>
+        <td class="px-4 py-3 text-center"><span class="text-[11px] font-semibold px-2.5 py-1 rounded-full ${low?'bg-red-500/10 text-red-400':'bg-emerald-500/10 text-emerald-400'}">${low?'Reorder':'In stock'}</span></td>
+      </tr>`
+    }).join('')
+  </script>
+</body>
+</html>
