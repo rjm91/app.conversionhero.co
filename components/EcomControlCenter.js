@@ -279,6 +279,7 @@ const platformIcon = {
   overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>,
   google:   <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
   meta:     <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#0866FF] text-white text-sm font-extrabold flex-shrink-0">f</div>,
+  tiktok:   <div className="w-7 h-7 rounded-lg grid place-items-center bg-black text-white flex-shrink-0"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c.26 2.07 1.62 3.7 3.5 4v2.45c-1.2 0-2.36-.3-3.5-.93v6.48c0 3.3-2.7 5.96-6.02 5.5C7.7 20.2 5.6 18 5.5 15.3c-.1-3.18 2.84-5.74 6.1-5.2v2.5a2.6 2.6 0 00-1.45-.1 2.4 2.4 0 00-1.9 2.6 2.43 2.43 0 002.45 2.2 2.43 2.43 0 002.45-2.45V3h1.85z"/></svg></div>,
   orders:   <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>🛍</div>,
 }
 
@@ -376,8 +377,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [orders, setOrders]       = useState([])
   const [campaigns, setCampaigns] = useState([])
   const [metaCampaigns, setMetaCampaigns] = useState([])
+  const [tiktokCampaigns, setTiktokCampaigns] = useState([])
   const [googleDaily, setGoogleDaily] = useState([])
   const [metaDaily, setMetaDaily]     = useState([])
+  const [tiktokDaily, setTiktokDaily] = useState([])
   const [loading, setLoading]     = useState(true)
   const [firstLoad, setFirstLoad] = useState(true)
   const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
@@ -385,12 +388,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
-  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, orders: false })
+  const [tiktokSyncing, setTiktokSyncing] = useState(false)
+  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [ordersRes, campRes, metaRes] = await Promise.all([
+    const [ordersRes, campRes, metaRes, tiktokRes] = await Promise.all([
       supabase.from('client_lead')
         .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name')
         .eq('client_id', clientId)
@@ -409,11 +413,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
         .eq('client_id', clientId)
         .gte('date', appliedStart)
         .lte('date', appliedEnd),
+      supabase.from('client_tiktok_campaigns')
+        .select('*')
+        .eq('client_id', clientId)
+        .gte('date', appliedStart)
+        .lte('date', appliedEnd),
     ])
 
     setOrders(ordersRes.data || [])
     setGoogleDaily(campRes.data || [])
     setMetaDaily(metaRes.data || [])
+    setTiktokDaily(tiktokRes.data || [])
 
     // Aggregate Google campaign rows per campaign_id
     const map = {}
@@ -442,6 +452,20 @@ export default function EcomControlCenter({ clientId, clientName }) {
       if (row.synced_at > mmap[id].synced_at) { mmap[id].status = row.status; mmap[id].budget = row.budget; mmap[id].synced_at = row.synced_at }
     }
     setMetaCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend))
+
+    // Aggregate TikTok campaign rows per campaign_id
+    const tmap = {}
+    for (const row of (tiktokRes.data || [])) {
+      const id = row.campaign_id
+      if (!tmap[id]) tmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
+      tmap[id].spend += Number(row.spend) || 0
+      tmap[id].impressions += Number(row.impressions) || 0
+      tmap[id].clicks += Number(row.clicks) || 0
+      tmap[id].conversions += Number(row.conversions) || 0
+      tmap[id].conversions_value += Number(row.conversions_value) || 0
+      if (row.synced_at > tmap[id].synced_at) { tmap[id].status = row.status; tmap[id].budget = row.budget; tmap[id].synced_at = row.synced_at }
+    }
+    setTiktokCampaigns(Object.values(tmap).sort((a, b) => b.spend - a.spend))
     setLoading(false)
     setFirstLoad(false)
   }, [clientId, appliedStart, appliedEnd])
@@ -539,13 +563,29 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }
 
+  // Pull the latest TikTok data for this client, then reload
+  async function handleTiktokRefresh() {
+    if (tiktokSyncing) return
+    setTiktokSyncing(true)
+    try {
+      await fetch(`/api/sync-tiktok-ads?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' })
+      await fetchData()
+    } catch (e) {
+      console.error('[EcomControlCenter] TikTok refresh failed:', e)
+    } finally {
+      setTiktokSyncing(false)
+    }
+  }
+
   // Status filter (shared by Google/Meta/Blended). Filters campaigns + the
   // daily rows feeding the charts, so the whole ad view reflects the selection.
   const matchStatus = (s) => statusFilter === 'all' || (statusFilter === 'enabled' ? s === 'ENABLED' : s !== 'ENABLED')
   const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status)),     [campaigns, statusFilter])
   const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status)), [metaCampaigns, statusFilter])
+  const fTik         = useMemo(() => tiktokCampaigns.filter(c => matchStatus(c.status)), [tiktokCampaigns, statusFilter])
   const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status)),   [googleDaily, statusFilter])
   const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status)),     [metaDaily, statusFilter])
+  const fTikDaily    = useMemo(() => tiktokDaily.filter(r => matchStatus(r.status)),   [tiktokDaily, statusFilter])
 
   // Per-campaign attribution from orders (utm_campaign → orders/revenue)
   const campaignAttr = useMemo(() => {
@@ -572,6 +612,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const metaSpend    = fMeta.reduce((s, c) => s + c.spend, 0)
     const metaClicks   = fMeta.reduce((s, c) => s + c.clicks, 0)
     const metaImpr     = fMeta.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
+    const tiktokSpend  = fTik.reduce((s, c) => s + c.spend, 0)
+    const tiktokClicks = fTik.reduce((s, c) => s + c.clicks, 0)
+    const tiktokImpr   = fTik.reduce((s, c) => s + (Number(c.impressions) || 0), 0)
     const adSpend = googleSpend + metaSpend     // blended
     const clicks  = googleClicks + metaClicks
     const byChannel = {}
@@ -590,6 +633,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
     // Platform-reported conversion value → platform ROAS (value ÷ spend)
     const googleConvValue = fCampaigns.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
     const metaConvValue   = fMeta.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
+    // TikTok CH rollups + platform-reported
+    const tConv = fTik.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
+    const tRev  = fTik.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    const tConvPlatform = fTik.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
+    const tiktokBudget    = fTik.reduce((s, c) => s + (Number(c.budget) || 0), 0)
+    const tiktokConvValue = fTik.reduce((s, c) => s + (Number(c.conversions_value) || 0), 0)
     return {
       gConvGoogle,
       revenue, orderCount,
@@ -604,6 +653,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
       byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
       gConv, gRev, gRoas: googleSpend ? gRev / googleSpend : 0,
       mConv, mRev, mConvPlatform, metaBudget, mRoas: metaSpend ? mRev / metaSpend : 0,
+      // TikTok
+      tiktokSpend, tiktokClicks, tiktokImpr, tiktokBudget,
+      tConv, tRev, tConvPlatform, tRoas: tiktokSpend ? tRev / tiktokSpend : 0,
+      tiktokConvValue, tRoasPlatform: tiktokSpend ? tiktokConvValue / tiktokSpend : 0,
       // Platform-reported ROAS (the platform's own conversion value ÷ spend)
       googleConvValue, metaConvValue,
       gRoasPlatform: googleSpend ? googleConvValue / googleSpend : 0,
@@ -615,7 +668,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       blendedRevCH: gRev + mRev,
       blendedRoas: (googleSpend + metaSpend) ? (gRev + mRev) / (googleSpend + metaSpend) : 0,
     }
-  }, [orders, fCampaigns, fMeta, campaignAttr])
+  }, [orders, fCampaigns, fMeta, fTik, campaignAttr])
 
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
@@ -633,7 +686,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       chConv: Array(dates.length).fill(0), chRev: Array(dates.length).fill(0),
       aov: Array(dates.length).fill(0),
     })
-    const google = blank(), meta = blank()
+    const google = blank(), meta = blank(), tiktok = blank()
     for (const r of fGoogleDaily) {
       const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
       google.spend[i]       += Number(r.cost) || 0
@@ -648,25 +701,36 @@ export default function EcomControlCenter({ clientId, clientName }) {
       meta.clicks[i]      += Number(r.clicks) || 0
       meta.conversions[i] += Number(r.conversions) || 0
     }
+    for (const r of fTikDaily) {
+      const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
+      tiktok.spend[i]       += Number(r.spend) || 0
+      tiktok.impressions[i] += Number(r.impressions) || 0
+      tiktok.clicks[i]      += Number(r.clicks) || 0
+      tiktok.conversions[i] += Number(r.conversions) || 0
+    }
     const gIds = new Set(fCampaigns.map(c => String(c.campaign_id)))
     const mIds = new Set(fMeta.map(c => String(c.campaign_id)))
+    const tIds = new Set(fTik.map(c => String(c.campaign_id)))
     for (const o of orders) {
       const i = idx[String(o.created_at).slice(0, 10)]; if (i == null) continue
       const c = (o.utm_campaign || '').trim(); if (!c) continue
       const rev = Number(o.sale_amount) || 0
       if (gIds.has(c))      { google.chConv[i] += 1; google.chRev[i] += rev }
       else if (mIds.has(c)) { meta.chConv[i]   += 1; meta.chRev[i]   += rev }
+      else if (tIds.has(c)) { tiktok.chConv[i] += 1; tiktok.chRev[i] += rev }
     }
     // AOV per day = attributed revenue / attributed orders
     for (let i = 0; i < dates.length; i++) {
       google.aov[i] = google.chConv[i] > 0 ? google.chRev[i] / google.chConv[i] : 0
       meta.aov[i]   = meta.chConv[i]   > 0 ? meta.chRev[i]   / meta.chConv[i]   : 0
+      tiktok.aov[i] = tiktok.chConv[i] > 0 ? tiktok.chRev[i] / tiktok.chConv[i] : 0
     }
-    return { dates, google, meta }
-  }, [appliedStart, appliedEnd, fGoogleDaily, fMetaDaily, orders, fCampaigns, fMeta])
+    return { dates, google, meta, tiktok }
+  }, [appliedStart, appliedEnd, fGoogleDaily, fMetaDaily, fTikDaily, orders, fCampaigns, fMeta, fTik])
 
   const googleSynced = useMemo(() => campaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [campaigns])
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
+  const tiktokSynced = useMemo(() => tiktokCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [tiktokCampaigns])
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
   const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
@@ -1004,6 +1068,103 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.mRev / m.mConv) : '—'}</td>
                     </tr>
                     {fMeta.map(c => {
+                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
+                      const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
+                      const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
+                      const cpConv = c.conversions > 0 ? c.spend / c.conversions : 0
+                      const chCost = a.count > 0 ? c.spend / a.count : 0
+                      const roas = c.spend > 0 ? a.revenue / c.spend : 0
+                      const enabled = c.status === 'ENABLED'
+                      return (
+                        <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {c.status ? (
+                              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                                {enabled ? 'Enabled' : 'Paused'}
+                              </span>
+                            ) : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.budget > 0 ? fmt$(c.budget) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(c.spend)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.impressions)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(ctr)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.clicks)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.spend > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.spend) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(a.revenue / a.count) : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            )}
+          </Section>
+
+          {/* TikTok */}
+          <Section id="tiktok" icon={platformIcon.tiktok} name="TikTok Ads"
+            count={tiktokCampaigns.length ? `${fTik.length} campaign${fTik.length === 1 ? '' : 's'}` : null}
+            headerCtrl={tiktokCampaigns.length ? statusSelect() : null}
+            open={open.tiktok} onToggle={toggle}
+            action={<LastUpdated syncedAt={tiktokSynced} syncing={tiktokSyncing} onRefresh={handleTiktokRefresh} />}
+            kpis={open.tiktok ? [] : (tiktokCampaigns.length ? [
+              { label: 'Spend', value: fmt$(m.tiktokSpend) },
+              { label: 'Clicks', value: fmtNum(m.tiktokClicks) },
+              { label: 'Conv', value: fmtNum(m.tConvPlatform) },
+              { label: 'Conv (CH)', value: fmtNum(m.tConv), ch: true },
+              { label: 'ROAS (CH)', value: fmtRoas(m.tRoas), ch: true },
+            ] : [{ label: 'Not connected', value: '—' }])}>
+            {tiktokCampaigns.length === 0 ? (
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">No TikTok data in range</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Connect TikTok Ads (Marketing API token + advertiser ID) or widen the date range. Spend matches to CH-attributed orders via the captured campaign IDs.</p>
+              </div>
+            ) : (
+              <>
+              <TrendChart dates={trend.dates} a={trend.tiktok} />
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
+                  <PaidColGroup />
+                  <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                    <tr>
+                      {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
+                        <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
+                      ))}
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">AOV (CH)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
+                      <td className="px-4 py-3">Totals</td>
+                      <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                      <td className="px-4 py-3 text-right">{m.tiktokBudget > 0 ? fmt$(m.tiktokBudget) : '—'}</td>
+                      <td className="px-4 py-3 text-right">{fmt$2(m.tiktokSpend)}</td>
+                      <td className="px-4 py-3 text-right">{fmtNum(m.tiktokImpr)}</td>
+                      <td className="px-4 py-3 text-right">{fmtPct(m.tiktokImpr > 0 ? m.tiktokClicks / m.tiktokImpr : 0)}</td>
+                      <td className="px-4 py-3 text-right">{fmtNum(m.tiktokClicks)}</td>
+                      <td className="px-4 py-3 text-right">{fmt$2(m.tiktokClicks > 0 ? m.tiktokSpend / m.tiktokClicks : 0)}</td>
+                      <td className="px-4 py-3 text-right">{Number(m.tConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                      <td className="px-4 py-3 text-right">{m.tConvPlatform > 0 ? fmt$2(m.tiktokSpend / m.tConvPlatform) : '—'}</td>
+                      <td className="px-4 py-3 text-right">{m.tRoasPlatform > 0 ? fmtRoas(m.tRoasPlatform) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv > 0 ? fmt$2(m.tiktokSpend / m.tConv) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tRoas > 0 ? fmtRoas(m.tRoas) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv > 0 ? fmt$2(m.tRev / m.tConv) : '—'}</td>
+                    </tr>
+                    {fTik.map(c => {
                       const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
                       const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
