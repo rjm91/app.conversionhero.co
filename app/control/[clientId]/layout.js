@@ -219,13 +219,20 @@ export default function ClientLayout({ children }) {
   const [brandColor, setBrandColor] = useState(null)   // brand-board primary, colors the account icon
   const { theme } = useTheme()
   const [clients, setClients] = useState([])
-  const [isAgencyAdmin, setIsAgencyAdmin] = useState(false)
+  const [realAgencyAdmin, setRealAgencyAdmin] = useState(false)
+  const [viewAsClient, setViewAsClient] = useState(false)
   const [roleLoaded, setRoleLoaded] = useState(false)
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null) // groupId or 'brand'
   const [toast, setToast] = useState('')
   const dropdownRefs = useRef({})
+
+  // "View as client" — lets the architect preview the client experience without
+  // changing real permissions. Every agency-only gate reads this derived flag.
+  const isAgencyAdmin = realAgencyAdmin && !viewAsClient
+  useEffect(() => { try { setViewAsClient(localStorage.getItem('ca_view_as_client') === '1') } catch {} }, [])
+  const toggleViewAs = () => setViewAsClient(v => { const n = !v; try { localStorage.setItem('ca_view_as_client', n ? '1' : '0') } catch {} ; return n })
 
   const activeKey = getActiveKey(pathname, clientId)
   const activeGroup = getGroupForKey(activeKey)
@@ -270,7 +277,7 @@ export default function ClientLayout({ children }) {
         setBrandColor(primary)
       })
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.role === 'agency_admin') setIsAgencyAdmin(true)
+      if (user?.user_metadata?.role === 'agency_admin') setRealAgencyAdmin(true)
       setRoleLoaded(true)
     })
   }, [clientId])
@@ -512,9 +519,24 @@ export default function ClientLayout({ children }) {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-2.5">
+          {realAgencyAdmin && (
+            <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-gray-400 hover:text-white border border-white/10 hover:bg-white/[0.06]'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg>
+              {viewAsClient ? 'Client View' : 'View as Client'}
+            </button>
+          )}
           <UserMenu />
         </div>
       </header>
+
+      {viewAsClient && (
+        <div className="bg-amber-500 text-black text-[13px] font-semibold flex items-center justify-center gap-3 py-1.5 px-4 flex-shrink-0 z-40">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg>
+          <span>Viewing as a client — this is what {clients.find(c => c.client_id === clientId)?.client_name || 'the client'} sees. Agency-only tools are hidden.</span>
+          <button onClick={toggleViewAs} className="underline font-bold hover:opacity-80">Exit</button>
+        </div>
+      )}
 
       {/* ===== CONTENT ROW (sidebar + main) ===== */}
       <div className="flex flex-1 min-h-0">
