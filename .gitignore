@@ -35,3 +35,6 @@ data/
 # Commit only the convention (README), never the actual client docs.
 docs/clients/*
 !docs/clients/README.md
+
+# Session screenshots — local scratch only (repo is PUBLIC; don't publish dashboards)
+public/screenshots/
