@@ -59,11 +59,27 @@ function Stepper({ value, step = 1, onChange, width = 'w-14' }) {
   )
 }
 
+function Section({ icon, name, count, hint, open, onToggle, children }) {
+  return (
+    <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] overflow-hidden mb-5">
+      <div onClick={onToggle} className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-[#161b30] transition">
+        <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+        {icon}
+        <div><span className="font-bold text-gray-900 dark:text-white">{name}</span>{count != null && <span className="text-xs text-gray-500 ml-1.5">{count}</span>}</div>
+        {open && hint && <span className="ml-auto text-[11px] text-gray-400 hidden sm:block">{hint}</span>}
+      </div>
+      {open && <div className="border-t border-gray-100 dark:border-white/[0.06]">{children}</div>}
+    </div>
+  )
+}
+
 export default function ManufacturingCenter({ clientName }) {
   const [laborRate, setLaborRate] = useState(DEFAULTS.laborRate)
   const [MAT, setMAT] = useState(clone(DEFAULTS.MAT))
   const [SKUS, setSKUS] = useState(clone(DEFAULTS.SKUS))
   const [expanded, setExpanded] = useState(() => new Set())
+  const [open, setOpen] = useState({ skus: true, materials: true, explainer: true })
+  const toggleSec = (k) => setOpen(o => ({ ...o, [k]: !o[k] }))
 
   const toggle = (i) => setExpanded(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n })
   const setMatField = (k, f, v) => setMAT(m => ({ ...m, [k]: { ...m[k], [f]: v } }))
@@ -133,12 +149,10 @@ export default function ManufacturingCenter({ clientName }) {
       </div>
 
       {/* SKUs */}
-      <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] overflow-hidden mb-5">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-white/[0.06]">
-          <span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{ background: 'linear-gradient(135deg,#34CC93,#1a9e6e)' }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg></span>
-          <div><span className="font-bold text-gray-900 dark:text-white">Cover SKUs</span> <span className="text-xs text-gray-500 ml-1">{SKUS.length} SKUs</span></div>
-          <span className="ml-auto text-[11px] text-gray-400 hidden sm:block">Click a SKU to open its recipe (BOM) &amp; build process →</span>
-        </div>
+      <Section
+        icon={<span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{ background: 'linear-gradient(135deg,#34CC93,#1a9e6e)' }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg></span>}
+        name="Cover SKUs" count={`${SKUS.length} SKUs`} hint="Click a SKU to open its recipe (BOM) & build process →"
+        open={open.skus} onToggle={() => toggleSec('skus')}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap min-w-[1040px]">
             <thead className="bg-gray-50 dark:bg-[#0d1020]">
@@ -216,15 +230,13 @@ export default function ManufacturingCenter({ clientName }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </Section>
 
       {/* Materials */}
-      <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] overflow-hidden mb-5">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-white/[0.06]">
-          <span className="w-7 h-7 rounded-lg grid place-items-center bg-blue-500/20 text-blue-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg></span>
-          <span className="font-bold text-gray-900 dark:text-white">Raw Materials &amp; Inventory</span>
-          <span className="ml-auto text-[11px] text-gray-400 hidden sm:block">💡 Edit a Cost/Unit and every recipe above updates</span>
-        </div>
+      <Section
+        icon={<span className="w-7 h-7 rounded-lg grid place-items-center bg-blue-500/20 text-blue-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg></span>}
+        name="Raw Materials & Inventory" hint="💡 Edit a Cost/Unit and every recipe above updates"
+        open={open.materials} onToggle={() => toggleSec('materials')}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap min-w-[860px]">
             <thead className="bg-gray-50 dark:bg-[#0d1020]"><tr>
@@ -253,16 +265,14 @@ export default function ManufacturingCenter({ clientName }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </Section>
 
       {/* explainer */}
-      <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] p-5">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="w-7 h-7 rounded-lg grid place-items-center bg-[#34CC93]/15 text-[#34CC93]"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></span>
-          <span className="font-bold text-gray-900 dark:text-white">Factory floor → checkout</span>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">Each cover's <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The same unit-economics model prices the product <i>and</i> steers the ad budget.</p>
-      </div>
+      <Section
+        icon={<span className="w-7 h-7 rounded-lg grid place-items-center bg-[#34CC93]/15 text-[#34CC93]"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></span>}
+        name="Factory floor → checkout" open={open.explainer} onToggle={() => toggleSec('explainer')}>
+        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl p-5">Each cover's <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The same unit-economics model prices the product <i>and</i> steers the ad budget.</p>
+      </Section>
     </div>
   )
 }
