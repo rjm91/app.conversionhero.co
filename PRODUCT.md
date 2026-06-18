@@ -8,6 +8,44 @@ Think of it as hiring a world-class Chief Marketing Officer who works 24/7, neve
 
 ---
 
+## Business Model & Pricing (Framework)
+
+> Critical framing for how we price our work **and** how we help clients price theirs. There are **two linked pricing problems** — how the *client* prices their product, and how *we* price our services to them. The first is the **input** to the second.
+
+### The cost-structure insight (software vs. manufacturing)
+- **Software:** cost is in the **first unit** (the build). Each additional copy/deploy is ~$0, so **margins improve with every client.** "Manufacturing" is the right word only for the *process* (idea → build → ship), not the *cost structure*.
+- **Physical products:** cost is in **each unit** (materials + labor). Margin is roughly **flat per unit** and only improves with scale / bulk buying.
+
+### What we are: a productized service
+We build **reusable products** (Control Center, funnels, ops software) and deploy **customized instances** per client. Leverage = reuse. We are *not* a custom job shop billing hours; we ship customized copies of a reusable product. Pricing follows directly:
+- **One-time setup/build fee** → recovers the bespoke build (the "tooling").
+- **Monthly recurring** → monetizes the reusable asset (high margin, compounds with each client).
+
+### Our pricing menu (price each service differently)
+| Service | Model |
+|---|---|
+| Paid ads | Monthly retainer **+** % of ad spend (~10–15%) or performance (per lead/sale) |
+| Custom software | Setup fee **+** monthly SaaS/license **+** support. Prefer **build-and-license** (we own IP, recurring, resellable) over build-for-hire |
+| Advisory / process consulting | Fixed project fee, or bundle in to justify premium |
+- **Avoid pure hourly** as the core model — it caps upside and penalizes getting faster.
+- When embedded across marketing + software + ops → consider a **bundled retainer** and **rev-share / small equity** (capture the upside, not just fees).
+
+### Pricing physical-product clients (e.g., RV window covers)
+Map their unit economics with them:
+1. **BOM** (bill of materials): every component × cost + a **scrap/waste %**.
+2. **Routing:** time each labor step × loaded rate.
+3. **COGS** = materials + labor + variable overhead. Separate **fixed costs** (equipment, rent, *our software*).
+4. **Contribution margin** = price − COGS − shipping − fees − per-order ad cost → drives **max allowable CAC**.
+
+**The bridge to our ad business:** their contribution margin is the **ceiling on what we can spend to acquire a customer.** So *their manufacturing math is our marketing math* — it sets target ROAS / max CPA. DTC products sold on paid ads generally need **~60–75% gross margin** to survive acquisition + returns + shipping.
+
+### What ties it together
+One **unit-economics model** is simultaneously (a) the client's pricing tool, (b) the **spec** for the ops software we build them, and (c) the **justification** for our ad fees. Same model → three revenue streams. Positioning: **we connect the factory floor to the checkout.**
+
+> Note: general business reasoning, not formal financial/accounting advice.
+
+---
+
 ## What It Does Today
 
 A multi-tenant **agency client portal** built on Next.js + Supabase, currently serving as the data layer and UI foundation for the AI agent layer coming soon.
