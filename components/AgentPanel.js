@@ -194,6 +194,11 @@ export default function AgentPanel({ mode = 'client', clientName = '' }) {
       markProposal(messageIndex, proposalIndex, { _status: 'applied' })
       return
     }
+    if (proposal.action === 'payment') {
+      window.dispatchEvent(new CustomEvent('payment:apply', { detail: proposal.fields }))
+      markProposal(messageIndex, proposalIndex, { _status: 'applied' })
+      return
+    }
     if (proposal.action === 'campaign') {
       applyCampaignProposal(proposal)
       markProposal(messageIndex, proposalIndex, { _status: 'applied' })
@@ -296,6 +301,7 @@ export default function AgentPanel({ mode = 'client', clientName = '' }) {
     : pathname.includes('/contacts') ? 'Leads'
     : pathname.includes('/campaign-builder') ? 'Campaign Builder'
     : pathname.includes('/paid-ads') ? 'Ads'
+    : pathname.includes('/payments') ? 'Payments'
     : pathname.includes('/billing') ? 'Billing'
     : pathname.includes('/company') ? 'Company'
     : pathname.includes('/dashboard') ? 'Dashboard'
@@ -476,6 +482,7 @@ function ProposalCard({ proposal, onAccept, onReject, onUndo }) {
   const isUpdate = proposal.action === 'updateScript'
   const isAgreement = proposal.action === 'agreement'
   const isCampaign = proposal.action === 'campaign'
+  const isPayment = proposal.action === 'payment'
   const fields = proposal.fields || {}
   const diff = proposal.diff || {}
 
@@ -507,8 +514,8 @@ function ProposalCard({ proposal, onAccept, onReject, onUndo }) {
     <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#161922]">
       <div className="px-3 py-2 border-b border-gray-100 dark:border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isAgreement ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' : isUpdate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-            {isAgreement ? 'AGREEMENT' : isUpdate ? 'UPDATE' : 'CREATE'}
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isAgreement ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' : isPayment ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : isUpdate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+            {isAgreement ? 'AGREEMENT' : isPayment ? 'PAYMENT' : isUpdate ? 'UPDATE' : 'CREATE'}
           </span>
           <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{proposal.summary}</p>
         </div>

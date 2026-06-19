@@ -17,8 +17,15 @@ function fmtDate(d) {
 
 const METHODS = ['Zelle', 'Venmo', 'Cash', 'Check', 'Wire', 'PayPal', 'Other']
 
-function AddPaymentModal({ clients, supabase, onClose, onSuccess }) {
-  const [form, setForm] = useState({ clientId: '', amount: '', date: new Date().toISOString().slice(0, 10), method: 'Zelle', customerName: '', description: '' })
+function AddPaymentModal({ clients, supabase, initial, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    clientId: initial?.clientId || '',
+    amount: initial?.amount != null ? String(initial.amount) : '',
+    date: initial?.date || new Date().toISOString().slice(0, 10),
+    method: METHODS.includes(initial?.method) ? initial.method : 'Zelle',
+    customerName: initial?.clientName || '',
+    description: initial?.memo || '',
+  })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [listening, setListening] = useState(false)
@@ -118,6 +125,7 @@ export default function PaymentsPage() {
   const [qbConnected, setQbConnected] = useState(null)
   const [qbBanner,    setQbBanner]    = useState(null)
   const [showAdd,     setShowAdd]     = useState(false)
+  const [voiceInit,   setVoiceInit]   = useState(null) // pre-fill from agent panel (payment:apply)
 
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
@@ -147,6 +155,13 @@ export default function PaymentsPage() {
     else if (sp.get('qb') === 'connected') { setQbBanner({ type: 'ok', text: 'QuickBooks connected.' }); setQbConnected(true) }
   }, [])
 
+
+  // Agent panel can fill a payment by voice → opens the modal pre-filled.
+  useEffect(() => {
+    const onApply = (e) => { setVoiceInit(e.detail || {}); setShowAdd(true) }
+    window.addEventListener('payment:apply', onApply)
+    return () => window.removeEventListener('payment:apply', onApply)
+  }, [])
 
   async function deleteManual(id) {
     if (!window.confirm('Delete this manual payment?')) return
@@ -272,7 +287,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {showAdd && <AddPaymentModal clients={clients} supabase={supabaseRef} onClose={() => setShowAdd(false)} onSuccess={() => { setShowAdd(false); loadPayments() }} />}
+      {showAdd && <AddPaymentModal clients={clients} supabase={supabaseRef} initial={voiceInit} onClose={() => { setShowAdd(false); setVoiceInit(null) }} onSuccess={() => { setShowAdd(false); setVoiceInit(null); loadPayments() }} />}
 
       {qbBanner && (
         <div className={`mb-6 px-4 py-3 rounded-lg text-sm border ${qbBanner.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-green-500/10 border-green-500/30 text-green-300'}`}>
