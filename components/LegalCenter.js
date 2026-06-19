@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 const TYPE = {
   Property: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400',
@@ -71,7 +71,20 @@ export default function LegalCenter({ clientName }) {
   const [open, setOpen] = useState({ docs: true, deadlines: true, actions: false, risks: false, people: false, glossary: false })
   const [docOpen, setDocOpen] = useState({})
   const toggle = (k) => setOpen(o => ({ ...o, [k]: !o[k] }))
-  const bullets = (items, color = 'bg-gray-300 dark:bg-white/20') => items.map((t, i) => <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300"><span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color}`} />{t}</li>)
+
+  // Upload area (front-end only — drag/drop, browse, or paste)
+  const fileRef = useRef(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [pending, setPending] = useState([])
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const fmtSize = (b) => b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'
+  const addFiles = (fileList) => {
+    const arr = Array.from(fileList || []).map(f => ({ name: f.name, size: f.size, type: (f.name.split('.').pop() || 'file').toUpperCase() }))
+    if (arr.length) setPending(p => [...arr, ...p])
+  }
+  const onDrop = (e) => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files) }
+  const addPaste = () => { const t = pasteText.trim(); if (!t) return; setPending(p => [{ name: 'Pasted text', size: t.length, type: 'TEXT' }, ...p]); setPasteText(''); setPasteOpen(false) }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -84,11 +97,49 @@ export default function LegalCenter({ clientName }) {
         <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 py-2.5 flex items-center gap-2"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>Dump a document</button>
       </div>
 
-      {/* dump bar */}
-      <div className="rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/[0.06] p-5 mb-5 flex items-center gap-4">
+      {/* dump / upload zone */}
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={`rounded-2xl border-2 border-dashed p-5 mb-3 flex items-center gap-4 cursor-pointer transition ${dragOver ? 'border-indigo-500 bg-indigo-100/70 dark:bg-indigo-500/[0.14]' : 'border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/[0.06] hover:border-indigo-400'}`}>
+        <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
         <span className="grid place-items-center w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 shrink-0"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg></span>
-        <div className="flex-1"><p className="font-bold text-gray-900 dark:text-white">Dump anything here</p><p className="text-sm text-gray-500 dark:text-gray-400">Drop a PDF, paste text, or forward an email — it auto-files into the right category and gets decoded.</p></div>
+        <div className="flex-1">
+          <p className="font-bold text-gray-900 dark:text-white">{dragOver ? 'Drop to add' : 'Dump anything here'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Drag &amp; drop files, click to browse, or <button onClick={(e) => { e.stopPropagation(); setPasteOpen(o => !o) }} className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">paste text</button>. Auto-files &amp; decodes.</p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/15 rounded-lg px-4 py-2">Browse files</span>
       </div>
+
+      {/* paste-text manual entry */}
+      {pasteOpen && (
+        <div className="mb-3 bg-white dark:bg-[#111528] border border-gray-100 dark:border-white/[0.06] rounded-xl p-4">
+          <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={4}
+            placeholder="Paste a contract, agreement, or any legal text here…"
+            className="w-full text-sm bg-gray-50 dark:bg-[#0d1020] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/40 text-gray-800 dark:text-gray-100" />
+          <div className="flex gap-2 mt-2">
+            <button onClick={addPaste} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-1.5">Add text</button>
+            <button onClick={() => { setPasteOpen(false); setPasteText('') }} className="text-sm font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-3 py-1.5">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* just-added queue */}
+      {pending.length > 0 && (
+        <div className="mb-5 space-y-2">
+          {pending.map((f, i) => (
+            <div key={i} className="flex items-center gap-3 bg-white dark:bg-[#111528] border border-gray-100 dark:border-white/[0.06] rounded-lg px-4 py-2.5">
+              <span className="grid place-items-center w-9 h-9 rounded-lg bg-gray-100 dark:bg-white/5 text-[10px] font-bold text-gray-500 dark:text-gray-400 shrink-0">{f.type}</span>
+              <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 dark:text-white truncate">{f.name}</p><p className="text-xs text-gray-400">{fmtSize(f.size)}</p></div>
+              <span className="text-[11px] font-semibold text-amber-600 bg-amber-100 dark:bg-amber-500/15 dark:text-amber-400 rounded-full px-2.5 py-1 animate-pulse">Queued for decoding</span>
+              <button onClick={() => setPending(p => p.filter((_, j) => j !== i))} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none">×</button>
+            </div>
+          ))}
+          <p className="text-[11px] text-gray-400 dark:text-gray-600">UI preview — files aren't uploaded or decoded yet.</p>
+        </div>
+      )}
 
       {/* stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
