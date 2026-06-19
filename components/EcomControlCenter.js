@@ -55,11 +55,20 @@ function deriveChannel(o) {
   return ch || 'Other'
 }
 
+// Local calendar date (YYYY-MM-DD) in the viewer's machine timezone — NOT UTC.
+// Using toISOString() here would roll "today" to tomorrow every evening for
+// users west of UTC, which is the timezone drift we're fixing.
+function localDay(d = new Date()) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function defaultDates() {
-  const end = new Date()
   const start = new Date()
   start.setDate(start.getDate() - 30)
-  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+  return { start: localDay(start), end: localDay() }
 }
 
 // Preset date ranges (primary selector). 'custom' falls back to the date inputs.
@@ -77,8 +86,8 @@ const RANGE_OPTIONS = [
 ]
 function rangeFor(preset) {
   const today = new Date()
-  const end = today.toISOString().slice(0, 10)
-  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
+  const end = localDay(today)
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localDay(d) }
   switch (preset) {
     case 'today':     return { start: end, end }
     case 'yesterday': { const y = daysAgo(1); return { start: y, end: y } }
@@ -565,13 +574,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    // Shopify created_at is a real UTC timestamp; bound it by the LOCAL day's
+    // actual start/end instants (machine timezone) so "today" matches the
+    // viewer's calendar day exactly rather than UTC midnight.
+    const dayStartISO = new Date(`${appliedStart}T00:00:00`).toISOString()
+    const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
     const [ordersRes, campRes, metaRes, tiktokRes] = await Promise.all([
       supabase.from('client_lead')
         .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name')
         .eq('client_id', clientId)
         .like('lead_id', 'shopify_%')
-        .gte('created_at', appliedStart)
-        .lte('created_at', appliedEnd + 'T23:59:59-12:00')
+        .gte('created_at', dayStartISO)
+        .lte('created_at', dayEndISO)
         .order('created_at', { ascending: false }),
       supabase.from('client_yt_campaigns')
         .select('*')
@@ -866,7 +880,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const dates = []
     const d1 = new Date(appliedEnd + 'T00:00:00')
     for (let d = new Date(appliedStart + 'T00:00:00'); d <= d1; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().slice(0, 10))
+      dates.push(localDay(d))
     }
     const idx = Object.fromEntries(dates.map((d, i) => [d, i]))
     const blank = () => ({
@@ -903,7 +917,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     // ALL orders by day (count + revenue), regardless of attribution
     const ords = { orders: Array(dates.length).fill(0), sales: Array(dates.length).fill(0), adspend: Array(dates.length).fill(0), aov: Array(dates.length).fill(0) }
     for (const o of orders) {
-      const i = idx[String(o.created_at).slice(0, 10)]; if (i == null) continue
+      const i = idx[localDay(new Date(o.created_at))]; if (i == null) continue
       const rev = Number(o.sale_amount) || 0
       ords.orders[i] += 1
       ords.sales[i] += rev

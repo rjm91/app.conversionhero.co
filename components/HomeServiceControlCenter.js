@@ -17,9 +17,17 @@ const fmtPct = (n) => (Math.round((n || 0) * 1000) / 10) + '%'
 const isBooked = (s) => /appt/i.test(s || '')
 const isSold   = (s) => /^sold$/i.test((s || '').trim())
 
+// Local calendar date (YYYY-MM-DD) in the viewer's machine timezone — not UTC.
+function localDay(d = new Date()) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function defaultDates() {
-  const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 30)
-  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+  const start = new Date(); start.setDate(start.getDate() - 30)
+  return { start: localDay(start), end: localDay() }
 }
 const RANGE_OPTIONS = [
   ['last_7', 'Last 7 Days'], ['last_14', 'Last 14 Days'], ['last_30', 'Last 30 Days'],
@@ -28,8 +36,8 @@ const RANGE_OPTIONS = [
 ]
 function rangeFor(preset) {
   const today = new Date()
-  const end = today.toISOString().slice(0, 10)
-  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
+  const end = localDay(today)
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localDay(d) }
   switch (preset) {
     case 'last_7':    return { start: daysAgo(7),  end }
     case 'last_14':   return { start: daysAgo(14), end }
@@ -181,9 +189,13 @@ export default function HomeServiceControlCenter({ clientId, clientName }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    // Bound created_at (a real UTC timestamp) by the LOCAL day's start/end
+    // instants so "today" matches the viewer's calendar day, not UTC midnight.
+    const dayStartISO = new Date(`${appliedStart}T00:00:00`).toISOString()
+    const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
     const [leadRes, campRes, adRes, funnelRes] = await Promise.all([
       supabase.from('client_lead').select('lead_id, first_name, last_name, email, phone, lead_status, utm_campaign, utm_source, created_at, ch_notes')
-        .eq('client_id', clientId).gte('created_at', appliedStart).lte('created_at', appliedEnd + 'T23:59:59-12:00').order('created_at', { ascending: false }),
+        .eq('client_id', clientId).gte('created_at', dayStartISO).lte('created_at', dayEndISO).order('created_at', { ascending: false }),
       supabase.from('client_yt_campaigns').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
       supabase.from('client_yt_ads').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
       supabase.from('client_funnels').select('*').eq('client_id', clientId),
@@ -270,10 +282,10 @@ export default function HomeServiceControlCenter({ clientId, clientName }) {
   const trend = useMemo(() => {
     const dates = []
     const d1 = new Date(appliedEnd + 'T00:00:00')
-    for (let d = new Date(appliedStart + 'T00:00:00'); d <= d1; d.setDate(d.getDate() + 1)) dates.push(d.toISOString().slice(0, 10))
+    for (let d = new Date(appliedStart + 'T00:00:00'); d <= d1; d.setDate(d.getDate() + 1)) dates.push(localDay(d))
     const idx = Object.fromEntries(dates.map((d, i) => [d, i]))
     const series = { leads: Array(dates.length).fill(0), spend: Array(dates.length).fill(0), clicks: Array(dates.length).fill(0), conversions: Array(dates.length).fill(0) }
-    for (const l of leads) { const i = idx[String(l.created_at).slice(0, 10)]; if (i != null) series.leads[i] += 1 }
+    for (const l of leads) { const i = idx[localDay(new Date(l.created_at))]; if (i != null) series.leads[i] += 1 }
     for (const r of campDaily) {
       const i = idx[String(r.date).slice(0, 10)]; if (i == null) continue
       series.spend[i] += Number(r.cost) || 0; series.clicks[i] += Number(r.clicks) || 0; series.conversions[i] += Number(r.conversions) || 0
