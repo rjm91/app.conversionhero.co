@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '../../lib/supabase-browser'
 import ThemeSelector from '../../components/ThemeSelector'
 import AgentPanel from '../../components/AgentPanel'
+import { isSecurityAdmin } from '../../lib/roles'
 
 /* ─── Nav structure ─── */
 const NAV_GROUPS = {
@@ -58,9 +59,11 @@ const NAV_GROUPS = {
       </svg>
     ),
     items: [
+      { key: 'team', label: 'Team & Roles', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5 10.343 11 12 11zm0 2c-3.314 0-6 1.79-6 4v1h12v-1c0-2.21-2.686-4-6-4zm7-2l1.5 1.5L23 9.5" /></svg> },
       { key: 'payments', label: 'Payments', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> },
       { key: 'automations', label: 'Automations', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
       { key: 'email-templates', label: 'Email Templates', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> },
+      { key: 'agent', label: 'Agent Access', securityOnly: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 7h10v10H7V7zm3 3h4v4h-4v-4z" /></svg> },
     ],
   },
 }
@@ -170,7 +173,7 @@ function Toast({ message }) {
 /* ─── Main Layout ─── */
 export default function AdminLayout({ children }) {
   const pathname = usePathname()
-  const [profile, setProfile] = useState({ name: '', email: '' })
+  const [profile, setProfile] = useState({ name: '', email: '', role: null })
   const [clients, setClients] = useState([])
   const [pinnedGroups, setPinnedGroups] = useState(new Set())
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -184,7 +187,7 @@ export default function AdminLayout({ children }) {
     fetch('/api/profile')
       .then(r => r.json())
       .then(data => {
-        if (!data.error) setProfile({ name: data.full_name || '', email: data.email || '' })
+        if (!data.error) setProfile({ name: data.full_name || '', email: data.email || '', role: data.role || null })
       })
   }, [])
 
@@ -258,6 +261,12 @@ export default function AdminLayout({ children }) {
     const href = `/control/${item.key}`
     if (item.matchPrefix) return pathname.startsWith(href)
     return pathname === href
+  }
+
+  // Hide security-only items (e.g. Agent Access) from everyone but the security account.
+  function canSeeItem(item) {
+    if (item.securityOnly) return isSecurityAdmin(profile.role)
+    return true
   }
 
   const sidebarW = !hasPins ? '0px' : isCollapsed ? '54px' : '240px'
@@ -374,7 +383,7 @@ export default function AdminLayout({ children }) {
                       <span className="hidden group-hover/pin:block absolute top-full right-0 mt-1 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap">Pin to sidebar</span>
                     </button>
                   </div>
-                  {group.items.map(item => (
+                  {group.items.filter(canSeeItem).map(item => (
                     <Link
                       key={item.key}
                       href={`/control/${item.key}`}
@@ -431,7 +440,7 @@ export default function AdminLayout({ children }) {
                     </div>
                   )}
                   {/* Nav items */}
-                  {group.items.map(item => (
+                  {group.items.filter(canSeeItem).map(item => (
                     <Link
                       key={item.key}
                       href={`/control/${item.key}`}
