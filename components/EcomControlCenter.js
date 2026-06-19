@@ -401,6 +401,39 @@ function OrdersChart({ dates, series }) {
   )
 }
 
+// Reusable drill-down: click a metric → see the source rows that make it up.
+function DrillDown({ data, onClose }) {
+  if (!data) return null
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
+      <div onClick={(e) => e.stopPropagation()} className="relative bg-white dark:bg-[#111528] w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.06] flex items-start gap-3">
+          <div className="flex-1">
+            <div className="flex items-baseline gap-2 flex-wrap"><span className="text-base font-bold text-gray-900 dark:text-white">{data.title}</span>{data.value != null && <span className="text-base font-extrabold text-blue-500">{data.value}</span>}</div>
+            {data.formula && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{data.formula}</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none shrink-0">×</button>
+        </div>
+        <div className="overflow-y-auto">
+          {(!data.rows || data.rows.length === 0) ? <p className="p-6 text-sm text-gray-400">No underlying rows.</p> : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-[#0d1020] sticky top-0"><tr className="text-left text-[10px] uppercase tracking-wide text-gray-400">
+                {data.columns.map((c, i) => <th key={i} className={`px-5 py-2.5 font-semibold ${i === data.columns.length - 1 ? 'text-right' : ''}`}>{c}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                {data.rows.map((r, i) => <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">{r.map((cell, j) => <td key={j} className={`px-5 py-2.5 ${j === r.length - 1 ? 'text-right font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>{cell}</td>)}</tr>)}
+              </tbody>
+              {data.footer && <tfoot><tr className="border-t border-gray-200 dark:border-white/10 font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-[#0d1020]">{data.footer.map((cell, j) => <td key={j} className={`px-5 py-2.5 ${j === data.footer.length - 1 ? 'text-right' : ''}`}>{cell}</td>)}</tr></tfoot>}
+            </table>
+          )}
+        </div>
+        <div className="px-5 py-2.5 border-t border-gray-100 dark:border-white/[0.06] text-[11px] text-gray-400">{(data.rows || []).length} row{(data.rows || []).length === 1 ? '' : 's'} · source data</div>
+      </div>
+    </div>
+  )
+}
+
 function HealthBeacon({ detail }) {
   return (
     <span title={detail} className="inline-flex items-center gap-1.5 ml-2 align-middle cursor-help">
@@ -569,6 +602,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
   const [health, setHealth] = useState(null) // ad-account integration health
+  const [drill, setDrill] = useState(null)   // metric drill-down (source rows)
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, ordersChart: true, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -942,6 +976,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const tiktokSynced = useMemo(() => tiktokCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [tiktokCampaigns])
 
   const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
+
+  // ── Metric drill-downs: click a metric → see its source rows ──
+  const orderRows = (list) => list.map(o => [o.shopify_data?.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(o.sale_amount)])
+  const drillOrders = (title, value, formula, list) => setDrill({
+    title, value, formula,
+    columns: ['Order', 'Date', 'Channel', 'Amount'],
+    rows: orderRows(list),
+    footer: ['Total', '', '', fmt$2(list.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0))],
+  })
+
   const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
   // Lighten a hex toward white (for the Email channel = lighter brand red)
   const lighten = (hex, amt) => {
@@ -1039,28 +1083,33 @@ export default function EcomControlCenter({ clientId, clientName }) {
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
                 {m.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : m.byChannel.map(([name, val]) => (
-                  <div key={name} className="flex items-center gap-3 py-1.5">
-                    <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
+                  <button key={name} onClick={() => drillOrders(`${name} revenue`, fmt$(val), `Orders attributed to ${name} (by captured source). Click an order in your store for the full record.`, orders.filter(o => deriveChannel(o) === name))}
+                    className="w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/[0.03] px-1 -mx-1 transition cursor-pointer text-left group">
+                    <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-700 dark:group-hover:text-gray-200">{name}</span>
                     <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
                       <div className="h-full rounded" style={{ width: `${(val / channelMax) * 100}%`, background: channelColor(name) }} />
                     </div>
                     <span className="w-16 text-right text-xs font-semibold text-gray-700 dark:text-gray-200">{fmt$(val)}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    ['AOV', fmt$2(m.aov), false, 'Average order value = total revenue ÷ total orders.'],
-                    ['Cost / Order', fmt$2(m.costPerOrder), false, 'Blended ad spend (Google + Meta) ÷ all orders. Spreads paid spend across every order, including email/organic/direct — so true cost per ad-driven order is higher.'],
-                    ['Conversion Rate', fmtPct(m.convRate), false, 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.'],
-                    ['Tracked Revenue (CH)', fmt$(m.trackedRevenue), true, "Revenue from orders matched to a Google/Meta campaign ID — ConversionHero's first-party attributed revenue."],
-                  ].map(([label, value, ch, info]) => (
-                    <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3">
+                    { label: 'AOV', value: fmt$2(m.aov), info: 'Average order value = total revenue ÷ total orders.',
+                      onClick: () => drillOrders('AOV — all orders', fmt$2(m.aov), `Average order value = total revenue ÷ orders = ${fmt$(m.revenue)} ÷ ${m.orderCount} = ${fmt$2(m.aov)}`, orders) },
+                    { label: 'Cost / Order', value: fmt$2(m.costPerOrder), info: 'Blended ad spend (Google + Meta) ÷ all orders. Spreads paid spend across every order, including email/organic/direct — so true cost per ad-driven order is higher.',
+                      onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(m.costPerOrder), formula: `Blended ad spend ÷ all orders = ${fmt$(m.adSpend)} ÷ ${m.orderCount} = ${fmt$2(m.costPerOrder)}`, columns: ['Source', 'Value'], rows: [['Google spend', fmt$2(m.googleSpend)], ['Meta spend', fmt$2(m.metaSpend)], ['Total ad spend', fmt$2(m.adSpend)], ['Orders', String(m.orderCount)]], footer: ['Cost / Order', fmt$2(m.costPerOrder)] }) },
+                    { label: 'Conversion Rate', value: fmtPct(m.convRate), info: 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.',
+                      onClick: () => setDrill({ title: 'Conversion Rate', value: fmtPct(m.convRate), formula: `All orders ÷ blended ad clicks = ${m.orderCount} ÷ ${fmtNum(m.clicks)} = ${fmtPct(m.convRate)}`, columns: ['Source', 'Value'], rows: [['Google clicks', fmtNum(m.googleClicks)], ['Meta clicks', fmtNum(m.metaClicks)], ['Total clicks', fmtNum(m.clicks)], ['Orders', String(m.orderCount)]], footer: ['Conversion rate', fmtPct(m.convRate)] }) },
+                    { label: 'Tracked Revenue (CH)', value: fmt$(m.trackedRevenue), ch: true, info: "Revenue from orders matched to a Google/Meta campaign ID — ConversionHero's first-party attributed revenue.",
+                      onClick: () => drillOrders('Tracked Revenue (CH)', fmt$(m.trackedRevenue), 'Orders matched to a Google/Meta campaign ID (first-party attribution).', orders.filter(o => (o.utm_campaign || '').trim())) },
+                  ].map(({ label, value, ch, info, onClick }) => (
+                    <button key={label} onClick={onClick} className="text-left bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3 hover:ring-2 hover:ring-blue-500/30 hover:bg-gray-100 dark:hover:bg-[#1b2238] transition cursor-pointer">
                       <div className={`text-xl font-bold ${ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{value}</div>
                       <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{label}{info && <InfoTip text={info} />}</div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1494,6 +1543,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
           </Section>
         </div>
       )}
+
+      <DrillDown data={drill} onClose={() => setDrill(null)} />
     </div>
   )
 }
