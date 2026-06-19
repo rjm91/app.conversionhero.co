@@ -333,7 +333,19 @@ function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay, on
   )
 }
 
-function Section({ id, icon, name, count, kpis, open, onToggle, children, action, headerCtrl }) {
+function HealthBeacon({ detail }) {
+  return (
+    <span title={detail} className="inline-flex items-center gap-1.5 ml-2 align-middle cursor-help">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+      </span>
+      <span className="text-[11px] font-bold uppercase tracking-wide text-rose-500">Issue</span>
+    </span>
+  )
+}
+
+function Section({ id, icon, name, count, kpis, open, onToggle, children, action, headerCtrl, beacon }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
       <div
@@ -347,6 +359,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
         <div className="min-w-0">
           <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
+          {beacon}
         </div>
         {headerCtrl && <div className="ml-5 flex-shrink-0">{headerCtrl}</div>}
         <div className="flex-1" />
@@ -487,6 +500,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
+  const [health, setHealth] = useState(null) // ad-account integration health
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -569,6 +583,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }, [clientId, appliedStart, appliedEnd])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Ad-account health check (Meta/Google account status) → beacons + banner
+  useEffect(() => {
+    fetch(`/api/integration-health?client_id=${clientId}`, { cache: 'no-store' })
+      .then(r => r.json()).then(setHealth).catch(() => {})
+  }, [clientId])
 
   // Always reload with the CURRENT range (not whatever was selected when an
   // async sync started), so a slow sync can't overwrite the chosen range.
@@ -908,6 +928,21 @@ export default function EcomControlCenter({ clientId, clientName }) {
         </div>
       </div>
 
+      {(() => {
+        const issues = health ? Object.entries(health.platforms || {}).filter(([, p]) => p?.connected && p?.ok === false) : []
+        if (!issues.length) return null
+        const label = { meta: 'Meta', google: 'Google Ads', tiktok: 'TikTok' }
+        return (
+          <div className="mb-5 rounded-xl border border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/[0.08] px-4 py-3 flex items-start gap-3">
+            <span className="relative flex h-2.5 w-2.5 mt-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" /></span>
+            <div className="flex-1">
+              <p className="font-bold text-rose-700 dark:text-rose-300">Ad account issue detected</p>
+              {issues.map(([k, p]) => <p key={k} className="text-sm text-rose-600 dark:text-rose-300/90 mt-0.5"><b>{label[k] || k}</b> — {p.status}: {p.detail}</p>)}
+            </div>
+          </div>
+        )
+      })()}
+
       {firstLoad ? (
         <DashboardSkeleton />
       ) : (
@@ -1041,7 +1076,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           </Section>
 
           {/* Google Ads */}
-          <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${fCampaigns.length} campaign${fCampaigns.length === 1 ? '' : 's'}`} headerCtrl={statusSelect()} open={open.google} onToggle={toggle}
+          <Section id="google" icon={platformIcon.google} name="Google Ads" count={`${fCampaigns.length} campaign${fCampaigns.length === 1 ? '' : 's'}`} headerCtrl={statusSelect()} beacon={health?.platforms?.google?.ok === false ? <HealthBeacon detail={health.platforms.google.detail} /> : null} open={open.google} onToggle={toggle}
             action={<LastUpdated syncedAt={googleSynced} syncing={googleSyncing} onRefresh={handleGoogleRefresh} />}
             kpis={open.google ? [] : [
               { label: 'Spend', value: fmt$(m.googleSpend) },
@@ -1134,6 +1169,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section id="meta" icon={platformIcon.meta} name="Meta Ads"
             count={metaCampaigns.length ? `${fMeta.length} campaign${fMeta.length === 1 ? '' : 's'}` : null}
             headerCtrl={metaCampaigns.length ? statusSelect() : null}
+            beacon={health?.platforms?.meta?.ok === false ? <HealthBeacon detail={health.platforms.meta.detail} /> : null}
             open={open.meta} onToggle={toggle}
             action={<LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />}
             kpis={open.meta ? [] : (metaCampaigns.length ? [
