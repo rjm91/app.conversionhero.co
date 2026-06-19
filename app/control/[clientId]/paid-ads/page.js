@@ -7,6 +7,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Line } from 'react-chartjs-2'
 import CampaignBuilder from '../../../../components/CampaignBuilder'
 import { useAuth } from '../../../../lib/useAuth'
+import { isAgencyUser } from '../../../../lib/roles'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -79,7 +80,7 @@ export default function PaidAdsPage() {
 
   // Drill-down state: 'campaigns' → 'adGroups' → 'ads'
   const { role }                            = useAuth()
-  const isAgency = role === 'agency_admin' || role === 'agency_standard'
+  const isAgency = isAgencyUser(role)
   const [tab, setTab]                       = useState('performance') // performance | builder
   const [view, setView]                     = useState('campaigns')
   const [selectedCampaign, setSelectedCampaign] = useState(null) // { campaign_id, campaign_name }

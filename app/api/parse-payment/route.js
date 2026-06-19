@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { isAgencyAdmin } from '../../../lib/roles'
 
 const METHODS = ['Zelle', 'Venmo', 'Cash', 'Check', 'Wire', 'PayPal', 'Other']
 
@@ -17,7 +18,7 @@ async function requireAgencyAdmin(request) {
   const { data: { user }, error } = await db.auth.getUser(token)
   if (error || !user) return { error: 'Unauthorized', status: 401 }
   const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'agency_admin') return { error: 'Forbidden', status: 403 }
+  if (!isAgencyAdmin(profile?.role)) return { error: 'Forbidden', status: 403 }
   return { ok: true }
 }
 

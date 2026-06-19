@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../../lib/useAuth'
 import CampaignBuilder from '../../../components/CampaignBuilder'
+import { isAgencyUser } from '../../../lib/roles'
 
 const LS_KEY = 'campaignBuilderClient'
 
@@ -12,7 +13,7 @@ export default function AgencyCampaignBuilderPage() {
   const [clientId, setClientId] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const isAgency = role === 'agency_admin' || role === 'agency_standard'
+  const isAgency = isAgencyUser(role)
 
   useEffect(() => {
     let alive = true

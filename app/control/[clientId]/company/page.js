@@ -5,17 +5,20 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../../lib/supabase-browser'
 import ClientTabAccess from '../../../../components/ClientTabAccess'
 import StandardTabAccess from '../../../../components/StandardTabAccess'
+import { isAgencyAdmin } from '../../../../lib/roles'
 
 const roleColors = {
-  agency_admin:    'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  client_admin:    'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  client_standard: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
+  agency_admin:          'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  agency_admin_security: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+  client_admin:          'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  client_standard:       'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
 }
 
 const roleLabels = {
-  agency_admin:    'Agency Admin',
-  client_admin:    'Admin',
-  client_standard: 'Standard',
+  agency_admin:          'Agency Admin',
+  agency_admin_security: 'Agency Admin (Security)',
+  client_admin:          'Admin',
+  client_standard:       'Standard',
 }
 
 function Avatar({ name, email }) {
@@ -467,7 +470,7 @@ export default function CompanyPage() {
 
   useEffect(() => { loadData() }, [clientId])
 
-  const canDelete = currentRole === 'agency_admin' || currentRole === 'client_admin'
+  const canDelete = isAgencyAdmin(currentRole) || currentRole === 'client_admin'
 
   if (loading) return <div className="p-8 text-sm text-gray-400">Loading...</div>
 

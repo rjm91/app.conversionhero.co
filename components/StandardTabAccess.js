@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase-browser'
+import { isAgencyAdmin } from '../lib/roles'
 
 // Account tabs every client user can see (no agency gating).
 const ACCOUNT_TABS = [
@@ -32,7 +33,7 @@ export default function StandardTabAccess({ clientId }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser()
       const role = user?.user_metadata?.role
-      if (role !== 'agency_admin' && role !== 'client_admin') { setReady(true); return }
+      if (!isAgencyAdmin(role) && role !== 'client_admin') { setReady(true); return }
       setAllowed(true)
       const { data } = await supabase.from('client').select('standard_hidden_tabs, tab_access, is_ecom').eq('client_id', clientId).single()
       setHidden(data?.standard_hidden_tabs || {})

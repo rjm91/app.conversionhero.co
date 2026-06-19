@@ -38,3 +38,6 @@ docs/clients/*
 
 # Session screenshots — local scratch only (repo is PUBLIC; don't publish dashboards)
 public/screenshots/
+
+# Internal ops/architecture docs — repo is PUBLIC, never commit backend/access notes
+docs/internal/

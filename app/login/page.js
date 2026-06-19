@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase-browser'
+import { isAgencyAdmin } from '../../lib/roles'
 
 // ── Password Reset Form ──────────────────────────────────────────────────────
 function ResetPasswordForm() {
@@ -218,7 +219,7 @@ export default function LoginPage() {
 
     localStorage.setItem('ca_user', JSON.stringify({ id: user.id, email: user.email, role, clientId }))
 
-    if (role === 'agency_admin') {
+    if (isAgencyAdmin(role)) {
       router.push('/control')
     } else if (clientId) {
       router.push(`/control/${clientId}/dashboard`)

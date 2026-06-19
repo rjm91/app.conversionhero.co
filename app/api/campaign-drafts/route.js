@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '../../../lib/supabase-server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { isAgencyUser } from '../../../lib/roles'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,7 @@ async function authorize(clientId, { write } = {}) {
     .eq('id', user.id)
     .single()
 
-  const isAgency = profile?.role === 'agency_admin' || profile?.role === 'agency_standard'
+  const isAgency = isAgencyUser(profile?.role)
   const isClientMember = profile?.client_id === clientId
   if (!isAgency && !isClientMember) return { error: 'Forbidden', status: 403 }
   if (write && !isAgency && profile?.role !== 'client_admin') return { error: 'Forbidden', status: 403 }

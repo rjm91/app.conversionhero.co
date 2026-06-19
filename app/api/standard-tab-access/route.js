@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isAgencyAdmin } from '../../../lib/roles'
 
 function adminDb() {
   return createClient(
@@ -21,7 +22,7 @@ async function requireManager(request, clientId) {
   const { data: { user }, error } = await db.auth.getUser(token)
   if (error || !user) return { error: 'Unauthorized', status: 401 }
   const { data: profile } = await db.from('profiles').select('role, client_id').eq('id', user.id).single()
-  if (profile?.role === 'agency_admin') return { db }
+  if (isAgencyAdmin(profile?.role)) return { db }
   if (profile?.role === 'client_admin' && profile.client_id === clientId) return { db }
   return { error: 'Forbidden', status: 403 }
 }

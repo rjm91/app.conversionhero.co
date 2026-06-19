@@ -8,6 +8,7 @@ import ThemeSelector from '../../../components/ThemeSelector'
 import { useTheme } from '../../../components/ThemeProvider'
 import AgentPanel from '../../../components/AgentPanel'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { isAgencyAdmin } from '../../../lib/roles'
 
 // Build a 10-step blue scale (as "r g b" channel strings) from one brand hex,
 // lightening toward white for 50–500 and darkening toward black for 700–900.
@@ -315,7 +316,7 @@ export default function ClientLayout({ children }) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       const role = user?.user_metadata?.role || ''
       setUserRole(role)
-      if (role === 'agency_admin') setRealAgencyAdmin(true)
+      if (isAgencyAdmin(role)) setRealAgencyAdmin(true)
       setRoleLoaded(true)
     })
   }, [clientId])

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isAgencyAdmin } from '../../../lib/roles'
 
 function adminDb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -15,7 +16,7 @@ async function requireAgencyAdmin(request) {
   const { data: { user }, error } = await db.auth.getUser(token)
   if (error || !user) return { error: 'Unauthorized', status: 401 }
   const { data: profile } = await db.from('profiles').select('role, email').eq('id', user.id).single()
-  if (profile?.role !== 'agency_admin') return { error: 'Forbidden', status: 403 }
+  if (!isAgencyAdmin(profile?.role)) return { error: 'Forbidden', status: 403 }
   return { db, email: profile.email || user.email }
 }
 

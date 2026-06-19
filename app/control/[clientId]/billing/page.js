@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
+import { isAgencyUser } from '../../../../lib/roles'
 
 const BILLING_TYPES = [
   { value: 'retainer', label: 'Monthly Retainer', description: 'Flat monthly fee only' },
@@ -113,7 +114,7 @@ export default function BillingPage() {
   }
 
   const totalCollected = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
-  const isAgency = role === 'agency_admin' || role === 'agency_standard'
+  const isAgency = isAgencyUser(role)
   const lastPayment = payments[0]
 
   // Client-view: estimate next payment date as 1 month after most recent payment

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase-browser'
+import { isAgencyAdmin } from '../lib/roles'
 
 // Tabs that are agency-only by default and can be "shipped" to a client's users.
 // `key` must match the nav item key in the client layout.
@@ -36,7 +37,7 @@ export default function ClientTabAccess({ clientId }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser()
       const role = user?.user_metadata?.role
-      if (role !== 'agency_admin') { setReady(true); return }
+      if (!isAgencyAdmin(role)) { setReady(true); return }
       setIsAdmin(true)
       const { data } = await supabase.from('client').select('tab_access, is_ecom').eq('client_id', clientId).single()
       setAccess(data?.tab_access || {})

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '../../../../lib/supabase-server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { isAgencyUser } from '../../../../lib/roles'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export async function POST(request) {
   if (!clientId) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
   if (!file || typeof file === 'string') return NextResponse.json({ error: 'file is required' }, { status: 400 })
 
-  const isAgency = profile?.role === 'agency_admin' || profile?.role === 'agency_standard'
+  const isAgency = isAgencyUser(profile?.role)
   const isClientAdmin = profile?.role === 'client_admin' && profile?.client_id === clientId
   if (!isAgency && !isClientAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
