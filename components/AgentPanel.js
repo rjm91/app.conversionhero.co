@@ -45,6 +45,8 @@ export default function AgentPanel({ mode = 'client', clientName = '' }) {
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState(defaultRect)
   const [input, setInput] = useState('')
+  const [listening, setListening] = useState(false)
+  const recogRef = useRef(null)
   const [messages, setMessages] = useState([
     { role: 'agent', text: isAgency
         ? "Hey — ask me anything about your clients, payments, ad spend, or leads across the agency."
@@ -243,9 +245,24 @@ export default function AgentPanel({ mode = 'client', clientName = '' }) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)) } catch {}
   }
 
-  async function send() {
-    if (!input.trim() || sending) return
-    const text = input.trim()
+  // Voice: speak → transcribe into the box → auto-send so the agent fills the page.
+  function toggleMic() {
+    const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null
+    if (!SR) { setInput('Voice needs Chrome or Safari.'); return }
+    if (listening) { recogRef.current?.stop(); return }
+    const r = new SR()
+    r.lang = 'en-US'; r.interimResults = true; r.continuous = false
+    let finalText = ''
+    r.onresult = (e) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; finalText = t; setInput(t) }
+    r.onerror = () => setListening(false)
+    r.onend = () => { setListening(false); const t = finalText.trim(); if (t) send(t) }
+    recogRef.current = r
+    setListening(true); r.start()
+  }
+
+  async function send(textArg) {
+    const text = (typeof textArg === 'string' ? textArg : input).trim()
+    if (!text || sending) return
     const next = [...messages, { role: 'user', text }]
     setMessages(next)
     setInput('')
@@ -449,7 +466,18 @@ export default function AgentPanel({ mode = 'client', clientName = '' }) {
                 className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none overflow-y-auto min-h-[24px]"
               />
               <button
-                onClick={send}
+                onClick={toggleMic}
+                onPointerDown={e => e.stopPropagation()}
+                title={listening ? 'Stop listening' : 'Speak'}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition flex-shrink-0 ${listening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-white/20'}`}
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z" />
+                  <path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V21a1 1 0 102 0v-3.08A7 7 0 0019 11z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => send()}
                 disabled={!input.trim()}
                 className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition flex-shrink-0"
               >
