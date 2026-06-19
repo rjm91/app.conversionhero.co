@@ -11,6 +11,7 @@ const SHIPPABLE_TABS = [
   { key: 'videos',       label: 'Videos' },
   { key: 'contacts',     label: 'Leads',          ecomLabel: 'Customers / Orders' },
   { key: 'calendar',     label: 'Calendar' },
+  { key: 'legal',        label: 'Legal' },
   { key: 'manufacturing', label: 'Manufacturing', ecomOnly: true },
 ]
 
