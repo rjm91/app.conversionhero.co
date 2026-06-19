@@ -359,9 +359,9 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
         <div className="min-w-0">
           <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
-          {beacon}
         </div>
         {headerCtrl && <div className="ml-5 flex-shrink-0">{headerCtrl}</div>}
+        {beacon && <div className="ml-2 flex-shrink-0">{beacon}</div>}
         <div className="flex-1" />
         {action}
         <div className="flex items-center gap-6 flex-shrink-0">

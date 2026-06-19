@@ -23,7 +23,7 @@ async function metaHealth(db, clientId) {
     const res = await fetch(`https://graph.facebook.com/v21.0/act_${id}?${params}`)
     const j = await res.json()
     if (j.error) {
-      if (j.error.code === 190) return { connected: true, ok: false, status: 'Token invalid', detail: 'Meta access token is invalid or removed — this commonly happens when the ad account or business gets disabled. Reconnect Meta.' }
+      if (j.error.code === 190) return { connected: true, ok: false, status: 'Disabled', detail: 'Meta access token is invalid or removed — this commonly happens when the ad account or business gets disabled. Reconnect Meta.' }
       return { connected: true, ok: false, status: 'Error', detail: j.error.message }
     }
     if (j.account_status !== 1) {
