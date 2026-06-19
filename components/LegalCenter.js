@@ -7,6 +7,7 @@ const TYPE = {
   Business: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400',
   Personal: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
   Finance:  'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
+  Litigation: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
 }
 const RISK = { high: ['bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400', 'High'], medium: ['bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400', 'Medium'], low: ['bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400', 'Low'] }
 // Category pill styles for the decoded list view
@@ -27,6 +28,31 @@ function docRows(d) {
 }
 
 const DOCS = [
+  { title: 'Folder Scrub 15 — Conant (Alt’s Admissions)', type: 'Litigation', parties: 'Freedom ↔ Alt · opposing counsel Paul Conant', date: 'Filed Feb–Mar 2026', status: 'Reviewed', risk: 'medium',
+    summary: "Three of the adversary’s own papers (final, none privileged to us). The value is opposing-party admissions in Alt’s signed pleadings — the strongest rebuttal because they come from Cody’s own side. Headline: Conant’s letter and Alt’s Reply claim Alt put in “$700,000 in cash,” but Alt’s own ¶81 admits the money ran through his personal AMEX (credit/debt) and the bank record shows only $47,500 of actual cash in — the cash narrative collapses on his own pleading. Wired into the comparison workbook as blue admission citations (no bates — adversary’s filings).",
+    terms: [
+      ['Commingling — ¶¶29–33, 201–203', "Alt admits “FIT Protecs” and that premiums were paid by “FIT Protection and/or investor money.” Locks Alt into the position that FIT funds covered Freedom’s obligations."],
+      ['AMEX = personal debt — ¶81, ¶349', "Admits the card was “a credit card in his name, on behalf of FIT Protection” and that “there is no Freedom AMEX card.” So the AMEX balances are personal credit, not invested capital."],
+      ['Alt is a Freedom member — ¶¶57, 102–103', "Admits Alt Ventures got 40% of Freedom + co-manager status, later 45% — he invested in the operating company; helps separateness."],
+      ['Alt’s lawyer drafted the OA — ¶¶58, 184', "Tyler Thorne drafted the FIT OA and the Amended & Restated OA — relevant to scrivener/conflict and the license-existence dispute."],
+      ['$700K impeachment', "Letter claims “$700,000 in cash plus services and personal credit support”; ¶81 admits it ran through the personal AMEX; bank record shows only $47,500 cash in (FREEDOM_007827–924)."],
+    ],
+    dates: [
+      'Dec 2, 2025 — Conant→Mills pre-suit demand letter (13 pp): Cody’s fullest theory + his own dollar concessions.',
+      'Jan 20, 2026 — Sam Conley third-party claim voluntarily dismissed (¶4).',
+      'Feb 20, 2026 — Alt’s Reply to Freedom’s Counterclaims (44 pp, ¶¶1–446, signed Conant): the admission goldmine.',
+      'Mar 19, 2026 — Alt’s Objections & Responses to Freedom’s Discovery: objections only, nothing produced.',
+    ],
+    you: [
+      'Cite Alt’s admissions as blue “admission” rows in the comparison workbook (no bates — adversary’s filings).',
+      'Lean on the 3/19 stonewall (objections only, zero produced, no Rule 26.1 disclosure) for the motion to compel and to rebut any “Freedom is the non-disclosing party” claim.',
+      'Keep RICO/racketeering support tight — Alt’s Reply demands Rule 11 / §12-349 sanctions for the “frivolous RICO” theory.',
+    ],
+    watch: [
+      'AMEX timeline caveat: card shown 1/24/2025 reads “FIT LLC,” but FIT Protection LLC didn’t exist until ~1/27/2025 — so “FIT LLC” is the Freedom Innovative Technologies acronym, not FIT Protection. Alt’s ¶81 “on behalf of FIT Protection” framing is anachronistic. (Card photo: FREEDOM_008802–008813.)',
+      'Double-edged ¶149: Alt alleges “Freedom had no assets” — helps his insolvency narrative; note it.',
+      'Sanctions exposure: Reply seeks Rule 11 / §12-349 sanctions against us over the RICO theory.',
+    ] },
   { title: 'Apartment Lease Agreement', type: 'Property', parties: 'You ↔ Bluegrass Property Mgmt', date: 'Signed Mar 2026', status: 'Needs review', risk: 'high',
     summary: "A 12-month lease for $1,450/mo. You're locked in until Feb 2027; breaking it early costs 2 months' rent. Rent is due on the 1st with a $75 late fee after the 5th.",
     terms: [['Term', '12 months, ends 2/28/2027'], ['Rent', '$1,450/mo, due 1st'], ['Deposit', '$1,450 (refundable)'], ['Early exit', "2 months' rent penalty"]],
@@ -142,7 +168,7 @@ export default function LegalCenter({ clientName }) {
 
       {/* stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {[['Documents', '4', 'text-gray-900 dark:text-white'], ['Need review', '2', 'text-amber-500'], ['Deadlines <30d', '2', 'text-rose-500'], ['Risk flags', '3', 'text-rose-500']].map(([l, v, c]) => (
+        {[['Documents', '5', 'text-gray-900 dark:text-white'], ['Need review', '2', 'text-amber-500'], ['Deadlines <30d', '2', 'text-rose-500'], ['Risk flags', '3', 'text-rose-500']].map(([l, v, c]) => (
           <div key={l} className="bg-white dark:bg-[#111528] rounded-xl border border-gray-100 dark:border-white/[0.06] px-4 py-3.5"><div className={`text-2xl font-extrabold ${c}`}>{v}</div><div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{l}</div></div>
         ))}
       </div>
