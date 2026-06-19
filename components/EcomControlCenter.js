@@ -1071,7 +1071,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section
             id="blended"
             icon={<div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--blue-400)), rgb(var(--blue-700)))' }}>∑</div>}
-            name="Blended"
+            name="Blended Ads"
             count="Google + Meta"
             headerCtrl={statusSelect()}
             open={open.blended} onToggle={toggle}
