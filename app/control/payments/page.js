@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
 
 function fmt(n) {
@@ -21,8 +21,47 @@ function AddPaymentModal({ clients, supabase, onClose, onSuccess }) {
   const [form, setForm] = useState({ clientId: '', amount: '', date: new Date().toISOString().slice(0, 10), method: 'Zelle', customerName: '', description: '' })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const recogRef = useRef(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const onClient = (id) => { const c = clients.find(x => x.client_id === id); setForm(f => ({ ...f, clientId: id, customerName: f.customerName || c?.client_name || '' })) }
+
+  const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null
+
+  async function parseTranscript(text) {
+    setParsing(true); setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/parse-payment', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ transcript: text, clients }) })
+      const p = await res.json()
+      if (p.error && !p.clientId) { setError("Couldn't read that — try again or type it in."); setParsing(false); return }
+      const c = clients.find(x => x.client_id === p.clientId)
+      setForm(f => ({
+        clientId: p.clientId || f.clientId,
+        amount: p.amount != null ? String(p.amount) : f.amount,
+        date: p.date || f.date,
+        method: METHODS.includes(p.method) ? p.method : f.method,
+        customerName: c?.client_name || f.customerName,
+        description: p.memo || f.description,
+      }))
+    } catch (e) { setError('Voice parse failed — type it in.') }
+    setParsing(false)
+  }
+
+  function toggleVoice() {
+    if (!SR) { setError('Voice input isn\'t supported in this browser. Try Chrome or Safari.'); return }
+    if (listening) { recogRef.current?.stop(); return }
+    const r = new SR()
+    r.lang = 'en-US'; r.interimResults = true; r.continuous = false
+    let finalText = ''
+    r.onresult = (e) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; finalText = t; setTranscript(t) }
+    r.onerror = () => { setListening(false); setError('Mic error — check permissions.') }
+    r.onend = () => { setListening(false); if (finalText.trim()) parseTranscript(finalText.trim()) }
+    recogRef.current = r
+    setTranscript(''); setError(''); setListening(true); r.start()
+  }
 
   async function submit(e) {
     e.preventDefault(); setError('')
@@ -43,6 +82,18 @@ function AddPaymentModal({ clients, supabase, onClose, onSuccess }) {
       <div className="absolute inset-0 bg-black/50" />
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="relative bg-white dark:bg-[#171B33] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div><h2 className="text-lg font-bold text-gray-900 dark:text-white">Record a payment</h2><p className="text-xs text-gray-400 mt-0.5">For payments not from a connected provider (cash, check, Zelle…).</p></div>
+
+        {/* Voice entry */}
+        <div className="rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/[0.06] p-3">
+          <button type="button" onClick={toggleVoice} disabled={parsing}
+            className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${listening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-60`}>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z" /><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V21a1 1 0 102 0v-3.08A7 7 0 0019 11z" /></svg>
+            {listening ? 'Listening… tap to stop' : parsing ? 'Reading…' : 'Record by voice'}
+          </button>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 text-center">Try: <i>"Five hundred dollars from Synergy Home via Zelle yesterday for the May retainer."</i></p>
+          {transcript && <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 italic">“{transcript}”</p>}
+        </div>
+
         {error && <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
         <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Client</label><select value={form.clientId} onChange={e => onClient(e.target.value)} className={field}><option value="">Select a client…</option>{clients.map(c => <option key={c.client_id} value={c.client_id}>{c.client_name}</option>)}</select></div>
         <div className="grid grid-cols-2 gap-3">
