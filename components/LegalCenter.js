@@ -9,6 +9,22 @@ const TYPE = {
   Finance:  'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
 }
 const RISK = { high: ['bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400', 'High'], medium: ['bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400', 'Medium'], low: ['bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400', 'Low'] }
+// Category pill styles for the decoded list view
+const CAT = {
+  Term:        'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400',
+  Date:        'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+  Obligation:  'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+  'Watch-out': 'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
+}
+// Flatten a document's decoded data into list-view rows.
+function docRows(d) {
+  return [
+    ...d.terms.map(([field, detail]) => ({ cat: 'Term', field, detail })),
+    ...d.dates.map(detail => ({ cat: 'Date', field: 'Deadline', detail })),
+    ...d.you.map(detail => ({ cat: 'Obligation', field: 'You must', detail })),
+    ...d.watch.map(detail => ({ cat: 'Watch-out', field: 'Risk', detail })),
+  ]
+}
 
 const DOCS = [
   { title: 'Apartment Lease Agreement', type: 'Property', parties: 'You ↔ Bluegrass Property Mgmt', date: 'Signed Mar 2026', status: 'Needs review', risk: 'high',
@@ -86,6 +102,7 @@ export default function LegalCenter({ clientName }) {
         <div className="space-y-2.5">
           {DOCS.map((d, i) => {
             const [rc, rl] = RISK[d.risk]; const isOpen = !!docOpen[i]
+            const rows = docRows(d)
             return (
               <div key={i} className="border border-gray-100 dark:border-white/[0.06] rounded-lg overflow-hidden">
                 <button onClick={() => setDocOpen(o => ({ ...o, [i]: !o[i] }))} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02]">
@@ -97,12 +114,29 @@ export default function LegalCenter({ clientName }) {
                   <span className={`text-[11px] font-semibold px-2 py-1 rounded-full ${rc}`}>{rl} risk</span>
                 </button>
                 {isOpen && (
-                  <div className="border-t border-gray-100 dark:border-white/[0.06] px-4 py-4 grid md:grid-cols-2 gap-5">
-                    <div className="md:col-span-2 bg-indigo-50 dark:bg-indigo-500/[0.08] border border-indigo-100 dark:border-indigo-500/20 rounded-lg p-4"><p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500 mb-1">In plain English</p><p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{d.summary}</p></div>
-                    <div><p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Key terms</p><div className="space-y-1.5">{d.terms.map(([k, v]) => <div key={k} className="flex justify-between text-sm gap-3"><span className="text-gray-500 dark:text-gray-400">{k}</span><span className="font-semibold text-gray-900 dark:text-white text-right">{v}</span></div>)}</div></div>
-                    <div><p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Important dates</p><ul className="space-y-1.5">{bullets(d.dates)}</ul></div>
-                    <div><p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">What you must do</p><ul className="space-y-1.5">{bullets(d.you)}</ul></div>
-                    <div><p className="text-[11px] font-bold uppercase tracking-wide text-rose-400 mb-2">⚠ Watch-outs</p><ul className="space-y-1.5">{bullets(d.watch, 'bg-rose-300')}</ul></div>
+                  <div className="border-t border-gray-100 dark:border-white/[0.06] px-4 py-4">
+                    <div className="bg-indigo-50 dark:bg-indigo-500/[0.08] border border-indigo-100 dark:border-indigo-500/20 rounded-lg p-4 mb-4"><p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500 mb-1">In plain English</p><p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{d.summary}</p></div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Decoded details</p>
+                    <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-white/[0.06]">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                          <tr className="text-left text-[10px] uppercase tracking-wide text-gray-400">
+                            <th className="py-2.5 px-4 font-semibold w-28">Category</th>
+                            <th className="py-2.5 px-4 font-semibold w-40">Field</th>
+                            <th className="py-2.5 px-4 font-semibold">Detail</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                          {rows.map((r, j) => (
+                            <tr key={j} className={`align-top ${r.cat === 'Watch-out' ? 'bg-rose-50/50 dark:bg-rose-500/[0.04]' : 'hover:bg-gray-50 dark:hover:bg-white/[0.02]'}`}>
+                              <td className="py-2.5 px-4"><span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${CAT[r.cat]}`}>{r.cat}</span></td>
+                              <td className="py-2.5 px-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.field}</td>
+                              <td className={`py-2.5 px-4 ${r.cat === 'Watch-out' ? 'text-rose-700 dark:text-rose-300' : 'text-gray-800 dark:text-gray-200'}`}>{r.detail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
