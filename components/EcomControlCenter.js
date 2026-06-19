@@ -603,7 +603,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
   const [health, setHealth] = useState(null) // ad-account integration health
   const [drill, setDrill] = useState(null)   // metric drill-down (source rows)
-  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, ordersChart: true, orders: false })
+  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: true })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
   const fetchData = useCallback(async () => {
@@ -1489,17 +1489,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             )}
           </Section>
 
-          {/* Orders over time */}
-          <Section id="ordersChart" icon={platformIcon.orders} name="Orders Over Time" open={open.ordersChart} onToggle={toggle}
-            kpis={open.ordersChart ? [] : [
-              { label: 'Orders', value: fmtNum(m.orderCount) },
-              { label: 'Revenue', value: fmt$(m.revenue) },
-              { label: 'AOV', value: fmt$2(m.aov) },
-            ]}>
-            <OrdersChart dates={trend.dates} series={trend.ords} />
-          </Section>
-
-          {/* Orders */}
+          {/* Orders — chart + list in one accordion */}
           <Section id="orders" icon={platformIcon.orders} name="Orders" count={`${fmtNum(m.orderCount)} total`} open={open.orders} onToggle={toggle}
             kpis={[
               { label: 'Revenue', value: fmt$(m.revenue) },
@@ -1507,6 +1497,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Tracked (CH)', value: fmtNum(m.trackedCount), ch: true },
               { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
             ]}>
+            <OrdersChart dates={trend.dates} series={trend.ords} />
+            <div className="border-t border-gray-100 dark:border-white/[0.06]" />
             {orders.length === 0 ? (
               <p className="text-sm text-gray-400 p-6">No orders in range.</p>
             ) : (
