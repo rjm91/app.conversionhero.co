@@ -48,7 +48,7 @@ export async function POST(request) {
 
   // Delete old QBO rows for this client then re-insert (avoids constraint issues)
   await supabase.from('client_payments').delete()
-    .eq('client_id', clientId).eq('merchant', 'QBO')
+    .eq('client_id', clientId).eq('merchant', 'QBO').eq('is_manual', false)
 
   const { error } = await supabase.from('client_payments').insert(rows)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -15,12 +15,58 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const METHODS = ['Zelle', 'Venmo', 'Cash', 'Check', 'Wire', 'PayPal', 'Other']
+
+function AddPaymentModal({ clients, supabase, onClose, onSuccess }) {
+  const [form, setForm] = useState({ clientId: '', amount: '', date: new Date().toISOString().slice(0, 10), method: 'Zelle', customerName: '', description: '' })
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const onClient = (id) => { const c = clients.find(x => x.client_id === id); setForm(f => ({ ...f, clientId: id, customerName: f.customerName || c?.client_name || '' })) }
+
+  async function submit(e) {
+    e.preventDefault(); setError('')
+    if (!form.clientId) return setError('Choose a client.')
+    if (!(Number(form.amount) > 0)) return setError('Enter an amount.')
+    setSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/manual-payment', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify(form) })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to save')
+      onSuccess()
+    } catch (err) { setError(err.message); setSaving(false) }
+  }
+
+  const field = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#0d1020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500'
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="relative bg-white dark:bg-[#171B33] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <div><h2 className="text-lg font-bold text-gray-900 dark:text-white">Record a payment</h2><p className="text-xs text-gray-400 mt-0.5">For payments not from a connected provider (cash, check, Zelle…).</p></div>
+        {error && <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
+        <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Client</label><select value={form.clientId} onChange={e => onClient(e.target.value)} className={field}><option value="">Select a client…</option>{clients.map(c => <option key={c.client_id} value={c.client_id}>{c.client_name}</option>)}</select></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Amount</label><input type="number" step="0.01" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" className={field} /></div>
+          <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Date</label><input type="date" value={form.date} onChange={e => set('date', e.target.value)} className={field} /></div>
+        </div>
+        <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Method</label><select value={form.method} onChange={e => set('method', e.target.value)} className={field}>{METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+        <div><label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Memo <span className="text-gray-300">(optional)</span></label><input value={form.description} onChange={e => set('description', e.target.value)} placeholder="e.g. May retainer" className={field} /></div>
+        <div className="flex gap-2 pt-1">
+          <button type="submit" disabled={saving} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-4 py-2.5">{saving ? 'Saving…' : 'Record payment'}</button>
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function PaymentsPage() {
   const [payments, setPayments]   = useState([])
   const [clients,  setClients]    = useState([])
   const [loading,     setLoading]     = useState(true)
   const [qbConnected, setQbConnected] = useState(null)
   const [qbBanner,    setQbBanner]    = useState(null)
+  const [showAdd,     setShowAdd]     = useState(false)
 
   const [search,         setSearch]         = useState('')
   const [clientFilter,   setClientFilter]   = useState('all')
@@ -50,6 +96,13 @@ export default function PaymentsPage() {
     else if (sp.get('qb') === 'connected') { setQbBanner({ type: 'ok', text: 'QuickBooks connected.' }); setQbConnected(true) }
   }, [])
 
+
+  async function deleteManual(id) {
+    if (!window.confirm('Delete this manual payment?')) return
+    const { data: { session } } = await supabaseRef.auth.getSession()
+    await fetch('/api/manual-payment', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ id }) })
+    loadPayments()
+  }
 
   const merchants = useMemo(() => [...new Set(payments.map(p => p.merchant).filter(Boolean))].sort(), [payments])
 
@@ -154,15 +207,21 @@ export default function PaymentsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
           <p className="text-sm text-gray-400 mt-1">All client payment records</p>
         </div>
-        {qbConnected === false && (
-          <a
-            href="/api/quickbooks/connect"
-            className="flex items-center gap-2 px-4 py-2 bg-[#2CA01C] hover:bg-[#228016] text-white text-sm font-medium rounded-lg transition"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition"
           >
-            Connect QuickBooks
-          </a>
-        )}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Record payment
+          </button>
+          {qbConnected === false && (
+            <a href="/api/quickbooks/connect" className="flex items-center gap-2 px-4 py-2 bg-[#2CA01C] hover:bg-[#228016] text-white text-sm font-medium rounded-lg transition">Connect QuickBooks</a>
+          )}
+        </div>
       </div>
+
+      {showAdd && <AddPaymentModal clients={clients} supabase={supabaseRef} onClose={() => setShowAdd(false)} onSuccess={() => { setShowAdd(false); loadPayments() }} />}
 
       {qbBanner && (
         <div className={`mb-6 px-4 py-3 rounded-lg text-sm border ${qbBanner.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-green-500/10 border-green-500/30 text-green-300'}`}>
@@ -244,13 +303,14 @@ export default function PaymentsPage() {
                     {col.label}{arrow(col.key)}
                   </th>
                 ))}
+                <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No payments found</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No payments found</td></tr>
               ) : filtered.map(row => (
                 <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition">
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(row.date_created)}</td>
@@ -259,10 +319,20 @@ export default function PaymentsPage() {
                     <p className="text-gray-900 dark:text-white">{row.customer_name || '—'}</p>
                     {row.customer_email && <p className="text-xs text-gray-400">{row.customer_email}</p>}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{row.merchant || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {row.merchant || '—'}
+                    {row.is_manual && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-600 bg-blue-100 dark:bg-blue-500/15 dark:text-blue-400 rounded px-1.5 py-0.5">Manual</span>}
+                  </td>
                   <td className="px-4 py-3 text-gray-400 font-mono text-xs max-w-[120px] truncate" title={row.invoice_id || ''}>{row.invoice_id || '—'}</td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                     {row.amount ? fmt(parseFloat(row.amount)) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {row.is_manual && (
+                      <button onClick={() => deleteManual(row.id)} title="Delete manual payment" className="text-gray-300 hover:text-red-500 transition">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-1.99-1.86L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" /></svg>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

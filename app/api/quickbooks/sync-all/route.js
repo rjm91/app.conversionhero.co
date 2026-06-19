@@ -88,7 +88,7 @@ export async function POST() {
   }
 
   // 4. Replace all QBO rows
-  await supabase.from('client_payments').delete().eq('merchant', 'QBO')
+  await supabase.from('client_payments').delete().eq('merchant', 'QBO').eq('is_manual', false)
 
   if (rows.length) {
     const { error } = await supabase.from('client_payments').insert(rows)

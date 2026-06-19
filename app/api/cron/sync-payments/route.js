@@ -82,7 +82,7 @@ export async function GET() {
       })
     }
 
-    await supabase.from('client_payments').delete().eq('merchant', 'QBO')
+    await supabase.from('client_payments').delete().eq('merchant', 'QBO').eq('is_manual', false)
     if (rows.length) await supabase.from('client_payments').insert(rows)
 
     // Advance any sent/viewed agreement invoices that are now paid.
