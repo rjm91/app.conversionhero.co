@@ -333,6 +333,65 @@ function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay, on
   )
 }
 
+const ORDER_METRICS = [
+  { key: 'orders',  label: 'Orders',     unit: 'count', color: '#34CC93' },
+  { key: 'sales',   label: 'Sales $',    unit: 'money', color: '#5b97e6' },
+  { key: 'adspend', label: 'Ad Spend $', unit: 'money', color: '#f0a73b' },
+  { key: 'aov',     label: 'AOV',        unit: 'money', color: '#a78bfa' },
+]
+// Orders-over-time chart (mirrors the metrics on the Orders/Contacts page).
+function OrdersChart({ dates, series }) {
+  const [active, setActive] = useState({ orders: true, sales: true })
+  if (!dates.length) return null
+  const single = dates.length === 1
+  const dayLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const labels = single ? ['', dayLabel(dates[0]), ''] : dates.map(dayLabel)
+  const toSeries = (arr) => single ? [0, Number(arr?.[0]) || 0, 0] : arr
+  const fewPoints = labels.length <= 2
+  const fillGrad = (color) => (ctx) => {
+    const area = ctx.chart.chartArea; if (!area) return color + '00'
+    const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom)
+    g.addColorStop(0, color + '80'); g.addColorStop(0.55, color + '24'); g.addColorStop(1, color + '00'); return g
+  }
+  const datasets = ORDER_METRICS.filter(m => active[m.key]).map(m => ({
+    label: m.label, data: toSeries(series[m.key]), borderColor: m.color, backgroundColor: fillGrad(m.color), fill: true,
+    yAxisID: m.unit === 'money' ? 'y1' : 'y', tension: single ? 0 : 0.3, borderWidth: 2.25,
+    pointRadius: single ? [0, 5, 0] : (fewPoints ? 5 : 0), pointBackgroundColor: m.color, pointHoverRadius: single ? [0, 6, 0] : (fewPoints ? 6 : 3),
+  }))
+  const anyMoney = ORDER_METRICS.some(m => active[m.key] && m.unit === 'money')
+  const anyCount = ORDER_METRICS.some(m => active[m.key] && m.unit === 'count')
+  return (
+    <div className="px-5 pt-5 pb-1">
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {ORDER_METRICS.map(m => {
+          const on = !!active[m.key]
+          return (
+            <button key={m.key} onClick={() => setActive(s => ({ ...s, [m.key]: !s[m.key] }))}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'}`}
+              style={on ? { background: m.color } : undefined}>{m.label}</button>
+          )
+        })}
+      </div>
+      <div className="h-52">
+        {datasets.length === 0 ? <div className="h-full grid place-items-center text-sm text-gray-400">Select a metric to plot.</div> : (
+          <Line data={{ labels, datasets }} options={{
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (c) => { const money = /\$|AOV/.test(c.dataset.label); return `${c.dataset.label}: ${money ? '$' + Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toLocaleString()}` } } },
+            },
+            scales: {
+              x:  { grid: { display: true, color: 'rgba(148,163,184,0.12)' }, ticks: { color: '#9aa4bf', maxTicksLimit: 8, font: { size: 10 } } },
+              y:  { display: anyCount, position: 'left',  grid: { color: 'rgba(148,163,184,0.14)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, precision: 0, count: 8 } },
+              y1: { display: anyMoney, position: 'right', grid: { drawOnChartArea: !anyCount, color: 'rgba(148,163,184,0.14)' }, ticks: { color: '#9aa4bf', font: { size: 10 }, count: 8, callback: (v) => '$' + v.toLocaleString() } },
+            },
+          }} />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function HealthBeacon({ detail }) {
   return (
     <span title={detail} className="inline-flex items-center gap-1.5 ml-2 align-middle cursor-help">
@@ -501,7 +560,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
   const [health, setHealth] = useState(null) // ad-account integration health
-  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: false })
+  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, ordersChart: true, orders: false })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
   const fetchData = useCallback(async () => {
@@ -841,10 +900,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const gIds = new Set(fCampaigns.map(c => String(c.campaign_id)))
     const mIds = new Set(fMeta.map(c => String(c.campaign_id)))
     const tIds = new Set(fTik.map(c => String(c.campaign_id)))
+    // ALL orders by day (count + revenue), regardless of attribution
+    const ords = { orders: Array(dates.length).fill(0), sales: Array(dates.length).fill(0), adspend: Array(dates.length).fill(0), aov: Array(dates.length).fill(0) }
     for (const o of orders) {
       const i = idx[String(o.created_at).slice(0, 10)]; if (i == null) continue
-      const c = (o.utm_campaign || '').trim(); if (!c) continue
       const rev = Number(o.sale_amount) || 0
+      ords.orders[i] += 1
+      ords.sales[i] += rev
+      const c = (o.utm_campaign || '').trim(); if (!c) continue
       if (gIds.has(c))      { google.chConv[i] += 1; google.chRev[i] += rev }
       else if (mIds.has(c)) { meta.chConv[i]   += 1; meta.chRev[i]   += rev }
       else if (tIds.has(c)) { tiktok.chConv[i] += 1; tiktok.chRev[i] += rev }
@@ -854,8 +917,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
       google.aov[i] = google.chConv[i] > 0 ? google.chRev[i] / google.chConv[i] : 0
       meta.aov[i]   = meta.chConv[i]   > 0 ? meta.chRev[i]   / meta.chConv[i]   : 0
       tiktok.aov[i] = tiktok.chConv[i] > 0 ? tiktok.chRev[i] / tiktok.chConv[i] : 0
+      ords.adspend[i] = (google.spend[i] || 0) + (meta.spend[i] || 0) + (tiktok.spend[i] || 0)
+      ords.aov[i] = ords.orders[i] > 0 ? ords.sales[i] / ords.orders[i] : 0
     }
-    return { dates, google, meta, tiktok }
+    return { dates, google, meta, tiktok, ords }
   }, [appliedStart, appliedEnd, fGoogleDaily, fMetaDaily, fTikDaily, orders, fCampaigns, fMeta, fTik])
 
   const googleSynced = useMemo(() => campaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [campaigns])
@@ -1359,6 +1424,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
               </div>
               </>
             )}
+          </Section>
+
+          {/* Orders over time */}
+          <Section id="ordersChart" icon={platformIcon.orders} name="Orders Over Time" open={open.ordersChart} onToggle={toggle}
+            kpis={open.ordersChart ? [] : [
+              { label: 'Orders', value: fmtNum(m.orderCount) },
+              { label: 'Revenue', value: fmt$(m.revenue) },
+              { label: 'AOV', value: fmt$2(m.aov) },
+            ]}>
+            <OrdersChart dates={trend.dates} series={trend.ords} />
           </Section>
 
           {/* Orders */}
