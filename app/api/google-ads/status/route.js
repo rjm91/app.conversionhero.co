@@ -1,9 +1,34 @@
 export const dynamic = 'force-dynamic'
 
 import crypto from 'crypto'
+import { createClient } from '@supabase/supabase-js'
 import { getGoogleAdsAccessToken, getGoogleAdsTokenStatus } from '../../../../lib/google-ads'
 
 const fp = (v) => v ? { len: v.length, sha: crypto.createHash('sha256').update(v).digest('hex').slice(0, 12) } : null
+
+// TEMP: raw OAuth exchange so we can see exactly what Google returns on this runtime.
+async function rawExchange() {
+  try {
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    const { data } = await db.from('google_ads_tokens').select('refresh_token').eq('id', 1).single()
+    const refresh = data?.refresh_token || process.env.GOOGLE_ADS_REFRESH_TOKEN
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: process.env.GOOGLE_ADS_CLIENT_ID, client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' }),
+    })
+    const text = await res.text()
+    let j = null; try { j = JSON.parse(text) } catch {}
+    const at = j?.access_token || ''
+    return {
+      refresh_fp: fp(refresh),
+      http: res.status,
+      keys: j ? Object.keys(j) : null,
+      token_type: j?.token_type, scope: j?.scope, expires_in: j?.expires_in,
+      at_prefix: at.slice(0, 6), at_len: at.length, at_fp: fp(at),
+      oauth_error: j?.error || null, raw_first120: text.slice(0, 120),
+    }
+  } catch (e) { return { exception: e.message } }
+}
 
 export async function GET() {
   const status = await getGoogleAdsTokenStatus()
@@ -89,6 +114,7 @@ export async function GET() {
       manager_id:      fp(process.env.GOOGLE_ADS_MANAGER_ID),
       access_token_len: accessToken ? accessToken.length : 0,
       tokeninfo,
+      raw_exchange: await rawExchange(),
     },
   })
 }
