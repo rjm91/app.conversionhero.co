@@ -23,9 +23,17 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
   const [savedOk, setSavedOk] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     authedFetch(`/api/meta-connection?client_id=${clientId}`)
-      .then(r => r.json()).then(d => { setCurrent(d); if (d.ad_account_id) setAdAccountId(d.ad_account_id) })
-      .catch(() => {})
+      .then(async r => ({ ok: r.ok, d: await r.json() }))
+      .then(({ ok, d }) => {
+        if (cancelled) return
+        if (!ok) { setCurrent({ ad_account_id: null, has_token: false }); setError(d?.error || 'Could not load current connection.'); return }
+        setCurrent(d)
+        if (d.ad_account_id) setAdAccountId(d.ad_account_id) // prefill so a token-only swap keeps the same account
+      })
+      .catch(() => { if (!cancelled) setCurrent({ ad_account_id: null, has_token: false }) })
+    return () => { cancelled = true }
   }, [clientId])
 
   // Editing any field invalidates a prior test result.
@@ -91,6 +99,7 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
           <label className="block">
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-300">New Ad Account ID</span>
             <input value={adAccountId} onChange={e => onEdit(setAdAccountId)(e.target.value)} placeholder="e.g. 1234567890"
+              autoComplete="off" name="ch-meta-adacct-id" inputMode="numeric" data-1p-ignore data-lpignore="true"
               className="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1e2340] px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <span className="text-[11px] text-gray-400">Just the digits — from Business Settings → Accounts → Ad Accounts.</span>
           </label>
@@ -100,6 +109,7 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-300">New Access Token</span>
             <div className="mt-1 relative">
               <input value={accessToken} onChange={e => onEdit(setAccessToken)(e.target.value)} type={showToken ? 'text' : 'password'} placeholder="System User token (ads_read)"
+                autoComplete="new-password" name="ch-meta-token" data-1p-ignore data-lpignore="true"
                 className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1e2340] px-3 py-2 pr-14 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <button type="button" onClick={() => setShowToken(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-gray-600">{showToken ? 'hide' : 'show'}</button>
             </div>
@@ -110,6 +120,7 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
           <label className="block">
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-300">App Secret <span className="text-gray-400 font-normal">(optional)</span></span>
             <input value={appSecret} onChange={e => onEdit(setAppSecret)(e.target.value)} type="password" placeholder="Only if your app enforces appsecret_proof"
+              autoComplete="new-password" name="ch-meta-secret" data-1p-ignore data-lpignore="true"
               className="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1e2340] px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </label>
 
