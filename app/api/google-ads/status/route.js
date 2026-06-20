@@ -30,7 +30,25 @@ async function rawExchange() {
   } catch (e) { return { exception: e.message } }
 }
 
-export async function GET() {
+export async function GET(request) {
+  // TEMP: if a caller supplies an externally-minted token, test it from Vercel's egress.
+  const injected = request.headers.get('x-test-token')
+  if (injected) {
+    const out = { injected: true, len: injected.length }
+    try {
+      const ti = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(injected))
+      out.tokeninfo = { http: ti.status, ...(await ti.json()) }
+      out.tokeninfo.scope_ok = out.tokeninfo.scope?.includes('adwords')
+    } catch (e) { out.tokeninfo = { fetch_error: e.message } }
+    try {
+      const la = await fetch('https://googleads.googleapis.com/v21/customers:listAccessibleCustomers', {
+        headers: { Authorization: `Bearer ${injected}`, 'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN },
+      })
+      out.ads_api = { http: la.status, body: (await la.text()).slice(0, 200) }
+    } catch (e) { out.ads_api = { fetch_error: e.message } }
+    return Response.json(out)
+  }
+
   const status = await getGoogleAdsTokenStatus()
 
   // Step 1: test OAuth exchange
