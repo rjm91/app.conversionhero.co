@@ -144,6 +144,21 @@ export async function GET(request) {
       access_token_len: accessToken ? accessToken.length : 0,
       tokeninfo,
       raw_exchange: await rawExchange(),
+      nostore_mint: await (async () => {
+        try {
+          const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+          const { data } = await db.from('google_ads_tokens').select('refresh_token').eq('id', 1).single()
+          const refresh = data?.refresh_token || process.env.GOOGLE_ADS_REFRESH_TOKEN
+          const res = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST', cache: 'no-store',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ client_id: process.env.GOOGLE_ADS_CLIENT_ID, client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' }),
+          })
+          const at = (await res.json()).access_token || ''
+          const tj = await (await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(at))).json()
+          return { mint_http: res.status, at_len: at.length, valid: !tj.error, error: tj.error || null }
+        } catch (e) { return { exception: e.message } }
+      })(),
       unpatched_mint: await (async () => {
         try {
           const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
