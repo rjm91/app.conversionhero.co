@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { isAgencyAdmin } from '../lib/roles'
+import MetaConnectionModal from './MetaConnectionModal'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
@@ -603,6 +605,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
   const [health, setHealth] = useState(null) // ad-account integration health
   const [drill, setDrill] = useState(null)   // metric drill-down (source rows)
+  const [isAdmin, setIsAdmin] = useState(false) // agency admin → can edit connections
+  const [metaModal, setMetaModal] = useState(false) // Meta connection editor
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: true })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
 
@@ -692,10 +696,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
   useEffect(() => { fetchData() }, [fetchData])
 
   // Ad-account health check (Meta/Google account status) → beacons + banner
-  useEffect(() => {
+  const refreshHealth = useCallback(() => {
     fetch(`/api/integration-health?client_id=${clientId}`, { cache: 'no-store' })
       .then(r => r.json()).then(setHealth).catch(() => {})
   }, [clientId])
+  useEffect(() => { refreshHealth() }, [refreshHealth])
+
+  // Is the viewer an agency admin? (gates the "Fix connection" editor)
+  useEffect(() => {
+    fetch('/api/profile').then(r => r.json()).then(d => setIsAdmin(isAgencyAdmin(d?.role))).catch(() => {})
+  }, [])
 
   // Always reload with the CURRENT range (not whatever was selected when an
   // async sync started), so a slow sync can't overwrite the chosen range.
@@ -1061,6 +1071,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
             <div className="flex-1">
               <p className="font-bold text-rose-700 dark:text-rose-300">Ad account issue detected</p>
               {issues.map(([k, p]) => <p key={k} className="text-sm text-rose-600 dark:text-rose-300/90 mt-0.5"><b>{label[k] || k}</b> — {p.status}: {p.detail}</p>)}
+              {isAdmin && issues.some(([k]) => k === 'meta') && (
+                <button onClick={() => setMetaModal(true)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition">
+                  Fix Meta connection
+                </button>
+              )}
             </div>
           </div>
         )
@@ -1299,7 +1314,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
             headerCtrl={metaCampaigns.length ? statusSelect() : null}
             beacon={health?.platforms?.meta?.ok === false ? <HealthBeacon detail={health.platforms.meta.detail} /> : null}
             open={open.meta} onToggle={toggle}
-            action={<LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />}
+            action={<div className="flex items-center gap-2">
+              {isAdmin && <button onClick={(e) => { e.stopPropagation(); setMetaModal(true) }} title="Manage Meta connection (ad account & token)" className="text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">Manage</button>}
+              <LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />
+            </div>}
             kpis={open.meta ? [] : (metaCampaigns.length ? [
               { label: 'Spend', value: fmt$(m.metaSpend) },
               { label: 'Clicks', value: fmtNum(m.metaClicks) },
@@ -1537,6 +1555,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
       )}
 
       <DrillDown data={drill} onClose={() => setDrill(null)} />
+
+      {metaModal && (
+        <MetaConnectionModal
+          clientId={clientId}
+          clientName={clientName}
+          start={appliedStart}
+          end={appliedEnd}
+          onClose={() => setMetaModal(false)}
+          onSaved={() => { refreshHealth(); fetchDataRef.current?.() }}
+        />
+      )}
     </div>
   )
 }
