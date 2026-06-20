@@ -1,6 +1,9 @@
 export const dynamic = 'force-dynamic'
 
+import crypto from 'crypto'
 import { getGoogleAdsAccessToken, getGoogleAdsTokenStatus } from '../../../../lib/google-ads'
+
+const fp = (v) => v ? { len: v.length, sha: crypto.createHash('sha256').update(v).digest('hex').slice(0, 12) } : null
 
 export async function GET() {
   const status = await getGoogleAdsTokenStatus()
@@ -66,6 +69,15 @@ export async function GET() {
       developer_token: !!process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
       manager_id:      !!process.env.GOOGLE_ADS_MANAGER_ID,
       manager_id_val:  process.env.GOOGLE_ADS_MANAGER_ID, // show actual value to check format
+    },
+    // TEMP DIAGNOSTIC — runtime fingerprints (irreversible hashes, no secrets). Remove after debug.
+    diag: {
+      runtime_node: process.version,
+      developer_token: fp(process.env.GOOGLE_ADS_DEVELOPER_TOKEN),
+      client_id:       fp(process.env.GOOGLE_ADS_CLIENT_ID),
+      client_secret:   fp(process.env.GOOGLE_ADS_CLIENT_SECRET),
+      manager_id:      fp(process.env.GOOGLE_ADS_MANAGER_ID),
+      access_token_len: accessToken ? accessToken.length : 0,
     },
   })
 }
