@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '../../lib/supabase-browser'
 import ThemeSelector from '../../components/ThemeSelector'
 import AgentPanel from '../../components/AgentPanel'
-import { isSecurityAdmin } from '../../lib/roles'
+import { isSecurityAdmin, isAgencyAdmin } from '../../lib/roles'
 
 /* ─── Nav structure ─── */
 const NAV_GROUPS = {
@@ -64,6 +64,7 @@ const NAV_GROUPS = {
       { key: 'automations', label: 'Automations', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
       { key: 'email-templates', label: 'Email Templates', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> },
       { key: 'agent', label: 'Agent Access', securityOnly: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 7h10v10H7V7zm3 3h4v4h-4v-4z" /></svg> },
+      { key: 'roadmap', label: 'Dev Board', adminOnly: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
     ],
   },
 }
@@ -263,9 +264,10 @@ export default function AdminLayout({ children }) {
     return pathname === href
   }
 
-  // Hide security-only items (e.g. Agent Access) from everyone but the security account.
+  // Hide gated items: securityOnly → security account only; adminOnly → any agency admin.
   function canSeeItem(item) {
     if (item.securityOnly) return isSecurityAdmin(profile.role)
+    if (item.adminOnly) return isAgencyAdmin(profile.role)
     return true
   }
 
