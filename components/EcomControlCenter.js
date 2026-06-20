@@ -436,14 +436,16 @@ function DrillDown({ data, onClose }) {
   )
 }
 
-function HealthBeacon({ detail }) {
+function HealthBeacon({ detail, tone = 'rose', label = 'Issue' }) {
+  // amber = soft reminder (e.g. waiting on credentials); rose = hard error.
+  const c = tone === 'amber' ? 'amber' : 'rose'
   return (
     <span title={detail} className="inline-flex items-center gap-1.5 ml-2 align-middle cursor-help">
       <span className="relative flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+        {c === 'rose' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />}
+        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${c === 'amber' ? 'bg-amber-500' : 'bg-rose-500'}`} />
       </span>
-      <span className="text-[11px] font-bold uppercase tracking-wide text-rose-500">Issue</span>
+      <span className={`text-[11px] font-bold uppercase tracking-wide ${c === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-500'}`}>{label}</span>
     </span>
   )
 }
@@ -1065,16 +1067,23 @@ export default function EcomControlCenter({ clientId, clientName }) {
         const issues = health ? Object.entries(health.platforms || {}).filter(([, p]) => p?.connected && p?.ok === false) : []
         if (!issues.length) return null
         const label = { meta: 'Meta', google: 'Google Ads', tiktok: 'TikTok' }
+        const hasMeta = issues.some(([k]) => k === 'meta')
+        // Per-platform reminder copy. Meta here = ads running but we don't have a
+        // valid token/ad account yet → waiting on credentials, not a hard outage.
+        const lineFor = (k, p) => k === 'meta'
+          ? <><b>Meta</b> — ads are running, but we&apos;re not receiving ad account data yet. Next step: add the new ad account ID + access token.</>
+          : <><b>{label[k] || k}</b> — {p.detail}</>
         return (
-          <div className="mb-5 rounded-xl border border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/[0.08] px-4 py-3 flex items-start gap-3">
-            <span className="relative flex h-2.5 w-2.5 mt-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" /></span>
+          <div className="mb-5 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/[0.08] px-4 py-3 flex items-start gap-3">
+            <span className="relative flex h-2.5 w-2.5 mt-1.5"><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" /></span>
             <div className="flex-1">
-              <p className="font-bold text-rose-700 dark:text-rose-300">Ad account issue detected</p>
-              {issues.map(([k, p]) => <p key={k} className="text-sm text-rose-600 dark:text-rose-300/90 mt-0.5"><b>{label[k] || k}</b> — {p.status}: {p.detail}</p>)}
-              {isAdmin && issues.some(([k]) => k === 'meta') && (
-                <button onClick={() => setMetaModal(true)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition">
-                  Fix Meta connection
-                </button>
+              <p className="font-bold text-amber-800 dark:text-amber-300">Waiting on credentials to pipe in ad account data</p>
+              {issues.map(([k, p]) => <p key={k} className="text-sm text-amber-700 dark:text-amber-300/90 mt-0.5">{lineFor(k, p)}</p>)}
+              {hasMeta && (isAdmin
+                ? <button onClick={() => setMetaModal(true)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">
+                    Add Meta credentials
+                  </button>
+                : <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-1.5">Your ConversionHero admin will add these to restore Meta reporting.</p>
               )}
             </div>
           </div>
@@ -1312,7 +1321,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <Section id="meta" icon={platformIcon.meta} name="Meta Ads"
             count={metaCampaigns.length ? `${fMeta.length} campaign${fMeta.length === 1 ? '' : 's'}` : null}
             headerCtrl={metaCampaigns.length ? statusSelect() : null}
-            beacon={health?.platforms?.meta?.ok === false ? <HealthBeacon detail={health.platforms.meta.detail} /> : null}
+            beacon={health?.platforms?.meta?.ok === false ? <HealthBeacon tone="amber" label="Pending" detail="Ads are running — waiting on the new ad account ID + access token to resume Meta data." /> : null}
             open={open.meta} onToggle={toggle}
             action={<div className="flex items-center gap-2">
               {isAdmin && <button onClick={(e) => { e.stopPropagation(); setMetaModal(true) }} title="Manage Meta connection (ad account & token)" className="text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">Manage</button>}
