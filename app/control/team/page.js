@@ -18,7 +18,8 @@ const ROLE_BADGE = {
   client_admin:          'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
   client_standard:       'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
 }
-const ROLE_OPTIONS = ['agency_admin', 'agency_admin_security', 'agency_standard', 'client_admin', 'client_standard']
+// Ordered least access (app-wide) → highest access.
+const ROLE_OPTIONS = ['client_standard', 'client_admin', 'agency_standard', 'agency_admin', 'agency_admin_security']
 
 function fmtDate(d) {
   if (!d) return 'Never'
