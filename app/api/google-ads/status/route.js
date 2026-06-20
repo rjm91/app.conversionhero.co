@@ -1,8 +1,19 @@
 export const dynamic = 'force-dynamic'
 
 import crypto from 'crypto'
+import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 import { getGoogleAdsAccessToken, getGoogleAdsTokenStatus } from '../../../../lib/google-ads'
+
+// POST via Node's raw https module — bypasses Next.js's patched global fetch.
+function rawHttpsPost(host, path, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ host, path, method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } }, (res) => {
+      let data = ''; res.on('data', c => data += c); res.on('end', () => resolve({ status: res.statusCode, text: data }))
+    })
+    req.on('error', reject); req.write(body); req.end()
+  })
+}
 
 const fp = (v) => v ? { len: v.length, sha: crypto.createHash('sha256').update(v).digest('hex').slice(0, 12) } : null
 
@@ -133,6 +144,20 @@ export async function GET(request) {
       access_token_len: accessToken ? accessToken.length : 0,
       tokeninfo,
       raw_exchange: await rawExchange(),
+      unpatched_mint: await (async () => {
+        try {
+          const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+          const { data } = await db.from('google_ads_tokens').select('refresh_token').eq('id', 1).single()
+          const refresh = data?.refresh_token || process.env.GOOGLE_ADS_REFRESH_TOKEN
+          const body = new URLSearchParams({ client_id: process.env.GOOGLE_ADS_CLIENT_ID, client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' }).toString()
+          const r = await rawHttpsPost('oauth2.googleapis.com', '/token', body)
+          const at = (JSON.parse(r.text).access_token) || ''
+          // validate the unpatched-minted token (also via raw https GET would be ideal, but use global fetch GET which works for usage)
+          const ti = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(at))
+          const tj = await ti.json()
+          return { mint_http: r.status, at_prefix: at.slice(0, 12), at_len: at.length, tokeninfo_http: ti.status, valid: !tj.error, error: tj.error || null }
+        } catch (e) { return { exception: e.message } }
+      })(),
     },
   })
 }
