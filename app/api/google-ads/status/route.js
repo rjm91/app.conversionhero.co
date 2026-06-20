@@ -19,6 +19,16 @@ export async function GET() {
     access_token_error = err.message
   }
 
+  // TEMP DIAGNOSTIC — does Vercel's egress reach googleapis & present this token OK?
+  let tokeninfo = null
+  if (accessToken) {
+    try {
+      const ti = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(accessToken))
+      const j = await ti.json()
+      tokeninfo = { http: ti.status, aud_fp: fp(j.aud || ''), scope: j.scope, exp_in: j.expires_in, error: j.error || null }
+    } catch (e) { tokeninfo = { fetch_error: e.message } }
+  }
+
   // Step 2: test actual Google Ads API with the access token
   // listAccessibleCustomers requires no customer/manager ID — pure auth test
   let ads_api_ok = false
@@ -78,6 +88,7 @@ export async function GET() {
       client_secret:   fp(process.env.GOOGLE_ADS_CLIENT_SECRET),
       manager_id:      fp(process.env.GOOGLE_ADS_MANAGER_ID),
       access_token_len: accessToken ? accessToken.length : 0,
+      tokeninfo,
     },
   })
 }
