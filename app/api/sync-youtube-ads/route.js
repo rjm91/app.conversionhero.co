@@ -28,6 +28,7 @@ async function runGaqlQuery(accessToken, customerId, query, label = 'Google Ads'
       `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:search`,
       {
         method: 'POST',
+        cache: 'no-store', // never let Next cache/replay live ad data
         headers: {
           'Authorization':     `Bearer ${accessToken}`,
           'developer-token':   process.env.GOOGLE_ADS_DEVELOPER_TOKEN,

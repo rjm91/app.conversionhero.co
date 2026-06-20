@@ -20,7 +20,7 @@ async function metaHealth(db, clientId) {
     const id = String(c.ad_account_id).replace(/\D/g, '')
     const params = new URLSearchParams({ fields: 'name,account_status,disable_reason', access_token: c.access_token })
     if (c.app_secret) params.set('appsecret_proof', crypto.createHmac('sha256', c.app_secret).update(c.access_token).digest('hex'))
-    const res = await fetch(`https://graph.facebook.com/v21.0/act_${id}?${params}`)
+    const res = await fetch(`https://graph.facebook.com/v21.0/act_${id}?${params}`, { cache: 'no-store' })
     const j = await res.json()
     if (j.error) {
       if (j.error.code === 190) return { connected: true, ok: false, status: 'Disabled', detail: 'Meta access token is invalid or removed — this commonly happens when the ad account or business gets disabled. Reconnect Meta.' }
@@ -46,6 +46,7 @@ async function googleHealth(db, clientId) {
     for (const v of ['v21', 'v22']) {
       const res = await fetch(`https://googleads.googleapis.com/${v}/customers/${acct.customer_id}/googleAds:search`, {
         method: 'POST',
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}`, 'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN, 'login-customer-id': acct.login_customer_id || process.env.GOOGLE_ADS_MANAGER_ID, 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
       })
