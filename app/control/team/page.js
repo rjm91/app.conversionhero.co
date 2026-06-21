@@ -149,7 +149,7 @@ export default function TeamRolesPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team &amp; Roles</h1>
         <p className="text-sm text-gray-400 mt-1">Everyone with access to ConversionHero, their access level, and where they're scoped.</p>
