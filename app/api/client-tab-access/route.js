@@ -34,12 +34,10 @@ export async function PUT(request) {
   if (!clientId || !key) return NextResponse.json({ error: 'clientId and key required' }, { status: 400 })
 
   const db = adminDb()
-  const { data: row, error: readErr } = await db.from('client').select('tab_access').eq('client_id', clientId).single()
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 404 })
+  // Atomic single-key merge — avoids the read-modify-write race that let one
+  // toggle clobber another (see sql/2026-06-20_atomic_tab_access.sql).
+  const { data, error } = await db.rpc('set_client_tab_access', { p_client_id: clientId, p_key: key, p_visible: !!visible })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const next = { ...(row?.tab_access || {}), [key]: !!visible }
-  const { error: writeErr } = await db.from('client').update({ tab_access: next }).eq('client_id', clientId)
-  if (writeErr) return NextResponse.json({ error: writeErr.message }, { status: 500 })
-
-  return NextResponse.json({ ok: true, tab_access: next })
+  return NextResponse.json({ ok: true, tab_access: data })
 }

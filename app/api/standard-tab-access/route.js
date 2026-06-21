@@ -36,12 +36,10 @@ export async function PUT(request) {
   if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
   const db = auth.db
 
-  const { data: row, error: readErr } = await db.from('client').select('standard_hidden_tabs').eq('client_id', clientId).single()
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 404 })
+  // Atomic single-key merge — avoids the read-modify-write race (see
+  // sql/2026-06-20_atomic_tab_access.sql).
+  const { data, error } = await db.rpc('set_client_standard_hidden', { p_client_id: clientId, p_key: key, p_hidden: !!hidden })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const next = { ...(row?.standard_hidden_tabs || {}), [key]: !!hidden }
-  const { error: writeErr } = await db.from('client').update({ standard_hidden_tabs: next }).eq('client_id', clientId)
-  if (writeErr) return NextResponse.json({ error: writeErr.message }, { status: 500 })
-
-  return NextResponse.json({ ok: true, standard_hidden_tabs: next })
+  return NextResponse.json({ ok: true, standard_hidden_tabs: data })
 }
