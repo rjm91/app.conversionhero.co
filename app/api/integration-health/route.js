@@ -57,9 +57,16 @@ async function googleHealth(db, clientId) {
         const ok = status === 'ENABLED'
         return { connected: true, ok, status: status === 'ENABLED' ? 'Active' : status, detail: ok ? undefined : `Google Ads account status is ${status}.` }
       }
-      if (res.status === 401) return { connected: true, ok: false, status: 'Auth failed', detail: 'Google Ads rejected the credentials — reconnect Google Ads.' }
+      // Surface Google's ACTUAL error rather than a hardcoded "reconnect" message —
+      // a 401 here is usually a server-side config issue (developer token / manager
+      // id / cached token), not something an OAuth reconnect fixes.
+      let apiErr = ''
+      try { apiErr = JSON.parse(text)?.error?.message || '' } catch {}
+      if (res.status === 401) {
+        return { connected: true, ok: false, status: 'Auth failed', detail: `Google Ads rejected the request (401)${apiErr ? `: ${apiErr}` : '.'} This is usually a server credential/config issue — check the developer token, manager ID, and that token caching is disabled before reconnecting.` }
+      }
       const deprecated = /UNSUPPORTED_VERSION|deprecated/i.test(text)
-      if (res.status !== 404 && !deprecated) return { connected: true, ok: false, status: 'Error', detail: `Google Ads API HTTP ${res.status}.` }
+      if (res.status !== 404 && !deprecated) return { connected: true, ok: false, status: 'Error', detail: `Google Ads API HTTP ${res.status}${apiErr ? `: ${apiErr}` : '.'}` }
       lastErr = `HTTP ${res.status} on ${v}`
     }
     return { connected: true, ok: false, status: 'Error', detail: `Google Ads API unreachable (${lastErr}).` }
