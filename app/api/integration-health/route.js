@@ -39,15 +39,20 @@ async function googleHealth(db, clientId) {
   const { data } = await db.from('client_google_ads_account').select('customer_id, login_customer_id').eq('client_id', clientId).limit(1)
   const acct = (data || [])[0]
   if (!acct) return { connected: false }
+  // Google Ads rejects dashed IDs in the URL / login-customer-id header with a
+  // 400 "invalid argument" — always send digits only.
+  const digits = (s) => String(s || '').replace(/\D/g, '')
+  const customerId = digits(acct.customer_id)
+  const loginCustomerId = digits(acct.login_customer_id) || process.env.GOOGLE_ADS_MANAGER_ID
   try {
     const token = await getGoogleAdsAccessToken()
     const query = 'SELECT customer.status, customer.descriptive_name FROM customer'
     let lastErr = ''
     for (const v of ['v21', 'v22']) {
-      const res = await fetch(`https://googleads.googleapis.com/${v}/customers/${acct.customer_id}/googleAds:search`, {
+      const res = await fetch(`https://googleads.googleapis.com/${v}/customers/${customerId}/googleAds:search`, {
         method: 'POST',
         cache: 'no-store',
-        headers: { Authorization: `Bearer ${token}`, 'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN, 'login-customer-id': acct.login_customer_id || process.env.GOOGLE_ADS_MANAGER_ID, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${token}`, 'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN, 'login-customer-id': loginCustomerId, 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
       })
       const text = await res.text()
