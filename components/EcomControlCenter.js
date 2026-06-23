@@ -1324,7 +1324,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
             beacon={health?.platforms?.meta?.ok === false ? <HealthBeacon tone="amber" label="Pending" detail="Ads are running — waiting on the new ad account ID + access token to resume Meta data." /> : null}
             open={open.meta} onToggle={toggle}
             action={<div className="flex items-center gap-2">
-              {isAdmin && <button onClick={(e) => { e.stopPropagation(); setMetaModal(true) }} title="Manage Meta connection (ad account & token)" className="text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">Manage</button>}
               <LastUpdated syncedAt={metaSynced} syncing={metaSyncing} onRefresh={handleMetaRefresh} />
             </div>}
             kpis={open.meta ? [] : (metaCampaigns.length ? [
