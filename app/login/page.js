@@ -165,26 +165,26 @@ export default function LoginPage() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [isForgot,   setIsForgot]   = useState(false)
 
-  // Detect password-recovery flow (PKCE: ?code= in query; legacy: #type=recovery in hash)
+  // Detect the password-recovery flow.
+  // The @supabase/ssr browser client has detectSessionInUrl on, so it AUTO-
+  // exchanges the reset link (PKCE ?code=, single-use) and emits a
+  // PASSWORD_RECOVERY auth event. We must NOT exchange the code ourselves —
+  // doing so double-consumes it, the manual call errors, and the reset form
+  // never appears (you bounce to the normal login). Listen for the event,
+  // with a URL-marker fallback so the form shows even if we miss the timing.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const supabase = createClient()
 
-    // PKCE flow — Supabase sends ?code=... in the query string
-    const code = new URLSearchParams(window.location.search).get('code')
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (!error) setIsRecovery(true)
-      })
-      return
-    }
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setIsRecovery(true)
+    })
 
-    // Legacy implicit flow — #type=recovery in hash
-    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''))
-    if (hashParams.get('type') === 'recovery') {
-      setIsRecovery(true)
-      supabase.auth.getSession()
-    }
+    const hasCode = !!new URLSearchParams(window.location.search).get('code')
+    const isRecoveryHash = new URLSearchParams(window.location.hash.replace('#', '')).get('type') === 'recovery'
+    if (hasCode || isRecoveryHash) setIsRecovery(true)
+
+    return () => authListener?.subscription?.unsubscribe()
   }, [])
 
   async function handleSubmit(e) {
