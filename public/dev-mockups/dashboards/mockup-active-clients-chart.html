@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Active Clients w/ chart + filters</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#0f1623; --panel2:#111a2b; --line:#1e2a3d;
+    --txt:#e6edf6; --dim:#8a99ad; --dim2:#6b7a8d;
+    --green:#34d399; --greenbg:rgba(52,211,153,.12);
+    --blue:#60a5fa; --bluebg:rgba(96,165,250,.10);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 80px}
+  .note{font-size:12px;color:var(--dim2);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:18px}
+  .note b{color:var(--green)}
+
+  /* page header */
+  .page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:18px}
+  .page-head h1{font-size:22px;margin:0 0 3px}
+  .page-head .sub{font-size:12.5px;color:var(--dim)}
+  .controls{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .ctl{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px;color:var(--txt);cursor:pointer}
+  .ctl select{appearance:none;background:transparent;border:0;color:var(--txt);font:inherit;cursor:pointer;outline:none;padding-right:14px}
+  .ctl .caret{color:var(--dim);margin-left:-10px;pointer-events:none}
+  .toggle{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px;color:var(--dim);cursor:pointer;user-select:none}
+  .toggle.on{color:var(--txt);border-color:#2c4a3a}
+  .sw{width:30px;height:17px;border-radius:20px;background:#2a3850;position:relative;transition:background .15s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#7b8aa0;transition:all .15s}
+  .toggle.on .sw{background:var(--green)}
+  .toggle.on .sw::after{left:15px;background:#06281c}
+
+  /* accordion shell */
+  .acc{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .acc-head{display:flex;align-items:center;gap:12px;padding:16px 18px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .acc-head .chev{color:var(--dim);transition:transform .2s}
+  .acc-head.collapsed .chev{transform:rotate(-90deg)}
+  .acc-title{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px}
+  .acc-title .icon{width:24px;height:24px;border-radius:7px;background:var(--bluebg);display:grid;place-items:center;color:var(--blue);font-size:13px}
+  .pill{font-size:11px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .head-stats{margin-left:auto;display:flex;gap:26px}
+  .hs{text-align:right}
+  .hs .v{font-weight:700;font-size:14px}
+  .hs .v.green{color:var(--green)} .hs .v.blue{color:var(--blue)}
+  .hs .k{font-size:10px;letter-spacing:.04em;color:var(--dim2);text-transform:uppercase;margin-top:2px}
+
+  /* chart zone */
+  .chart-zone{padding:16px 18px 6px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{font-size:12.5px;color:var(--dim);background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .tab:hover{color:var(--txt);background:var(--panel2)}
+  .tab.active{color:var(--txt);background:var(--panel2);border-color:var(--line)}
+  .tab.active[data-accent="green"]{color:var(--green)}
+  .tab.active[data-accent="blue"]{color:var(--blue)}
+  .chart-meta{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .chart-meta .big{font-size:22px;font-weight:700}
+  .chart-meta .who{font-size:12px;color:var(--dim)}
+  .legend{display:flex;gap:14px;margin-left:auto;align-self:center}
+  .legend span{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .chart-box{position:relative;height:230px}
+
+  /* client table */
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  thead th{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim2);text-align:right;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+  thead th:nth-child(1),thead th:nth-child(2),thead th:nth-child(3){text-align:left}
+  tbody td{padding:13px 14px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  tbody td:nth-child(1),tbody td:nth-child(2),tbody td:nth-child(3){text-align:left}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--panel2)}
+  tbody tr.sel{background:var(--bluebg)}
+  tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--blue)}
+  tfoot td{padding:13px 14px;text-align:right;font-weight:700;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+  tfoot td:nth-child(-n+3){text-align:left}
+  .badge{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--greenbg);color:var(--green)}
+  .badge.past{background:rgba(154,167,184,.12);color:var(--dim)}
+  .badge.demo{background:rgba(96,165,250,.12);color:var(--blue)}
+  .co{font-weight:600}
+  .ind{color:var(--dim)}
+  .green{color:var(--green)} .blue{color:var(--blue)} .muted{color:var(--dim2)}
+  .roas{font-weight:700;color:var(--green)}
+  .view{color:var(--blue);font-size:12px;white-space:nowrap}
+  .hint{font-size:11px;color:var(--dim2);padding:10px 4px 0}
+  .empty{text-align:center;color:var(--dim2);padding:26px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="note">
+    <b>MOCKUP v3</b> — now with the page controls wired up: <b>Demo Accounts</b> toggle, the
+    <b>Active / Inactive / All</b> client filter, and the <b>date-range</b> dropdown. Date range re-slices the chart;
+    the filter + toggle change which clients show and recompute the header tiles &amp; Totals live. Click a metric tab to
+    switch the plot; click a client row to drill the chart into that client.
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1>Agency Control Center</h1>
+      <div class="sub">Your clients' businesses — acquisition, pipeline &amp; revenue across every industry.</div>
+    </div>
+    <div class="controls">
+      <div class="toggle" id="demoToggle"><span class="sw"></span> Demo accounts</div>
+      <label class="ctl"><select id="filterSel">
+        <option value="active">Active Clients</option>
+        <option value="inactive">Inactive Clients</option>
+        <option value="all">All Clients</option>
+      </select><span class="caret">▾</span></label>
+      <label class="ctl"><select id="rangeSel">
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90" selected>Last 90 days</option>
+        <option value="all">All Time</option>
+      </select><span class="caret">▾</span></label>
+    </div>
+  </div>
+
+  <div class="acc" id="acc">
+    <div class="acc-head" id="accHead">
+      <span class="chev">▾</span>
+      <span class="acc-title"><span class="icon">★</span> <span id="accLabel">Active Clients</span> <span class="pill" id="accCount">4</span></span>
+      <div class="head-stats">
+        <div class="hs"><div class="v green" id="hRev">$350,368</div><div class="k">Client Rev</div></div>
+        <div class="hs"><div class="v" id="hSpend">$13,979</div><div class="k">Ad Spend</div></div>
+        <div class="hs"><div class="v green" id="hRoas">25.1x</div><div class="k">Blended ROAS</div></div>
+        <div class="hs"><div class="v" id="hCust">1,001</div><div class="k">Customers</div></div>
+        <div class="hs"><div class="v blue" id="hAgency">$164,555</div><div class="k">Agency Rev</div></div>
+      </div>
+    </div>
+
+    <div id="accBody">
+      <div class="chart-zone">
+        <div class="tabs" id="tabs"></div>
+        <div class="chart-meta">
+          <span class="big" id="metricTotal">$350,368</span>
+          <span class="who" id="metricWho">Rev vs Spend · All Clients · last 90 days</span>
+          <span class="legend" id="legend"></span>
+        </div>
+        <div class="chart-box"><canvas id="chart"></canvas></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Tenure</th><th>Status</th><th>Company</th><th>Industry</th>
+            <th>Ad Spend</th><th>Client Rev</th><th>ROAS</th><th>Customers</th><th>CAC</th><th>Agency Rev</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        <tfoot id="foot"></tfoot>
+      </table>
+      <div class="hint">Tip: clicking a client row mirrors clicking a campaign in Google Ads — the chart drills into just that client.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- mock data (mirrors screenshot, + a demo + a past client) ----
+const clients = [
+  { id:'syn', tenure:'6.3 yr', co:'Synergy Home', ind:'HVAC', status:'Active', spend:8668, rev:11000, cust:1, agency:47461, weight:[0.2,0.4,0.7,1,0.8,0.9] },
+  { id:'shd', tenure:'1 mo',  co:'ShieldTech', ind:'E-comm', status:'Active', spend:5311, rev:339368, cust:1000, agency:6000, weight:[0,0,0.1,0.5,1.4,2.2] },
+  { id:'her', tenure:'1 mo',  co:'Heritage Shutters', ind:'Shutters', status:'Active', spend:0, rev:0, cust:0, agency:1000, weight:[0,0,0,0,0,0] },
+  { id:'ped', tenure:'7.0 yr', co:'Pederson Funeral Home', ind:'Funeral', status:'Active', spend:0, rev:0, cust:0, agency:110094, weight:[1,1,1,1,1,1] },
+  { id:'dmo', tenure:'demo',  co:'Northwind Demo Co', ind:'Demo', status:'Demo', spend:1200, rev:9000, cust:40, agency:0, weight:[0.6,0.8,1,0.9,1.1,1.2] },
+  { id:'old', tenure:'2.1 yr', co:'Riverside Roofing', ind:'Roofing', status:'Past', spend:3400, rev:22000, cust:9, agency:18200, weight:[1.2,1,0.7,0.4,0.2,0.1] },
+];
+
+const metrics = [
+  { key:'revspend', label:'Rev vs Spend', accent:'green', money:true, dual:true },
+  { key:'rev',    label:'Client Rev',  accent:'green', money:true, field:'rev' },
+  { key:'spend',  label:'Ad Spend',    accent:'',      money:true, field:'spend' },
+  { key:'roas',   label:'ROAS',        accent:'green', ratio:'roas' },
+  { key:'cust',   label:'Customers',   accent:'',      field:'cust' },
+  { key:'cac',    label:'CAC',         accent:'',      money:true, ratio:'cac' },
+  { key:'agency', label:'Agency Rev',  accent:'blue',  money:true, field:'agency' },
+];
+
+const N=90;
+const labels=Array.from({length:N},(_,i)=>{const d=new Date(2026,2,16+i);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});});
+
+let curMetric=metrics[0], curClient=null, filter='active', showDemo=false, range=90;
+
+const money=v=>'$'+Math.round(v).toLocaleString();
+const num=v=>Math.round(v).toLocaleString();
+
+// visible clients given filter + demo toggle
+function visible(){
+  let base = clients.filter(c=>{
+    if(c.status==='Demo') return showDemo;
+    if(filter==='active') return c.status==='Active';
+    if(filter==='inactive') return c.status==='Past';
+    return c.status!=='Demo'; // all (non-demo) ... demo handled above
+  });
+  return base;
+}
+
+// per-client daily series for a money/count field
+function series(client, field){
+  const w=client.weight, base=client[field]||0, out=[];
+  for(let i=0;i<N;i++){
+    const seg=i/(N-1)*(w.length-1), lo=Math.floor(seg), hi=Math.min(lo+1,w.length-1), f=seg-lo;
+    const curve=w[lo]+(w[hi]-w[lo])*f;
+    const jitter=0.85+0.3*Math.abs(Math.sin(i*1.7+client.id.length));
+    out.push(base/N*2.2*curve*jitter);
+  }
+  return out;
+}
+function sliceRange(arr){ if(range==='all'||range>=N) return arr; return arr.slice(N-range); }
+function rangeLabels(){ return sliceRange(labels); }
+
+function aggField(list, field){ return labels.map((_,i)=>list.reduce((a,c)=>a+series(c,field)[i],0)); }
+function aggMetric(metric, list){
+  if(metric.ratio==='roas'){ const r=aggField(list,'rev'), s=aggField(list,'spend'); return labels.map((_,i)=>s[i]?r[i]/s[i]:0); }
+  if(metric.ratio==='cac'){ const s=aggField(list,'spend'), c=aggField(list,'cust'); return labels.map((_,i)=>c[i]?s[i]/c[i]:0); }
+  return aggField(list, metric.field);
+}
+
+// ---- build tabs ----
+const tabsEl=document.getElementById('tabs');
+metrics.forEach(m=>{
+  const b=document.createElement('button');
+  b.className='tab'; b.dataset.accent=m.accent; b.textContent=m.label;
+  b.onclick=()=>{ curMetric=m; render(); };
+  tabsEl.appendChild(b);
+});
+
+// ---- chart ----
+const ctx=document.getElementById('chart');
+const chart=new Chart(ctx,{type:'line',
+  data:{labels:rangeLabels(),datasets:[
+    {data:[],borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.10)',fill:true,tension:.4,pointRadius:0,borderWidth:2},
+    {data:[],borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.4,pointRadius:0,borderWidth:2,hidden:true}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(curMetric.money?money(c.parsed.y):curMetric.ratio?c.parsed.y.toFixed(1)+'x':num(c.parsed.y))}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:'#6b7a8d',font:{size:11},maxRotation:0,autoSkipPadding:24},border:{display:false}},
+      y:{grid:{color:'rgba(107,122,141,.12)'},ticks:{color:'#6b7a8d',font:{size:11},callback:v=>curMetric.money?money(v):curMetric.ratio==='roas'?v+'x':num(v)},border:{display:false},beginAtZero:true}
+    }}
+});
+
+// ---- controls ----
+document.getElementById('demoToggle').onclick=function(){ showDemo=!showDemo; this.classList.toggle('on',showDemo); curClient=null; render(); };
+document.getElementById('filterSel').onchange=e=>{ filter=e.target.value; curClient=null; render(); };
+document.getElementById('rangeSel').onchange=e=>{ range=e.target.value==='all'?'all':+e.target.value; render(); };
+document.getElementById('accHead').onclick=e=>{ if(e.target.closest('.controls'))return; const h=document.getElementById('accHead'),b=document.getElementById('accBody'); h.classList.toggle('collapsed'); b.style.display=h.classList.contains('collapsed')?'none':''; };
+
+function badge(s){ return s==='Past'?'<span class="badge past">Past</span>':s==='Demo'?'<span class="badge demo">Demo</span>':'<span class="badge">Active</span>'; }
+
+function render(){
+  const list=visible();
+  // tabs active state
+  [...tabsEl.children].forEach(b=>b.classList.toggle('active',b.textContent===curMetric.label));
+  // accordion label/count
+  document.getElementById('accLabel').textContent = filter==='inactive'?'Inactive Clients':filter==='all'?'All Clients':'Active Clients';
+  document.getElementById('accCount').textContent = list.length;
+
+  // rows
+  const rowsEl=document.getElementById('rows'); rowsEl.innerHTML='';
+  if(!list.length){ rowsEl.innerHTML='<tr><td colspan="11" class="empty">No clients match this filter.</td></tr>'; }
+  list.forEach(c=>{
+    const roas=c.spend?(c.rev/c.spend):null, cac=c.cust?(c.spend/c.cust):null;
+    const tr=document.createElement('tr'); tr.dataset.id=c.id; if(c.id===curClient)tr.className='sel';
+    tr.innerHTML=`<td class="muted">${c.tenure}</td><td>${badge(c.status)}</td>
+      <td class="co">${c.co}</td><td class="ind">${c.ind}</td>
+      <td>${c.spend?money(c.spend):'<span class=muted>$0</span>'}</td>
+      <td class="${c.rev?'green':'muted'}">${c.rev?money(c.rev):'$0'}</td>
+      <td class="${roas?'roas':'muted'}">${roas?roas.toFixed(1)+'x':'—'}</td>
+      <td>${c.cust}</td><td class="muted">${cac?money(cac):'—'}</td>
+      <td class="blue">${money(c.agency)}</td>
+      <td><a class="view" href="#" onclick="event.stopPropagation();return false;">View →</a></td>`;
+    tr.onclick=()=>{ curClient=(curClient===c.id?null:c.id); render(); };
+    rowsEl.appendChild(tr);
+  });
+
+  // footer totals (recompute from visible set)
+  const T=list.reduce((a,c)=>({spend:a.spend+c.spend,rev:a.rev+c.rev,cust:a.cust+c.cust,agency:a.agency+c.agency}),{spend:0,rev:0,cust:0,agency:0});
+  const blendRoas=T.spend?(T.rev/T.spend):0, blendCac=T.cust?(T.spend/T.cust):0;
+  document.getElementById('foot').innerHTML=`<tr><td></td><td></td><td>Totals</td><td></td>
+    <td>${money(T.spend)}</td><td class="green">${money(T.rev)}</td><td class="roas">${blendRoas?blendRoas.toFixed(1)+'x':'—'}</td>
+    <td>${num(T.cust)}</td><td>${blendCac?money(blendCac):'—'}</td><td class="blue">${money(T.agency)}</td><td></td></tr>`;
+  // header tiles
+  document.getElementById('hRev').textContent=money(T.rev);
+  document.getElementById('hSpend').textContent=money(T.spend);
+  document.getElementById('hRoas').textContent=blendRoas?blendRoas.toFixed(1)+'x':'—';
+  document.getElementById('hCust').textContent=num(T.cust);
+  document.getElementById('hAgency').textContent=money(T.agency);
+
+  // chart
+  const plotList = curClient? list.filter(c=>c.id===curClient) : list;
+  const who = curClient? (clients.find(c=>c.id===curClient)||{}).co : (filter==='inactive'?'Inactive':filter==='all'?'All':'All')+' Clients';
+  const rlabel = range==='all'?'all time':`last ${range} days`;
+  chart.data.labels=rangeLabels();
+  const legendEl=document.getElementById('legend');
+
+  if(curMetric.dual){
+    chart.data.datasets[0].data=sliceRange(aggField(plotList,'rev')); chart.data.datasets[0].borderColor='#34d399'; chart.data.datasets[0].backgroundColor='rgba(52,211,153,.10)'; chart.data.datasets[0].hidden=false;
+    chart.data.datasets[1].data=sliceRange(aggField(plotList,'spend')); chart.data.datasets[1].hidden=false;
+    legendEl.innerHTML='<span><i style="background:#34d399"></i>Client Rev</span><span><i style="background:#60a5fa"></i>Ad Spend</span>';
+    document.getElementById('metricTotal').textContent=money(T.rev);
+    document.getElementById('metricWho').textContent=`Rev vs Spend · ${who} · ${rlabel}`;
+  } else {
+    legendEl.innerHTML=''; chart.data.datasets[1].hidden=true; chart.data.datasets[0].hidden=false;
+    const accent=curMetric.accent==='blue'?['#60a5fa','rgba(96,165,250,.10)']:curMetric.accent==='green'?['#34d399','rgba(52,211,153,.10)']:['#9aa7b8','rgba(154,167,184,.10)'];
+    chart.data.datasets[0].data=sliceRange(aggMetric(curMetric,plotList));
+    chart.data.datasets[0].borderColor=accent[0]; chart.data.datasets[0].backgroundColor=accent[1];
+    let headline;
+    if(curMetric.ratio==='roas') headline=(blendRoas||0).toFixed(1)+'x';
+    else if(curMetric.ratio==='cac') headline=blendCac?money(blendCac):'—';
+    else headline=curMetric.money?money(T[curMetric.field]||0):num(T[curMetric.field]||0);
+    document.getElementById('metricTotal').textContent=headline;
+    document.getElementById('metricWho').textContent=`${curMetric.label} · ${who} · ${rlabel}`;
+  }
+  chart.update();
+}
+
+render();
+</script>
+</body>
+</html>

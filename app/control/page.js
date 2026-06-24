@@ -191,7 +191,7 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
     const roas = adSpend > 0 ? clientRev / adSpend : null  // client revenue ÷ spend
     const cac = customers > 0 ? adSpend / customers : 0
 
-    return [
+    const row = [
       tenure(c.created_at),
       c.status === 'Demo' ? { badge: 'Demo', color: 'yellow' } : c.status === 'Past' || c.status === 'Inactive' ? { badge: c.status, color: 'gray' } : { badge: 'Active', color: 'green' },
       c.client_name,
@@ -204,6 +204,9 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
       { value: fmt$(agencyRev), color: 'blue' },
       { link: 'View Dashboard →', href: `/control/${c.client_id}/dashboard` },
     ]
+    row._clientId = c.client_id
+    row._clientName = c.client_name
+    return row
   })
 
   // Summary totals
@@ -216,16 +219,37 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   })
 
   const blendedRoas = totalAdSpend > 0 ? (totalClientRev / totalAdSpend).toFixed(1) + 'x' : '—'
-  // Daily time series across the whole portfolio (Client Rev from orders,
-  // Ad Spend from campaign rows), bucketed by date for the trend line.
+  // Daily time series across the whole portfolio, bucketed by date for the
+  // trend line. Tracks Client Rev (orders), Ad Spend (campaigns), Customers
+  // (order count) and Agency Rev (payments) — plus a per-client breakdown on
+  // the same date axis so clicking a client row drills the chart into just it.
+  const EMPTY = () => ({ rev: 0, spend: 0, cust: 0, agency: 0 })
   const dayMap = {}
-  const bump = (day, key, val) => { if (!day) return; (dayMap[day] || (dayMap[day] = { rev: 0, spend: 0 }))[key] += val }
+  const perClientDay = {}
+  const bump = (day, key, val) => { if (!day) return; (dayMap[day] || (dayMap[day] = EMPTY()))[key] += val }
+  const bumpC = (cid, day, key, val) => { if (!day) return; const m = perClientDay[cid] || (perClientDay[cid] = {}); (m[day] || (m[day] = EMPTY()))[key] += val }
   activeClients.forEach(c => {
-    ;(c._orders || []).forEach(o => bump(String(o.created_at || '').slice(0, 10), 'rev', Number(o.sale_amount) || 0))
-    ;(c._campaigns || []).forEach(ca => bump(String(ca.date || '').slice(0, 10), 'spend', Number(ca.cost) || 0))
+    const cid = c.client_id
+    ;(c._orders || []).forEach(o => { const d = String(o.created_at || '').slice(0, 10); const v = Number(o.sale_amount) || 0; bump(d, 'rev', v); bump(d, 'cust', 1); bumpC(cid, d, 'rev', v); bumpC(cid, d, 'cust', 1) })
+    ;(c._campaigns || []).forEach(ca => { const d = String(ca.date || '').slice(0, 10); const v = Number(ca.cost) || 0; bump(d, 'spend', v); bumpC(cid, d, 'spend', v) })
+    ;(c._payments || []).forEach(p => { const d = String(p.date_created || '').slice(0, 10); const v = Number(p.amount) || 0; bump(d, 'agency', v); bumpC(cid, d, 'agency', v) })
   })
   const trendDates = Object.keys(dayMap).sort()
-  const clientsTrend = { dates: trendDates, rev: trendDates.map(d => dayMap[d].rev), spend: trendDates.map(d => dayMap[d].spend) }
+  const pick = (m, key) => trendDates.map(d => (m[d] || EMPTY())[key])
+  const clientsTrend = {
+    dates: trendDates,
+    rev: trendDates.map(d => dayMap[d].rev),
+    spend: trendDates.map(d => dayMap[d].spend),
+    cust: trendDates.map(d => dayMap[d].cust),
+    agency: trendDates.map(d => dayMap[d].agency),
+    perClient: Object.fromEntries(activeClients.map(c => [c.client_id, {
+      name: c.client_name,
+      rev: pick(perClientDay[c.client_id] || {}, 'rev'),
+      spend: pick(perClientDay[c.client_id] || {}, 'spend'),
+      cust: pick(perClientDay[c.client_id] || {}, 'cust'),
+      agency: pick(perClientDay[c.client_id] || {}, 'agency'),
+    }])),
+  }
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
@@ -559,30 +583,84 @@ function Collapse({ open, children }) {
   )
 }
 
-/* ─── Client Portfolio chart (Client Revenue vs Ad Spend per client) ─── */
-function PortfolioChart({ data }) {
-  if (!data || !data.dates || data.dates.length === 0) return null
-  const fmtAxis = (v) => '$' + (Math.abs(v) >= 1000 ? (v / 1000).toLocaleString() + 'k' : v)
-  const labels = data.dates.map(d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+/* ─── Active-Clients trend chart (metric tabs + per-client drill-in) ───
+   Lives inside the Active Clients accordion. Treats each client like an ad
+   campaign: tabs switch the plotted metric, clicking a client row drills the
+   chart into just that client. Data is already date-scoped by the page's
+   date-range picker, so this chart auto-respects the selected range. */
+const CLIENT_CHART_METRICS = [
+  { key: 'revspend', label: 'Rev vs Spend', dual: true },
+  { key: 'rev', label: 'Client Rev', color: '#34CC93', bg: 'rgba(52,204,147,0.12)', money: true },
+  { key: 'spend', label: 'Ad Spend', color: '#64748b', bg: 'rgba(100,116,139,0.12)', money: true },
+  { key: 'roas', label: 'ROAS', color: '#34CC93', bg: 'rgba(52,204,147,0.12)', ratio: 'roas' },
+  { key: 'cust', label: 'Customers', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
+  { key: 'cac', label: 'CAC', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', money: true, ratio: 'cac' },
+  { key: 'agency', label: 'Agency Rev', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)', money: true },
+]
+
+function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient }) {
+  if (!chart || !chart.dates || chart.dates.length === 0) return null
+  const m = CLIENT_CHART_METRICS.find(x => x.key === metric) || CLIENT_CHART_METRICS[0]
+  const src = (selClient && chart.perClient?.[selClient]) ? chart.perClient[selClient] : chart
+  const who = (selClient && chart.perClient?.[selClient]?.name) || 'All Clients'
+  const labels = chart.dates.map(d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+
+  const roasArr = src.rev.map((r, i) => src.spend[i] > 0 ? r / src.spend[i] : 0)
+  const cacArr = src.spend.map((s, i) => src.cust[i] > 0 ? s / src.cust[i] : 0)
+  const seriesFor = k => k === 'roas' ? roasArr : k === 'cac' ? cacArr : src[k]
+
+  const fmtMoney = v => '$' + Math.round(v).toLocaleString()
+  const fmtAxis = v => m.ratio === 'roas' ? v + 'x' : m.money ? '$' + (Math.abs(v) >= 1000 ? (v / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'k' : Math.round(v)) : Math.round(v).toLocaleString()
+  const fmtTip = v => m.ratio === 'roas' ? v.toFixed(1) + 'x' : m.money ? fmtMoney(v) : Math.round(v).toLocaleString()
+
+  const sum = arr => arr.reduce((a, b) => a + b, 0)
+  let headline
+  if (m.key === 'revspend') headline = fmtMoney(sum(src.rev))
+  else if (m.ratio === 'roas') { const s = sum(src.spend); headline = s > 0 ? (sum(src.rev) / s).toFixed(1) + 'x' : '—' }
+  else if (m.ratio === 'cac') { const c = sum(src.cust); headline = c > 0 ? fmtMoney(sum(src.spend) / c) : '—' }
+  else if (m.money) headline = fmtMoney(sum(src[m.key]))
+  else headline = Math.round(sum(src[m.key])).toLocaleString()
+
+  const datasets = m.dual
+    ? [
+        { label: 'Client Rev', data: src.rev, borderColor: '#34CC93', backgroundColor: 'rgba(52,204,147,0.12)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: 'Ad Spend', data: src.spend, borderColor: '#64748b', backgroundColor: 'rgba(100,116,139,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      ]
+    : [{ label: m.label, data: seriesFor(m.key), borderColor: m.color, backgroundColor: m.bg, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }]
+
   return (
-    <div className="mb-3 border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] p-5">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">Client Revenue vs Ad Spend</p>
-      <div style={{ height: 240 }}>
+    <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.06] bg-gray-50/40 dark:bg-white/[0.015]" onClick={e => e.stopPropagation()}>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {CLIENT_CHART_METRICS.map(x => (
+          <button key={x.key} onClick={() => setMetric(x.key)}
+            className={`text-[12.5px] px-3 py-1.5 rounded-lg transition ${metric === x.key ? 'bg-gray-200 dark:bg-white/[0.08] text-gray-900 dark:text-white font-semibold' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}>
+            {x.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-baseline gap-2.5 mb-2">
+        <span className="text-2xl font-bold text-gray-900 dark:text-white">{headline}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{m.label} · {who}</span>
+        {selClient && (
+          <button onClick={() => setSelClient(null)} className="text-xs text-blue-500 hover:text-blue-400">× clear</button>
+        )}
+        {m.dual && (
+          <span className="ml-auto flex gap-3.5 text-[11px] text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5"><i className="inline-block w-2 h-2 rounded-sm" style={{ background: '#34CC93' }} />Client Rev</span>
+            <span className="flex items-center gap-1.5"><i className="inline-block w-2 h-2 rounded-sm" style={{ background: '#64748b' }} />Ad Spend</span>
+          </span>
+        )}
+      </div>
+      <div style={{ height: 230 }}>
         <Line
-          data={{
-            labels,
-            datasets: [
-              { label: 'Client Rev', data: data.rev, borderColor: '#34CC93', backgroundColor: 'rgba(52,204,147,0.12)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
-              { label: 'Ad Spend', data: data.spend, borderColor: '#64748b', backgroundColor: 'rgba(100,116,139,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
-            ],
-          }}
+          data={{ labels, datasets }}
           options={{
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-              legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 11 } } },
-              tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${Math.round(ctx.parsed.y).toLocaleString()}` } },
+              legend: { display: false },
+              tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtTip(ctx.parsed.y)}` } },
             },
             scales: {
               x: { ticks: { color: '#9ca3af', font: { size: 11 }, maxTicksLimit: 8 }, grid: { display: false } },
@@ -599,6 +677,8 @@ function PortfolioChart({ data }) {
 function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChange, onRowClick, nested, headerAction, selectable, onDeleteLeads, notesApi }) {
   const { title, count, columns, summaryMap, rows, headerStats } = pipeline
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [metric, setMetric] = useState('revspend')   // Active Clients trend-chart metric tab
+  const [selClient, setSelClient] = useState(null)    // Active Clients drill-in (client_id)
   const tableRef = useRef(null)
 
   useColumnResize(tableRef, collapsed, rows.length)
@@ -705,6 +785,14 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
               )}
             </tr>
 
+            {!collapsed && pipeline.chart && (
+              <tr>
+                <td colSpan={colSpanAll} className="p-0">
+                  <ActiveClientsChart chart={pipeline.chart} metric={metric} setMetric={setMetric} selClient={selClient} setSelClient={setSelClient} />
+                </td>
+              </tr>
+            )}
+
             {!collapsed && (
               <tr className="col-headers">
                 {selectable && (
@@ -737,8 +825,11 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
                 rows.map((row, ri) => (
                   <tr
                     key={ri}
-                    className={`hover:bg-gray-100 dark:hover:bg-white/[0.02] transition-colors ${onRowClick && row._lead ? 'cursor-pointer' : ''} ${row._lead && checked.has(row._lead.id) ? 'bg-red-500/[0.06]' : ''}`}
-                    onClick={() => onRowClick && row._lead && onRowClick(row._lead)}
+                    className={`hover:bg-gray-100 dark:hover:bg-white/[0.02] transition-colors ${(onRowClick && row._lead) || row._clientId ? 'cursor-pointer' : ''} ${row._lead && checked.has(row._lead.id) ? 'bg-red-500/[0.06]' : ''} ${row._clientId && selClient === row._clientId ? 'bg-blue-500/[0.06]' : ''}`}
+                    onClick={() => {
+                      if (row._clientId) setSelClient(s => s === row._clientId ? null : row._clientId)
+                      else if (onRowClick && row._lead) onRowClick(row._lead)
+                    }}
                   >
                     {selectable && (
                       <td className="px-4 py-3.5 border-b border-gray-100 dark:border-white/[0.04]" onClick={e => e.stopPropagation()}>
@@ -2186,10 +2277,9 @@ export default function ControlPage() {
         <div className="mt-12 text-center text-gray-500">Failed to load data. Check console.</div>
       ) : (
         <div className="mt-6">
-          {/* Portfolio chart — Client Rev vs Ad Spend per client */}
-          <PortfolioChart data={pipelines.clients.chart} />
-
-          {/* Active Clients — the portfolio (opens by default; it's the lead zone) */}
+          {/* Active Clients — the portfolio (opens by default; it's the lead zone).
+              The Rev-vs-Spend chart now lives inside this accordion with metric
+              tabs + per-client drill-in (see ActiveClientsChart). */}
           <PipelineAccordion
             id="clients"
             pipeline={pipelines.clients}
