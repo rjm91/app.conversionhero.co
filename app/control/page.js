@@ -6,10 +6,10 @@ import { supabase } from '../../lib/supabase'
 import { nights as planNights, catTotal as planCatTotal, amount as planAmount, money as planMoney, isEvent as planIsEvent, PLAN_TYPE_META, fmtTime as planFmtTime } from '../../components/PlanGantt'
 import PlanCalendar from '../../components/PlanCalendar'
 import AgencyRevenueChannels from '../../components/AgencyRevenueChannels'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
-import { Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
+import { Line } from 'react-chartjs-2'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -128,7 +128,7 @@ async function fetchClientData(clientId, start, end) {
   // Campaigns
   let campsQ = supabase
     .from('client_yt_campaigns')
-    .select('campaign_id, cost')
+    .select('campaign_id, cost, date')
     .eq('client_id', clientId)
   if (start) campsQ = campsQ.gte('date', start)
   if (end) campsQ = campsQ.lte('date', end)
@@ -146,7 +146,7 @@ async function fetchClientData(clientId, start, end) {
   // filter so null-status Shopify orders aren't dropped by `!= in_progress`.
   let ordersQ = supabase
     .from('client_lead')
-    .select('sale_amount')
+    .select('sale_amount, created_at')
     .eq('client_id', clientId)
     .gt('sale_amount', 0)
     .limit(10000)
@@ -216,15 +216,20 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   })
 
   const blendedRoas = totalAdSpend > 0 ? (totalClientRev / totalAdSpend).toFixed(1) + 'x' : '—'
-  const clientsChart = activeClients.map(c => ({
-    name: c.client_name,
-    clientRev: (c._orders || []).reduce((s, o) => s + (Number(o.sale_amount) || 0), 0),
-    adSpend: c._campaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0),
-  })).filter(d => d.clientRev > 0 || d.adSpend > 0).sort((a, b) => b.clientRev - a.clientRev)
+  // Daily time series across the whole portfolio (Client Rev from orders,
+  // Ad Spend from campaign rows), bucketed by date for the trend line.
+  const dayMap = {}
+  const bump = (day, key, val) => { if (!day) return; (dayMap[day] || (dayMap[day] = { rev: 0, spend: 0 }))[key] += val }
+  activeClients.forEach(c => {
+    ;(c._orders || []).forEach(o => bump(String(o.created_at || '').slice(0, 10), 'rev', Number(o.sale_amount) || 0))
+    ;(c._campaigns || []).forEach(ca => bump(String(ca.date || '').slice(0, 10), 'spend', Number(ca.cost) || 0))
+  })
+  const trendDates = Object.keys(dayMap).sort()
+  const clientsTrend = { dates: trendDates, rev: trendDates.map(d => dayMap[d].rev), spend: trendDates.map(d => dayMap[d].spend) }
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
-    chart: clientsChart,
+    chart: clientsTrend,
     columns: ['Tenure','Status','Company Name','Industry','Ad Spend','Client Rev','ROAS','Customers','CAC','Agency Rev',''],
     summaryMap: {
       4: { value: fmt$(totalAdSpend) },
@@ -556,29 +561,31 @@ function Collapse({ open, children }) {
 
 /* ─── Client Portfolio chart (Client Revenue vs Ad Spend per client) ─── */
 function PortfolioChart({ data }) {
-  if (!data || data.length === 0) return null
+  if (!data || !data.dates || data.dates.length === 0) return null
   const fmtAxis = (v) => '$' + (Math.abs(v) >= 1000 ? (v / 1000).toLocaleString() + 'k' : v)
+  const labels = data.dates.map(d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
   return (
     <div className="mb-3 border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] p-5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">Client Revenue vs Ad Spend</p>
       <div style={{ height: 240 }}>
-        <Bar
+        <Line
           data={{
-            labels: data.map(d => d.name),
+            labels,
             datasets: [
-              { label: 'Client Rev', data: data.map(d => d.clientRev), backgroundColor: '#34CC93', borderRadius: 4, maxBarThickness: 36 },
-              { label: 'Ad Spend', data: data.map(d => d.adSpend), backgroundColor: '#64748b', borderRadius: 4, maxBarThickness: 36 },
+              { label: 'Client Rev', data: data.rev, borderColor: '#34CC93', backgroundColor: 'rgba(52,204,147,0.12)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+              { label: 'Ad Spend', data: data.spend, borderColor: '#64748b', backgroundColor: 'rgba(100,116,139,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
             ],
           }}
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 11 } } },
               tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${Math.round(ctx.parsed.y).toLocaleString()}` } },
             },
             scales: {
-              x: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } },
+              x: { ticks: { color: '#9ca3af', font: { size: 11 }, maxTicksLimit: 8 }, grid: { display: false } },
               y: { ticks: { color: '#9ca3af', font: { size: 11 }, callback: fmtAxis }, grid: { color: 'rgba(148,163,184,0.12)' }, beginAtZero: true },
             },
           }}
