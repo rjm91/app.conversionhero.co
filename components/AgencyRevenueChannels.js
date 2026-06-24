@@ -2,21 +2,28 @@
 
 /*
  * Agency-level Revenue Channels — accordion UI mirroring the client
- * client EcomControlCenter look. SHELL ONLY: every number below is
- * placeholder demo data. Wiring plan — replace the `CHANNELS` / `OVERVIEW`
- * data objects (and the chart/table bodies) per channel, one at a time:
- *   • Cold Email  → Blaztr sync  (app/api/blaztr-sync)
- *   • Google Ads  → agency Google Ads account
- *   • Meta Ads    → agency Meta ad account
- * Nothing here fetches yet — it's the dashboard chassis the data drops into.
+ * EcomControlCenter look.
+ *
+ * WIRED to real agency data via GET /api/agency/revenue-channels:
+ *   • Overview / Blended / Blaztr ← agency_leads (real pipeline: leads → appts
+ *     → clients → MRR), aggregated by meta.source. Blaztr top-of-funnel
+ *     (sent / replied) comes best-effort from the Blaztr API.
+ *   • Google Ads / Meta Ads ← not running yet (empty state) until launched.
+ *
+ * Still placeholder: per-channel trend chart (no time series yet) and
+ * Blaztr spend / CAC (cold-email cost isn't tracked in the DB) → shown as "—".
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-/* ─── formatting (self-contained so wiring stays local to this file) ─── */
+/* ─── formatting ─── */
 const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString()
+const fmtNum = (n) => Math.round(n || 0).toLocaleString()
+const fmtPct = (x) => `${(100 * (x || 0)).toFixed(1)}%`
+const ratio = (a, b) => (b ? a / b : 0)
 
-/* ─── ⓘ tooltip (copied from EcomControlCenter for visual parity) ─── */
+/* ─── ⓘ tooltip ─── */
 function InfoTip({ text }) {
   const [pos, setPos] = useState(null)
   const show = (e) => {
@@ -41,8 +48,8 @@ function InfoTip({ text }) {
   )
 }
 
-/* ─── one accordion section (header KPI summary + expandable body) ─── */
-function Section({ id, icon, name, count, kpis = [], open, onToggle, children, headerCtrl }) {
+/* ─── one accordion section ─── */
+function Section({ id, icon, name, count, kpis = [], open, onToggle, children }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
       <div onClick={() => onToggle(id)} className="flex items-center gap-3.5 px-4 py-4 cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-[#161b30] transition">
@@ -54,7 +61,6 @@ function Section({ id, icon, name, count, kpis = [], open, onToggle, children, h
           <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
         </div>
-        {headerCtrl && <div className="ml-5 flex-shrink-0">{headerCtrl}</div>}
         <div className="flex-1" />
         <div className="flex items-center gap-6 flex-shrink-0">
           {kpis.map((k, i) => (
@@ -70,7 +76,7 @@ function Section({ id, icon, name, count, kpis = [], open, onToggle, children, h
   )
 }
 
-/* ─── placeholder trend chart (drops out when the real series is wired) ─── */
+/* ─── placeholder trend chart (time series not wired yet) ─── */
 function ChartPlaceholder() {
   return (
     <div className="px-5 pt-5">
@@ -78,20 +84,20 @@ function ChartPlaceholder() {
         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 160">
           <defs>
             <linearGradient id="arcFade" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#34CC93" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="#34CC93" stopOpacity="0" />
+              <stop offset="0%" stopColor="#01D2FB" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#01D2FB" stopOpacity="0" />
             </linearGradient>
           </defs>
           <path d="M0 120 C 60 90, 90 130, 140 95 S 250 60, 300 80 S 370 40, 400 55 L 400 160 L 0 160 Z" fill="url(#arcFade)" />
-          <path d="M0 120 C 60 90, 90 130, 140 95 S 250 60, 300 80 S 370 40, 400 55" fill="none" stroke="#34CC93" strokeWidth="2" opacity="0.55" />
+          <path d="M0 120 C 60 90, 90 130, 140 95 S 250 60, 300 80 S 370 40, 400 55" fill="none" stroke="#01D2FB" strokeWidth="2" opacity="0.55" />
         </svg>
-        <span className="absolute top-2 right-3 text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 bg-white/70 dark:bg-black/40 rounded px-1.5 py-0.5">Demo</span>
+        <span className="absolute top-2 right-3 text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 bg-white/70 dark:bg-black/40 rounded px-1.5 py-0.5">Trend · soon</span>
       </div>
     </div>
   )
 }
 
-/* ─── a placeholder breakdown table styled like the client paid-ads tables ─── */
+/* ─── a breakdown table ─── */
 function ChannelTable({ columns, rows }) {
   return (
     <div className="p-5 overflow-x-auto">
@@ -117,108 +123,90 @@ function ChannelTable({ columns, rows }) {
   )
 }
 
-/* ─── channel icons (brand parity with the client view) ─── */
+/* ─── empty state for a channel that isn't live yet ─── */
+function NotRunning({ name }) {
+  return (
+    <div className="p-8 flex flex-col items-center text-center gap-1.5">
+      <div className="w-9 h-9 rounded-full grid place-items-center bg-gray-100 dark:bg-white/[0.06] text-gray-400 mb-1">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+      </div>
+      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{name} isn’t running yet</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs">This channel lights up with live metrics once you launch your first campaign and connect the account.</p>
+    </div>
+  )
+}
+
+/* ─── channel icons ─── */
 const channelIcon = {
   overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>∑</div>,
-  email: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #34CC93, #1a9e6e)' }}>
+  blended: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' }}>
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /></svg>
+  </div>,
+  blaztr: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #01D2FB, #0193b8)' }}>
     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7l9 6 9-6" /><rect x="3" y="5" width="18" height="14" rx="2" /></svg>
   </div>,
   google: <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
   meta: <div className="w-7 h-7 rounded-lg grid place-items-center bg-[#0866FF] text-white text-sm font-extrabold flex-shrink-0">f</div>,
 }
 
-/* ─── PLACEHOLDER DATA — swap per channel when wiring. ────────────────── */
-const OVERVIEW = {
-  header: [
-    { label: 'MRR Added', value: fmt$(11750), ch: true, info: 'New monthly recurring revenue from clients closed in range (placeholder).' },
-    { label: 'Clients', value: '5' },
-    { label: 'Appts', value: '37' },
-    { label: 'Spend', value: fmt$(4200) },
-    { label: 'CAC', value: fmt$(840), info: 'Blended cost to acquire one client (placeholder).' },
-  ],
-  byChannel: [ // [name, MRR, color]
-    ['Cold Email', 6100, '#34CC93'],
-    ['Google Ads', 3450, '#4285F4'],
-    ['Meta Ads', 2200, '#0866FF'],
-  ],
-  efficiency: [
-    { label: 'Close Rate', value: '13.5%', info: 'Clients ÷ appointments (placeholder).' },
-    { label: 'Cost / Appt', value: fmt$(114) },
-    { label: 'Avg Contract', value: fmt$(2350), ch: true },
-    { label: 'Pipeline MRR', value: fmt$(28400), info: 'Weighted open-deal MRR (placeholder).' },
-  ],
-}
-
-const CHANNELS = [
-  {
-    id: 'cold_email', name: 'Cold Email', icon: channelIcon.email, count: 'outbound',
-    header: [
-      { label: 'Sent', value: '48,200' }, { label: 'Replies', value: '612' },
-      { label: 'Booked', value: '37' }, { label: 'Clients', value: '5' },
-      { label: 'MRR Added', value: fmt$(6100), ch: true },
-    ],
-    table: {
-      columns: ['Campaign', 'Sent', 'Replies', 'Booked', 'Clients', 'MRR'],
-      rows: [
-        ['Q2 HVAC — Texas', '12,400', '180', '11', '2', fmt$(2450)],
-        ['Ecom DTC — Apparel', '9,800', '142', '8', '1', fmt$(1550)],
-        ['RV / Auto Accessories', '7,600', '98', '6', '1', fmt$(1100)],
-        ['Med Spa — National', '18,400', '192', '12', '1', fmt$(1000)],
-      ],
-    },
-  },
-  {
-    id: 'google_ads', name: 'Google Ads', icon: channelIcon.google, count: '3 campaigns',
-    header: [
-      { label: 'Spend', value: fmt$(2200) }, { label: 'Clicks', value: '1,840' },
-      { label: 'Leads', value: '54' }, { label: 'Cost / Lead', value: fmt$(41) },
-      { label: 'Clients', value: '3' },
-    ],
-    table: {
-      columns: ['Campaign', 'Spend', 'Clicks', 'CTR', 'Leads', 'Cost/Lead', 'Clients'],
-      rows: [
-        ['Search — "marketing agency"', fmt$(980), '720', '4.1%', '24', fmt$(41), '2'],
-        ['Search — "AI ads agency"', fmt$(760), '610', '3.6%', '18', fmt$(42), '1'],
-        ['YouTube — Retargeting', fmt$(460), '510', '2.2%', '12', fmt$(38), '0'],
-      ],
-    },
-  },
-  {
-    id: 'meta_ads', name: 'Meta Ads', icon: channelIcon.meta, count: '2 campaigns',
-    header: [
-      { label: 'Spend', value: fmt$(2000) }, { label: 'Clicks', value: '2,260' },
-      { label: 'Leads', value: '61' }, { label: 'Cost / Lead', value: fmt$(33) },
-      { label: 'Clients', value: '2' },
-    ],
-    table: {
-      columns: ['Campaign', 'Spend', 'Clicks', 'CTR', 'Leads', 'Cost/Lead', 'Clients'],
-      rows: [
-        ['Lead Gen — Agency Owners', fmt$(1200), '1,340', '2.8%', '38', fmt$(32), '1'],
-        ['Retarget — Site Visitors', fmt$(800), '920', '3.1%', '23', fmt$(35), '1'],
-      ],
-    },
-  },
+const NOT_RUNNING = [
+  { id: 'google_ads', name: 'Google Ads', icon: channelIcon.google },
+  { id: 'meta_ads', name: 'Meta Ads', icon: channelIcon.meta },
 ]
+const ZERO = { leads: 0, appts: 0, clients: 0, mrr: 0 }
 
 /* ─────────────────────────────────────────────────────────────────────── */
 export default function AgencyRevenueChannels() {
   const [open, setOpen] = useState({ overview: true })
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
   const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }))
-  const chMax = Math.max(1, ...OVERVIEW.byChannel.map(([, v]) => v))
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+        if (!token) { if (active) setErr('Not signed in'); return }
+        const res = await fetch('/api/agency/revenue-channels', { headers: { Authorization: `Bearer ${token}` } })
+        const j = await res.json()
+        if (!active) return
+        if (!res.ok) { setErr(j.error || 'Failed to load'); return }
+        setData(j)
+      } catch (e) { if (active) setErr(String(e?.message || e)) }
+    })()
+    return () => { active = false }
+  }, [])
+
+  const t = data?.total || ZERO
+  const bz = data?.blaztr || ZERO
+  const funnel = data?.blaztrFunnel || null
+  const chMax = Math.max(1, bz.mrr)
 
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2.5 mb-3">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Channels</h2>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-full px-2 py-0.5">Demo · data wires in next</span>
+        {err
+          ? <span className="text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 bg-rose-500/10 rounded-full px-2 py-0.5">Couldn’t load · {err}</span>
+          : !data
+            ? <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-400/10 rounded-full px-2 py-0.5 animate-pulse">Loading…</span>
+            : <span className="text-[10px] font-bold uppercase tracking-wide text-[#1a9e6e] dark:text-[#34CC93] bg-[#34CC93]/10 rounded-full px-2 py-0.5">Live · Blaztr + pipeline</span>}
       </div>
 
       {/* Overview */}
-      <Section id="overview" icon={channelIcon.overview} name="Overview" count="all channels" kpis={OVERVIEW.header} open={open.overview} onToggle={toggle}>
+      <Section id="overview" icon={channelIcon.overview} name="Overview" count="all channels" open={open.overview} onToggle={toggle}
+        kpis={[
+          { label: 'MRR Added', value: fmt$(t.mrr), ch: true, info: 'New monthly recurring revenue from clients closed (sale_status = Sold).' },
+          { label: 'Clients', value: fmtNum(t.clients) },
+          { label: 'Appts', value: fmtNum(t.appts) },
+          { label: 'Leads', value: fmtNum(t.leads) },
+        ]}>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">MRR by Channel</p>
-            {OVERVIEW.byChannel.map(([name, val, color]) => (
+            {[['Blaztr', bz.mrr, '#01D2FB'], ['Google Ads', 0, '#4285F4'], ['Meta Ads', 0, '#0866FF']].map(([name, val, color]) => (
               <div key={name} className="w-full flex items-center gap-3 py-1.5 px-1 -mx-1">
                 <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
                 <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
@@ -231,7 +219,12 @@ export default function AgencyRevenueChannels() {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
             <div className="grid grid-cols-2 gap-2.5">
-              {OVERVIEW.efficiency.map(({ label, value, ch, info }) => (
+              {[
+                { label: 'Close Rate', value: fmtPct(ratio(t.clients, t.appts)), info: 'Clients ÷ appointments.' },
+                { label: 'Booked Rate', value: fmtPct(ratio(t.appts, t.leads)), info: 'Appointments ÷ leads.' },
+                { label: 'Avg Contract', value: t.clients ? fmt$(t.mrr / t.clients) : '—', ch: true, info: 'MRR added ÷ clients closed.' },
+                { label: 'Total Leads', value: fmtNum(t.leads) },
+              ].map(({ label, value, ch, info }) => (
                 <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3">
                   <div className={`text-xl font-bold ${ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{value}</div>
                   <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{label}{info && <InfoTip text={info} />}</div>
@@ -242,11 +235,51 @@ export default function AgencyRevenueChannels() {
         </div>
       </Section>
 
-      {/* Per-channel */}
-      {CHANNELS.map((c) => (
-        <Section key={c.id} id={c.id} icon={c.icon} name={c.name} count={c.count} kpis={open[c.id] ? [] : c.header} open={open[c.id]} onToggle={toggle}>
-          <ChartPlaceholder />
-          <ChannelTable columns={c.table.columns} rows={c.table.rows} />
+      {/* Blended — all channels combined */}
+      <Section id="blended" icon={channelIcon.blended} name="Blended" count="all channels" open={open.blended} onToggle={toggle}
+        kpis={open.blended ? [] : [
+          { label: 'Spend', value: '—', info: 'Acquisition spend not tracked yet (cold-email tooling / ad spend wires in later).' },
+          { label: 'Leads', value: fmtNum(t.leads) },
+          { label: 'Clients', value: fmtNum(t.clients) },
+          { label: 'Cost / Client', value: '—' },
+          { label: 'MRR Added', value: fmt$(t.mrr), ch: true },
+        ]}>
+        <ChartPlaceholder />
+        <ChannelTable
+          columns={['Channel', 'Spend', 'Leads', 'Clients', 'Cost / Client', 'MRR']}
+          rows={[
+            ['Blaztr', '—', fmtNum(bz.leads), fmtNum(bz.clients), '—', fmt$(bz.mrr)],
+            ['Google Ads', '—', '—', '—', '—', '— not running yet'],
+            ['Meta Ads', '—', '—', '—', '—', '— not running yet'],
+          ]}
+        />
+      </Section>
+
+      {/* Blaztr — live cold-email channel */}
+      <Section id="blaztr" icon={channelIcon.blaztr} name="Blaztr" count="cold email" open={open.blaztr} onToggle={toggle}
+        kpis={open.blaztr ? [] : [
+          { label: 'Sent', value: funnel ? fmtNum(funnel.sent) : '—' },
+          { label: 'Replies', value: funnel ? fmtNum(funnel.replied) : fmtNum(bz.leads) },
+          { label: 'Booked', value: fmtNum(bz.appts) },
+          { label: 'Clients', value: fmtNum(bz.clients) },
+          { label: 'MRR Added', value: fmt$(bz.mrr), ch: true },
+        ]}>
+        <ChartPlaceholder />
+        <ChannelTable
+          columns={['Stage', 'Count', 'Value']}
+          rows={[
+            ['Sent', funnel ? fmtNum(funnel.sent) : '—', ''],
+            ['Replied', funnel ? fmtNum(funnel.replied) : fmtNum(bz.leads), ''],
+            ['Booked (appt)', fmtNum(bz.appts), ''],
+            ['Clients (sold)', fmtNum(bz.clients), fmt$(bz.mrr) + ' MRR'],
+          ]}
+        />
+      </Section>
+
+      {/* Not-running channels */}
+      {NOT_RUNNING.map((c) => (
+        <Section key={c.id} id={c.id} icon={c.icon} name={c.name} count="not running yet" kpis={[]} open={open[c.id]} onToggle={toggle}>
+          <NotRunning name={c.name} />
         </Section>
       ))}
     </div>
