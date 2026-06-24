@@ -6,6 +6,10 @@ import { supabase } from '../../lib/supabase'
 import { nights as planNights, catTotal as planCatTotal, amount as planAmount, money as planMoney, isEvent as planIsEvent, PLAN_TYPE_META, fmtTime as planFmtTime } from '../../components/PlanGantt'
 import PlanCalendar from '../../components/PlanCalendar'
 import AgencyRevenueChannels from '../../components/AgencyRevenueChannels'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+import { Bar } from 'react-chartjs-2'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -212,9 +216,15 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
   })
 
   const blendedRoas = totalAdSpend > 0 ? (totalClientRev / totalAdSpend).toFixed(1) + 'x' : '—'
+  const clientsChart = activeClients.map(c => ({
+    name: c.client_name,
+    clientRev: (c._orders || []).reduce((s, o) => s + (Number(o.sale_amount) || 0), 0),
+    adSpend: c._campaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0),
+  })).filter(d => d.clientRev > 0 || d.adSpend > 0).sort((a, b) => b.clientRev - a.clientRev)
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
+    chart: clientsChart,
     columns: ['Tenure','Status','Company Name','Industry','Ad Spend','Client Rev','ROAS','Customers','CAC','Agency Rev',''],
     summaryMap: {
       4: { value: fmt$(totalAdSpend) },
@@ -540,6 +550,40 @@ function Collapse({ open, children }) {
       }}
     >
       <div style={{ overflow: 'hidden', minHeight: 0 }}>{children}</div>
+    </div>
+  )
+}
+
+/* ─── Client Portfolio chart (Client Revenue vs Ad Spend per client) ─── */
+function PortfolioChart({ data }) {
+  if (!data || data.length === 0) return null
+  const fmtAxis = (v) => '$' + (Math.abs(v) >= 1000 ? (v / 1000).toLocaleString() + 'k' : v)
+  return (
+    <div className="mb-3 border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] p-5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">Client Revenue vs Ad Spend</p>
+      <div style={{ height: 240 }}>
+        <Bar
+          data={{
+            labels: data.map(d => d.name),
+            datasets: [
+              { label: 'Client Rev', data: data.map(d => d.clientRev), backgroundColor: '#34CC93', borderRadius: 4, maxBarThickness: 36 },
+              { label: 'Ad Spend', data: data.map(d => d.adSpend), backgroundColor: '#64748b', borderRadius: 4, maxBarThickness: 36 },
+            ],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 11 } } },
+              tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${Math.round(ctx.parsed.y).toLocaleString()}` } },
+            },
+            scales: {
+              x: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } },
+              y: { ticks: { color: '#9ca3af', font: { size: 11 }, callback: fmtAxis }, grid: { color: 'rgba(148,163,184,0.12)' }, beginAtZero: true },
+            },
+          }}
+        />
+      </div>
     </div>
   )
 }
@@ -2135,6 +2179,9 @@ export default function ControlPage() {
         <div className="mt-12 text-center text-gray-500">Failed to load data. Check console.</div>
       ) : (
         <div className="mt-6">
+          {/* Portfolio chart — Client Rev vs Ad Spend per client */}
+          <PortfolioChart data={pipelines.clients.chart} />
+
           {/* Active Clients — the portfolio (opens by default; it's the lead zone) */}
           <PipelineAccordion
             id="clients"
