@@ -2,15 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
-import { isAgencyUser } from '../../../lib/roles'
+import { isAgencyUser, CAPABILITIES, ROLE_ORDER, ROLE_LABELS } from '../../../lib/roles'
 
-const ROLE_LABELS = {
-  agency_admin:          'Agency Admin',
-  agency_admin_security: 'Agency Admin (Security)',
-  agency_standard:       'Agency Standard',
-  client_admin:          'Client Admin',
-  client_standard:       'Client Standard',
-}
 const ROLE_BADGE = {
   agency_admin:          'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
   agency_admin_security: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400',
@@ -18,16 +11,34 @@ const ROLE_BADGE = {
   client_admin:          'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
   client_standard:       'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
 }
-// Ordered least access (app-wide) → highest access.
-const ROLE_OPTIONS = ['client_standard', 'client_admin', 'agency_standard', 'agency_admin', 'agency_admin_security']
+// Short column headers for the capability matrix.
+const ROLE_SHORT = {
+  client_standard:       'Client Std',
+  client_admin:          'Client Admin',
+  agency_standard:       'Agency Std',
+  agency_admin:          'Agency Admin',
+  agency_admin_security: 'Security',
+}
+
+const STALE_DAYS = 90
+const DAY_MS = 86400000
 
 function fmtDate(d) {
   if (!d) return 'Never'
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// Access-review hygiene: derive a status from sign-in history.
+function signInStatus(lastSignIn) {
+  if (!lastSignIn) return { label: 'Pending', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400', title: 'Invited but has never signed in' }
+  const days = (Date.now() - new Date(lastSignIn).getTime()) / DAY_MS
+  if (days > STALE_DAYS) return { label: 'Stale', cls: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400', title: `No sign-in in over ${STALE_DAYS} days` }
+  return null
+}
+
 export default function TeamRolesPage() {
   const [users, setUsers] = useState([])
+  const [audit, setAudit] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [meId, setMeId] = useState(null)
@@ -49,12 +60,22 @@ export default function TeamRolesPage() {
   async function load() {
     setLoading(true); setError(null)
     try {
-      const res = await fetch('/api/agency-users', { headers: { Authorization: `Bearer ${await token()}` }, cache: 'no-store' })
+      const t = await token()
+      const res = await fetch('/api/agency-users', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to load team')
       setUsers(json.users || [])
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
+    loadAudit()
+  }
+
+  async function loadAudit() {
+    try {
+      const res = await fetch('/api/agency-users/audit', { headers: { Authorization: `Bearer ${await token()}` }, cache: 'no-store' })
+      const json = await res.json()
+      if (res.ok) setAudit(json.entries || [])
+    } catch {}
   }
 
   async function changeRole(user, role) {
@@ -71,6 +92,7 @@ export default function TeamRolesPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Update failed')
       showToast(`${user.full_name || user.email} → ${ROLE_LABELS[role] || role}`)
+      loadAudit()
     } catch (e) {
       setUsers(prev) // revert
       showToast(e.message, true)
@@ -89,6 +111,7 @@ export default function TeamRolesPage() {
 
   function Row({ u }) {
     const isMe = u.id === meId
+    const status = signInStatus(u.last_sign_in_at)
     return (
       <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
         <td className="px-4 py-3">
@@ -99,7 +122,12 @@ export default function TeamRolesPage() {
           <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${ROLE_BADGE[u.role] || ROLE_BADGE.client_standard}`}>{ROLE_LABELS[u.role] || u.role}</span>
         </td>
         <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{u.client_name || <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
-        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{fmtDate(u.last_sign_in_at)}</td>
+        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+          <span className="inline-flex items-center gap-2">
+            {fmtDate(u.last_sign_in_at)}
+            {status && <span title={status.title} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${status.cls}`}>{status.label}</span>}
+          </span>
+        </td>
         <td className="px-4 py-3 text-right">
           <select
             value={u.role}
@@ -108,7 +136,7 @@ export default function TeamRolesPage() {
             title={isMe ? "You can't change your own access level here" : 'Change role'}
             className="text-xs border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 bg-white dark:bg-[#1e2340] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            {ROLE_ORDER.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
           {savingId === u.id && <span className="ml-2 text-[11px] text-gray-400">saving…</span>}
         </td>
@@ -148,6 +176,90 @@ export default function TeamRolesPage() {
     )
   }
 
+  // Read-only capability matrix — what each role actually grants, derived from
+  // the same predicates the app enforces with (see lib/roles.js).
+  function CapabilityMatrix() {
+    return (
+      <section className="mb-8">
+        <div className="flex items-baseline gap-2 mb-3">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">What each role can do</h2>
+          <span className="text-xs text-gray-400">· reflects the access the app actually enforces</span>
+        </div>
+        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-white/[0.02] text-xs text-gray-400">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium">Capability</th>
+                {ROLE_ORDER.map(r => (
+                  <th key={r} className="px-3 py-3 font-medium text-center whitespace-nowrap">{ROLE_SHORT[r]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+              {CAPABILITIES.map(cap => (
+                <tr key={cap.key} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                  <td className="px-4 py-2.5 text-gray-700 dark:text-gray-200">{cap.label}</td>
+                  {ROLE_ORDER.map(r => (
+                    <td key={r} className="px-3 py-2.5 text-center">
+                      {cap.has(r)
+                        ? <span className="text-emerald-500 font-semibold" title="Granted">✓</span>
+                        : <span className="text-gray-300 dark:text-gray-600" title="Not granted">–</span>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Read-only. The <span className="font-medium">Security</span> role mirrors Agency Admin and adds security governance (the Agent Access registry). Per-permission overrides aren't enabled yet — add them only when a real need appears, so every checkbox maps to a live enforcement point.
+        </p>
+      </section>
+    )
+  }
+
+  function AuditLog() {
+    return (
+      <section className="mb-8">
+        <div className="flex items-baseline gap-2 mb-3">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Access change log</h2>
+          <span className="text-xs text-gray-400">{audit.length}</span>
+          <span className="text-xs text-gray-400">· most recent 50 role changes</span>
+        </div>
+        <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
+          {audit.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-gray-400">No role changes recorded yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-white/[0.02] text-xs uppercase tracking-wide text-gray-400">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium">When</th>
+                  <th className="text-left px-4 py-3 font-medium">User</th>
+                  <th className="text-left px-4 py-3 font-medium">Change</th>
+                  <th className="text-left px-4 py-3 font-medium">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                {audit.map(a => (
+                  <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{new Date(a.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{a.target_email || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="text-gray-400">{ROLE_LABELS[a.old_role] || a.old_role || '—'}</span>
+                      <span className="mx-1.5 text-gray-300 dark:text-gray-600">→</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-200">{ROLE_LABELS[a.new_role] || a.new_role}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{a.actor_email || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6">
@@ -163,9 +275,11 @@ export default function TeamRolesPage() {
         <>
           <Table title="Agency team" subtitle="full access across all clients" rows={agencyTeam} />
           <Table title="Client users" subtitle="scoped to a single client" rows={clientUsers} />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mb-8">
             Switching a user to an agency role removes their client scope. To assign a client user to a specific client, use that client's <span className="font-medium">Company</span> page.
           </p>
+          <CapabilityMatrix />
+          <AuditLog />
         </>
       )}
 

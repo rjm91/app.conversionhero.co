@@ -27,7 +27,7 @@ async function requireAgencyAdmin(request) {
   if (error || !user) return { error: 'Unauthorized', status: 401 }
   const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).single()
   if (!isAgencyAdmin(profile?.role)) return { error: 'Forbidden', status: 403 }
-  return { db, callerId: user.id }
+  return { db, callerId: user.id, callerEmail: user.email }
 }
 
 export async function GET(request) {
@@ -69,7 +69,7 @@ export async function GET(request) {
 export async function PATCH(request) {
   const auth = await requireAgencyAdmin(request)
   if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
-  const { db, callerId } = auth
+  const { db, callerId, callerEmail } = auth
 
   const { userId, role } = await request.json()
   if (!userId || !role) return NextResponse.json({ error: 'userId and role are required' }, { status: 400 })
@@ -80,8 +80,9 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "You can't change your own access level here." }, { status: 400 })
   }
 
-  const { data: target } = await db.from('profiles').select('role, client_id').eq('id', userId).single()
+  const { data: target } = await db.from('profiles').select('role, client_id, email').eq('id', userId).single()
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  const oldRole = target.role
 
   // Agency roles are not client-scoped; client roles need a client.
   let clientId = target.client_id
@@ -104,6 +105,20 @@ export async function PATCH(request) {
   } catch (e) {
     return NextResponse.json({ error: `Role saved, but session sync failed: ${e.message}` }, { status: 500 })
   }
+
+  // Audit trail (best-effort — never block or fail the role change on this).
+  // Safe to deploy before sql/2026-06-24_role_change_audit.sql is applied: a
+  // missing table just no-ops here.
+  try {
+    await db.from('role_change_audit').insert({
+      actor_id: callerId,
+      actor_email: callerEmail,
+      target_id: userId,
+      target_email: target.email,
+      old_role: oldRole,
+      new_role: role,
+    })
+  } catch {}
 
   return NextResponse.json({ ok: true, user: { id: userId, role, client_id: clientId } })
 }
