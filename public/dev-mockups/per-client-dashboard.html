@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Per-Account Dashboard — Drill-in Mockup</title>
+<style>
+  :root {
+    --bg: #0a0c16; --card: #111528; --card2: #0d1020; --line: rgba(255,255,255,0.07);
+    --text: #e7e9f0; --muted: #9ca3af; --muted2: #6b7280;
+    --green: #34CC93; --cyan: #01D2FB; --blue: #3b82f6; --amber: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  .wrap { padding: 32px; max-width: 1500px; margin: 0 auto; }
+  .mockbar { background: #1a1f36; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; padding: 7px 16px; text-align: center; letter-spacing: .02em; }
+  .mockbar b { color: var(--cyan); }
+  h1 { font-size: 24px; font-weight: 800; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted2); margin: 28px 0 12px; }
+
+  /* portfolio cards */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .acct { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; cursor: pointer; transition: .15s; text-align: left; color: inherit; font: inherit; }
+  .acct:hover { border-color: rgba(255,255,255,0.18); transform: translateY(-2px); }
+  .acct.self { border-color: rgba(1,210,251,0.35); background: linear-gradient(180deg, rgba(1,210,251,0.06), transparent), var(--card); }
+  .acct-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .logo { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; font-size: 20px; background: var(--card2); border: 1px solid var(--line); flex-shrink: 0; }
+  .acct-name { font-weight: 800; font-size: 16px; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; margin-top: 3px; }
+  .b-agency { background: rgba(1,210,251,0.12); color: var(--cyan); }
+  .b-ecom { background: rgba(52,204,147,0.12); color: var(--green); }
+  .b-home { background: rgba(245,158,11,0.14); color: var(--amber); }
+  .kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .kpi { background: var(--card2); border-radius: 10px; padding: 9px 11px; }
+  .kpi .v { font-weight: 800; font-size: 15px; }
+  .kpi .l { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+  .drill { margin-top: 13px; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .acct:hover .drill { color: var(--text); }
+
+  /* detail */
+  .hidden { display: none !important; }
+  .back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; margin-bottom: 18px; }
+  .back:hover { color: var(--text); }
+  .head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .head .logo { width: 56px; height: 56px; font-size: 26px; }
+  .head h1 { font-size: 22px; }
+  .kpirow { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; margin-bottom: 26px; }
+  .kpibig { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 15px; }
+  .kpibig .v { font-size: 20px; font-weight: 800; }
+  .kpibig .v.green { color: var(--green); }
+  .kpibig .l { font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+
+  /* channel accordion */
+  .acc { background: var(--card); border: 1px solid var(--line); border-radius: 13px; margin-bottom: 10px; overflow: hidden; }
+  .acc-h { display: flex; align-items: center; gap: 13px; padding: 15px 16px; cursor: pointer; user-select: none; }
+  .acc-h:hover { background: rgba(255,255,255,0.02); }
+  .chev { width: 15px; height: 15px; transition: transform .2s; color: var(--muted2); flex-shrink: 0; }
+  .acc.open .chev { transform: rotate(90deg); }
+  .dot { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #06121f; flex-shrink: 0; }
+  .acc-name { font-weight: 700; font-size: 14.5px; }
+  .acc-kind { font-size: 11px; color: var(--muted2); margin-left: 6px; }
+  .acc-r { margin-left: auto; display: flex; gap: 22px; }
+  .acc-r .m { text-align: right; }
+  .acc-r .m .v { font-weight: 800; font-size: 14px; }
+  .acc-r .m .l { font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; }
+  .acc-body { border-top: 1px solid var(--line); padding: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; padding: 11px 16px; font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .04em; background: var(--card2); font-weight: 700; }
+  th:first-child { text-align: left; }
+  td { text-align: right; padding: 11px 16px; color: var(--muted); border-top: 1px solid var(--line); }
+  td:first-child { text-align: left; color: var(--text); font-weight: 600; }
+  .pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(52,204,147,0.12); color: var(--green); }
+  .pill.off { background: rgba(255,255,255,0.06); color: var(--muted2); }
+
+  /* pipeline */
+  .funnel { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stage { flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 16px; position: relative; }
+  .stage .n { font-size: 22px; font-weight: 800; }
+  .stage .s { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .stage .pct { font-size: 11px; color: var(--muted2); margin-top: 6px; }
+  .bar { height: 4px; border-radius: 4px; background: var(--green); margin-top: 10px; opacity: .85; }
+</style>
+</head>
+<body>
+<div class="mockbar">MOCKUP — <b>per-account drill-in</b> · static demo data · not wired to real routes/auth</div>
+<div class="wrap">
+
+  <!-- ============ PORTFOLIO ============ -->
+  <div id="portfolio">
+    <h1>Accounts</h1>
+    <div class="sub">Every account is a business = <b>channels → pipeline → revenue</b>. Click any to drill in. ConversionHero is account #0 (the fractal).</div>
+
+    <div class="eyebrow">My Agency</div>
+    <div class="grid" id="selfGrid"></div>
+
+    <div class="eyebrow">Client Portfolio</div>
+    <div class="grid" id="clientGrid"></div>
+  </div>
+
+  <!-- ============ DETAIL ============ -->
+  <div id="detail" class="hidden">
+    <button class="back" onclick="showPortfolio()">&larr; Accounts</button>
+    <div class="head">
+      <div class="logo" id="dLogo"></div>
+      <div>
+        <h1 id="dName"></h1>
+        <span class="badge" id="dBadge"></span>
+      </div>
+    </div>
+    <div class="kpirow" id="dKpis"></div>
+
+    <div class="eyebrow">Revenue Channels</div>
+    <div id="dChannels"></div>
+
+    <div class="eyebrow" id="dPipeLabel">Sales Pipeline</div>
+    <div class="funnel" id="dPipeline"></div>
+  </div>
+
+</div>
+
+<script>
+const ACCOUNTS = [
+  {
+    id: 'ch', self: true, logo: '🚀', name: 'ConversionHero', industry: 'Agency', badge: 'b-agency',
+    kpis: [['$24.0k','MRR'],['$0','Ad Spend'],['—','ROAS'],['9','Leads'],['1','Clients'],['$3.0k','Avg Deal']],
+    channels: [
+      { name: 'Blaztr', kind: 'cold email', color: 'var(--cyan)', mark: '✉', metrics: [['559','Sent'],['0','Replies'],['1','Clients']],
+        cols: ['Campaign','Status','Sent','Replies','Reply %','Bounced'],
+        rows: [['Steph · HVAC','Active','45','0','0%','0'],['Yandra · HVAC','Active','45','0','0%','0'],['BrettCHC · HVAC','Active','0','0','0%','0']] },
+      { name: 'Google Ads', kind: 'not running yet', color: 'var(--muted2)', mark: 'G', off: true },
+      { name: 'Meta Ads', kind: 'not running yet', color: 'var(--muted2)', mark: 'f', off: true },
+    ],
+    pipeLabel: 'Sales Pipeline',
+    pipeline: [['Leads',559],['Replied',180],['Appts',9],['Clients',1]],
+  },
+  {
+    id: 'shieldtech', logo: '🛡️', name: 'ShieldTech', industry: 'Ecom', badge: 'b-ecom',
+    kpis: [['$182k','Revenue'],['$48k','Ad Spend'],['3.8x','ROAS'],['1,240','Orders'],['$147','AOV'],['$39','CAC']],
+    channels: [
+      { name: 'Google Ads', kind: 'search + pmax', color: '#4285F4', mark: 'G', metrics: [['$31k','Spend'],['820','Conv'],['4.1x','ROAS']],
+        cols: ['Campaign','Status','Spend','Clicks','Conv','ROAS'],
+        rows: [['Brand','Active','$4k','3,100','280','9.2x'],['PMax · Shop','Active','$19k','22,400','410','3.6x'],['Non-brand','Active','$8k','9,800','130','2.1x']] },
+      { name: 'Meta Ads', kind: 'advantage+', color: '#0866FF', mark: 'f', metrics: [['$17k','Spend'],['420','Conv'],['3.2x','ROAS']],
+        cols: ['Campaign','Status','Spend','Clicks','Conv','ROAS'],
+        rows: [['Prospecting','Active','$11k','31,000','240','2.4x'],['Retargeting','Active','$6k','9,200','180','5.1x']] },
+    ],
+    pipeLabel: 'Conversion Funnel',
+    pipeline: [['Sessions',48000],['Add to Cart',6100],['Checkout',2050],['Orders',1240]],
+  },
+  {
+    id: 'acme', logo: '🔧', name: 'Acme HVAC', industry: 'Home Service', badge: 'b-home',
+    kpis: [['$96k','Revenue'],['$12k','Ad Spend'],['8.0x','ROAS'],['210','Jobs Won'],['$457','Avg Ticket'],['$57','CAC']],
+    channels: [
+      { name: 'Google Ads', kind: 'search', color: '#4285F4', mark: 'G', metrics: [['$9k','Spend'],['260','Leads'],['7.5x','ROAS']],
+        cols: ['Campaign','Status','Spend','Clicks','Leads','CPL'],
+        rows: [['AC Repair','Active','$5k','1,900','150','$33'],['Furnace','Paused','$2k','620','40','$50'],['Tune-up','Active','$2k','810','70','$29']] },
+      { name: 'Local Service Ads', kind: 'google guaranteed', color: '#34A853', mark: '✓', metrics: [['$3k','Spend'],['90','Leads'],['9.0x','ROAS']],
+        cols: ['Type','Status','Spend','Leads','Booked','CPL'],
+        rows: [['LSA · HVAC','Active','$3k','90','62','$33']] },
+    ],
+    pipeLabel: 'Sales Pipeline',
+    pipeline: [['Leads',740],['Booked',310],['Showed',250],['Jobs Won',210]],
+  },
+];
+
+const fmt = (n) => typeof n === 'number' ? n.toLocaleString() : n;
+
+function card(a) {
+  const k = a.kpis;
+  return `<button class="acct ${a.self ? 'self' : ''}" onclick="showDetail('${a.id}')">
+    <div class="acct-top">
+      <div class="logo">${a.logo}</div>
+      <div><div class="acct-name">${a.name}</div><span class="badge ${a.badge}">${a.industry}</span></div>
+    </div>
+    <div class="kpis">
+      ${k.slice(0,3).map(([v,l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
+    </div>
+    <div class="drill">Drill in &rarr;</div>
+  </button>`;
+}
+
+function renderPortfolio() {
+  document.getElementById('selfGrid').innerHTML = ACCOUNTS.filter(a => a.self).map(card).join('');
+  document.getElementById('clientGrid').innerHTML = ACCOUNTS.filter(a => !a.self).map(card).join('');
+}
+
+function showDetail(id) {
+  const a = ACCOUNTS.find(x => x.id === id);
+  document.getElementById('dLogo').textContent = a.logo;
+  document.getElementById('dName').textContent = a.name;
+  const badge = document.getElementById('dBadge');
+  badge.textContent = a.industry; badge.className = 'badge ' + a.badge;
+
+  document.getElementById('dKpis').innerHTML = a.kpis.map(([v,l],i) =>
+    `<div class="kpibig"><div class="v ${i===0?'green':''}">${v}</div><div class="l">${l}</div></div>`).join('');
+
+  document.getElementById('dChannels').innerHTML = a.channels.map((c,i) => `
+    <div class="acc ${i===0 && !c.off ? 'open' : ''}" id="acc-${i}">
+      <div class="acc-h" onclick="document.getElementById('acc-${i}').classList.toggle('open')">
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="dot" style="background:${c.color}">${c.mark}</div>
+        <span class="acc-name">${c.name}</span><span class="acc-kind">${c.kind}</span>
+        <div class="acc-r">${(c.metrics||[]).map(([v,l]) => `<div class="m"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
+      </div>
+      ${c.off ? '' : `<div class="acc-body">
+        <table>
+          <thead><tr>${c.cols.map((h,j) => `<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${c.rows.map(r => `<tr>${r.map((cell,j) => j===1
+            ? `<td><span class="pill ${cell==='Active'?'':'off'}">${cell}</span></td>`
+            : `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`}
+    </div>`).join('');
+
+  document.getElementById('dPipeLabel').textContent = a.pipeLabel;
+  const top = a.pipeline[0][1];
+  document.getElementById('dPipeline').innerHTML = a.pipeline.map(([s,n],i) => {
+    const pct = Math.round(100 * n / top);
+    const conv = i === 0 ? '' : `${Math.round(100 * n / a.pipeline[i-1][1])}% of prior`;
+    return `<div class="stage"><div class="n">${fmt(n)}</div><div class="s">${s}</div><div class="pct">${conv}</div><div class="bar" style="width:${pct}%"></div></div>`;
+  }).join('');
+
+  document.getElementById('portfolio').classList.add('hidden');
+  document.getElementById('detail').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+
+function showPortfolio() {
+  document.getElementById('detail').classList.add('hidden');
+  document.getElementById('portfolio').classList.remove('hidden');
+}
+
+renderPortfolio();
+</script>
+</body>
+</html>
