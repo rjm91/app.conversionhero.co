@@ -117,9 +117,25 @@ function ChannelTable({ columns, rows }) {
   )
 }
 
+/* ─── empty state for a channel that isn't live yet ─── */
+function NotRunning({ name }) {
+  return (
+    <div className="p-8 flex flex-col items-center text-center gap-1.5">
+      <div className="w-9 h-9 rounded-full grid place-items-center bg-gray-100 dark:bg-white/[0.06] text-gray-400 mb-1">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+      </div>
+      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{name} isn’t running yet</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs">This channel lights up with live metrics once you launch your first campaign and connect the account.</p>
+    </div>
+  )
+}
+
 /* ─── channel icons (brand parity with the client view) ─── */
 const channelIcon = {
   overview: <div className="w-7 h-7 rounded-lg grid place-items-center text-white text-sm font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>∑</div>,
+  blended: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' }}>
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /></svg>
+  </div>,
   email: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #34CC93, #1a9e6e)' }}>
     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7l9 6 9-6" /><rect x="3" y="5" width="18" height="14" rx="2" /></svg>
   </div>,
@@ -130,22 +146,40 @@ const channelIcon = {
 /* ─── PLACEHOLDER DATA — swap per channel when wiring. ────────────────── */
 const OVERVIEW = {
   header: [
-    { label: 'MRR Added', value: fmt$(11750), ch: true, info: 'New monthly recurring revenue from clients closed in range (placeholder).' },
+    { label: 'MRR Added', value: fmt$(6100), ch: true, info: 'New monthly recurring revenue from clients closed in range (placeholder).' },
     { label: 'Clients', value: '5' },
     { label: 'Appts', value: '37' },
-    { label: 'Spend', value: fmt$(4200) },
-    { label: 'CAC', value: fmt$(840), info: 'Blended cost to acquire one client (placeholder).' },
+    { label: 'Spend', value: fmt$(290), info: 'Acquisition spend across channels — cold-email tooling/data for now (no paid ads running yet).' },
+    { label: 'CAC', value: fmt$(58), info: 'Blended cost to acquire one client (placeholder).' },
   ],
-  byChannel: [ // [name, MRR, color]
+  byChannel: [ // [name, MRR, color] — only Cold Email is live; paid not running yet
     ['Cold Email', 6100, '#34CC93'],
-    ['Google Ads', 3450, '#4285F4'],
-    ['Meta Ads', 2200, '#0866FF'],
+    ['Google Ads', 0, '#4285F4'],
+    ['Meta Ads', 0, '#0866FF'],
   ],
   efficiency: [
     { label: 'Close Rate', value: '13.5%', info: 'Clients ÷ appointments (placeholder).' },
-    { label: 'Cost / Appt', value: fmt$(114) },
-    { label: 'Avg Contract', value: fmt$(2350), ch: true },
+    { label: 'Cost / Appt', value: fmt$(8) },
+    { label: 'Avg Contract', value: fmt$(1220), ch: true },
     { label: 'Pipeline MRR', value: fmt$(28400), info: 'Weighted open-deal MRR (placeholder).' },
+  ],
+}
+
+// Blended acquisition across all channels (one row per channel). Cold Email is
+// the only live channel today — Google/Meta show as not running yet.
+const BLENDED = {
+  header: [
+    { label: 'Spend', value: fmt$(290) },
+    { label: 'Leads', value: '37' },
+    { label: 'Clients', value: '5' },
+    { label: 'Cost / Client', value: fmt$(58), info: 'Blended acquisition cost across every channel (placeholder).' },
+    { label: 'MRR Added', value: fmt$(6100), ch: true },
+  ],
+  columns: ['Channel', 'Spend', 'Leads', 'Clients', 'Cost / Client', 'MRR'],
+  rows: [
+    ['Cold Email', fmt$(290), '37', '5', fmt$(58), fmt$(6100)],
+    ['Google Ads', '—', '—', '—', '—', '— not running yet'],
+    ['Meta Ads', '—', '—', '—', '—', '— not running yet'],
   ],
 }
 
@@ -167,37 +201,8 @@ const CHANNELS = [
       ],
     },
   },
-  {
-    id: 'google_ads', name: 'Google Ads', icon: channelIcon.google, count: '3 campaigns',
-    header: [
-      { label: 'Spend', value: fmt$(2200) }, { label: 'Clicks', value: '1,840' },
-      { label: 'Leads', value: '54' }, { label: 'Cost / Lead', value: fmt$(41) },
-      { label: 'Clients', value: '3' },
-    ],
-    table: {
-      columns: ['Campaign', 'Spend', 'Clicks', 'CTR', 'Leads', 'Cost/Lead', 'Clients'],
-      rows: [
-        ['Search — "marketing agency"', fmt$(980), '720', '4.1%', '24', fmt$(41), '2'],
-        ['Search — "AI ads agency"', fmt$(760), '610', '3.6%', '18', fmt$(42), '1'],
-        ['YouTube — Retargeting', fmt$(460), '510', '2.2%', '12', fmt$(38), '0'],
-      ],
-    },
-  },
-  {
-    id: 'meta_ads', name: 'Meta Ads', icon: channelIcon.meta, count: '2 campaigns',
-    header: [
-      { label: 'Spend', value: fmt$(2000) }, { label: 'Clicks', value: '2,260' },
-      { label: 'Leads', value: '61' }, { label: 'Cost / Lead', value: fmt$(33) },
-      { label: 'Clients', value: '2' },
-    ],
-    table: {
-      columns: ['Campaign', 'Spend', 'Clicks', 'CTR', 'Leads', 'Cost/Lead', 'Clients'],
-      rows: [
-        ['Lead Gen — Agency Owners', fmt$(1200), '1,340', '2.8%', '38', fmt$(32), '1'],
-        ['Retarget — Site Visitors', fmt$(800), '920', '3.1%', '23', fmt$(35), '1'],
-      ],
-    },
-  },
+  { id: 'google_ads', name: 'Google Ads', icon: channelIcon.google, notRunning: true },
+  { id: 'meta_ads', name: 'Meta Ads', icon: channelIcon.meta, notRunning: true },
 ]
 
 /* ─────────────────────────────────────────────────────────────────────── */
@@ -242,11 +247,17 @@ export default function AgencyRevenueChannels() {
         </div>
       </Section>
 
+      {/* Blended — all channels combined (mirrors the client blended view) */}
+      <Section id="blended" icon={channelIcon.blended} name="Blended" count="all channels" kpis={open.blended ? [] : BLENDED.header} open={open.blended} onToggle={toggle}>
+        <ChartPlaceholder />
+        <ChannelTable columns={BLENDED.columns} rows={BLENDED.rows} />
+      </Section>
+
       {/* Per-channel */}
       {CHANNELS.map((c) => (
-        <Section key={c.id} id={c.id} icon={c.icon} name={c.name} count={c.count} kpis={open[c.id] ? [] : c.header} open={open[c.id]} onToggle={toggle}>
-          <ChartPlaceholder />
-          <ChannelTable columns={c.table.columns} rows={c.table.rows} />
+        <Section key={c.id} id={c.id} icon={c.icon} name={c.name} count={c.notRunning ? 'not running yet' : c.count}
+          kpis={c.notRunning || open[c.id] ? [] : c.header} open={open[c.id]} onToggle={toggle}>
+          {c.notRunning ? <NotRunning name={c.name} /> : (<><ChartPlaceholder /><ChannelTable columns={c.table.columns} rows={c.table.rows} /></>)}
         </Section>
       ))}
     </div>
