@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { isAgencyUser } from '../../../../lib/roles'
+import { snapshotBlaztrDaily } from '../../../../lib/blaztr-snapshot'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -58,24 +59,23 @@ export async function GET(request) {
   )
   const blaztr = sources.blaztr || { ...zero }
 
-  // Blaztr email funnel + per-campaign breakdown (best-effort; the pipeline
-  // numbers still render if Blaztr is unavailable). www host = skip the 307.
+  // Blaztr: current summary (+ records today's daily snapshot), per-campaign
+  // list, and the accumulated daily trend. Best-effort; the pipeline numbers
+  // still render if Blaztr / the snapshot table are unavailable.
   let blaztrFunnel = null
   let blaztrCampaigns = []
+  let blaztrTrend = []
   try {
     if (process.env.BLAZTR_API_KEY) {
       const hdr = { headers: { 'x-api-key': process.env.BLAZTR_API_KEY }, cache: 'no-store' }
-      const [sumR, campR] = await Promise.all([
-        fetch('https://www.blaztr.app/api/blaztrApi?action=summary', hdr),
-        fetch('https://www.blaztr.app/api/blaztrApi?action=campaigns', hdr),
+      const [summary, camp] = await Promise.all([
+        snapshotBlaztrDaily(db), // fetch summary + upsert today's blaztr_daily row
+        fetch('https://www.blaztr.app/api/blaztrApi?action=campaigns', hdr).then((r) => r.json()).catch(() => null),
       ])
-      const sum = await sumR.json().catch(() => null)
-      const camp = await campR.json().catch(() => null)
-      if (sum?.success && sum.data) {
-        const s = sum.data
+      if (summary) {
         blaztrFunnel = {
-          campaigns: s.total_campaigns || 0, leads: s.total_leads || 0, sent: s.total_sent || 0,
-          replied: s.total_replies || 0, bounced: s.total_bounced || 0, replyRate: s.reply_rate || 0,
+          campaigns: summary.total_campaigns || 0, leads: summary.total_leads || 0, sent: summary.total_sent || 0,
+          replied: summary.total_replies || 0, bounced: summary.total_bounced || 0, replyRate: summary.reply_rate || 0,
         }
       }
       if (camp?.success && Array.isArray(camp.data)) {
@@ -83,8 +83,10 @@ export async function GET(request) {
           .map((c) => ({ name: c.name, status: c.status, sent: c.total_sent || 0, replies: c.total_replies || 0, bounced: c.total_bounced || 0, queued: c.queued || 0 }))
           .sort((a, b) => b.sent - a.sent)
       }
+      const { data: daily } = await db.from('blaztr_daily').select('day, total_sent, total_replies, total_bounced, reply_rate').order('day', { ascending: true }).limit(180)
+      blaztrTrend = (daily || []).map((d) => ({ day: d.day, sent: d.total_sent, replies: d.total_replies, bounced: d.total_bounced, replyRate: Number(d.reply_rate) || 0 }))
     }
-  } catch { /* Blaztr API optional */ }
+  } catch { /* Blaztr API / snapshot table optional */ }
 
-  return NextResponse.json({ total, blaztr, blaztrFunnel, blaztrCampaigns, sources })
+  return NextResponse.json({ total, blaztr, blaztrFunnel, blaztrCampaigns, blaztrTrend, sources })
 }

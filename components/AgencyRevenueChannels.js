@@ -14,13 +14,61 @@
  * Blaztr spend / CAC (cold-email cost isn't tracked in the DB) → shown as "—".
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip } from 'chart.js'
+import { Line } from 'react-chartjs-2'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip)
 
 /* ─── formatting ─── */
 const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString()
 const fmtNum = (n) => Math.round(n || 0).toLocaleString()
 const fmtPct = (x) => `${(100 * (x || 0)).toFixed(1)}%`
+
+/* ─── Blaztr trend chart with metric-toggle pills (over accumulated snapshots) ─── */
+const BLAZTR_METRICS = [
+  { key: 'sent', label: 'Sent', color: '#01D2FB', axis: 'count' },
+  { key: 'replies', label: 'Replies', color: '#34CC93', axis: 'count' },
+  { key: 'bounced', label: 'Bounced', color: '#f59e0b', axis: 'count' },
+  { key: 'replyRate', label: 'Reply Rate', color: '#a855f7', axis: 'pct' },
+]
+function BlaztrTrendChart({ trend, enabled, onToggle }) {
+  const hasPct = BLAZTR_METRICS.some((m) => m.axis === 'pct' && enabled[m.key])
+  const labels = trend.map((d) => new Date(d.day + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  const datasets = BLAZTR_METRICS.filter((m) => enabled[m.key]).map((m) => ({
+    label: m.label, data: trend.map((d) => (m.axis === 'pct' ? 100 * (d[m.key] || 0) : d[m.key] || 0)),
+    borderColor: m.color, backgroundColor: m.color, yAxisID: m.axis, tension: 0.3, pointRadius: 0, borderWidth: 2, fill: false,
+  }))
+  return (
+    <div className="px-5 pt-5">
+      <div className="flex flex-wrap gap-2 mb-3">
+        {BLAZTR_METRICS.map((m) => (
+          <button key={m.key} onClick={() => onToggle(m.key)}
+            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition ${enabled[m.key] ? 'text-white border-transparent' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300'}`}
+            style={enabled[m.key] ? { background: m.color } : undefined}>{m.label}</button>
+        ))}
+      </div>
+      {trend.length < 2 ? (
+        <div className="h-40 rounded-lg bg-gray-50 dark:bg-[#0d1020] border border-gray-100 dark:border-white/[0.04] grid place-items-center text-center px-8">
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm">Trend builds as daily snapshots accumulate — Blaztr has no historical data, so we record one point per day. Check back tomorrow.</p>
+        </div>
+      ) : (
+        <div style={{ height: 220 }}>
+          <Line data={{ labels, datasets }} options={{
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.dataset.yAxisID === 'pct' ? ctx.parsed.y.toFixed(1) + '%' : Math.round(ctx.parsed.y).toLocaleString()}` } } },
+            scales: {
+              x: { ticks: { color: '#9ca3af', font: { size: 11 }, maxTicksLimit: 8 }, grid: { display: false } },
+              count: { position: 'left', ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: 'rgba(148,163,184,0.12)' }, beginAtZero: true },
+              pct: { position: 'right', display: hasPct, ticks: { color: '#9ca3af', font: { size: 11 }, callback: (v) => v + '%' }, grid: { display: false }, beginAtZero: true },
+            },
+          }} />
+        </div>
+      )}
+    </div>
+  )
+}
 const ratio = (a, b) => (b ? a / b : 0)
 
 /* ─── ⓘ tooltip ─── */
@@ -49,7 +97,7 @@ function InfoTip({ text }) {
 }
 
 /* ─── one accordion section ─── */
-function Section({ id, icon, name, count, kpis = [], open, onToggle, children }) {
+function Section({ id, icon, name, count, kpis = [], open, onToggle, children, headerCtrl, action }) {
   return (
     <div className="border border-gray-100 dark:border-white/[0.06] rounded-xl mb-3 bg-white dark:bg-[#111528] overflow-hidden">
       <div onClick={() => onToggle(id)} className="flex items-center gap-3.5 px-4 py-4 cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-[#161b30] transition">
@@ -61,7 +109,9 @@ function Section({ id, icon, name, count, kpis = [], open, onToggle, children })
           <span className="text-[15px] font-bold text-gray-900 dark:text-white">{name}</span>
           {count != null && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{count}</span>}
         </div>
+        {headerCtrl && <div className="ml-4 flex-shrink-0">{headerCtrl}</div>}
         <div className="flex-1" />
+        {action && <div className="mr-5 flex-shrink-0">{action}</div>}
         <div className="flex items-center gap-6 flex-shrink-0">
           {kpis.map((k, i) => (
             <div key={i} className="text-right hidden sm:block">
@@ -160,22 +210,29 @@ export default function AgencyRevenueChannels() {
   const [open, setOpen] = useState({ overview: true })
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [blaztrStatus, setBlaztrStatus] = useState('Enabled')
+  const [trendOn, setTrendOn] = useState({ sent: true, replies: true, replyRate: false, bounced: false })
+  const tokenRef = useRef(null)
   const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }))
+  const toggleTrend = (k) => setTrendOn((s) => ({ ...s, [k]: !s[k] }))
+
+  const loadData = useCallback(async (token) => {
+    const tk = token || tokenRef.current
+    if (!tk) return
+    try {
+      const res = await fetch('/api/agency/revenue-channels', { headers: { Authorization: `Bearer ${tk}` } })
+      const j = await res.json()
+      if (!res.ok) { setErr(j.error || 'Failed to load'); return }
+      setErr(null); setData(j)
+    } catch (e) { setErr(String(e?.message || e)) }
+  }, [])
+  const refresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false) }
 
   useEffect(() => {
     let active = true
     let fetched = false
-    const fetchWith = async (token) => {
-      if (fetched || !active || !token) return
-      fetched = true
-      try {
-        const res = await fetch('/api/agency/revenue-channels', { headers: { Authorization: `Bearer ${token}` } })
-        const j = await res.json()
-        if (!active) return
-        if (!res.ok) { setErr(j.error || 'Failed to load'); fetched = false; return }
-        setErr(null); setData(j)
-      } catch (e) { if (active) { setErr(String(e?.message || e)); fetched = false } }
-    }
+    const fetchWith = (token) => { if (fetched || !active || !token) return; fetched = true; tokenRef.current = token; loadData(token) }
     // Poll getSession briefly — the session restores from storage a beat after
     // mount, so retry for ~3s before concluding "not signed in" (the race).
     let tries = 0
@@ -187,18 +244,37 @@ export default function AgencyRevenueChannels() {
       else if (active && !fetched) setErr('Not signed in')
     }
     tryGet()
-    // Also fetch the instant any sign-in / token-refresh event lands.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.access_token) fetchWith(session.access_token)
     })
     return () => { active = false; subscription?.unsubscribe() }
-  }, [])
+  }, [loadData])
 
   const t = data?.total || ZERO
   const bz = data?.blaztr || ZERO
   const funnel = data?.blaztrFunnel || null
   const campaigns = data?.blaztrCampaigns || []
+  const trend = data?.blaztrTrend || []
   const chMax = Math.max(1, bz.mrr)
+  // Status filter for the campaign list (Enabled = Active, Paused = anything else).
+  const visCampaigns = blaztrStatus === 'All' ? campaigns
+    : campaigns.filter((c) => (blaztrStatus === 'Enabled' ? c.status === 'Active' : c.status !== 'Active'))
+
+  const blaztrStatusSelect = (
+    <select value={blaztrStatus} onClick={(e) => e.stopPropagation()} onChange={(e) => setBlaztrStatus(e.target.value)}
+      className="text-xs bg-gray-50 dark:bg-[#0d1020] border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1 text-gray-600 dark:text-gray-300 cursor-pointer">
+      <option value="Enabled">Enabled</option>
+      <option value="Paused">Paused</option>
+      <option value="All">All</option>
+    </select>
+  )
+  const blaztrRefresh = (
+    <button onClick={(e) => { e.stopPropagation(); refresh() }} disabled={refreshing}
+      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex items-center gap-1 disabled:opacity-50">
+      <svg className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+      {refreshing ? 'Refreshing…' : 'Refresh'}
+    </button>
+  )
 
   return (
     <div className="mb-8">
@@ -271,8 +347,9 @@ export default function AgencyRevenueChannels() {
         />
       </Section>
 
-      {/* Blaztr — live cold-email channel (campaigns + funnel from Blaztr API) */}
+      {/* Blaztr — live cold-email channel (campaigns + trend from Blaztr API) */}
       <Section id="blaztr" icon={channelIcon.blaztr} name="Blaztr" count={funnel ? `${funnel.campaigns} campaigns` : 'cold email'} open={open.blaztr} onToggle={toggle}
+        headerCtrl={open.blaztr ? blaztrStatusSelect : null} action={open.blaztr ? blaztrRefresh : null}
         kpis={open.blaztr ? [] : [
           { label: 'Campaigns', value: funnel ? fmtNum(funnel.campaigns) : '—' },
           { label: 'Sent', value: funnel ? fmtNum(funnel.sent) : '—' },
@@ -280,7 +357,7 @@ export default function AgencyRevenueChannels() {
           { label: 'Booked', value: fmtNum(bz.appts) },
           { label: 'MRR Added', value: fmt$(bz.mrr), ch: true },
         ]}>
-        <ChartPlaceholder />
+        <BlaztrTrendChart trend={trend} enabled={trendOn} onToggle={toggleTrend} />
         {/* Per-campaign list — paid-ads table style (rows + columns + totals) */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap">
@@ -294,9 +371,9 @@ export default function AgencyRevenueChannels() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {campaigns.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">No campaigns yet.</td></tr>
-              ) : campaigns.map((c, i) => (
+              {visCampaigns.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">No {blaztrStatus !== 'All' ? blaztrStatus.toLowerCase() + ' ' : ''}campaigns.</td></tr>
+              ) : visCampaigns.map((c, i) => (
                 <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white">
@@ -314,17 +391,20 @@ export default function AgencyRevenueChannels() {
                   <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.queued)}</td>
                 </tr>
               ))}
-              {funnel && campaigns.length > 0 && (
-                <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10">
-                  <td className="px-4 py-3">Total · {fmtNum(funnel.campaigns)} campaigns</td>
-                  <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
-                  <td className="px-4 py-3 text-right">{fmtNum(funnel.sent)}</td>
-                  <td className="px-4 py-3 text-right">{fmtNum(funnel.replied)}</td>
-                  <td className="px-4 py-3 text-right">{funnel.sent ? fmtPct(funnel.replied / funnel.sent) : '0%'}</td>
-                  <td className="px-4 py-3 text-right">{fmtNum(funnel.bounced)}</td>
-                  <td className="px-4 py-3 text-right">{fmtNum(campaigns.reduce((s, c) => s + (c.queued || 0), 0))}</td>
-                </tr>
-              )}
+              {visCampaigns.length > 0 && (() => {
+                const sum = visCampaigns.reduce((a, c) => ({ sent: a.sent + c.sent, replies: a.replies + c.replies, bounced: a.bounced + c.bounced, queued: a.queued + (c.queued || 0) }), { sent: 0, replies: 0, bounced: 0, queued: 0 })
+                return (
+                  <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10">
+                    <td className="px-4 py-3">Total · {fmtNum(visCampaigns.length)} campaign{visCampaigns.length === 1 ? '' : 's'}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(sum.sent)}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(sum.replies)}</td>
+                    <td className="px-4 py-3 text-right">{sum.sent ? fmtPct(sum.replies / sum.sent) : '0%'}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(sum.bounced)}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(sum.queued)}</td>
+                  </tr>
+                )
+              })()}
             </tbody>
           </table>
         </div>
