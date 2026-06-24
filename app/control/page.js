@@ -137,14 +137,27 @@ async function fetchClientData(clientId, start, end) {
   if (start) paysQ = paysQ.gte('date_created', start)
   if (end) paysQ = paysQ.lte('date_created', end + 'T23:59:59-12:00')
 
-  const [{ data: leads }, { data: campaigns }, { data: payments }] = await Promise.all([
-    leadsQ, campsQ, paysQ,
+  // Client business revenue — every client_lead row carrying a sale_amount
+  // (Shopify orders for ecom, sold jobs for home service). No lead_status
+  // filter so null-status Shopify orders aren't dropped by `!= in_progress`.
+  let ordersQ = supabase
+    .from('client_lead')
+    .select('sale_amount')
+    .eq('client_id', clientId)
+    .gt('sale_amount', 0)
+    .limit(10000)
+  if (start) ordersQ = ordersQ.gte('created_at', start)
+  if (end) ordersQ = ordersQ.lte('created_at', end + 'T23:59:59-12:00')
+
+  const [{ data: leads }, { data: campaigns }, { data: payments }, { data: orders }] = await Promise.all([
+    leadsQ, campsQ, paysQ, ordersQ,
   ])
 
   return {
     leads: leads || [],
     campaigns: campaigns || [],
     payments: payments || [],
+    orders: orders || [],
   }
 }
 
@@ -167,10 +180,11 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
 
   // ── Active Clients rows ──
   const clientRows = activeClients.map(c => {
-    const revenue = c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    const agencyRev = c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)  // QuickBooks fees/commission (our revenue)
+    const clientRev = (c._orders || []).reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)  // client's business sales
     const adSpend = c._campaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
-    const customers = c._leads.filter(l => l.sale_status === 'Sold').length
-    const roas = adSpend > 0 ? revenue / adSpend : null
+    const customers = (c._orders || []).length  // paying orders/customers (works for ecom + home service)
+    const roas = adSpend > 0 ? clientRev / adSpend : null  // client revenue ÷ spend
     const cac = customers > 0 ? adSpend / customers : 0
 
     return [
@@ -179,42 +193,43 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
       c.client_name,
       c.industry || '—',
       fmt$(adSpend),
-      { value: fmt$(revenue), color: 'green' },
+      { value: fmt$(clientRev), color: 'green' },
       roas != null ? { value: roas.toFixed(1) + 'x', color: 'green', bold: true } : '—',
       { value: String(customers), bold: true },
       customers > 0 ? fmt$(cac) : '—',
+      { value: fmt$(agencyRev), color: 'blue' },
       { link: 'View Dashboard →', href: `/control/${c.client_id}/dashboard` },
     ]
   })
 
   // Summary totals
-  let totalCash = 0, totalAdSpend = 0, totalCampaignIds = new Set(), totalLeads = 0, totalAppts = 0, totalCustomers = 0
+  let totalAgencyRev = 0, totalClientRev = 0, totalAdSpend = 0, totalCustomers = 0
   activeClients.forEach(c => {
-    totalCash += c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    c._campaigns.forEach(ca => { totalCampaignIds.add(ca.campaign_id); totalAdSpend += (Number(ca.cost) || 0) })
-    totalLeads += c._leads.length
-    totalAppts += c._leads.filter(l => l.appt_status === 'Appt Complete').length
-    totalCustomers += c._leads.filter(l => l.sale_status === 'Sold').length
+    totalAgencyRev += c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    totalClientRev += (c._orders || []).reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
+    c._campaigns.forEach(ca => { totalAdSpend += (Number(ca.cost) || 0) })
+    totalCustomers += (c._orders || []).length
   })
 
-  const blendedRoas = totalAdSpend > 0 ? (totalCash / totalAdSpend).toFixed(1) + 'x' : '—'
+  const blendedRoas = totalAdSpend > 0 ? (totalClientRev / totalAdSpend).toFixed(1) + 'x' : '—'
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
-    columns: ['Tenure','Status','Company Name','Industry','Ad Spend','Revenue','ROAS','Customers','CAC',''],
+    columns: ['Tenure','Status','Company Name','Industry','Ad Spend','Client Rev','ROAS','Customers','CAC','Agency Rev',''],
     summaryMap: {
       4: { value: fmt$(totalAdSpend) },
-      5: { value: fmt$(totalCash), color: 'green' },
+      5: { value: fmt$(totalClientRev), color: 'green' },
       6: { value: blendedRoas, color: 'green' },
       7: { value: String(totalCustomers) },
       8: { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', dim: true },
+      9: { value: fmt$(totalAgencyRev), color: 'blue' },
     },
     headerStats: [
-      { value: fmt$(totalCash), label: 'Revenue', color: 'text-emerald-400' },
+      { value: fmt$(totalClientRev), label: 'Client Rev', color: 'text-emerald-400' },
       { value: fmt$(totalAdSpend), label: 'Ad Spend', color: totalAdSpend > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
       { value: blendedRoas, label: 'Blended ROAS', color: 'text-emerald-400' },
       { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
-      { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', label: 'CAC', color: 'text-gray-500' },
+      { value: fmt$(totalAgencyRev), label: 'Agency Rev', color: 'text-blue-400' },
     ],
     rows: clientRows,
   }
@@ -422,7 +437,7 @@ function CellContent({ cell, onStatusChange, notesApi }) {
   }
 
   if (cell.value) {
-    const colorCls = cell.color === 'green' ? 'text-emerald-400' : ''
+    const colorCls = cell.color === 'green' ? 'text-emerald-400' : cell.color === 'blue' ? 'text-blue-400' : ''
     const boldCls = cell.bold || cell.color ? 'font-semibold' : ''
     return <span className={`${colorCls} ${boldCls}`}>{cell.value}</span>
   }
@@ -1861,8 +1876,8 @@ export default function ControlPage() {
     const [clientsWithData, agencyLeadsRes] = await Promise.all([
       Promise.all(
         (clients || []).map(async (c) => {
-          const { leads, campaigns, payments } = await fetchClientData(c.client_id, start, end)
-          return { ...c, _leads: leads, _campaigns: campaigns, _payments: payments }
+          const { leads, campaigns, payments, orders } = await fetchClientData(c.client_id, start, end)
+          return { ...c, _leads: leads, _campaigns: campaigns, _payments: payments, _orders: orders }
         })
       ),
       fetch('/api/agency-leads', { cache: 'no-store' }).then(r => r.json()),
