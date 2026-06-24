@@ -164,19 +164,27 @@ export default function AgencyRevenueChannels() {
 
   useEffect(() => {
     let active = true
-    ;(async () => {
+    let fetched = false
+    const fetchWith = async (token) => {
+      if (fetched || !active || !token) return
+      fetched = true
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const token = session?.access_token
-        if (!token) { if (active) setErr('Not signed in'); return }
         const res = await fetch('/api/agency/revenue-channels', { headers: { Authorization: `Bearer ${token}` } })
         const j = await res.json()
         if (!active) return
-        if (!res.ok) { setErr(j.error || 'Failed to load'); return }
-        setData(j)
-      } catch (e) { if (active) setErr(String(e?.message || e)) }
-    })()
-    return () => { active = false }
+        if (!res.ok) { setErr(j.error || 'Failed to load'); fetched = false; return }
+        setErr(null); setData(j)
+      } catch (e) { if (active) { setErr(String(e?.message || e)); fetched = false } }
+    }
+    // Fast path: session already restored.
+    supabase.auth.getSession().then(({ data: { session } }) => { if (session?.access_token) fetchWith(session.access_token) })
+    // Robust path: fires INITIAL_SESSION (and SIGNED_IN) with the restored
+    // session once storage is read — avoids the getSession()-on-mount race.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.access_token) fetchWith(session.access_token)
+      else if (event === 'INITIAL_SESSION' && active && !fetched) setErr('Not signed in')
+    })
+    return () => { active = false; subscription?.unsubscribe() }
   }, [])
 
   const t = data?.total || ZERO
