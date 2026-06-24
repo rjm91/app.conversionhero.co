@@ -62,7 +62,7 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="p-8">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Apps &amp; Integrations</h1>
         {!showForm && (
