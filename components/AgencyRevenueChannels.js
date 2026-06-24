@@ -51,7 +51,7 @@ function BlaztrTrendChart({ trend, enabled, onToggle }) {
       </div>
       {trend.length < 2 ? (
         <div className="h-40 rounded-lg bg-gray-50 dark:bg-[#0d1020] border border-gray-100 dark:border-white/[0.04] grid place-items-center text-center px-8">
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm">Trend builds as daily snapshots accumulate — Blaztr has no historical data, so we record one point per day. Check back tomorrow.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm">{trend.length === 0 ? 'No send activity yet.' : 'Only 1 day of send history so far (campaigns just started sending).'} The trend line appears once there are 2+ days of sends.</p>
         </div>
       ) : (
         <div style={{ height: 220 }}>

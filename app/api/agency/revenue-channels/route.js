@@ -68,9 +68,10 @@ export async function GET(request) {
   try {
     if (process.env.BLAZTR_API_KEY) {
       const hdr = { headers: { 'x-api-key': process.env.BLAZTR_API_KEY }, cache: 'no-store' }
-      const [summary, camp] = await Promise.all([
-        snapshotBlaztrDaily(db), // fetch summary + upsert today's blaztr_daily row
+      const [summary, camp, tl] = await Promise.all([
+        snapshotBlaztrDaily(db), // fetch summary + upsert today's blaztr_daily row (long-term backstop)
         fetch('https://www.blaztr.app/api/blaztrApi?action=campaigns', hdr).then((r) => r.json()).catch(() => null),
+        fetch('https://www.blaztr.app/api/blaztrApi?action=timeline', hdr).then((r) => r.json()).catch(() => null),
       ])
       if (summary) {
         blaztrFunnel = {
@@ -83,8 +84,16 @@ export async function GET(request) {
           .map((c) => ({ name: c.name, status: c.status, sent: c.total_sent || 0, replies: c.total_replies || 0, bounced: c.total_bounced || 0, queued: c.queued || 0 }))
           .sort((a, b) => b.sent - a.sent)
       }
-      const { data: daily } = await db.from('blaztr_daily').select('day, total_sent, total_replies, total_bounced, reply_rate').order('day', { ascending: true }).limit(180)
-      blaztrTrend = (daily || []).map((d) => ({ day: d.day, sent: d.total_sent, replies: d.total_replies, bounced: d.total_bounced, replyRate: Number(d.reply_rate) || 0 }))
+      // Trend = Blaztr's own daily timeline (authoritative) merged with our
+      // snapshots (which extend history past Blaztr's window, if any).
+      const byDay = {}
+      const { data: daily } = await db.from('blaztr_daily').select('day, total_sent, total_replies, total_bounced').order('day', { ascending: true }).limit(365)
+      ;(daily || []).forEach((d) => { byDay[d.day] = { sent: d.total_sent, replies: d.total_replies, bounced: d.total_bounced } })
+      if (tl?.success && Array.isArray(tl.data)) tl.data.forEach((d) => { byDay[d.date] = { sent: d.sent || 0, replies: d.replied || 0, bounced: d.bounced || 0 } })
+      blaztrTrend = Object.keys(byDay).sort().map((day) => {
+        const v = byDay[day]
+        return { day, sent: v.sent, replies: v.replies, bounced: v.bounced, replyRate: v.sent ? v.replies / v.sent : 0 }
+      })
     }
   } catch { /* Blaztr API / snapshot table optional */ }
 
