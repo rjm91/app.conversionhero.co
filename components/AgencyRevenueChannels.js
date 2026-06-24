@@ -176,13 +176,20 @@ export default function AgencyRevenueChannels() {
         setErr(null); setData(j)
       } catch (e) { if (active) { setErr(String(e?.message || e)); fetched = false } }
     }
-    // Fast path: session already restored.
-    supabase.auth.getSession().then(({ data: { session } }) => { if (session?.access_token) fetchWith(session.access_token) })
-    // Robust path: fires INITIAL_SESSION (and SIGNED_IN) with the restored
-    // session once storage is read — avoids the getSession()-on-mount race.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Poll getSession briefly — the session restores from storage a beat after
+    // mount, so retry for ~3s before concluding "not signed in" (the race).
+    let tries = 0
+    const tryGet = async () => {
+      if (fetched || !active) return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) return fetchWith(session.access_token)
+      if (++tries < 12) setTimeout(tryGet, 280)
+      else if (active && !fetched) setErr('Not signed in')
+    }
+    tryGet()
+    // Also fetch the instant any sign-in / token-refresh event lands.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.access_token) fetchWith(session.access_token)
-      else if (event === 'INITIAL_SESSION' && active && !fetched) setErr('Not signed in')
     })
     return () => { active = false; subscription?.unsubscribe() }
   }, [])

@@ -569,7 +569,7 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
   const colSpanAll = columns.length + (selectable ? 1 : 0)
 
   return (
-    <div className={nested ? 'border-b border-gray-100 dark:border-white/[0.04]' : 'mb-3 border border-gray-200 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#1a1f36] overflow-hidden'}>
+    <div className={nested ? 'border-b border-gray-100 dark:border-white/[0.04]' : 'mb-3 border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] overflow-hidden'}>
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
         <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: columns.length > 10 ? '1200px' : undefined }}>
           <thead>
@@ -578,21 +578,24 @@ function PipelineAccordion({ id, pipeline, defaultCollapsed = true, onStatusChan
               onClick={toggle}
             >
               {headerStats ? (
-                <td colSpan={columns.length} className="py-3.5 px-5 border-b border-gray-200 dark:border-white/[0.06]">
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-block text-xs text-gray-500 transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}>
-                      ▾
-                    </span>
+                <td colSpan={columns.length} className="py-4 px-4 border-b border-gray-100 dark:border-white/[0.06]">
+                  <div className="flex items-center gap-3.5">
+                    <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z" /></svg>
+                    </div>
                     <span className="text-[15px] font-bold text-gray-900 dark:text-white">{title}</span>
                     <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-gray-100 dark:bg-white/[0.08] text-xs font-bold text-gray-500 dark:text-gray-400">
                       {count}
                     </span>
                     <div className="flex-1" />
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-6 flex-shrink-0">
                       {headerStats.map((stat, si) => (
-                        <div key={si} className={`flex flex-col items-center px-3.5 min-w-[70px] ${si < headerStats.length - 1 ? 'border-r border-gray-200 dark:border-white/5' : ''}`}>
-                          <span className={`text-[15px] font-extrabold leading-tight ${stat.color}`}>{stat.value}</span>
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">{stat.label}</span>
+                        <div key={si} className="text-right hidden sm:block">
+                          <div className={`text-base font-bold leading-tight ${stat.color || 'text-gray-900 dark:text-white'}`}>{stat.value}</div>
+                          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{stat.label}</div>
                         </div>
                       ))}
                     </div>
@@ -2152,39 +2155,34 @@ export default function ControlPage() {
               .filter(l => l.sale_amount && l.sale_status !== 'Sale Lost')
               .reduce((s, l) => s + (Number(l.sale_amount) || 0), 0)
             return (
-              <div className="mb-3 border border-gray-200 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#1a1f36] overflow-hidden">
+              <div className="mb-3 border border-gray-100 dark:border-white/[0.06] rounded-xl bg-white dark:bg-[#111528] overflow-hidden">
                 <div
-                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/[0.02] transition select-none"
+                  className="flex items-center gap-3.5 px-4 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#161b30] transition select-none"
                   onClick={() => setSalesPipelineOpen(o => !o)}
                 >
-                  <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${salesPipelineOpen ? 'rotate-90' : ''}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${salesPipelineOpen ? 'rotate-90' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                  <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 4h18l-7 8v6l-4 2v-8z" /></svg>
+                  </div>
                   <span className="text-[15px] font-bold text-gray-900 dark:text-white">Sales Pipeline</span>
                   <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-gray-100 dark:bg-white/[0.08] text-xs font-bold text-gray-500 dark:text-gray-400">
                     {totalLeads}
                   </span>
                   <div className="flex-1" />
-                  <div className="flex items-center">
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${leadCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{leadCount}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Leads</span>
-                    </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${apptCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{apptCount}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Appts</span>
-                    </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${salCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{salCount}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">In Sales</span>
-                    </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px] border-r border-gray-200 dark:border-white/5">
-                      <span className={`text-[15px] font-extrabold leading-tight ${onbCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{onbCount}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Onboarding</span>
-                    </div>
-                    <div className="flex flex-col items-center px-3.5 min-w-[70px]">
-                      <span className="text-[15px] font-extrabold leading-tight text-emerald-400">{fmt$(pipelineValue)}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 mt-0.5">Pipeline</span>
-                    </div>
+                  <div className="flex items-center gap-6 flex-shrink-0">
+                    {[
+                      { label: 'Leads', value: leadCount, on: leadCount > 0 },
+                      { label: 'Appts', value: apptCount, on: apptCount > 0 },
+                      { label: 'In Sales', value: salCount, on: salCount > 0 },
+                      { label: 'Onboarding', value: onbCount, on: onbCount > 0 },
+                      { label: 'Pipeline', value: fmt$(pipelineValue), green: true },
+                    ].map((s, i) => (
+                      <div key={i} className="text-right hidden sm:block">
+                        <div className={`text-base font-bold leading-tight ${s.green ? 'text-[#34CC93]' : s.on ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{s.value}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{s.label}</div>
+                      </div>
+                    ))}
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); setCreateError(null); setNewRecord(emptyNew); setNewOpen(true) }}
