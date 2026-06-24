@@ -5,7 +5,7 @@
  * client EcomControlCenter look. SHELL ONLY: every number below is
  * placeholder demo data. Wiring plan — replace the `CHANNELS` / `OVERVIEW`
  * data objects (and the chart/table bodies) per channel, one at a time:
- *   • Cold Email  → Blaztr sync  (app/api/blaztr-sync)
+ *   • Blaztr (cold email) → Blaztr sync  (app/api/blaztr-sync)
  *   • Google Ads  → agency Google Ads account
  *   • Meta Ads    → agency Meta ad account
  * Nothing here fetches yet — it's the dashboard chassis the data drops into.
@@ -136,7 +136,7 @@ const channelIcon = {
   blended: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' }}>
     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /></svg>
   </div>,
-  email: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #34CC93, #1a9e6e)' }}>
+  blaztr: <div className="w-7 h-7 rounded-lg grid place-items-center text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #01D2FB, #0193b8)' }}>
     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7l9 6 9-6" /><rect x="3" y="5" width="18" height="14" rx="2" /></svg>
   </div>,
   google: <div className="w-7 h-7 rounded-lg grid place-items-center bg-white border border-gray-200 text-[#4285F4] text-xs font-extrabold flex-shrink-0">G</div>,
@@ -152,8 +152,8 @@ const OVERVIEW = {
     { label: 'Spend', value: fmt$(290), info: 'Acquisition spend across channels — cold-email tooling/data for now (no paid ads running yet).' },
     { label: 'CAC', value: fmt$(58), info: 'Blended cost to acquire one client (placeholder).' },
   ],
-  byChannel: [ // [name, MRR, color] — only Cold Email is live; paid not running yet
-    ['Cold Email', 6100, '#34CC93'],
+  byChannel: [ // [name, MRR, color] — only Blaztr is live; paid not running yet
+    ['Blaztr', 6100, '#01D2FB'],
     ['Google Ads', 0, '#4285F4'],
     ['Meta Ads', 0, '#0866FF'],
   ],
@@ -177,7 +177,7 @@ const BLENDED = {
   ],
   columns: ['Channel', 'Spend', 'Leads', 'Clients', 'Cost / Client', 'MRR'],
   rows: [
-    ['Cold Email', fmt$(290), '37', '5', fmt$(58), fmt$(6100)],
+    ['Blaztr', fmt$(290), '37', '5', fmt$(58), fmt$(6100)],
     ['Google Ads', '—', '—', '—', '—', '— not running yet'],
     ['Meta Ads', '—', '—', '—', '—', '— not running yet'],
   ],
@@ -185,7 +185,7 @@ const BLENDED = {
 
 const CHANNELS = [
   {
-    id: 'cold_email', name: 'Cold Email', icon: channelIcon.email, count: 'outbound',
+    id: 'blaztr', name: 'Blaztr', icon: channelIcon.blaztr, count: 'cold email',
     header: [
       { label: 'Sent', value: '48,200' }, { label: 'Replies', value: '612' },
       { label: 'Booked', value: '37' }, { label: 'Clients', value: '5' },
