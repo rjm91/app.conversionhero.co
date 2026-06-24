@@ -67,19 +67,6 @@ const NAV_GROUPS = {
       { key: 'manufacturing', label: 'Manufacturing', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M4 21V9l5-3v3l5-3v3l5-3v15M9 21v-4h2v4" /></svg> },
     ],
   },
-  legal: {
-    label: 'Legal',
-    agencyOnly: true,
-    clients: ['ch069'], // scoped to ShieldTech for now
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4M5 11v6m14-6v6M3 21h18M9 11v6m6-6v6" />
-      </svg>
-    ),
-    items: [
-      { key: 'legal', label: 'Legal', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4M5 11v6m14-6v6M3 21h18M9 11v6m6-6v6" /></svg> },
-    ],
-  },
   account: {
     label: 'Account',
     icon: (
@@ -270,7 +257,7 @@ export default function ClientLayout({ children }) {
   // A route is agency-gated if it's the command hub, in an agency-only group, or
   // an agency-only item. Client users can reach it only once it's been shipped to
   // them (tab_access) — otherwise redirect to the dashboard.
-  const activeAgencyGated = activeKey === 'command-hub' || !!activeGroupObj?.agencyOnly || !!activeItem?.agencyOnly
+  const activeAgencyGated = activeKey === 'command-hub' || activeKey === 'projection' || !!activeGroupObj?.agencyOnly || !!activeItem?.agencyOnly
   const baseAccessActive = isAgencyAdmin || (activeAgencyGated ? visibleToClient(activeKey) : true)
   const canAccessActive = baseAccessActive && !blockedForStandard(activeKey)
   useEffect(() => {
@@ -490,6 +477,23 @@ export default function ClientLayout({ children }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8a3 3 0 100-6 3 3 0 000 6zm0 0v3m0 0a3 3 0 100 6 3 3 0 000-6zm-7 3a3 3 0 11-3 3m3-3h7m0 0h7a3 3 0 11-3 3" />
             </svg>
             Command Hub
+          </Link>
+        )}
+
+        {/* Projection Mode — ShieldTech only, agency admins only */}
+        {clientId === 'ch069' && isAgencyAdmin && (
+          <Link
+            href={`/control/${clientId}/projection`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
+              activeKey === 'projection'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 14l4-4 3 3 5-6" />
+            </svg>
+            Projection
           </Link>
         )}
 
