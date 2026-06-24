@@ -63,6 +63,13 @@ function fmtDate(d) {
   const dt = new Date(d)
   return `${dt.getMonth() + 1}/${dt.getDate()}/${dt.getFullYear()}`
 }
+function tenure(d) {
+  if (!d) return '—'
+  const mo = Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / (30.44 * 86400000)))
+  if (mo < 1) return 'new'
+  if (mo < 12) return `${mo} mo`
+  return `${(mo / 12).toFixed(1)} yr`
+}
 
 const PIPELINE_ORDER = ['clients', 'onboarding', 'sales', 'appointments', 'leads']
 const SALES_PIPELINE_KEYS = ['onboarding', 'sales', 'appointments', 'leads']
@@ -160,29 +167,20 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
 
   // ── Active Clients rows ──
   const clientRows = activeClients.map(c => {
-    const cashCollected = c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    const uniqueCampaigns = new Set(c._campaigns.map(ca => ca.campaign_id)).size
+    const revenue = c._payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
     const adSpend = c._campaigns.reduce((s, ca) => s + (Number(ca.cost) || 0), 0)
-    const leadCount = c._leads.length
-    const appts = c._leads.filter(l => l.appt_status === 'Appt Complete').length
     const customers = c._leads.filter(l => l.sale_status === 'Sold').length
-    const cpl = leadCount > 0 ? adSpend / leadCount : 0
-    const cpa = appts > 0 ? adSpend / appts : 0
+    const roas = adSpend > 0 ? revenue / adSpend : null
     const cac = customers > 0 ? adSpend / customers : 0
 
     return [
-      fmtDate(c.created_at),
+      tenure(c.created_at),
       c.status === 'Demo' ? { badge: 'Demo', color: 'yellow' } : c.status === 'Past' || c.status === 'Inactive' ? { badge: c.status, color: 'gray' } : { badge: 'Active', color: 'green' },
       c.client_name,
       c.industry || '—',
-      c.city && c.state ? `${c.city}, ${c.state}` : (c.city || c.state || '—'),
-      { value: fmt$(cashCollected), color: 'green' },
-      String(uniqueCampaigns),
       fmt$(adSpend),
-      { value: String(leadCount), bold: true },
-      leadCount > 0 ? fmt$(cpl) : '—',
-      String(appts),
-      appts > 0 ? fmt$(cpa) : '—',
+      { value: fmt$(revenue), color: 'green' },
+      roas != null ? { value: roas.toFixed(1) + 'x', color: 'green', bold: true } : '—',
       { value: String(customers), bold: true },
       customers > 0 ? fmt$(cac) : '—',
       { link: 'View Dashboard →', href: `/control/${c.client_id}/dashboard` },
@@ -199,28 +197,24 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
     totalCustomers += c._leads.filter(l => l.sale_status === 'Sold').length
   })
 
+  const blendedRoas = totalAdSpend > 0 ? (totalCash / totalAdSpend).toFixed(1) + 'x' : '—'
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
     count: activeClients.length,
-    columns: ['Submitted','Status','Company Name','Industry','Location','Cash Collected','Campaigns','Total Ad Spend','Leads','Cost Per Lead','Completed Appointments','Cost Per Appointment','Customers','CAC',''],
+    columns: ['Tenure','Status','Company Name','Industry','Ad Spend','Revenue','ROAS','Customers','CAC',''],
     summaryMap: {
+      4: { value: fmt$(totalAdSpend) },
       5: { value: fmt$(totalCash), color: 'green' },
-      6: { value: String(totalCampaignIds.size) },
-      7: { value: fmt$(totalAdSpend) },
-      8: { value: String(totalLeads) },
-      9: { value: totalLeads > 0 ? fmt$(totalAdSpend / totalLeads) : '—', dim: true },
-      10: { value: String(totalAppts) },
-      11: { value: totalAppts > 0 ? fmt$(totalAdSpend / totalAppts) : '—', dim: true },
-      12: { value: String(totalCustomers) },
-      13: { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', dim: true },
+      6: { value: blendedRoas, color: 'green' },
+      7: { value: String(totalCustomers) },
+      8: { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', dim: true },
     },
     headerStats: [
       { value: fmt$(totalCash), label: 'Revenue', color: 'text-emerald-400' },
-      { value: String(totalCampaignIds.size), label: 'Campaigns', color: totalCampaignIds.size > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
       { value: fmt$(totalAdSpend), label: 'Ad Spend', color: totalAdSpend > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
-      { value: String(totalLeads), label: 'Leads', color: totalLeads > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
-      { value: String(totalAppts), label: 'Appts', color: totalAppts > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: blendedRoas, label: 'Blended ROAS', color: 'text-emerald-400' },
       { value: String(totalCustomers), label: 'Customers', color: totalCustomers > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500' },
+      { value: totalCustomers > 0 ? fmt$(totalAdSpend / totalCustomers) : '—', label: 'CAC', color: 'text-gray-500' },
     ],
     rows: clientRows,
   }
