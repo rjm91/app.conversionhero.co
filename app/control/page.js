@@ -2108,8 +2108,14 @@ export default function ControlPage() {
         </div>
       </div>
 
-      {/* Revenue Channels (shell — Cold Email / Google Ads / Meta Ads; data wires in next) */}
-      <AgencyRevenueChannels />
+      {/* ═══════════════ Zone 1 · Client Portfolio ═══════════════ */}
+      <div className="flex items-center gap-3 mt-2 mb-4">
+        <div className="w-1.5 h-9 rounded-full bg-blue-500 flex-shrink-0" />
+        <div>
+          <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">Client Portfolio</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Your clients’ businesses — acquisition, pipeline &amp; revenue across every industry. Open a client to drill into its dashboard.</p>
+        </div>
+      </div>
 
       {loading ? (
         <div className="mt-12 text-center text-gray-500">Loading pipeline data...</div>
@@ -2117,12 +2123,23 @@ export default function ControlPage() {
         <div className="mt-12 text-center text-gray-500">Failed to load data. Check console.</div>
       ) : (
         <div className="mt-6">
-          {/* Active Clients — standalone */}
+          {/* Active Clients — the portfolio (opens by default; it's the lead zone) */}
           <PipelineAccordion
             id="clients"
             pipeline={pipelines.clients}
-            defaultCollapsed={true}
+            defaultCollapsed={false}
           />
+
+          {/* ═══════════════ Zone 2 · My Agency ═══════════════ */}
+          <div className="flex items-center gap-3 mt-10 mb-4">
+            <div className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: '#34CC93' }} />
+            <div>
+              <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">My Agency</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">How ConversionHero is growing — your own acquisition channels &amp; sales pipeline.</p>
+            </div>
+          </div>
+
+          <AgencyRevenueChannels />
 
           {/* Sales Pipeline — wraps Onboarding, Sales, Appointments, Leads */}
           {(() => {
