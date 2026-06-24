@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { nights as planNights, catTotal as planCatTotal, amount as planAmount, money as planMoney, isEvent as planIsEvent, PLAN_TYPE_META, fmtTime as planFmtTime } from '../../components/PlanGantt'
 import PlanCalendar from '../../components/PlanCalendar'
+import AgencyRevenueChannels from '../../components/AgencyRevenueChannels'
 
 /* ─── Date range presets ─── */
 const DATE_PRESETS = [
@@ -2106,6 +2107,9 @@ export default function ControlPage() {
           />
         </div>
       </div>
+
+      {/* Revenue Channels (shell — Cold Email / Google Ads / Meta Ads; data wires in next) */}
+      <AgencyRevenueChannels />
 
       {loading ? (
         <div className="mt-12 text-center text-gray-500">Loading pipeline data...</div>
