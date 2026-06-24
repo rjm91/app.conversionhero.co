@@ -281,32 +281,53 @@ export default function AgencyRevenueChannels() {
           { label: 'MRR Added', value: fmt$(bz.mrr), ch: true },
         ]}>
         <ChartPlaceholder />
-        {/* Funnel + email-health stat strip */}
-        <div className="px-5 pt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {[
-            ['Sent', funnel ? fmtNum(funnel.sent) : '—'],
-            ['Replied', funnel ? fmtNum(funnel.replied) : '—'],
-            ['Reply Rate', funnel ? (funnel.sent ? fmtPct(funnel.replied / funnel.sent) : '0%') : '—'],
-            ['Bounced', funnel ? fmtNum(funnel.bounced) : '—'],
-            ['Leads', funnel ? fmtNum(funnel.leads) : fmtNum(bz.leads)],
-            ['Booked', fmtNum(bz.appts)],
-            ['Clients', fmtNum(bz.clients)],
-            ['MRR Added', fmt$(bz.mrr)],
-          ].map(([label, value]) => (
-            <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-2.5">
-              <div className="text-lg font-bold text-gray-900 dark:text-white">{value}</div>
-              <div className="text-[11px] text-gray-400 dark:text-gray-500">{label}</div>
-            </div>
-          ))}
+        {/* Per-campaign list — paid-ads table style (rows + columns + totals) */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm whitespace-nowrap">
+            <thead className="bg-gray-50 dark:bg-[#0d1020]">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Campaign</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+                {['Sent', 'Replies', 'Reply %', 'Bounced', 'Queued'].map((h) => (
+                  <th key={h} className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {campaigns.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">No campaigns yet.</td></tr>
+              ) : campaigns.map((c, i) => (
+                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white">
+                      <span className="w-4 h-4 rounded grid place-items-center text-[9px] text-white flex-shrink-0" style={{ background: '#01D2FB' }}>✉</span>
+                      {c.name}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${c.status === 'Active' ? 'bg-[#34CC93]/10 text-[#1a9e6e] dark:text-[#34CC93]' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>{c.status || '—'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.sent)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.replies)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.sent ? fmtPct(c.replies / c.sent) : '0%'}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.bounced)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.queued)}</td>
+                </tr>
+              ))}
+              {funnel && campaigns.length > 0 && (
+                <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10">
+                  <td className="px-4 py-3">Total · {fmtNum(funnel.campaigns)} campaigns</td>
+                  <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right">{fmtNum(funnel.sent)}</td>
+                  <td className="px-4 py-3 text-right">{fmtNum(funnel.replied)}</td>
+                  <td className="px-4 py-3 text-right">{funnel.sent ? fmtPct(funnel.replied / funnel.sent) : '0%'}</td>
+                  <td className="px-4 py-3 text-right">{fmtNum(funnel.bounced)}</td>
+                  <td className="px-4 py-3 text-right">{fmtNum(campaigns.reduce((s, c) => s + (c.queued || 0), 0))}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        {/* Per-campaign breakdown */}
-        <p className="px-5 pt-5 -mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Campaigns</p>
-        {campaigns.length === 0
-          ? <p className="px-5 py-5 text-sm text-gray-400 dark:text-gray-500">No campaigns yet.</p>
-          : <ChannelTable
-              columns={['Campaign', 'Status', 'Sent', 'Replies', 'Reply %', 'Bounced']}
-              rows={campaigns.map((c) => [c.name, c.status, fmtNum(c.sent), fmtNum(c.replies), c.sent ? fmtPct(c.replies / c.sent) : '0%', fmtNum(c.bounced)])}
-            />}
       </Section>
 
       {/* Not-running channels */}
