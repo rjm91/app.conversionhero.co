@@ -58,17 +58,33 @@ export async function GET(request) {
   )
   const blaztr = sources.blaztr || { ...zero }
 
-  // Best-effort: top-of-funnel totals (sent / replied) straight from Blaztr.
+  // Blaztr email funnel + per-campaign breakdown (best-effort; the pipeline
+  // numbers still render if Blaztr is unavailable). www host = skip the 307.
   let blaztrFunnel = null
+  let blaztrCampaigns = []
   try {
     if (process.env.BLAZTR_API_KEY) {
-      const r = await fetch('https://blaztr.app/api/blaztrApi?action=leads', { headers: { 'x-api-key': process.env.BLAZTR_API_KEY }, cache: 'no-store' })
-      const j = await r.json()
-      if (j && j.success && Array.isArray(j.data)) {
-        blaztrFunnel = { sent: j.data.length, replied: j.data.filter((x) => x.status === 'Replied').length }
+      const hdr = { headers: { 'x-api-key': process.env.BLAZTR_API_KEY }, cache: 'no-store' }
+      const [sumR, campR] = await Promise.all([
+        fetch('https://www.blaztr.app/api/blaztrApi?action=summary', hdr),
+        fetch('https://www.blaztr.app/api/blaztrApi?action=campaigns', hdr),
+      ])
+      const sum = await sumR.json().catch(() => null)
+      const camp = await campR.json().catch(() => null)
+      if (sum?.success && sum.data) {
+        const s = sum.data
+        blaztrFunnel = {
+          campaigns: s.total_campaigns || 0, leads: s.total_leads || 0, sent: s.total_sent || 0,
+          replied: s.total_replies || 0, bounced: s.total_bounced || 0, replyRate: s.reply_rate || 0,
+        }
+      }
+      if (camp?.success && Array.isArray(camp.data)) {
+        blaztrCampaigns = camp.data
+          .map((c) => ({ name: c.name, status: c.status, sent: c.total_sent || 0, replies: c.total_replies || 0, bounced: c.total_bounced || 0, queued: c.queued || 0 }))
+          .sort((a, b) => b.sent - a.sent)
       }
     }
-  } catch { /* Blaztr API optional — pipeline numbers still render */ }
+  } catch { /* Blaztr API optional */ }
 
-  return NextResponse.json({ total, blaztr, blaztrFunnel, sources })
+  return NextResponse.json({ total, blaztr, blaztrFunnel, blaztrCampaigns, sources })
 }

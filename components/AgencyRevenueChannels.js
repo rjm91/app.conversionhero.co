@@ -197,6 +197,7 @@ export default function AgencyRevenueChannels() {
   const t = data?.total || ZERO
   const bz = data?.blaztr || ZERO
   const funnel = data?.blaztrFunnel || null
+  const campaigns = data?.blaztrCampaigns || []
   const chMax = Math.max(1, bz.mrr)
 
   return (
@@ -270,25 +271,42 @@ export default function AgencyRevenueChannels() {
         />
       </Section>
 
-      {/* Blaztr — live cold-email channel */}
-      <Section id="blaztr" icon={channelIcon.blaztr} name="Blaztr" count="cold email" open={open.blaztr} onToggle={toggle}
+      {/* Blaztr — live cold-email channel (campaigns + funnel from Blaztr API) */}
+      <Section id="blaztr" icon={channelIcon.blaztr} name="Blaztr" count={funnel ? `${funnel.campaigns} campaigns` : 'cold email'} open={open.blaztr} onToggle={toggle}
         kpis={open.blaztr ? [] : [
+          { label: 'Campaigns', value: funnel ? fmtNum(funnel.campaigns) : '—' },
           { label: 'Sent', value: funnel ? fmtNum(funnel.sent) : '—' },
           { label: 'Replies', value: funnel ? fmtNum(funnel.replied) : fmtNum(bz.leads) },
           { label: 'Booked', value: fmtNum(bz.appts) },
-          { label: 'Clients', value: fmtNum(bz.clients) },
           { label: 'MRR Added', value: fmt$(bz.mrr), ch: true },
         ]}>
         <ChartPlaceholder />
-        <ChannelTable
-          columns={['Stage', 'Count', 'Value']}
-          rows={[
-            ['Sent', funnel ? fmtNum(funnel.sent) : '—', ''],
-            ['Replied', funnel ? fmtNum(funnel.replied) : fmtNum(bz.leads), ''],
-            ['Booked (appt)', fmtNum(bz.appts), ''],
-            ['Clients (sold)', fmtNum(bz.clients), fmt$(bz.mrr) + ' MRR'],
-          ]}
-        />
+        {/* Funnel + email-health stat strip */}
+        <div className="px-5 pt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {[
+            ['Sent', funnel ? fmtNum(funnel.sent) : '—'],
+            ['Replied', funnel ? fmtNum(funnel.replied) : '—'],
+            ['Reply Rate', funnel ? (funnel.sent ? fmtPct(funnel.replied / funnel.sent) : '0%') : '—'],
+            ['Bounced', funnel ? fmtNum(funnel.bounced) : '—'],
+            ['Leads', funnel ? fmtNum(funnel.leads) : fmtNum(bz.leads)],
+            ['Booked', fmtNum(bz.appts)],
+            ['Clients', fmtNum(bz.clients)],
+            ['MRR Added', fmt$(bz.mrr)],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-2.5">
+              <div className="text-lg font-bold text-gray-900 dark:text-white">{value}</div>
+              <div className="text-[11px] text-gray-400 dark:text-gray-500">{label}</div>
+            </div>
+          ))}
+        </div>
+        {/* Per-campaign breakdown */}
+        <p className="px-5 pt-5 -mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Campaigns</p>
+        {campaigns.length === 0
+          ? <p className="px-5 py-5 text-sm text-gray-400 dark:text-gray-500">No campaigns yet.</p>
+          : <ChannelTable
+              columns={['Campaign', 'Status', 'Sent', 'Replies', 'Reply %', 'Bounced']}
+              rows={campaigns.map((c) => [c.name, c.status, fmtNum(c.sent), fmtNum(c.replies), c.sent ? fmtPct(c.replies / c.sent) : '0%', fmtNum(c.bounced)])}
+            />}
       </Section>
 
       {/* Not-running channels */}
