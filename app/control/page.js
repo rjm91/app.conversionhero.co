@@ -1999,10 +1999,23 @@ export default function ControlPage() {
       end = range.end
     }
 
-    // Step 1: Get all clients (this works — we've seen 4 clients load)
-    const { data: clients, error: clientErr } = await supabase
+    // Step 1: Get the clients this user may see. Scope to their accessible set
+    // (agency-subtree aware). `all` → no filter (root-agency admins). Falls back
+    // to unfiltered on any hiccup so the dashboard never blanks.
+    let allowedClientIds = null
+    try {
+      const scopeRes = await fetch('/api/access/clients', { cache: 'no-store' })
+      if (scopeRes.ok) {
+        const scope = await scopeRes.json()
+        if (!scope.all && Array.isArray(scope.clientIds)) allowedClientIds = scope.clientIds
+      }
+    } catch {}
+
+    let clientQuery = supabase
       .from('client')
       .select('client_id, client_name, industry, city, state, status, created_at')
+    if (allowedClientIds) clientQuery = clientQuery.in('client_id', allowedClientIds)
+    const { data: clients, error: clientErr } = await clientQuery
 
     if (clientErr) {
       console.error('[Control] client query error:', clientErr)

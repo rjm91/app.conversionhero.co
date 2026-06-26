@@ -71,6 +71,14 @@ export async function GET(request) {
     .select('client_id, client_name, status')
     .order('client_name', { ascending: true })
   if (!includeInactive) q = q.eq('status', 'Active')
+
+  // Scope to the clients this user may access (agency-subtree aware).
+  try {
+    const { getAccessScope } = await import('../../../lib/access')
+    const scope = await getAccessScope(user.id)
+    if (!scope.all) q = q.in('client_id', scope.clientIds.length ? scope.clientIds : ['__none__'])
+  } catch {}
+
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ clients: data || [] })
