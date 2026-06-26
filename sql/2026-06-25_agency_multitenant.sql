@@ -52,4 +52,15 @@ begin
   end loop;
 end $$;
 
+-- 4. Lock down the new agency table with Row-Level Security.
+--    Server routes use the service-role key (which bypasses RLS), so this only
+--    affects browser/anon access. A logged-in user may read the agency they
+--    belong to (via profiles.agency_id); no one can read other agencies.
+alter table public.agency enable row level security;
+
+drop policy if exists "read own agency" on public.agency;
+create policy "read own agency" on public.agency
+  for select to authenticated
+  using (id in (select agency_id from public.profiles where id = auth.uid()));
+
 commit;
