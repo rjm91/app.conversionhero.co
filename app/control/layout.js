@@ -195,11 +195,21 @@ export default function AdminLayout({ children }) {
       })
   }, [])
 
-  // Load active clients for the account switcher
+  // Load active clients for the account switcher — scoped to what the user may
+  // access (agency-subtree aware). Falls back to unfiltered on any hiccup.
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('client').select('client_id, client_name').eq('status', 'Active').order('client_name')
-      .then(({ data }) => { if (data) setClients(data) })
+    ;(async () => {
+      let allowed = null
+      try {
+        const res = await fetch('/api/access/clients', { cache: 'no-store' })
+        if (res.ok) { const s = await res.json(); if (!s.all && Array.isArray(s.clientIds)) allowed = s.clientIds }
+      } catch {}
+      let q = supabase.from('client').select('client_id, client_name').eq('status', 'Active').order('client_name')
+      if (allowed) q = q.in('client_id', allowed)
+      const { data } = await q
+      if (data) setClients(data)
+    })()
   }, [])
 
   // Load pinned state from localStorage

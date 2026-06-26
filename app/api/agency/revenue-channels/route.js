@@ -24,9 +24,9 @@ async function requireAgency(request) {
   const db = adminDb()
   const { data: { user }, error } = await db.auth.getUser(token)
   if (error || !user) return { error: 'Unauthorized', status: 401 }
-  const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('role, agency_id').eq('id', user.id).single()
   if (!isAgencyUser(profile?.role)) return { error: 'Forbidden', status: 403 }
-  return { db }
+  return { db, agencyId: profile?.agency_id || null }
 }
 
 // Pipeline-stage rules mirror app/control/page.js buildPipelines().
@@ -36,11 +36,14 @@ const isSold = (l) => l.sale_status === 'Sold'
 export async function GET(request) {
   const auth = await requireAgency(request)
   if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
-  const { db } = auth
+  const { db, agencyId } = auth
 
-  const { data: leads, error } = await db
+  // Scope to the user's own agency (each agency's own acquisition).
+  let leadsQ = db
     .from('agency_leads')
     .select('id, lead_status, appt_status, sale_status, sale_amount, created_at, meta')
+  if (agencyId) leadsQ = leadsQ.eq('agency_id', agencyId)
+  const { data: leads, error } = agencyId ? await leadsQ : { data: [] }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Aggregate the real pipeline by acquisition source (meta.source → 'blaztr', …).

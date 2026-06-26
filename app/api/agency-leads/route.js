@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '../../../lib/supabase-server'
 import { dispatchEvent } from '../../../lib/automations.js'
 
 export const runtime = 'nodejs'
@@ -17,11 +18,22 @@ function db() {
 }
 
 export async function GET() {
+  // Scope to the logged-in user's OWN agency — the "My Agency" pipeline is each
+  // agency's own acquisition, never another agency's.
+  const ssr = createServerClient()
+  const { data: { user } } = await ssr.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = db()
-  const { data, error } = await supabase
+  const { data: prof } = await supabase.from('profiles').select('agency_id').eq('id', user.id).single()
+  const agencyId = prof?.agency_id || null
+
+  let q = supabase
     .from('agency_leads')
     .select('*, agency_funnels(name, slug)')
     .order('created_at', { ascending: false })
+  if (agencyId) q = q.eq('agency_id', agencyId)
+  else return NextResponse.json({ leads: [] }) // no agency → no agency pipeline
+  const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ leads: data || [] })
 }
