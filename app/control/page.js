@@ -2237,15 +2237,13 @@ export default function ControlPage() {
 
   return (
     <div className="p-8">
-      <div className="flex items-start justify-between mb-1">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide bg-blue-600/10 text-blue-400 mb-3">
-            Agency Mode
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide bg-blue-600/10 text-blue-400">
+            Agency Control
           </span>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agency Control Center</h1>
-          <p className="text-gray-500 text-sm mt-1">Your agency pipeline at a glance. Click any section to expand.</p>
         </div>
-        <div className="pt-6 flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setShowDemo(d => !d)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition ${showDemo ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.04] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
