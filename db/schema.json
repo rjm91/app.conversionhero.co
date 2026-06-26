@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-26 02:37:03 UTC",
+  "generatedAt": "2026-06-26 18:15:45 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -68,6 +68,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "parent_agency_id",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -501,6 +509,59 @@
           "default": null,
           "pk": false,
           "fk": "agency.id"
+        }
+      ]
+    },
+    {
+      "name": "agency_membership",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "profiles.id"
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "granted_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "profiles.id"
+        },
+        {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
         }
       ]
     },
@@ -2082,6 +2143,59 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_membership",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "profiles.id"
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "granted_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "profiles.id"
+        },
+        {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
           "default": null,
           "pk": false,
           "fk": null
