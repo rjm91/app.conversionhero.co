@@ -1,7 +1,76 @@
 {
-  "generatedAt": "2026-06-26 01:30:45 UTC",
+  "generatedAt": "2026-06-26 02:37:03 UTC",
   "method": "postgrest:openapi",
   "tables": [
+    {
+      "name": "agency",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "domain",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "branding",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
     {
       "name": "agency_automations",
       "columns": [
@@ -52,6 +121,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -243,6 +320,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -408,6 +493,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -509,6 +602,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -586,6 +687,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -876,6 +985,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -3021,6 +3138,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -3244,6 +3369,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
@@ -3491,6 +3624,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "agency_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "agency.id"
         }
       ]
     },
