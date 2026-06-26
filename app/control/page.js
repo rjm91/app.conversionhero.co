@@ -2302,7 +2302,6 @@ export default function ControlPage() {
             <div className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: '#34CC93' }} />
             <div>
               <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">My Agency</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">How ConversionHero is growing — your own acquisition channels &amp; sales pipeline.</p>
             </div>
           </div>
 
