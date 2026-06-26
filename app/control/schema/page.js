@@ -18,7 +18,9 @@ function domainOf(name) {
 
 function colCount(t) { return t.columns.length }
 function clientIdCol(t) { return t.columns.find(c => c.name === 'client_id') }
-function isOrphanClient(t) { const c = clientIdCol(t); return c && !c.fk }
+// A table is an "orphan" if it has a client_id that doesn't point to client.
+// Exclude the client table itself (its client_id is its own primary key/root).
+function isOrphanClient(t) { const c = clientIdCol(t); return c && !c.fk && !c.pk }
 
 /* ── one table card (expandable to show columns) ── */
 function TableCard({ table, expanded, onToggle, childCount }) {
