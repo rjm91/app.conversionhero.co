@@ -1681,6 +1681,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    <tr className="bg-gray-50/70 dark:bg-white/[0.03] font-semibold border-b-2 border-gray-200 dark:border-white/10">
+                      <td className="px-4 py-2.5 text-gray-700 dark:text-gray-200">Totals</td>
+                      <td className="px-4 py-2.5 text-xs text-gray-400">{fmtNum(m.orderCount)} orders</td>
+                      <td />
+                      <td />
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-900 dark:text-white">{fmt$2(m.revenue)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">{cogs.hasCogs ? fmt$2(cogs.totalCogs) : '—'}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(cogs.contribution) : '—'}</td>
+                      <td />
+                      <td />
+                    </tr>
                     {orders.slice(0, 25).map(o => {
                       const oc = cogsByOrder[o.lead_id]
                       const margin = oc ? (Number(o.sale_amount) || 0) - oc.cogs : null
