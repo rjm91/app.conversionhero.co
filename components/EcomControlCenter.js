@@ -403,6 +403,77 @@ function OrdersChart({ dates, series }) {
   )
 }
 
+// Full order detail — click an order row to see line items (incl. SKU),
+// customer, status, attribution, and total.
+function OrderModal({ order, onClose }) {
+  if (!order) return null
+  const sd = order.shopify_data || {}
+  const lines = Array.isArray(sd.line_items) ? sd.line_items : []
+  const money = n => '$' + (Number(n) || 0).toFixed(2)
+  const date = order.created_at ? new Date(order.created_at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
+  const Field = ({ label, children }) => (
+    <div><div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold">{label}</div><div className="text-gray-800 dark:text-gray-100">{children}</div></div>
+  )
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/50 grid place-items-center p-4" onClick={onClose}>
+      <div className="w-full max-w-lg bg-white dark:bg-[#141a2c] rounded-2xl border border-gray-200 dark:border-white/10 max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 dark:border-white/[0.06]">
+          <div>
+            <div className="text-lg font-extrabold text-gray-900 dark:text-white">{sd.order_name || order.lead_id}</div>
+            <div className="text-xs text-gray-400 mt-0.5">{date}</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">×</button>
+        </div>
+        <div className="p-5 space-y-4 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Customer">
+              {[order.first_name, order.last_name].filter(Boolean).join(' ') || '—'}
+              {order.email && <div className="text-gray-400 text-xs">{order.email}</div>}
+            </Field>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold">Status</div>
+              <div className="flex gap-1.5 mt-0.5"><Pill status={sd.financial_status} /><Pill status={sd.fulfillment_status} /></div>
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold mb-1.5">Items{lines.length ? ` · ${lines.length}` : ''}</div>
+            {lines.length === 0 ? (
+              <p className="text-xs text-gray-400">No line items captured yet — re-sync Shopify to pull SKUs.</p>
+            ) : (
+              <div className="rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
+                <table className="w-full text-[13px]">
+                  <thead className="bg-gray-50 dark:bg-[#0d1020] text-[10px] uppercase text-gray-400">
+                    <tr><th className="text-left px-3 py-2">Product</th><th className="text-left px-3 py-2">SKU</th><th className="text-right px-3 py-2">Qty</th></tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((li, i) => (
+                      <tr key={i} className="border-t border-gray-100 dark:border-white/[0.05]">
+                        <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{li.title || '—'}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-300">{li.sku || <span className="text-gray-400">—</span>}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{li.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Channel">{sd.channel || deriveChannel(order)}</Field>
+            <Field label="Campaign"><span className="font-mono text-xs">{order.utm_campaign || '— unattributed'}</span></Field>
+            <Field label="Source / Medium">{(order.utm_source || '—')} / {(order.utm_medium || '—')}</Field>
+            <Field label="Delivery">{sd.delivery_method || '—'}</Field>
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-white/[0.06]">
+          <span className="text-sm text-gray-500">Order total</span>
+          <span className="text-lg font-extrabold text-gray-900 dark:text-white">{money(order.sale_amount)}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Reusable drill-down: click a metric → see the source rows that make it up.
 function DrillDown({ data, onClose }) {
   if (!data) return null
@@ -607,6 +678,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
   const [health, setHealth] = useState(null) // ad-account integration health
   const [drill, setDrill] = useState(null)   // metric drill-down (source rows)
+  const [orderModal, setOrderModal] = useState(null)   // clicked order → full detail
   const [isAdmin, setIsAdmin] = useState(false) // agency admin → can edit connections
   const [metaModal, setMetaModal] = useState(false) // Meta connection editor
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: true })
@@ -621,7 +693,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
     const [ordersRes, campRes, metaRes, tiktokRes] = await Promise.all([
       supabase.from('client_lead')
-        .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name')
+        .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
         .eq('client_id', clientId)
         .like('lead_id', 'shopify_%')
         .gte('created_at', dayStartISO)
@@ -1543,8 +1615,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                     {orders.slice(0, 25).map(o => (
-                      <tr key={o.lead_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 font-bold text-gray-900 dark:text-white">{o.shopify_data?.order_name || '—'}</td>
+                      <tr key={o.lead_id} onClick={() => setOrderModal(o)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{o.shopify_data?.order_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{o.first_name} {o.last_name}</td>
                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{deriveChannel(o)}</td>
@@ -1563,6 +1635,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       )}
 
       <DrillDown data={drill} onClose={() => setDrill(null)} />
+      <OrderModal order={orderModal} onClose={() => setOrderModal(null)} />
 
       {metaModal && (
         <MetaConnectionModal
