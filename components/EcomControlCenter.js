@@ -1309,8 +1309,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     {['Platform', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                       <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                     ))}
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                   </tr>
                 </thead>
@@ -1391,8 +1391,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
                   </thead>
@@ -1490,8 +1490,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
                   </thead>
