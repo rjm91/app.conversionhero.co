@@ -1308,6 +1308,23 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                  <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
+                    <td className="px-4 py-3">Blended</td>
+                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                    <td className="px-4 py-3 text-right">{fmt$(m.googleBudget + m.metaBudget)}</td>
+                    <td className="px-4 py-3 text-right">{fmt$2(m.adSpend)}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(m.googleImpr + m.metaImpr)}</td>
+                    <td className="px-4 py-3 text-right">{fmtPct((m.googleImpr + m.metaImpr) > 0 ? m.clicks / (m.googleImpr + m.metaImpr) : 0)}</td>
+                    <td className="px-4 py-3 text-right">{fmtNum(m.clicks)}</td>
+                    <td className="px-4 py-3 text-right">{fmt$2(m.clicks > 0 ? m.adSpend / m.clicks : 0)}</td>
+                    <td className="px-4 py-3 text-right">{Number(m.blendedConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{m.blendedConvPlatform > 0 ? fmt$2(m.adSpend / m.blendedConvPlatform) : '—'}</td>
+                    <td className="px-4 py-3 text-right">{m.blendedRoasPlatform > 0 ? fmtRoas(m.blendedRoasPlatform) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedRoas > 0 ? fmtRoas(m.blendedRoas) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.blendedRevCH / m.blendedConvCH) : '—'}</td>
+                  </tr>
                   <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[9px] font-extrabold text-[#4285F4]">G</span>Google Ads</span></td>
                     <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
@@ -1341,23 +1358,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.mRev / m.mConv) : '—'}</td>
-                  </tr>
-                  <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/10">
-                    <td className="px-4 py-3">Blended</td>
-                    <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
-                    <td className="px-4 py-3 text-right">{fmt$(m.googleBudget + m.metaBudget)}</td>
-                    <td className="px-4 py-3 text-right">{fmt$2(m.adSpend)}</td>
-                    <td className="px-4 py-3 text-right">{fmtNum(m.googleImpr + m.metaImpr)}</td>
-                    <td className="px-4 py-3 text-right">{fmtPct((m.googleImpr + m.metaImpr) > 0 ? m.clicks / (m.googleImpr + m.metaImpr) : 0)}</td>
-                    <td className="px-4 py-3 text-right">{fmtNum(m.clicks)}</td>
-                    <td className="px-4 py-3 text-right">{fmt$2(m.clicks > 0 ? m.adSpend / m.clicks : 0)}</td>
-                    <td className="px-4 py-3 text-right">{Number(m.blendedConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
-                    <td className="px-4 py-3 text-right">{m.blendedConvPlatform > 0 ? fmt$2(m.adSpend / m.blendedConvPlatform) : '—'}</td>
-                    <td className="px-4 py-3 text-right">{m.blendedRoasPlatform > 0 ? fmtRoas(m.blendedRoasPlatform) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedRoas > 0 ? fmtRoas(m.blendedRoas) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.blendedRevCH / m.blendedConvCH) : '—'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1681,14 +1681,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
-                    <tr className="bg-gray-50/70 dark:bg-white/[0.03] font-semibold border-b-2 border-gray-200 dark:border-white/10">
-                      <td className="px-4 py-2.5 text-gray-700 dark:text-gray-200">Totals</td>
-                      <td className="px-4 py-2.5 text-xs text-gray-400">{fmtNum(m.orderCount)} orders</td>
+                    <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
+                      <td className="px-4 py-3">Totals</td>
+                      <td className="px-4 py-3 text-xs font-normal text-gray-400">{fmtNum(m.orderCount)} orders</td>
                       <td />
                       <td />
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-900 dark:text-white">{fmt$2(m.revenue)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">{cogs.hasCogs ? fmt$2(cogs.totalCogs) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(cogs.contribution) : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{fmt$2(m.revenue)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{cogs.hasCogs ? fmt$2(cogs.totalCogs) : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(cogs.contribution) : '—'}</td>
                       <td />
                       <td />
                     </tr>
