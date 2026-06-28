@@ -405,8 +405,21 @@ function OrdersChart({ dates, series }) {
 
 // Full order detail — click an order row to see line items (incl. SKU),
 // customer, status, attribution, and total.
-function OrderModal({ order, onClose }) {
+function OrderModal({ order, orders = [], onNavigate, onClose }) {
+  useEffect(() => {
+    if (!order) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowUp') { e.preventDefault(); onNavigate && onNavigate(-1) }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); onNavigate && onNavigate(1) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [order, onNavigate, onClose])
   if (!order) return null
+  const idx = orders.findIndex(o => o.lead_id === order.lead_id)
+  const hasPrev = idx > 0
+  const hasNext = idx >= 0 && idx < orders.length - 1
   const sd = order.shopify_data || {}
   const lines = Array.isArray(sd.line_items) ? sd.line_items : []
   const money = n => '$' + (Number(n) || 0).toFixed(2)
@@ -422,7 +435,16 @@ function OrderModal({ order, onClose }) {
             <div className="text-lg font-extrabold text-gray-900 dark:text-white">{sd.order_name || order.lead_id}</div>
             <div className="text-xs text-gray-400 mt-0.5">{date}</div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">×</button>
+          <div className="flex items-center gap-1.5">
+            {idx >= 0 && orders.length > 1 && <span className="text-[11px] text-gray-400 tabular-nums mr-0.5">{idx + 1} / {orders.length}</span>}
+            <button disabled={!hasPrev} onClick={() => onNavigate && onNavigate(-1)} title="Previous order (↑)" className="w-7 h-7 grid place-items-center rounded-lg border border-gray-200 dark:border-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+            </button>
+            <button disabled={!hasNext} onClick={() => onNavigate && onNavigate(1)} title="Next order (↓)" className="w-7 h-7 grid place-items-center rounded-lg border border-gray-200 dark:border-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <button onClick={onClose} className="w-7 h-7 grid place-items-center text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">×</button>
+          </div>
         </div>
         <div className="p-5 space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
@@ -1635,7 +1657,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
       )}
 
       <DrillDown data={drill} onClose={() => setDrill(null)} />
-      <OrderModal order={orderModal} onClose={() => setOrderModal(null)} />
+      <OrderModal
+        order={orderModal}
+        orders={orders}
+        onClose={() => setOrderModal(null)}
+        onNavigate={(dir) => {
+          const i = orders.findIndex(o => o.lead_id === orderModal?.lead_id)
+          const n = i + dir
+          if (n >= 0 && n < orders.length) setOrderModal(orders[n])
+        }}
+      />
 
       {metaModal && (
         <MetaConnectionModal
