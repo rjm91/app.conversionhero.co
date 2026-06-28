@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { isAgencyAdmin } from '../lib/roles'
+import { buildCostBook, buildSkuIndex, orderCogs } from '../lib/cogs'
 import MetaConnectionModal from './MetaConnectionModal'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
@@ -405,7 +406,7 @@ function OrdersChart({ dates, series }) {
 
 // Full order detail — click an order row to see line items (incl. SKU),
 // customer, status, attribution, and total.
-function OrderModal({ order, orders = [], onNavigate, onClose }) {
+function OrderModal({ order, orders = [], cogs, onNavigate, onClose }) {
   useEffect(() => {
     if (!order) return
     const onKey = (e) => {
@@ -465,16 +466,19 @@ function OrderModal({ order, orders = [], onNavigate, onClose }) {
               <div className="rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
                 <table className="w-full text-[13px]">
                   <thead className="bg-gray-50 dark:bg-[#0d1020] text-[10px] uppercase text-gray-400">
-                    <tr><th className="text-left px-3 py-2">Product</th><th className="text-left px-3 py-2">SKU</th><th className="text-right px-3 py-2">Qty</th></tr>
+                    <tr><th className="text-left px-3 py-2">Product</th><th className="text-left px-3 py-2">SKU</th><th className="text-right px-3 py-2">Qty</th><th className="text-right px-3 py-2">COGS</th></tr>
                   </thead>
                   <tbody>
-                    {lines.map((li, i) => (
+                    {lines.map((li, i) => {
+                      const lc = cogs?.lines?.[i]
+                      return (
                       <tr key={i} className="border-t border-gray-100 dark:border-white/[0.05]">
                         <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{li.title || '—'}</td>
                         <td className="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-300">{li.sku || <span className="text-gray-400">—</span>}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{li.qty}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">{lc?.matched ? money(lc.cost) : '—'}</td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -487,9 +491,15 @@ function OrderModal({ order, orders = [], onNavigate, onClose }) {
             <Field label="Delivery">{sd.delivery_method || '—'}</Field>
           </div>
         </div>
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-white/[0.06]">
-          <span className="text-sm text-gray-500">Order total</span>
-          <span className="text-lg font-extrabold text-gray-900 dark:text-white">{money(order.sale_amount)}</span>
+        <div className="px-5 py-4 border-t border-gray-100 dark:border-white/[0.06] space-y-1.5">
+          <div className="flex items-center justify-between text-sm"><span className="text-gray-500">Revenue</span><span className="font-semibold text-gray-900 dark:text-white">{money(order.sale_amount)}</span></div>
+          {cogs?.hasOwnProperty('cogs') && (
+            <div className="flex items-center justify-between text-sm"><span className="text-gray-500">COGS</span><span className="text-gray-600 dark:text-gray-300">−{money(cogs.cogs)}</span></div>
+          )}
+          <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-white/[0.06]">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Contribution margin</span>
+            <span className="text-lg font-extrabold text-[#1a9e6e] dark:text-[#34CC93]">{cogs ? money((Number(order.sale_amount) || 0) - cogs.cogs) : money(order.sale_amount)}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -798,6 +808,23 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }, [clientId])
   useEffect(() => { refreshHealth() }, [refreshHealth])
 
+  // Manufacturing data (materials + SKU BOM) → real COGS → margin-aware ROAS.
+  const [mfg, setMfg] = useState({ materials: [], skus: [] })
+  useEffect(() => {
+    fetch(`/api/manufacturing?client_id=${clientId}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { materials: [], skus: [] })
+      .then(d => setMfg(d || { materials: [], skus: [] })).catch(() => {})
+  }, [clientId])
+  const costBook = useMemo(() => buildCostBook(mfg.materials), [mfg])
+  const skuIndex = useMemo(() => buildSkuIndex(mfg.skus), [mfg])
+  const hasCogs = (mfg.skus?.length || 0) > 0
+  const cogsByOrder = useMemo(() => {
+    const map = {}
+    if (!hasCogs) return map
+    for (const o of orders) map[o.lead_id] = orderCogs(o.shopify_data?.line_items || [], skuIndex, costBook)
+    return map
+  }, [orders, skuIndex, costBook, hasCogs])
+
   // Is the viewer an agency admin? (gates the "Fix connection" editor)
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then(d => setIsAdmin(isAgencyAdmin(d?.role))).catch(() => {})
@@ -1013,6 +1040,21 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }, [orders, fCampaigns, fMeta, fTik, campaignAttr])
 
+  // Real COGS → contribution margin → True (margin-aware) ROAS.
+  const cogs = useMemo(() => {
+    if (!hasCogs) return { hasCogs: false, totalCogs: 0, contribution: 0, trueRoas: null, unmatched: [] }
+    let totalCogs = 0
+    const unmatched = new Set()
+    for (const o of orders) {
+      const r = cogsByOrder[o.lead_id]
+      if (!r) continue
+      totalCogs += r.cogs
+      r.unmatched.forEach(s => { if (s) unmatched.add(s) })
+    }
+    const contribution = m.revenue - totalCogs
+    return { hasCogs: true, totalCogs, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null, unmatched: [...unmatched] }
+  }, [orders, cogsByOrder, hasCogs, m.revenue, m.adSpend])
+
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
   // date and split by which platform's campaign id the order matched.
@@ -1194,6 +1236,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
               { label: 'Ad Spend', value: fmt$(m.adSpend), info: 'Blended Google Ads + Meta Ads spend. Other channels like email and organic carry no ad cost.' },
               { label: 'Blended ROAS', value: fmtRoas(m.roas), info: 'Total revenue ÷ blended ad spend (Google + Meta). All-channel revenue measured against paid spend only.' },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true, info: 'Margin-aware ROAS = contribution margin (revenue − real COGS from the BOM) ÷ ad spend. The moat metric. Set up Manufacturing COGS to enable.' },
               { label: 'Orders', value: fmtNum(m.orderCount), info: 'Count of all Shopify orders in this range, across every channel.' },
               { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders carrying a campaign ID we can match to a Google/Meta campaign — ConversionHero first-party attribution.' },
             ]}>
@@ -1614,7 +1657,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             kpis={[
               { label: 'Revenue', value: fmt$(m.revenue) },
               { label: 'AOV', value: fmt$2(m.aov) },
-              { label: 'Tracked (CH)', value: fmtNum(m.trackedCount), ch: true },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true },
               { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
             ]}>
             <OrdersChart dates={trend.dates} series={trend.ords} />
@@ -1631,22 +1674,29 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Channel</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">COGS</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide">Margin</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fulfillment</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
-                    {orders.slice(0, 25).map(o => (
+                    {orders.slice(0, 25).map(o => {
+                      const oc = cogsByOrder[o.lead_id]
+                      const margin = oc ? (Number(o.sale_amount) || 0) - oc.cogs : null
+                      return (
                       <tr key={o.lead_id} onClick={() => setOrderModal(o)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                         <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{o.shopify_data?.order_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{o.first_name} {o.last_name}</td>
                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{deriveChannel(o)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-gray-500 dark:text-gray-400">{oc ? fmt$2(oc.cogs) : '—'}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-medium text-[#1a9e6e] dark:text-[#34CC93]">{margin != null ? fmt$2(margin) : '—'}</td>
                         <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.financial_status} /></td>
                         <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.fulfillment_status} /></td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
                 {orders.length > 25 && <p className="text-xs text-gray-400 px-4 py-3">Showing 25 of {fmtNum(orders.length)} orders.</p>}
@@ -1660,6 +1710,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       <OrderModal
         order={orderModal}
         orders={orders}
+        cogs={orderModal ? cogsByOrder[orderModal.lead_id] : null}
         onClose={() => setOrderModal(null)}
         onNavigate={(dir) => {
           const i = orders.findIndex(o => o.lead_id === orderModal?.lead_id)

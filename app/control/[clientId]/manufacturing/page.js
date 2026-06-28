@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../../lib/supabase'
-import ManufacturingCenter from '../../../../components/ManufacturingCenter'
+import ManufacturingSheets from '../../../../components/ManufacturingSheets'
 
 export default function ManufacturingPage() {
   const { clientId } = useParams()
@@ -27,5 +27,5 @@ export default function ManufacturingPage() {
     )
   }
 
-  return <ManufacturingCenter clientName={client?.client_name} />
+  return <ManufacturingSheets clientId={clientId} clientName={client?.client_name} />
 }
