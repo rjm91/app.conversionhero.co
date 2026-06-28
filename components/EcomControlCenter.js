@@ -1242,7 +1242,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
           {/* Overview */}
           <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
             kpis={[
-              { label: 'Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
+              { label: 'Gross Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
+              { label: 'Net Profit', value: cogs.hasCogs ? fmt$(cogs.contribution - m.adSpend) : '—', ch: true, info: 'Net profit = gross revenue − real COGS − ad spend. What\'s left after product cost and advertising (before other operating costs).' },
               { label: 'Ad Spend', value: fmt$(m.adSpend), info: 'Blended Google Ads + Meta Ads spend. Other channels like email and organic carry no ad cost.' },
               { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true, info: 'Margin-aware ROAS = contribution margin (revenue − real COGS) ÷ ad spend — what each ad dollar earns after product cost.' },
               { label: 'Orders', value: fmtNum(m.orderCount), info: 'Count of all Shopify orders in this range, across every channel.' },
