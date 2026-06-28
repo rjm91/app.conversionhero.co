@@ -588,7 +588,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
 
 // Shared column widths so the Google and Meta tables line up as one master
 // grid (table-fixed + this colgroup in both). 13 columns, must sum to 100%.
-const PAID_COL_WIDTHS = ['15%', '7%', '7%', '7%', '6%', '5%', '6%', '6%', '6%', '6%', '5%', '6%', '6%', '6%', '6%']
+const PAID_COL_WIDTHS = ['16%', '7%', '7%', '7%', '6%', '6%', '6%', '6%', '6%', '6%', '6%', '6%', '6%', '6%']
 function PaidColGroup() {
   return <colgroup>{PAID_COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -1309,7 +1309,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     {['Platform', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                       <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                     ))}
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
@@ -1327,7 +1326,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right">{fmt$2(m.clicks > 0 ? m.adSpend / m.clicks : 0)}</td>
                     <td className="px-4 py-3 text-right">{Number(m.blendedConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right">{m.blendedConvPlatform > 0 ? fmt$2(m.adSpend / m.blendedConvPlatform) : '—'}</td>
-                    <td className="px-4 py-3 text-right">{m.blendedRoasPlatform > 0 ? fmtRoas(m.blendedRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.blendedTrueRoas ? fmtRoas(m.blendedTrueRoas) : '—'}</td>
@@ -1344,7 +1342,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.googleClicks > 0 ? m.googleSpend / m.googleClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.gConvGoogle || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gConvGoogle > 0 ? fmt$2(m.googleSpend / m.gConvGoogle) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.gTrueRoas ? fmtRoas(m.gTrueRoas) : '—'}</td>
@@ -1361,7 +1358,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(m.metaClicks > 0 ? m.metaSpend / m.metaClicks : 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(m.mConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mConvPlatform > 0 ? fmt$2(m.metaSpend / m.mConvPlatform) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.mTrueRoas ? fmtRoas(m.mTrueRoas) : '—'}</td>
@@ -1395,8 +1391,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
@@ -1414,7 +1409,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{fmt$2(m.googleClicks > 0 ? m.googleSpend / m.googleClicks : 0)}</td>
                       <td className="px-4 py-3 text-right">{Number(m.gConvGoogle || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                       <td className="px-4 py-3 text-right">{m.gConvGoogle > 0 ? fmt$2(m.googleSpend / m.gConvGoogle) : '—'}</td>
-                      <td className="px-4 py-3 text-right">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.gTrueRoas ? fmtRoas(m.gTrueRoas) : '—'}</td>
@@ -1451,7 +1445,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.cost > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.cost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmtRoas(trueRoas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmt$2(trueAov) : '—'}</td>
@@ -1497,8 +1490,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
                         <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                       ))}
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
@@ -1516,7 +1508,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{fmt$2(m.metaClicks > 0 ? m.metaSpend / m.metaClicks : 0)}</td>
                       <td className="px-4 py-3 text-right">{Number(m.mConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                       <td className="px-4 py-3 text-right">{m.mConvPlatform > 0 ? fmt$2(m.metaSpend / m.mConvPlatform) : '—'}</td>
-                      <td className="px-4 py-3 text-right">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.mTrueRoas ? fmtRoas(m.mTrueRoas) : '—'}</td>
@@ -1555,7 +1546,6 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.spend > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.spend) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmtRoas(trueRoas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmt$2(trueAov) : '—'}</td>
