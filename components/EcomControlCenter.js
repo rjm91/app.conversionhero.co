@@ -963,12 +963,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
     for (const o of orders) {
       const c = (o.utm_campaign || '').trim()
       if (!c) continue
-      if (!m[c]) m[c] = { count: 0, revenue: 0 }
+      if (!m[c]) m[c] = { count: 0, revenue: 0, cogs: 0 }
       m[c].count++
       m[c].revenue += Number(o.sale_amount) || 0
+      m[c].cogs += cogsByOrder[o.lead_id]?.cogs || 0
     }
     return m
-  }, [orders])
+  }, [orders, cogsByOrder])
 
   const m = useMemo(() => {
     const revenue = orders.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0)
@@ -995,9 +996,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
     // Per-platform CH rollups (orders' utm_campaign matched to each platform's campaign IDs)
     const gConv = fCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
     const gRev  = fCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    const gCogs = fCampaigns.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.cogs || 0), 0)
     const gConvGoogle = fCampaigns.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
     const mConv = fMeta.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.count || 0), 0)
     const mRev  = fMeta.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.revenue || 0), 0)
+    const mCogs = fMeta.reduce((s, c) => s + (campaignAttr[c.campaign_id]?.cogs || 0), 0)
     const mConvPlatform = fMeta.reduce((s, c) => s + (Number(c.conversions) || 0), 0)
     const metaBudget    = fMeta.reduce((s, c) => s + (Number(c.budget) || 0), 0)
     // Platform-reported conversion value → platform ROAS (value ÷ spend)
@@ -1021,8 +1024,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
       costPerOrder: orderCount ? adSpend / orderCount : 0,
       convRate: clicks ? orderCount / clicks : 0,
       byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
-      gConv, gRev, gRoas: googleSpend ? gRev / googleSpend : 0,
-      mConv, mRev, mConvPlatform, metaBudget, mRoas: metaSpend ? mRev / metaSpend : 0,
+      gConv, gRev, gCogs, gRoas: googleSpend ? gRev / googleSpend : 0,
+      gTrueRoas: googleSpend ? (gRev - gCogs) / googleSpend : 0,
+      gTrueAov: gConv ? (gRev - gCogs) / gConv : 0,
+      mConv, mRev, mCogs, mConvPlatform, metaBudget, mRoas: metaSpend ? mRev / metaSpend : 0,
+      mTrueRoas: metaSpend ? (mRev - mCogs) / metaSpend : 0,
+      mTrueAov: mConv ? (mRev - mCogs) / mConv : 0,
+      blendedTrueRoas: (googleSpend + metaSpend) ? ((gRev + mRev) - (gCogs + mCogs)) / (googleSpend + metaSpend) : 0,
+      blendedTrueAov: (gConv + mConv) ? ((gRev + mRev) - (gCogs + mCogs)) / (gConv + mConv) : 0,
       // TikTok
       tiktokSpend, tiktokClicks, tiktokImpr, tiktokBudget,
       tConv, tRev, tConvPlatform, tRoas: tiktokSpend ? tRev / tiktokSpend : 0,
@@ -1052,8 +1061,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
       r.unmatched.forEach(s => { if (s) unmatched.add(s) })
     }
     const contribution = m.revenue - totalCogs
-    return { hasCogs: true, totalCogs, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null, unmatched: [...unmatched] }
-  }, [orders, cogsByOrder, hasCogs, m.revenue, m.adSpend])
+    return { hasCogs: true, totalCogs, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null, trueAov: m.orderCount ? contribution / m.orderCount : 0, unmatched: [...unmatched] }
+  }, [orders, cogsByOrder, hasCogs, m.revenue, m.adSpend, m.orderCount])
 
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
@@ -1235,8 +1244,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             kpis={[
               { label: 'Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
               { label: 'Ad Spend', value: fmt$(m.adSpend), info: 'Blended Google Ads + Meta Ads spend. Other channels like email and organic carry no ad cost.' },
-              { label: 'Blended ROAS', value: fmtRoas(m.roas), info: 'Total revenue ÷ blended ad spend (Google + Meta). All-channel revenue measured against paid spend only.' },
-              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true, info: 'Margin-aware ROAS = contribution margin (revenue − real COGS from the BOM) ÷ ad spend. The moat metric. Set up Manufacturing COGS to enable.' },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true, info: 'Margin-aware ROAS = contribution margin (revenue − real COGS) ÷ ad spend — what each ad dollar earns after product cost.' },
               { label: 'Orders', value: fmtNum(m.orderCount), info: 'Count of all Shopify orders in this range, across every channel.' },
               { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders carrying a campaign ID we can match to a Google/Meta campaign — ConversionHero first-party attribution.' },
             ]}>
@@ -1258,8 +1266,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    { label: 'AOV', value: fmt$2(m.aov), info: 'Average order value = total revenue ÷ total orders.',
-                      onClick: () => drillOrders('AOV — all orders', fmt$2(m.aov), `Average order value = total revenue ÷ orders = ${fmt$(m.revenue)} ÷ ${m.orderCount} = ${fmt$2(m.aov)}`, orders) },
+                    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(cogs.trueAov) : fmt$2(m.aov), ch: cogs.hasCogs, info: 'True AOV = average CONTRIBUTION per order (revenue − real COGS) ÷ orders. The margin each order actually leaves on the table.',
+                      onClick: () => drillOrders('True AOV — all orders', cogs.hasCogs ? fmt$2(cogs.trueAov) : fmt$2(m.aov), cogs.hasCogs ? `Avg contribution per order = (revenue − COGS) ÷ orders = (${fmt$(m.revenue)} − ${fmt$(cogs.totalCogs)}) ÷ ${m.orderCount} = ${fmt$2(cogs.trueAov)}` : `Average order value = ${fmt$(m.revenue)} ÷ ${m.orderCount}`, orders) },
                     { label: 'Cost / Order', value: fmt$2(m.costPerOrder), info: 'Blended ad spend (Google + Meta) ÷ all orders. Spreads paid spend across every order, including email/organic/direct — so true cost per ad-driven order is higher.',
                       onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(m.costPerOrder), formula: `Blended ad spend ÷ all orders = ${fmt$(m.adSpend)} ÷ ${m.orderCount} = ${fmt$2(m.costPerOrder)}`, columns: ['Source', 'Value'], rows: [['Google spend', fmt$2(m.googleSpend)], ['Meta spend', fmt$2(m.metaSpend)], ['Total ad spend', fmt$2(m.adSpend)], ['Orders', String(m.orderCount)]], footer: ['Cost / Order', fmt$2(m.costPerOrder)] }) },
                     { label: 'Conversion Rate', value: fmtPct(m.convRate), info: 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.',
@@ -1290,7 +1298,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Clicks', value: fmtNum(m.clicks) },
               { label: 'Conv', value: fmtNum(m.blendedConvPlatform) },
               { label: 'Conv (CH)', value: fmtNum(m.blendedConvCH), ch: true },
-              { label: 'ROAS (CH)', value: fmtRoas(m.blendedRoas), ch: true },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(m.blendedTrueRoas) : '—', ch: true },
             ]}>
             <TrendChart dates={trend.dates} a={trend.google} b={trend.meta} compare primaryColor={brandColor} orders={orders} onApplyDay={applyDay} onBack={backToRange} canBack={!!prevRange} />
             <div className="overflow-x-auto">
@@ -1304,7 +1312,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">AOV (CH)</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
@@ -1322,8 +1330,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right">{m.blendedRoasPlatform > 0 ? fmtRoas(m.blendedRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH}</td>
                     <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.adSpend / m.blendedConvCH) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedRoas > 0 ? fmtRoas(m.blendedRoas) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.blendedConvCH > 0 ? fmt$2(m.blendedRevCH / m.blendedConvCH) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.blendedTrueRoas ? fmtRoas(m.blendedTrueRoas) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.blendedTrueAov ? fmt$2(m.blendedTrueAov) : '—'}</td>
                   </tr>
                   <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-white border border-gray-200 grid place-items-center text-[9px] font-extrabold text-[#4285F4]">G</span>Google Ads</span></td>
@@ -1339,8 +1347,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.gConv > 0 ? fmt$2(m.gRev / m.gConv) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.gTrueRoas ? fmtRoas(m.gTrueRoas) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.gTrueAov ? fmt$2(m.gTrueAov) : '—'}</td>
                   </tr>
                   <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium text-gray-800 dark:text-white"><span className="w-4 h-4 rounded bg-[#0866FF] grid place-items-center text-[9px] font-extrabold text-white">f</span>Meta Ads</span></td>
@@ -1356,8 +1364,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{m.mConv > 0 ? fmt$2(m.mRev / m.mConv) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.mTrueRoas ? fmtRoas(m.mTrueRoas) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && m.mTrueAov ? fmt$2(m.mTrueAov) : '—'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1372,7 +1380,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Clicks', value: fmtNum(m.googleClicks) },
               { label: 'Conv', value: fmtNum(m.gConvGoogle) },
               { label: 'Conv (CH)', value: fmtNum(m.gConv), ch: true },
-              { label: 'ROAS (CH)', value: fmtRoas(m.gRoas), ch: true },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(m.gTrueRoas) : '—', ch: true },
             ]}>
             {campaigns.length === 0 ? (
               <p className="text-sm text-gray-400 p-6">No Google campaign data in range.</p>
@@ -1390,7 +1398,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">AOV (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
@@ -1409,11 +1417,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{m.gRoasPlatform > 0 ? fmtRoas(m.gRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv > 0 ? fmt$2(m.googleSpend / m.gConv) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gRoas > 0 ? fmtRoas(m.gRoas) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.gConv > 0 ? fmt$2(m.gRev / m.gConv) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.gTrueRoas ? fmtRoas(m.gTrueRoas) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.gTrueAov ? fmt$2(m.gTrueAov) : '—'}</td>
                     </tr>
                     {fCampaigns.map(c => {
-                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
+                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0, cogs: 0 }
+                      const contrib = a.revenue - (a.cogs || 0)
+                      const trueRoas = c.cost > 0 ? contrib / c.cost : 0
+                      const trueAov = a.count > 0 ? contrib / a.count : 0
                       const cpc = c.clicks > 0 ? c.cost / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
                       const cpConv = c.conversions > 0 ? c.cost / c.conversions : 0
@@ -1443,7 +1454,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.cost > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.cost) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(a.revenue / a.count) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmtRoas(trueRoas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmt$2(trueAov) : '—'}</td>
                         </tr>
                       )
                     })}
@@ -1468,7 +1479,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               { label: 'Clicks', value: fmtNum(m.metaClicks) },
               { label: 'Conv', value: fmtNum(m.mConvPlatform) },
               { label: 'Conv (CH)', value: fmtNum(m.mConv), ch: true },
-              { label: 'ROAS (CH)', value: fmtRoas(m.mRoas), ch: true },
+              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(m.mTrueRoas) : '—', ch: true },
             ] : [{ label: 'Not connected', value: '—' }])}>
             {metaCampaigns.length === 0 ? (
               <div className="px-5 py-5">
@@ -1489,7 +1500,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">AOV (CH)</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True ROAS</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">True AOV</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
@@ -1508,11 +1519,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td className="px-4 py-3 text-right">{m.mRoasPlatform > 0 ? fmtRoas(m.mRoasPlatform) : '—'}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv}</td>
                       <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.metaSpend / m.mConv) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mRoas > 0 ? fmtRoas(m.mRoas) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.mConv > 0 ? fmt$2(m.mRev / m.mConv) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.mTrueRoas ? fmtRoas(m.mTrueRoas) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs && m.mTrueAov ? fmt$2(m.mTrueAov) : '—'}</td>
                     </tr>
                     {fMeta.map(c => {
-                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
+                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0, cogs: 0 }
+                      const contrib = a.revenue - (a.cogs || 0)
+                      const trueRoas = c.cost > 0 ? contrib / c.cost : 0
+                      const trueAov = a.count > 0 ? contrib / a.count : 0
                       const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
                       const cpConv = c.conversions > 0 ? c.spend / c.conversions : 0
@@ -1544,104 +1558,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.spend > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.spend) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(a.revenue / a.count) : '—'}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              </>
-            )}
-          </Section>
-
-          {/* TikTok */}
-          <Section id="tiktok" icon={platformIcon.tiktok} name="TikTok Ads"
-            count={tiktokCampaigns.length ? `${fTik.length} campaign${fTik.length === 1 ? '' : 's'}` : null}
-            headerCtrl={tiktokCampaigns.length ? statusSelect() : null}
-            open={open.tiktok} onToggle={toggle}
-            action={<LastUpdated syncedAt={tiktokSynced} syncing={tiktokSyncing} onRefresh={handleTiktokRefresh} />}
-            kpis={open.tiktok ? [] : (tiktokCampaigns.length ? [
-              { label: 'Spend', value: fmt$(m.tiktokSpend) },
-              { label: 'Clicks', value: fmtNum(m.tiktokClicks) },
-              { label: 'Conv', value: fmtNum(m.tConvPlatform) },
-              { label: 'Conv (CH)', value: fmtNum(m.tConv), ch: true },
-              { label: 'ROAS (CH)', value: fmtRoas(m.tRoas), ch: true },
-            ] : [{ label: 'Not connected', value: '—' }])}>
-            {tiktokCampaigns.length === 0 ? (
-              <div className="px-5 py-5">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">No TikTok data in range</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Connect TikTok Ads (Marketing API token + advertiser ID) or widen the date range. Spend matches to CH-attributed orders via the captured campaign IDs.</p>
-              </div>
-            ) : (
-              <>
-              <TrendChart dates={trend.dates} a={trend.tiktok} />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm whitespace-nowrap table-fixed min-w-[900px]">
-                  <PaidColGroup />
-                  <thead className="bg-gray-50 dark:bg-[#0d1020]">
-                    <tr>
-                      {['Campaign', 'Status', 'Budget/Day', 'Cost', 'Impr', 'CTR', 'Clicks', 'CPC', 'Conv', 'Cost/Conv'].map((h, i) => (
-                        <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
-                      ))}
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ROAS</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">Cost/Conv (CH)</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">ROAS (CH)</th><th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide bg-[#34CC93]/[0.06]">AOV (CH)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
-                    <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
-                      <td className="px-4 py-3">Totals</td>
-                      <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
-                      <td className="px-4 py-3 text-right">{m.tiktokBudget > 0 ? fmt$(m.tiktokBudget) : '—'}</td>
-                      <td className="px-4 py-3 text-right">{fmt$2(m.tiktokSpend)}</td>
-                      <td className="px-4 py-3 text-right">{fmtNum(m.tiktokImpr)}</td>
-                      <td className="px-4 py-3 text-right">{fmtPct(m.tiktokImpr > 0 ? m.tiktokClicks / m.tiktokImpr : 0)}</td>
-                      <td className="px-4 py-3 text-right">{fmtNum(m.tiktokClicks)}</td>
-                      <td className="px-4 py-3 text-right">{fmt$2(m.tiktokClicks > 0 ? m.tiktokSpend / m.tiktokClicks : 0)}</td>
-                      <td className="px-4 py-3 text-right">{Number(m.tConvPlatform || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
-                      <td className="px-4 py-3 text-right">{m.tConvPlatform > 0 ? fmt$2(m.tiktokSpend / m.tConvPlatform) : '—'}</td>
-                      <td className="px-4 py-3 text-right">{m.tRoasPlatform > 0 ? fmtRoas(m.tRoasPlatform) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv > 0 ? fmt$2(m.tiktokSpend / m.tConv) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tRoas > 0 ? fmtRoas(m.tRoas) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{m.tConv > 0 ? fmt$2(m.tRev / m.tConv) : '—'}</td>
-                    </tr>
-                    {fTik.map(c => {
-                      const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0 }
-                      const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
-                      const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
-                      const cpConv = c.conversions > 0 ? c.spend / c.conversions : 0
-                      const chCost = a.count > 0 ? c.spend / a.count : 0
-                      const roas = c.spend > 0 ? a.revenue / c.spend : 0
-                      const enabled = c.status === 'ENABLED'
-                      return (
-                        <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
-                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {c.status ? (
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                                {enabled ? 'Enabled' : 'Paused'}
-                              </span>
-                            ) : <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.budget > 0 ? fmt$(c.budget) : '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(c.spend)}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.impressions)}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(ctr)}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.clicks)}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt$2(cpc)}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.conversions > 0 ? fmt$2(cpConv) : '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{c.spend > 0 && Number(c.conversions_value) > 0 ? fmtRoas(Number(c.conversions_value) / c.spend) : '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(chCost) : '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmtRoas(roas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{a.count > 0 ? fmt$2(a.revenue / a.count) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmtRoas(trueRoas) : '—'}</td><td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs && a.count > 0 ? fmt$2(trueAov) : '—'}</td>
                         </tr>
                       )
                     })}
