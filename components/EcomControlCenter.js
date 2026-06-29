@@ -685,12 +685,12 @@ function DashboardSkeleton() {
 }
 
 export default function EcomControlCenter({ clientId, clientName }) {
-  const defaults = defaultDates()
+  const defaults = rangeFor('today')
   const [startDate, setStartDate]   = useState(defaults.start)
   const [endDate, setEndDate]       = useState(defaults.end)
   const [appliedStart, setAppliedStart] = useState(defaults.start)
   const [appliedEnd, setAppliedEnd]     = useState(defaults.end)
-  const [preset, setPreset]             = useState('last_30')
+  const [preset, setPreset]             = useState('today')
   const [prevRange, setPrevRange]       = useState(null) // restore point after a single-day drill
 
   const [orders, setOrders]       = useState([])
@@ -704,7 +704,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [firstLoad, setFirstLoad] = useState(true)
   const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
   const [isDark, setIsDark] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
+  const [statusFilter, setStatusFilter] = useState('enabled') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
