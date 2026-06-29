@@ -715,6 +715,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [metaModal, setMetaModal] = useState(false) // Meta connection editor
   const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: true })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
+  // Auto-open Meta the first time live data flows in (won't re-open if the user closes it).
+  const metaAutoOpened = useRef(false)
+  useEffect(() => {
+    if (!metaAutoOpened.current && metaCampaigns.length > 0) {
+      metaAutoOpened.current = true
+      setOpen(o => ({ ...o, meta: true }))
+    }
+  }, [metaCampaigns])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
