@@ -1426,7 +1426,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     {fCampaigns.map(c => {
                       const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0, cogs: 0 }
                       const contrib = a.revenue - (a.cogs || 0)
-                      const trueRoas = c.cost > 0 ? contrib / c.cost : 0
+                      const spendVal = Number(c.cost) || Number(c.spend) || 0
+                      const trueRoas = spendVal > 0 ? contrib / spendVal : 0
                       const trueAov = a.count > 0 ? contrib / a.count : 0
                       const cpc = c.clicks > 0 ? c.cost / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
@@ -1525,7 +1526,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     {fMeta.map(c => {
                       const a = campaignAttr[c.campaign_id] || { count: 0, revenue: 0, cogs: 0 }
                       const contrib = a.revenue - (a.cogs || 0)
-                      const trueRoas = c.cost > 0 ? contrib / c.cost : 0
+                      const spendVal = Number(c.cost) || Number(c.spend) || 0
+                      const trueRoas = spendVal > 0 ? contrib / spendVal : 0
                       const trueAov = a.count > 0 ? contrib / a.count : 0
                       const cpc = c.clicks > 0 ? c.spend / c.clicks : 0
                       const ctr = c.impressions > 0 ? c.clicks / c.impressions : 0
