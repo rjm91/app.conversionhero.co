@@ -58,6 +58,12 @@ function deriveChannel(o) {
   return ch || 'Other'
 }
 
+// Paid = order attributed to a paid platform (Google/Meta/TikTok). Everything
+// else (Direct, Email, organic, Draft Order, …) counts as organic/owned. ROAS is
+// a paid-media metric, so it must only ever measure paid revenue vs ad spend.
+const PAID_CHANNELS = new Set(['Google', 'Meta', 'TikTok'])
+function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
+
 // Local calendar date (YYYY-MM-DD) in the viewer's machine timezone — NOT UTC.
 // Using toISOString() here would roll "today" to tomorrow every evening for
 // users west of UTC, which is the timezone drift we're fixing.
@@ -705,6 +711,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [brandColor, setBrandColor] = useState('#3b82f6') // client brand primary (fallback blue)
   const [isDark, setIsDark] = useState(false)
   const [statusFilter, setStatusFilter] = useState('enabled') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
+  const [view, setView] = useState('all') // 'all' | 'paid' | 'organic' — Paid vs Organic lens
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
@@ -1072,6 +1079,40 @@ export default function EcomControlCenter({ clientId, clientName }) {
     return { hasCogs: true, totalCogs, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null, trueAov: m.orderCount ? contribution / m.orderCount : 0, unmatched: [...unmatched] }
   }, [orders, cogsByOrder, hasCogs, m.revenue, m.adSpend, m.orderCount])
 
+  // Paid-only rollup (Google/Meta/TikTok-attributed orders). True ROAS always
+  // divides PAID contribution by ad spend — organic/direct never inflates it.
+  const paid = useMemo(() => {
+    let revenue = 0, pc = 0, count = 0
+    for (const o of orders) if (isPaidOrder(o)) { revenue += Number(o.sale_amount) || 0; pc += cogsByOrder[o.lead_id]?.cogs || 0; count++ }
+    const contribution = revenue - pc
+    return { revenue, cogs: pc, count, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null }
+  }, [orders, cogsByOrder, m.adSpend])
+
+  // Paid / Organic / All lens → scoped orders + money metrics.
+  const viewOrders = useMemo(() => (
+    view === 'all' ? orders : orders.filter(o => isPaidOrder(o) === (view === 'paid'))
+  ), [orders, view])
+  const vm = useMemo(() => {
+    let revenue = 0, vc = 0
+    const byChannel = {}
+    for (const o of viewOrders) {
+      const amt = Number(o.sale_amount) || 0
+      revenue += amt; vc += cogsByOrder[o.lead_id]?.cogs || 0
+      const ch = deriveChannel(o); byChannel[ch] = (byChannel[ch] || 0) + amt
+    }
+    const contribution = revenue - vc
+    const adSpend = view === 'organic' ? 0 : m.adSpend
+    const count = viewOrders.length
+    return {
+      count, revenue, cogs: vc, contribution, adSpend,
+      netProfit: contribution - adSpend,
+      aov: count ? revenue / count : 0,
+      trueAov: count ? contribution / count : 0,
+      costPerOrder: count ? adSpend / count : 0,
+      byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
+    }
+  }, [viewOrders, cogsByOrder, view, m.adSpend])
+
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
   // date and split by which platform's campaign id the order matched.
@@ -1140,7 +1181,22 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
   const tiktokSynced = useMemo(() => tiktokCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [tiktokCampaigns])
 
-  const channelMax = Math.max(1, ...m.byChannel.map(([, v]) => v))
+  const channelMax = Math.max(1, ...vm.byChannel.map(([, v]) => v))
+
+  // Overview KPIs adapt to the Paid / Organic / All lens.
+  const overviewKpis = view === 'organic' ? [
+    { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Email, organic, Draft Order, …). No ad spend attached.' },
+    { label: 'Margin', value: cogs.hasCogs ? fmt$(vm.contribution) : '—', ch: true, info: 'Contribution margin on organic orders = revenue − real COGS. Pure margin, no ad cost.' },
+    { label: 'Orders', value: fmtNum(vm.count), info: 'Organic (non-paid) orders in this range.' },
+    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), ch: cogs.hasCogs, info: 'Average contribution per organic order (revenue − real COGS ÷ orders).' },
+  ] : [
+    { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(vm.revenue), info: view === 'paid' ? 'Revenue from paid channels (Google + Meta) in this range.' : 'Total Shopify sales across every channel (paid, email, organic, direct).' },
+    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(vm.netProfit) : '—', ch: true, info: 'Net profit = revenue − real COGS − ad spend (before other operating costs).' },
+    { label: 'Ad Spend', value: fmt$(vm.adSpend), info: 'Blended Google + Meta ad spend. Organic/email carry no ad cost.' },
+    { label: 'True ROAS', value: (cogs.hasCogs && paid.trueRoas != null) ? fmtRoas(paid.trueRoas) : '—', ch: true, info: 'Paid-only, margin-aware ROAS = paid contribution (paid revenue − COGS) ÷ ad spend. Organic & direct sales are excluded — ROAS measures advertising only.' },
+    { label: 'Orders', value: fmtNum(vm.count), info: view === 'paid' ? 'Orders attributed to paid channels.' : 'All orders across every channel.' },
+    { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders matched to a Google/Meta campaign ID — first-party attribution.' },
+  ]
 
   // ── Metric drill-downs: click a metric → see its source rows ──
   const orderRows = (list) => list.map(o => [o.shopify_data?.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(o.sale_amount)])
@@ -1190,6 +1246,11 @@ export default function EcomControlCenter({ clientId, clientName }) {
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{clientName || clientId} at a glance. Click any section to expand.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#161b30] p-0.5 text-[13px] font-semibold">
+            {[['all', 'All'], ['paid', 'Paid'], ['organic', 'Organic']].map(([v, l]) => (
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded-md transition ${view === v ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{l}</button>
+            ))}
+          </div>
           {prevRange && (
             <button onClick={backToRange}
               className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg px-3 py-1.5 transition">
@@ -1249,19 +1310,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
         <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           {/* Overview */}
           <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
-            kpis={[
-              { label: 'Gross Revenue', value: fmt$(m.revenue), info: 'Total Shopify sales in this date range, across every channel (paid, email, organic, direct).' },
-              { label: 'Net Profit', value: cogs.hasCogs ? fmt$(cogs.contribution - m.adSpend) : '—', ch: true, info: 'Net profit = gross revenue − real COGS − ad spend. What\'s left after product cost and advertising (before other operating costs).' },
-              { label: 'Ad Spend', value: fmt$(m.adSpend), info: 'Blended Google Ads + Meta Ads spend. Other channels like email and organic carry no ad cost.' },
-              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true, info: 'Margin-aware ROAS = contribution margin (revenue − real COGS) ÷ ad spend — what each ad dollar earns after product cost.' },
-              { label: 'Orders', value: fmtNum(m.orderCount), info: 'Count of all Shopify orders in this range, across every channel.' },
-              { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders carrying a campaign ID we can match to a Google/Meta campaign — ConversionHero first-party attribution.' },
-            ]}>
+            kpis={overviewKpis}>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
-                {m.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : m.byChannel.map(([name, val]) => (
-                  <button key={name} onClick={() => drillOrders(`${name} revenue`, fmt$(val), `Orders attributed to ${name} (by captured source). Click an order in your store for the full record.`, orders.filter(o => deriveChannel(o) === name))}
+                {vm.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : vm.byChannel.map(([name, val]) => (
+                  <button key={name} onClick={() => drillOrders(`${name} revenue`, fmt$(val), `Orders attributed to ${name} (by captured source). Click an order in your store for the full record.`, viewOrders.filter(o => deriveChannel(o) === name))}
                     className="w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/[0.03] px-1 -mx-1 transition cursor-pointer text-left group">
                     <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-700 dark:group-hover:text-gray-200">{name}</span>
                     <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
@@ -1275,10 +1329,10 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(cogs.trueAov) : fmt$2(m.aov), ch: cogs.hasCogs, info: 'True AOV = average CONTRIBUTION per order (revenue − real COGS) ÷ orders. The margin each order actually leaves on the table.',
-                      onClick: () => drillOrders('True AOV — all orders', cogs.hasCogs ? fmt$2(cogs.trueAov) : fmt$2(m.aov), cogs.hasCogs ? `Avg contribution per order = (revenue − COGS) ÷ orders = (${fmt$(m.revenue)} − ${fmt$(cogs.totalCogs)}) ÷ ${m.orderCount} = ${fmt$2(cogs.trueAov)}` : `Average order value = ${fmt$(m.revenue)} ÷ ${m.orderCount}`, orders) },
-                    { label: 'Cost / Order', value: fmt$2(m.costPerOrder), info: 'Blended ad spend (Google + Meta) ÷ all orders. Spreads paid spend across every order, including email/organic/direct — so true cost per ad-driven order is higher.',
-                      onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(m.costPerOrder), formula: `Blended ad spend ÷ all orders = ${fmt$(m.adSpend)} ÷ ${m.orderCount} = ${fmt$2(m.costPerOrder)}`, columns: ['Source', 'Value'], rows: [['Google spend', fmt$2(m.googleSpend)], ['Meta spend', fmt$2(m.metaSpend)], ['Total ad spend', fmt$2(m.adSpend)], ['Orders', String(m.orderCount)]], footer: ['Cost / Order', fmt$2(m.costPerOrder)] }) },
+                    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), ch: cogs.hasCogs, info: 'True AOV = average CONTRIBUTION per order (revenue − real COGS) ÷ orders. The margin each order actually leaves on the table.',
+                      onClick: () => drillOrders('True AOV', cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), cogs.hasCogs ? `Avg contribution per order = (revenue − COGS) ÷ orders = (${fmt$(vm.revenue)} − ${fmt$(vm.cogs)}) ÷ ${vm.count} = ${fmt$2(vm.trueAov)}` : `Average order value = ${fmt$(vm.revenue)} ÷ ${vm.count}`, viewOrders) },
+                    { label: 'Cost / Order', value: fmt$2(vm.costPerOrder), info: 'Ad spend ÷ orders in view. In the Organic lens this is $0 (no ad cost).',
+                      onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(vm.costPerOrder), formula: `Ad spend ÷ orders = ${fmt$(vm.adSpend)} ÷ ${vm.count} = ${fmt$2(vm.costPerOrder)}`, columns: ['Source', 'Value'], rows: [['Ad spend', fmt$2(vm.adSpend)], ['Orders', String(vm.count)]], footer: ['Cost / Order', fmt$2(vm.costPerOrder)] }) },
                     { label: 'Conversion Rate', value: fmtPct(m.convRate), info: 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.',
                       onClick: () => setDrill({ title: 'Conversion Rate', value: fmtPct(m.convRate), formula: `All orders ÷ blended ad clicks = ${m.orderCount} ÷ ${fmtNum(m.clicks)} = ${fmtPct(m.convRate)}`, columns: ['Source', 'Value'], rows: [['Google clicks', fmtNum(m.googleClicks)], ['Meta clicks', fmtNum(m.metaClicks)], ['Total clicks', fmtNum(m.clicks)], ['Orders', String(m.orderCount)]], footer: ['Conversion rate', fmtPct(m.convRate)] }) },
                     { label: 'Tracked Revenue (CH)', value: fmt$(m.trackedRevenue), ch: true, info: "Revenue from orders matched to a Google/Meta campaign ID — ConversionHero's first-party attributed revenue.",
@@ -1294,6 +1348,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
             </div>
           </Section>
 
+          {view !== 'organic' && <>
           {/* Blended Paid Ads (Google + Meta) */}
           <Section
             id="blended"
@@ -1570,17 +1625,19 @@ export default function EcomControlCenter({ clientId, clientName }) {
             )}
           </Section>
 
+          </>}
+
           {/* Orders — chart + list in one accordion */}
-          <Section id="orders" icon={platformIcon.orders} name="Orders" count={`${fmtNum(m.orderCount)} total`} open={open.orders} onToggle={toggle}
+          <Section id="orders" icon={platformIcon.orders} name="Orders" count={`${fmtNum(vm.count)} total`} open={open.orders} onToggle={toggle}
             kpis={[
-              { label: 'Revenue', value: fmt$(m.revenue) },
-              { label: 'AOV', value: fmt$2(m.aov) },
-              { label: 'True ROAS', value: cogs.hasCogs ? fmtRoas(cogs.trueRoas) : '—', ch: true },
+              { label: view === 'organic' ? 'Organic Revenue' : view === 'paid' ? 'Paid Revenue' : 'Revenue', value: fmt$(vm.revenue) },
+              { label: 'AOV', value: fmt$2(vm.aov) },
+              ...(view === 'organic' ? [] : [{ label: 'True ROAS', value: (cogs.hasCogs && paid.trueRoas != null) ? fmtRoas(paid.trueRoas) : '—', ch: true }]),
               { label: 'Attributed', value: fmtPct(m.attrRate), ch: true },
             ]}>
             <OrdersChart dates={trend.dates} series={trend.ords} />
             <div className="border-t border-gray-100 dark:border-white/[0.06]" />
-            {orders.length === 0 ? (
+            {viewOrders.length === 0 ? (
               <p className="text-sm text-gray-400 p-6">No orders in range.</p>
             ) : (
               <div className="overflow-x-auto">
@@ -1601,16 +1658,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                     <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
                       <td className="px-4 py-3">Totals</td>
-                      <td className="px-4 py-3 text-xs font-normal text-gray-400">{fmtNum(m.orderCount)} orders</td>
+                      <td className="px-4 py-3 text-xs font-normal text-gray-400">{fmtNum(vm.count)} orders</td>
                       <td />
                       <td />
-                      <td className="px-4 py-3 text-right tabular-nums">{fmt$2(m.revenue)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{cogs.hasCogs ? fmt$2(cogs.totalCogs) : '—'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(cogs.contribution) : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{fmt$2(vm.revenue)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{cogs.hasCogs ? fmt$2(vm.cogs) : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(vm.contribution) : '—'}</td>
                       <td />
                       <td />
                     </tr>
-                    {orders.slice(0, 25).map(o => {
+                    {viewOrders.slice(0, 25).map(o => {
                       const oc = cogsByOrder[o.lead_id]
                       const margin = oc ? (Number(o.sale_amount) || 0) - oc.cogs : null
                       return (
@@ -1628,7 +1685,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     )})}
                   </tbody>
                 </table>
-                {orders.length > 25 && <p className="text-xs text-gray-400 px-4 py-3">Showing 25 of {fmtNum(orders.length)} orders.</p>}
+                {viewOrders.length > 25 && <p className="text-xs text-gray-400 px-4 py-3">Showing 25 of {fmtNum(viewOrders.length)} orders.</p>}
               </div>
             )}
           </Section>
@@ -1638,13 +1695,13 @@ export default function EcomControlCenter({ clientId, clientName }) {
       <DrillDown data={drill} onClose={() => setDrill(null)} />
       <OrderModal
         order={orderModal}
-        orders={orders}
+        orders={viewOrders}
         cogs={orderModal ? cogsByOrder[orderModal.lead_id] : null}
         onClose={() => setOrderModal(null)}
         onNavigate={(dir) => {
-          const i = orders.findIndex(o => o.lead_id === orderModal?.lead_id)
+          const i = viewOrders.findIndex(o => o.lead_id === orderModal?.lead_id)
           const n = i + dir
-          if (n >= 0 && n < orders.length) setOrderModal(orders[n])
+          if (n >= 0 && n < viewOrders.length) setOrderModal(viewOrders[n])
         }}
       />
 
