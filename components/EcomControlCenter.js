@@ -581,7 +581,7 @@ function Section({ id, icon, name, count, kpis, open, onToggle, children, action
         <div className="flex items-center gap-6 flex-shrink-0">
           {kpis.map((k, i) => (
             <div key={i} className="text-right">
-              <div className={`text-base font-bold leading-tight ${k.tone === 'bad' ? 'text-rose-500 dark:text-rose-400' : k.ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{k.value}</div>
+              <div className={`text-base font-bold leading-tight ${k.tone === 'bad' ? 'text-rose-500 dark:text-rose-400' : k.tone === 'cost' ? 'text-amber-500 dark:text-amber-400' : k.ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{k.value}</div>
               <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-0.5">{k.label}{k.info && <InfoTip text={k.info} />}</div>
             </div>
           ))}
@@ -1186,14 +1186,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
   // Overview KPIs adapt to the Paid / Organic / All lens.
   const overviewKpis = view === 'organic' ? [
     { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Email, organic, Draft Order, …). No ad spend attached.' },
-    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
+    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
     { label: 'Margin', value: cogs.hasCogs ? fmt$(vm.contribution) : '—', ch: cogs.hasCogs && vm.contribution >= 0, tone: cogs.hasCogs && vm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on organic orders = revenue − real COGS. Pure margin, no ad cost.' },
     { label: 'Orders', value: fmtNum(vm.count), info: 'Organic (non-paid) orders in this range.' },
     { label: 'True AOV', value: cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), ch: cogs.hasCogs, info: 'Average contribution per organic order (revenue − real COGS ÷ orders).' },
   ] : [
     { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(vm.revenue), info: view === 'paid' ? 'Revenue from paid channels (Google + Meta) in this range.' : 'Total Shopify sales across every channel (paid, email, organic, direct).' },
-    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Revenue − COGS − ad spend = net profit.' },
-    { label: 'Ad Spend', value: fmt$(vm.adSpend), info: 'Blended Google + Meta ad spend. Organic/email carry no ad cost.' },
+    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Revenue − COGS − ad spend = net profit.' },
+    { label: 'Ad Spend', value: fmt$(vm.adSpend), tone: 'cost', info: 'Blended Google + Meta ad spend. Organic/email carry no ad cost.' },
     { label: 'Net Profit', value: cogs.hasCogs ? fmt$(vm.netProfit) : '—', ch: cogs.hasCogs && vm.netProfit >= 0, tone: cogs.hasCogs && vm.netProfit < 0 ? 'bad' : undefined, info: 'Net profit = gross revenue − real COGS − ad spend (before other operating costs). Green = profit, red = loss.' },
     { label: 'True ROAS', value: (cogs.hasCogs && paid.trueRoas != null) ? fmtRoas(paid.trueRoas) : '—', ch: true, info: 'Paid-only, margin-aware ROAS = paid contribution (paid revenue − COGS) ÷ ad spend. Organic & direct sales are excluded — ROAS measures advertising only.' },
     { label: 'Orders', value: fmtNum(vm.count), info: view === 'paid' ? 'Orders attributed to paid channels.' : 'All orders across every channel.' },
