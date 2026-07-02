@@ -74,14 +74,18 @@ export function applyScenario(base, scenario) {
 
 // values: consecutive DAILY numbers, oldest → newest (last element = yesterday).
 // horizon: how many future days to project. Returns number[horizon], day 1 = today.
-export function projectSeries(values, horizon, { decay = 0.72, maxSamples = 8, trendClamp = [0.6, 1.75] } = {}) {
+//
+// trend: false → no growth extrapolation. Use for CONTROLLED series (ad spend):
+// budgets are decisions, not outcomes — past cuts don't predict future cuts,
+// so spend continues at its current run-rate until a scenario lever moves it.
+export function projectSeries(values, horizon, { decay = 0.72, maxSamples = 8, trendClamp = [0.6, 1.75], trend = true } = {}) {
   const n = values.length
   if (!n || horizon <= 0) return Array(Math.max(0, horizon)).fill(0)
   const mean = sum(values) / n
 
   // Growth trend: average of the last 28 days vs the 28 days before that.
   let dailyGrowth = 1
-  if (n >= 42) {
+  if (trend && n >= 42) {
     const recentAvg = sum(values.slice(n - 28)) / 28
     const priorLen = Math.min(28, n - 28)
     const priorAvg = sum(values.slice(n - 28 - priorLen, n - 28)) / priorLen

@@ -351,14 +351,18 @@ export default function ProjectionCenter({ clientId, clientName }) {
   // Baseline projection → scenario-adjusted projection → derived money metrics.
   const proj = useMemo(() => {
     const dates = Array.from({ length: horizon }, (_, i) => addDays(histEnd, i + 1))
+    // Spend is a controlled input, not an outcome: it projects flat from the
+    // current run-rate (weekday-weighted, last 2 weeks, no trend). Only the
+    // scenario levers move it. Revenue/orders keep the growth trend.
+    const SPEND_OPTS = { trend: false, maxSamples: 2, decay: 0.5 }
     const basis = {
       dates,
       revenue: projectSeries(hist.revenue, horizon),
       orderCount: projectSeries(hist.orderCount, horizon),
       paidRevenue: projectSeries(hist.paidRevenue, horizon),
-      gSpend: projectSeries(hist.gSpend, horizon),
-      mSpend: projectSeries(hist.mSpend, horizon),
-      tSpend: projectSeries(hist.tSpend, horizon),
+      gSpend: projectSeries(hist.gSpend, horizon, SPEND_OPTS),
+      mSpend: projectSeries(hist.mSpend, horizon, SPEND_OPTS),
+      tSpend: projectSeries(hist.tSpend, horizon, SPEND_OPTS),
     }
     const derive = (p) => {
       const spend = p.revenue.map((_, i) => p.gSpend[i] + p.mSpend[i] + p.tSpend[i])
@@ -504,7 +508,7 @@ export default function ProjectionCenter({ clientId, clientName }) {
           <Section id="overview" icon={sectionIcon.overview} name="Overview" count={horizonLabel + (neutral ? '' : ' · scenario applied')} kpis={overviewKpis} open={open.overview} onToggle={toggle}>
             <ForecastChart labels={chart.labels} histLen={chart.histLen} metrics={overviewMetrics} />
             <p className="px-5 pb-4 -mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-              Method: each projected day is a weighted average of the same weekday over the last 8 weeks (recent weeks weighted heavier), scaled by the 28-day growth trend{neutral ? '' : ', then adjusted by your scenario'}. Solid = actual, dashed = projected{neutral ? '' : ', dotted = baseline'}.
+              Method: revenue &amp; orders project as a weighted average of the same weekday over the last 8 weeks (recent weeks weighted heavier), scaled by the 28-day growth trend. Ad spend projects flat from your current run-rate (last 2 weeks) — budgets are decisions, not forecasts, so only your scenario levers move them{neutral ? '' : '; your scenario is applied on top'}. Solid = actual, dashed = projected{neutral ? '' : ', dotted = baseline'}.
             </p>
           </Section>
 

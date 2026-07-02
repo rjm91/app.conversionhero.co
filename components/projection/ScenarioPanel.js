@@ -26,7 +26,7 @@ export default function ScenarioPanel({ scenario, setScenario, platforms }) {
       <div>
         <p className={`${labelCls} mb-3`}>
           Ad Budget Push
-          <InfoTip text="Scales each platform's projected daily spend from the chosen date onward. Spend scales exactly with the slider, but paid revenue responds with diminishing returns (set below) — doubling spend never doubles sales. Organic revenue is not affected by budget." />
+          <InfoTip text="Scales each platform's projected daily spend from the chosen date onward. Baseline spend = your current run-rate (last 2 weeks), held flat — so +50% always means 50% above what you're spending now. Paid revenue responds with diminishing returns (set below); organic revenue is not affected by budget." />
         </p>
         <div className="space-y-3">
           {platforms.map(p => (
