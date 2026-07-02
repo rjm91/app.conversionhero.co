@@ -62,7 +62,7 @@ function deriveChannel(o) {
 // else (Direct, Email, organic, Draft Order, …) counts as organic/owned. ROAS is
 // a paid-media metric, so it must only ever measure paid revenue vs ad spend.
 const PAID_CHANNELS = new Set(['Google', 'Meta', 'TikTok'])
-function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
+export function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
 
 // Local calendar date (YYYY-MM-DD) in the viewer's machine timezone — NOT UTC.
 // Using toISOString() here would roll "today" to tomorrow every evening for
