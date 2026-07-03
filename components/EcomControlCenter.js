@@ -737,7 +737,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [orderModal, setOrderModal] = useState(null)   // clicked order → full detail
   const [isAdmin, setIsAdmin] = useState(false) // agency admin → can edit connections
   const [metaModal, setMetaModal] = useState(false) // Meta connection editor
-  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, orders: true })
+  const [open, setOpen] = useState({ overview: true, blended: true, google: true, meta: false, tiktok: false, klaviyo: true, orders: true })
   const toggle = useCallback((id) => setOpen(o => ({ ...o, [id]: !o[id] })), [])
   // Auto-open Meta the first time live data flows in (won't re-open if the user closes it).
   const metaAutoOpened = useRef(false)
@@ -1110,6 +1110,31 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const contribution = revenue - pc
     return { revenue, cogs: pc, count, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null }
   }, [orders, cogsByOrder, m.adSpend])
+
+  // Klaviyo (email/SMS) rollup from first-party Shopify UTMs — no Klaviyo API
+  // involved. Grouped by utm_campaign so flows/sends read like the ad tables.
+  // Only ever organic revenue: any paid-ad touch wins attribution upstream.
+  const klav = useMemo(() => {
+    const byCamp = {}
+    let revenue = 0, totalCogs = 0, count = 0
+    for (const o of orders) {
+      if (deriveChannel(o) !== 'Klaviyo') continue
+      const rev = Number(o.sale_amount) || 0
+      const oc = cogsByOrder[o.lead_id]?.cogs || 0
+      revenue += rev; totalCogs += oc; count++
+      const sd = o.shopify_data || {}
+      const medium = (o.utm_medium || sd.last_utm?.medium || 'email').toLowerCase()
+      const camp = (o.utm_campaign || sd.last_utm?.campaign || '').trim() || '— unattributed'
+      if (!byCamp[camp]) byCamp[camp] = { camp, medium, orders: 0, revenue: 0, cogs: 0, list: [] }
+      byCamp[camp].orders++; byCamp[camp].revenue += rev; byCamp[camp].cogs += oc; byCamp[camp].list.push(o)
+    }
+    return {
+      revenue, cogs: totalCogs, count,
+      contribution: revenue - totalCogs,
+      aov: count ? revenue / count : 0,
+      campaigns: Object.values(byCamp).sort((a, b) => b.revenue - a.revenue),
+    }
+  }, [orders, cogsByOrder])
 
   // Paid / Organic / All lens → scoped orders + money metrics.
   const viewOrders = useMemo(() => (
@@ -1651,6 +1676,67 @@ export default function EcomControlCenter({ clientId, clientName }) {
           </Section>
 
           </>}
+
+          {/* Klaviyo (email/SMS) — Organic lens counterpart to the ad sections */}
+          {view === 'organic' && (
+            <Section id="klaviyo"
+              icon={<div className="w-7 h-7 rounded-lg grid place-items-center bg-black text-[#EFFE64] text-sm font-extrabold flex-shrink-0">K</div>}
+              name="Klaviyo"
+              count={klav.count ? `${klav.campaigns.length} campaign${klav.campaigns.length === 1 ? '' : 's'} · email + SMS` : 'email + SMS'}
+              open={open.klaviyo} onToggle={toggle}
+              kpis={[
+                { label: 'Revenue', value: fmt$(klav.revenue), info: 'Revenue from orders attributed to Klaviyo (email/SMS UTMs captured on the Shopify order) with no paid-ad touch anywhere in the journey.' },
+                { label: 'COGS', value: cogs.hasCogs ? fmt$(klav.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold on Klaviyo-attributed orders (from your BOM).' },
+                { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', ch: cogs.hasCogs && klav.contribution >= 0, info: 'Klaviyo revenue − real COGS. No ad cost — email margin is nearly pure.' },
+                { label: 'Orders', value: fmtNum(klav.count) },
+                { label: 'AOV', value: fmt$2(klav.aov) },
+                { label: '% of Organic', value: fmtPct(vm.revenue > 0 ? klav.revenue / vm.revenue : 0), ch: true, info: 'Klaviyo share of all organic revenue in this range.' },
+              ]}>
+              {klav.count === 0 ? (
+                <p className="text-sm text-gray-400 p-6">No Klaviyo-attributed orders in range.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm whitespace-nowrap">
+                    <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                      <tr>
+                        {['Campaign / Flow', 'Medium', 'Orders', 'Revenue', 'COGS', 'Margin', 'AOV'].map((h, i) => (
+                          <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold ${i >= 5 ? 'text-[#34CC93] bg-[#34CC93]/[0.06]' : 'text-gray-500 dark:text-gray-400'} uppercase tracking-wide`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                      <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
+                        <td className="px-4 py-3">Totals</td>
+                        <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(klav.count)}</td>
+                        <td className="px-4 py-3 text-right">{fmt$2(klav.revenue)}</td>
+                        <td className="px-4 py-3 text-right">{cogs.hasCogs ? fmt$2(klav.cogs) : '—'}</td>
+                        <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs ? fmt$2(klav.contribution) : '—'}</td>
+                        <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{fmt$2(klav.aov)}</td>
+                      </tr>
+                      {klav.campaigns.map(c => (
+                        <tr key={c.camp}
+                          onClick={() => drillOrders(`Klaviyo · ${c.camp}`, fmt$(c.revenue), 'Orders attributed to this Klaviyo campaign/flow via the email/SMS UTM on the Shopify order.', c.list)}
+                          className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[280px]">{c.camp}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">{c.medium === 'sms' ? 'SMS' : 'Email'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.orders)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(c.revenue)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{cogs.hasCogs ? fmt$2(c.cogs) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs ? fmt$2(c.revenue - c.cogs) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{c.orders > 0 ? fmt$2(c.revenue / c.orders) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Section>
+          )}
 
           {/* Orders — chart + list in one accordion */}
           <Section id="orders" icon={platformIcon.orders} name="Orders" count={`${fmtNum(vm.count)} total`} open={open.orders} onToggle={toggle}
