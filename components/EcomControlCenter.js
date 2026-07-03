@@ -720,6 +720,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [campaigns, setCampaigns] = useState([])
   const [metaCampaigns, setMetaCampaigns] = useState([])
   const [tiktokCampaigns, setTiktokCampaigns] = useState([])
+  const [klaviyoDaily, setKlaviyoDaily] = useState([]) // Klaviyo API rows (campaigns + flows)
   const [googleDaily, setGoogleDaily] = useState([])
   const [metaDaily, setMetaDaily]     = useState([])
   const [tiktokDaily, setTiktokDaily] = useState([])
@@ -755,7 +756,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     // viewer's calendar day exactly rather than UTC midnight.
     const dayStartISO = new Date(`${appliedStart}T00:00:00`).toISOString()
     const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
-    const [ordersRes, campRes, metaRes, tiktokRes] = await Promise.all([
+    const [ordersRes, campRes, metaRes, tiktokRes, klaviyoRes] = await Promise.all([
       supabase.from('client_lead')
         .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
         .eq('client_id', clientId)
@@ -779,12 +780,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
         .eq('client_id', clientId)
         .gte('date', appliedStart)
         .lte('date', appliedEnd),
+
+      // Klaviyo rows live behind RLS — read via the gated service-role route.
+      fetch(`/api/klaviyo-stats?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : { rows: [] })
+        .catch(() => ({ rows: [] })),
     ])
 
     setOrders(ordersRes.data || [])
     setGoogleDaily(campRes.data || [])
     setMetaDaily(metaRes.data || [])
     setTiktokDaily(tiktokRes.data || [])
+    setKlaviyoDaily(klaviyoRes.rows || [])
 
     // Aggregate Google campaign rows per campaign_id
     const map = {}
@@ -887,6 +894,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
           fetch(`/api/sync-youtube-ads?start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
           fetch(`/api/sync-meta-ads?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
           fetch(`/api/sync-shopify-orders?client_id=${clientId}&start=${appliedStart}&end=${appliedEnd}`, { cache: 'no-store' }),
+          // Klaviyo: always pull the trailing 90 days (its report endpoints are
+          // rate-limited to ~2/min, so this fires once per page open, not per range).
+          fetch(`/api/sync-klaviyo?client_id=${clientId}`, { cache: 'no-store' }),
         ])
         await fetchDataRef.current()
       } catch (e) {
@@ -1135,6 +1145,28 @@ export default function EcomControlCenter({ clientId, clientName }) {
       campaigns: Object.values(byCamp).sort((a, b) => b.revenue - a.revenue),
     }
   }, [orders, cogsByOrder])
+
+  // Klaviyo API rollup (Klaviyo's OWN attribution — engagement windows). Shown
+  // alongside the first-party numbers above, never mixed: Klaviyo credits
+  // itself more generously than UTM-verified attribution does.
+  const klavApi = useMemo(() => {
+    const byId = {}
+    for (const r of klaviyoDaily) {
+      const c = byId[r.campaign_id] || (byId[r.campaign_id] = {
+        id: r.campaign_id, name: r.campaign_name, type: r.entity_type, channel: r.channel,
+        recipients: 0, opens: 0, clicks: 0, conversions: 0, value: 0,
+      })
+      c.recipients += Number(r.recipients) || 0
+      c.opens += Number(r.opens) || 0
+      c.clicks += Number(r.clicks) || 0
+      c.conversions += Number(r.conversions) || 0
+      c.value += Number(r.conversions_value) || 0
+      if (r.campaign_name) c.name = r.campaign_name
+    }
+    const list = Object.values(byId).sort((a, b) => b.value - a.value)
+    const tot = (k) => list.reduce((s, c) => s + c[k], 0)
+    return { list, recipients: tot('recipients'), opens: tot('opens'), clicks: tot('clicks'), conversions: tot('conversions'), value: tot('value') }
+  }, [klaviyoDaily])
 
   // Paid / Organic / All lens → scoped orders + money metrics.
   const viewOrders = useMemo(() => (
@@ -1682,17 +1714,61 @@ export default function EcomControlCenter({ clientId, clientName }) {
             <Section id="klaviyo"
               icon={<div className="w-7 h-7 rounded-lg grid place-items-center bg-black text-[#EFFE64] text-sm font-extrabold flex-shrink-0">K</div>}
               name="Klaviyo"
-              count={klav.count ? `${klav.campaigns.length} campaign${klav.campaigns.length === 1 ? '' : 's'} · email + SMS` : 'email + SMS'}
+              count={klavApi.list.length ? `${klavApi.list.length} campaigns & flows · Klaviyo API` : (klav.count ? `${klav.campaigns.length} campaign${klav.campaigns.length === 1 ? '' : 's'} · email + SMS` : 'email + SMS')}
               open={open.klaviyo} onToggle={toggle}
               kpis={[
-                { label: 'Revenue', value: fmt$(klav.revenue), info: 'Revenue from orders attributed to Klaviyo (email/SMS UTMs captured on the Shopify order) with no paid-ad touch anywhere in the journey.' },
-                { label: 'COGS', value: cogs.hasCogs ? fmt$(klav.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold on Klaviyo-attributed orders (from your BOM).' },
-                { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', ch: cogs.hasCogs && klav.contribution >= 0, info: 'Klaviyo revenue − real COGS. No ad cost — email margin is nearly pure.' },
-                { label: 'Orders', value: fmtNum(klav.count) },
-                { label: 'AOV', value: fmt$2(klav.aov) },
-                { label: '% of Organic', value: fmtPct(vm.revenue > 0 ? klav.revenue / vm.revenue : 0), ch: true, info: 'Klaviyo share of all organic revenue in this range.' },
+                { label: 'Verified Rev', value: fmt$(klav.revenue), ch: true, info: 'ConversionHero first-party number: revenue from orders carrying Klaviyo email/SMS UTMs on the Shopify order, with no paid-ad touch anywhere in the journey.' },
+                ...(klavApi.value > 0 ? [{ label: 'Klaviyo Rev', value: fmt$(klavApi.value), info: "Klaviyo's own attributed revenue (its engagement-window model). It credits itself more generously — e.g. it claims orders your ads also claim. The gap vs Verified Rev is normal; verified is the money-truth number." }] : []),
+                { label: 'COGS', value: cogs.hasCogs ? fmt$(klav.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold on verified Klaviyo orders (from your BOM).' },
+                { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', ch: cogs.hasCogs && klav.contribution >= 0, info: 'Verified Klaviyo revenue − real COGS. No ad cost — email margin is nearly pure.' },
+                { label: 'Orders', value: fmtNum(klav.count), info: 'Verified (UTM-attributed) Klaviyo orders.' },
+                { label: '% of Organic', value: fmtPct(vm.revenue > 0 ? klav.revenue / vm.revenue : 0), ch: true, info: 'Verified Klaviyo share of all organic revenue in this range.' },
               ]}>
-              {klav.count === 0 ? (
+              {klavApi.list.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm whitespace-nowrap">
+                    <thead className="bg-gray-50 dark:bg-[#0d1020]">
+                      <tr>
+                        {['Campaign / Flow', 'Type', 'Channel', 'Recipients', 'Opens', 'Clicks', 'CTR'].map((h, i) => (
+                          <th key={h} className={`${i === 0 ? 'text-left' : i <= 2 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
+                        ))}
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Conv<InfoTip text="Klaviyo-attributed Placed Order conversions (Klaviyo's engagement-window model)." /></th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Klaviyo Rev<InfoTip text="Klaviyo-attributed revenue per campaign/flow. Compare the total against the green Verified Rev KPI above." /></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                      <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
+                        <td className="px-4 py-3">Totals</td>
+                        <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                        <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.recipients)}</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.opens)}</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.clicks)}</td>
+                        <td className="px-4 py-3 text-right">{fmtPct(klavApi.recipients > 0 ? klavApi.clicks / klavApi.recipients : 0)}</td>
+                        <td className="px-4 py-3 text-right">{Number(klavApi.conversions).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="px-4 py-3 text-right">{fmt$2(klavApi.value)}</td>
+                      </tr>
+                      {klavApi.list.map(c => (
+                        <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[300px]">{c.name}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.type === 'flow' ? 'bg-[#846CC5]/10 text-[#6b52b0] dark:text-[#846CC5]' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>{c.type === 'flow' ? 'Flow' : 'Campaign'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">{c.channel === 'sms' ? 'SMS' : c.channel === 'email' ? 'Email' : '—'}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.recipients)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.opens)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.clicks)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtPct(c.recipients > 0 ? c.clicks / c.recipients : 0)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{Number(c.conversions).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(c.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : klav.count === 0 ? (
                 <p className="text-sm text-gray-400 p-6">No Klaviyo-attributed orders in range.</p>
               ) : (
                 <div className="overflow-x-auto">
