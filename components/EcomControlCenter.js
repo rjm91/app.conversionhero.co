@@ -80,6 +80,21 @@ function defaultDates() {
   return { start: localDay(start), end: localDay() }
 }
 
+// A campaign still marked ENABLED whose daily rows stopped flowing well before
+// the platform's latest row is dead — typically from a disconnected/replaced ad
+// account the sync can no longer see, so its status froze at ENABLED. Mark it
+// stale so the table shows "Paused" instead of a false live badge. DISPLAY-ONLY:
+// the status filter and all charts/KPI totals still use the synced status, so
+// historical spend keeps counting in any date range that covers it.
+function markStaleCampaigns(campaigns) {
+  const latest = campaigns.reduce((mx, c) => ((c.last_date || '') > mx ? c.last_date : mx), '')
+  if (!latest) return campaigns
+  const d = new Date(latest + 'T00:00:00')
+  d.setDate(d.getDate() - 3)
+  const cutoff = localDay(d)
+  return campaigns.map(c => ({ ...c, stale: c.status === 'ENABLED' && (c.last_date || '') < cutoff }))
+}
+
 // Preset date ranges (primary selector). 'custom' falls back to the date inputs.
 const RANGE_OPTIONS = [
   ['today',     'Today'],
@@ -773,43 +788,49 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const map = {}
     for (const row of (campRes.data || [])) {
       const id = row.campaign_id
-      if (!map[id]) map[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, cost: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
+      if (!map[id]) map[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, cost: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at, last_date: '' }
       map[id].cost += Number(row.cost) || 0
       map[id].impressions += Number(row.impressions) || 0
       map[id].clicks += Number(row.clicks) || 0
       map[id].conversions += Number(row.conversions) || 0
       map[id].conversions_value += Number(row.conversions_value) || 0
+      const rd = String(row.date).slice(0, 10)
+      if (rd > map[id].last_date) map[id].last_date = rd
       if (row.synced_at > map[id].synced_at) { map[id].status = row.status; map[id].budget = row.budget; map[id].synced_at = row.synced_at }
     }
-    setCampaigns(Object.values(map).sort((a, b) => b.cost - a.cost))
+    setCampaigns(markStaleCampaigns(Object.values(map).sort((a, b) => b.cost - a.cost)))
 
     // Aggregate Meta campaign rows per campaign_id
     const mmap = {}
     for (const row of (metaRes.data || [])) {
       const id = row.campaign_id
-      if (!mmap[id]) mmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
+      if (!mmap[id]) mmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at, last_date: '' }
       mmap[id].spend += Number(row.spend) || 0
       mmap[id].impressions += Number(row.impressions) || 0
       mmap[id].clicks += Number(row.clicks) || 0
       mmap[id].conversions += Number(row.conversions) || 0
       mmap[id].conversions_value += Number(row.conversions_value) || 0
+      const rd = String(row.date).slice(0, 10)
+      if (rd > mmap[id].last_date) mmap[id].last_date = rd
       if (row.synced_at > mmap[id].synced_at) { mmap[id].status = row.status; mmap[id].budget = row.budget; mmap[id].synced_at = row.synced_at }
     }
-    setMetaCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend))
+    setMetaCampaigns(markStaleCampaigns(Object.values(mmap).sort((a, b) => b.spend - a.spend)))
 
     // Aggregate TikTok campaign rows per campaign_id
     const tmap = {}
     for (const row of (tiktokRes.data || [])) {
       const id = row.campaign_id
-      if (!tmap[id]) tmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at }
+      if (!tmap[id]) tmap[id] = { campaign_id: id, campaign_name: row.campaign_name, status: row.status, budget: row.budget, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversions_value: 0, synced_at: row.synced_at, last_date: '' }
       tmap[id].spend += Number(row.spend) || 0
       tmap[id].impressions += Number(row.impressions) || 0
       tmap[id].clicks += Number(row.clicks) || 0
       tmap[id].conversions += Number(row.conversions) || 0
       tmap[id].conversions_value += Number(row.conversions_value) || 0
+      const rd = String(row.date).slice(0, 10)
+      if (rd > tmap[id].last_date) tmap[id].last_date = rd
       if (row.synced_at > tmap[id].synced_at) { tmap[id].status = row.status; tmap[id].budget = row.budget; tmap[id].synced_at = row.synced_at }
     }
-    setTiktokCampaigns(Object.values(tmap).sort((a, b) => b.spend - a.spend))
+    setTiktokCampaigns(markStaleCampaigns(Object.values(tmap).sort((a, b) => b.spend - a.spend)))
     setLoading(false)
     setFirstLoad(false)
   }, [clientId, appliedStart, appliedEnd])
@@ -1491,7 +1512,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       const cpConv = c.conversions > 0 ? c.cost / c.conversions : 0
                       const chCost = a.count > 0 ? c.cost / a.count : 0
                       const roas = c.cost > 0 ? a.revenue / c.cost : 0
-                      const enabled = c.status === 'ENABLED'
+                      const enabled = c.status === 'ENABLED' && !c.stale
                       return (
                         <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                           <td className="px-4 py-3">
@@ -1499,7 +1520,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                             <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                            <span title={c.stale ? `No data since ${c.last_date} — campaign is from a disconnected/old ad account. Its historical spend still counts in this range.` : undefined} className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'} ${c.stale ? 'cursor-help' : ''}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                               {enabled ? 'Enabled' : 'Paused'}
                             </span>
@@ -1591,7 +1612,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       const cpConv = c.conversions > 0 ? c.spend / c.conversions : 0
                       const chCost = a.count > 0 ? c.spend / a.count : 0
                       const roas = c.spend > 0 ? a.revenue / c.spend : 0
-                      const enabled = c.status === 'ENABLED'
+                      const enabled = c.status === 'ENABLED' && !c.stale
                       return (
                         <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                           <td className="px-4 py-3">
@@ -1600,7 +1621,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           </td>
                           <td className="px-4 py-3 text-center">
                             {c.status ? (
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                              <span title={c.stale ? `No data since ${c.last_date} — campaign is from a disconnected/old ad account. Its historical spend still counts in this range.` : undefined} className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${enabled ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'} ${c.stale ? 'cursor-help' : ''}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                                 {enabled ? 'Enabled' : 'Paused'}
                               </span>
