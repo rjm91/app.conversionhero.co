@@ -85,9 +85,9 @@ function defaultDates() {
 // A campaign still marked ENABLED whose daily rows stopped flowing well before
 // the platform's latest row is dead — typically from a disconnected/replaced ad
 // account the sync can no longer see, so its status froze at ENABLED. Mark it
-// stale so the table shows "Paused" instead of a false live badge. DISPLAY-ONLY:
-// the status filter and all charts/KPI totals still use the synced status, so
-// historical spend keeps counting in any date range that covers it.
+// stale so it reads "Paused" everywhere: the status pill, the status filter,
+// and the KPI/chart rollups all treat stale as paused. Pick "All" (or "Paused")
+// to see its historical spend.
 function markStaleCampaigns(campaigns) {
   const latest = campaigns.reduce((mx, c) => ((c.last_date || '') > mx ? c.last_date : mx), '')
   if (!latest) return campaigns
@@ -1011,13 +1011,23 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   // Status filter (shared by Google/Meta/Blended). Filters campaigns + the
   // daily rows feeding the charts, so the whole ad view reflects the selection.
-  const matchStatus = (s) => statusFilter === 'all' || (statusFilter === 'enabled' ? s === 'ENABLED' : s !== 'ENABLED')
-  const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status)),     [campaigns, statusFilter])
-  const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status)), [metaCampaigns, statusFilter])
-  const fTik         = useMemo(() => tiktokCampaigns.filter(c => matchStatus(c.status)), [tiktokCampaigns, statusFilter])
-  const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status)),   [googleDaily, statusFilter])
-  const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status)),     [metaDaily, statusFilter])
-  const fTikDaily    = useMemo(() => tiktokDaily.filter(r => matchStatus(r.status)),   [tiktokDaily, statusFilter])
+  // Effective status = what the pill shows: stale-ENABLED counts as paused, so
+  // the filter never shows a "Paused" badge under "Enabled".
+  const matchStatus = (s, stale) => {
+    if (statusFilter === 'all') return true
+    const enabled = s === 'ENABLED' && !stale
+    return statusFilter === 'enabled' ? enabled : !enabled
+  }
+  const staleIds = (list) => new Set(list.filter(c => c.stale).map(c => String(c.campaign_id)))
+  const staleGoogle  = useMemo(() => staleIds(campaigns),       [campaigns])
+  const staleMeta    = useMemo(() => staleIds(metaCampaigns),   [metaCampaigns])
+  const staleTik     = useMemo(() => staleIds(tiktokCampaigns), [tiktokCampaigns])
+  const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status, c.stale)),     [campaigns, statusFilter])
+  const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status, c.stale)), [metaCampaigns, statusFilter])
+  const fTik         = useMemo(() => tiktokCampaigns.filter(c => matchStatus(c.status, c.stale)), [tiktokCampaigns, statusFilter])
+  const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status, staleGoogle.has(String(r.campaign_id)))),   [googleDaily, statusFilter, staleGoogle])
+  const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status, staleMeta.has(String(r.campaign_id)))),     [metaDaily, statusFilter, staleMeta])
+  const fTikDaily    = useMemo(() => tiktokDaily.filter(r => matchStatus(r.status, staleTik.has(String(r.campaign_id)))),   [tiktokDaily, statusFilter, staleTik])
 
   // Per-campaign attribution from orders (utm_campaign → orders/revenue)
   const campaignAttr = useMemo(() => {
