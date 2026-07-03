@@ -48,7 +48,9 @@ function deriveChannel(o) {
   // No platform anywhere → next strongest signal across every source we have.
   const blob = [o.utm_source, o.utm_medium, sd.first_utm?.source, sd.first_utm?.medium, sd.last_utm?.source, sd.last_utm?.medium]
     .filter(Boolean).join(' ').toLowerCase()
-  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(blob)) return 'Email'
+  // Email/SMS flows: ShieldTech (and most ecom clients) run these through
+  // Klaviyo, so the bucket carries the tool's name in the dashboard.
+  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(blob)) return 'Klaviyo'
   if (/shop_app|shopapp|\bshop\b/.test(blob)) return 'Shop'
   if (o.utm_source) return o.utm_source.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   // Last resort: the Shopify sales channel.
@@ -59,7 +61,7 @@ function deriveChannel(o) {
 }
 
 // Paid = order attributed to a paid platform (Google/Meta/TikTok). Everything
-// else (Direct, Email, organic, Draft Order, …) counts as organic/owned. ROAS is
+// else (Direct, Klaviyo, organic, Draft Order, …) counts as organic/owned. ROAS is
 // a paid-media metric, so it must only ever measure paid revenue vs ad spend.
 const PAID_CHANNELS = new Set(['Google', 'Meta', 'TikTok'])
 export function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
@@ -1206,7 +1208,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   // Overview KPIs adapt to the Paid / Organic / All lens.
   const overviewKpis = view === 'organic' ? [
-    { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Email, organic, Draft Order, …). No ad spend attached.' },
+    { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Klaviyo, organic, Draft Order, …). No ad spend attached.' },
     { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
     { label: 'Margin', value: cogs.hasCogs ? fmt$(vm.contribution) : '—', ch: cogs.hasCogs && vm.contribution >= 0, tone: cogs.hasCogs && vm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on organic orders = revenue − real COGS. Pure margin, no ad cost.' },
     { label: 'Orders', value: fmtNum(vm.count), info: 'Organic (non-paid) orders in this range.' },
@@ -1231,7 +1233,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   })
 
   const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
-  // Lighten a hex toward white (for the Email channel = lighter brand red)
+  // Lighten a hex toward white (for the Klaviyo channel = lighter brand red)
   const lighten = (hex, amt) => {
     const h = String(hex || '').replace('#', '')
     if (h.length !== 6) return hex
@@ -1239,7 +1241,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     return `#${ch(0)}${ch(2)}${ch(4)}`
   }
   const channelColor = (name) => ({
-    Meta: '#0866FF', Google: googleColor, Email: lighten(brandColor, 0.45),
+    Meta: '#0866FF', Google: googleColor, Klaviyo: lighten(brandColor, 0.45),
     Direct: brandColor, Shop: '#5a31f4', 'Draft Order': '#64748b',
   }[name] || '#7a8bb5')
 
