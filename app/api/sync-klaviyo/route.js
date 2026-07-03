@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
-import { klaviyoKeyFor, getPlacedOrderMetricId, fetchCampaignIndex, fetchFlowIndex, fetchSeriesReport, seriesToRows } from '../../../lib/klaviyo'
+import { klaviyoKeyFor, getPlacedOrderMetricId, fetchCampaignIndex, fetchFlowIndex, fetchFlowSeriesRows, fetchCampaignValuesRows } from '../../../lib/klaviyo'
 
 // Pulls Klaviyo campaign + flow performance into client_klaviyo_campaigns.
 //   /api/sync-klaviyo?client_id=ch069                          (last 90 days)
@@ -42,23 +42,34 @@ export async function GET(request) {
     return Response.json({ error: err.message }, { status: 502 })
   }
 
+  const upsert = async (rows) => {
+    if (!rows.length) return
+    const { error } = await admin()
+      .from('client_klaviyo_campaigns')
+      .upsert(rows, { onConflict: 'client_id,campaign_id,date' })
+    if (error) throw new Error(error.message)
+  }
+
   const results = {}
-  for (const kind of ['campaign', 'flow']) {
-    try {
-      const index = kind === 'campaign' ? await fetchCampaignIndex(apiKey) : await fetchFlowIndex(apiKey)
-      const report = await fetchSeriesReport(apiKey, kind, metricId, start, end)
-      const rows = seriesToRows(clientId, kind, report, index, syncedAt)
-      if (rows.length) {
-        const { error } = await admin()
-          .from('client_klaviyo_campaigns')
-          .upsert(rows, { onConflict: 'client_id,campaign_id,date' })
-        if (error) throw new Error(error.message)
-      }
-      results[kind] = { synced: rows.length }
-    } catch (err) {
-      console.error(`[Klaviyo sync] ${clientId} ${kind}:`, err.message)
-      results[kind] = { error: err.message }
-    }
+  // Campaigns: aggregate values attributed to send date (no series endpoint).
+  try {
+    const index = await fetchCampaignIndex(apiKey)
+    const rows = await fetchCampaignValuesRows(apiKey, clientId, metricId, start, end, index, syncedAt)
+    await upsert(rows)
+    results.campaign = { synced: rows.length }
+  } catch (err) {
+    console.error(`[Klaviyo sync] ${clientId} campaign:`, err.message)
+    results.campaign = { error: err.message }
+  }
+  // Flows: daily series, chunked into ≤60-day windows inside the lib.
+  try {
+    const index = await fetchFlowIndex(apiKey)
+    const rows = await fetchFlowSeriesRows(apiKey, clientId, metricId, start, end, index, syncedAt)
+    await upsert(rows)
+    results.flow = { synced: rows.length }
+  } catch (err) {
+    console.error(`[Klaviyo sync] ${clientId} flow:`, err.message)
+    results.flow = { error: err.message }
   }
 
   return Response.json({ ok: true, range: { start, end }, results })
