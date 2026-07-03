@@ -628,6 +628,18 @@ const SHOPIFY_PILL = {
   PAID: 'bg-[#34CC93]/10 text-[#1a9e6e] dark:text-[#34CC93]', PENDING: 'bg-[#FFD024]/10 text-[#b89600] dark:text-[#FFD024]',
   FULFILLED: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300', UNFULFILLED: 'bg-[#FFD024]/10 text-[#b89600] dark:text-[#FFD024]',
 }
+// Klaviyo entity status: campaigns → Sent/Draft/Scheduled/…, flows → live/draft/manual.
+function KlavStatusPill({ status }) {
+  if (!status) return <span className="text-gray-300 dark:text-gray-600">—</span>
+  const s = status.toLowerCase()
+  const cls = (s === 'live' || s === 'sent' || s === 'sending')
+    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+    : (s.includes('sched') || s.includes('queued'))
+      ? 'bg-[#FFD024]/10 text-[#b89600] dark:bg-[#FFD024]/10 dark:text-[#FFD024]'
+      : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+  return <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${cls}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+}
+
 function Pill({ status }) {
   if (!status) return <span className="text-gray-300 dark:text-gray-600">—</span>
   const label = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace(/_/g, ' ')
@@ -730,6 +742,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [isDark, setIsDark] = useState(false)
   const [statusFilter, setStatusFilter] = useState('enabled') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
   const [view, setView] = useState('all') // 'all' | 'paid' | 'organic' — Paid vs Organic lens
+  const [klavType, setKlavType] = useState('all') // Klaviyo accordion: 'all' | 'campaign' | 'flow'
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
   const [tiktokSyncing, setTiktokSyncing] = useState(false)
@@ -1154,7 +1167,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     for (const r of klaviyoDaily) {
       const c = byId[r.campaign_id] || (byId[r.campaign_id] = {
         id: r.campaign_id, name: r.campaign_name, type: r.entity_type, channel: r.channel,
-        recipients: 0, opens: 0, clicks: 0, conversions: 0, value: 0,
+        status: r.status, recipients: 0, opens: 0, clicks: 0, conversions: 0, value: 0,
       })
       c.recipients += Number(r.recipients) || 0
       c.opens += Number(r.opens) || 0
@@ -1162,6 +1175,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       c.conversions += Number(r.conversions) || 0
       c.value += Number(r.conversions_value) || 0
       if (r.campaign_name) c.name = r.campaign_name
+      if (r.status) c.status = r.status
     }
     const list = Object.values(byId).sort((a, b) => b.value - a.value)
     const tot = (k) => list.reduce((s, c) => s + c[k], 0)
@@ -1715,6 +1729,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
               icon={<div className="w-7 h-7 rounded-lg grid place-items-center bg-black text-[#EFFE64] text-sm font-extrabold flex-shrink-0">K</div>}
               name="Klaviyo"
               count={klavApi.list.length ? `${klavApi.list.length} campaigns & flows · Klaviyo API` : (klav.count ? `${klav.campaigns.length} campaign${klav.campaigns.length === 1 ? '' : 's'} · email + SMS` : 'email + SMS')}
+              headerCtrl={klavApi.list.length ? (
+                <div onClick={(e) => e.stopPropagation()} className="inline-flex rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#161b30] p-0.5 text-[11px] font-semibold">
+                  {[['all', 'All'], ['campaign', 'Campaigns'], ['flow', 'Flows']].map(([v, l]) => (
+                    <button key={v} onClick={() => setKlavType(v)}
+                      className={`px-2.5 py-1 rounded-md transition ${klavType === v ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{l}</button>
+                  ))}
+                </div>
+              ) : null}
               open={open.klaviyo} onToggle={toggle}
               kpis={[
                 { label: 'Verified Rev', value: fmt$(klav.revenue), ch: true, info: 'ConversionHero first-party number: revenue from orders carrying Klaviyo email/SMS UTMs on the Shopify order, with no paid-ad touch anywhere in the journey.' },
@@ -1724,13 +1746,16 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 { label: 'Orders', value: fmtNum(klav.count), info: 'Verified (UTM-attributed) Klaviyo orders.' },
                 { label: '% of Organic', value: fmtPct(vm.revenue > 0 ? klav.revenue / vm.revenue : 0), ch: true, info: 'Verified Klaviyo share of all organic revenue in this range.' },
               ]}>
-              {klavApi.list.length > 0 ? (
+              {klavApi.list.length > 0 ? (() => {
+                const shown = klavType === 'all' ? klavApi.list : klavApi.list.filter(c => c.type === klavType)
+                const tot = (k) => shown.reduce((s, c) => s + c[k], 0)
+                return (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm whitespace-nowrap">
                     <thead className="bg-gray-50 dark:bg-[#0d1020]">
                       <tr>
-                        {['Campaign / Flow', 'Type', 'Channel', 'Recipients', 'Opens', 'Clicks', 'CTR'].map((h, i) => (
-                          <th key={h} className={`${i === 0 ? 'text-left' : i <= 2 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
+                        {['Campaign / Flow', 'Type', 'Status', 'Channel', 'Recipients', 'Opens', 'Clicks', 'CTR'].map((h, i) => (
+                          <th key={h} className={`${i === 0 ? 'text-left' : i <= 3 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide`}>{h}</th>
                         ))}
                         <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Conv<InfoTip text="Klaviyo-attributed Placed Order conversions (Klaviyo's engagement-window model)." /></th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Klaviyo Rev<InfoTip text="Klaviyo-attributed revenue per campaign/flow. Compare the total against the green Verified Rev KPI above." /></th>
@@ -1738,17 +1763,18 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                       <tr className="bg-gray-100 dark:bg-[#0d1020] font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10">
-                        <td className="px-4 py-3">Totals</td>
+                        <td className="px-4 py-3">Totals{klavType !== 'all' ? ` · ${klavType === 'flow' ? 'flows' : 'campaigns'}` : ''}</td>
                         <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
                         <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
-                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.recipients)}</td>
-                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.opens)}</td>
-                        <td className="px-4 py-3 text-right">{fmtNum(klavApi.clicks)}</td>
-                        <td className="px-4 py-3 text-right">{fmtPct(klavApi.recipients > 0 ? klavApi.clicks / klavApi.recipients : 0)}</td>
-                        <td className="px-4 py-3 text-right">{Number(klavApi.conversions).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                        <td className="px-4 py-3 text-right">{fmt$2(klavApi.value)}</td>
+                        <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">—</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(tot('recipients'))}</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(tot('opens'))}</td>
+                        <td className="px-4 py-3 text-right">{fmtNum(tot('clicks'))}</td>
+                        <td className="px-4 py-3 text-right">{fmtPct(tot('recipients') > 0 ? tot('clicks') / tot('recipients') : 0)}</td>
+                        <td className="px-4 py-3 text-right">{Number(tot('conversions')).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="px-4 py-3 text-right">{fmt$2(tot('value'))}</td>
                       </tr>
-                      {klavApi.list.map(c => (
+                      {shown.map(c => (
                         <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800 dark:text-white truncate max-w-[300px]">{c.name}</div>
@@ -1756,6 +1782,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-center">
                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.type === 'flow' ? 'bg-[#846CC5]/10 text-[#6b52b0] dark:text-[#846CC5]' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>{c.type === 'flow' ? 'Flow' : 'Campaign'}</span>
                           </td>
+                          <td className="px-4 py-3 text-center"><KlavStatusPill status={c.status} /></td>
                           <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">{c.channel === 'sms' ? 'SMS' : c.channel === 'email' ? 'Email' : '—'}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.recipients)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.opens)}</td>
@@ -1768,7 +1795,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     </tbody>
                   </table>
                 </div>
-              ) : klav.count === 0 ? (
+                )
+              })() : klav.count === 0 ? (
                 <p className="text-sm text-gray-400 p-6">No Klaviyo-attributed orders in range.</p>
               ) : (
                 <div className="overflow-x-auto">
