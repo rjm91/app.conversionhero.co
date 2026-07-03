@@ -742,6 +742,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [isDark, setIsDark] = useState(false)
   const [statusFilter, setStatusFilter] = useState('enabled') // 'all' | 'enabled' | 'paused' — shared across Google/Meta/Blended
   const [view, setView] = useState('all') // 'all' | 'paid' | 'organic' — Paid vs Organic lens
+  const [channelFocus, setChannelFocus] = useState(null) // Overview: clicked Revenue-by-Channel bar → header KPIs scope to that channel
   const [klavType, setKlavType] = useState('all') // Klaviyo accordion: 'all' | 'campaign' | 'flow'
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [metaSyncing, setMetaSyncing] = useState(false)
@@ -1207,6 +1208,31 @@ export default function EcomControlCenter({ clientId, clientName }) {
     }
   }, [viewOrders, cogsByOrder, view, m.adSpend])
 
+  // Channel focus: a clicked Revenue-by-Channel bar scopes the Overview header
+  // KPIs to that single channel. Ad spend only exists for paid platforms —
+  // organic/owned channels (Klaviyo, Direct, …) carry $0.
+  const focus = useMemo(() => {
+    if (!channelFocus) return null
+    let revenue = 0, fc = 0
+    const list = []
+    for (const o of viewOrders) {
+      if (deriveChannel(o) !== channelFocus) continue
+      revenue += Number(o.sale_amount) || 0
+      fc += cogsByOrder[o.lead_id]?.cogs || 0
+      list.push(o)
+    }
+    const adSpend = { Google: m.googleSpend, Meta: m.metaSpend, TikTok: m.tiktokSpend }[channelFocus] || 0
+    const contribution = revenue - fc
+    const count = list.length
+    return {
+      revenue, cogs: fc, count, adSpend, contribution, list,
+      netProfit: contribution - adSpend,
+      trueRoas: adSpend ? contribution / adSpend : null,
+      aov: count ? revenue / count : 0,
+      trueAov: count ? contribution / count : 0,
+    }
+  }, [channelFocus, viewOrders, cogsByOrder, m.googleSpend, m.metaSpend, m.tiktokSpend])
+
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
   // date and split by which platform's campaign id the order matched.
@@ -1277,8 +1303,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
 
   const channelMax = Math.max(1, ...vm.byChannel.map(([, v]) => v))
 
-  // Overview KPIs adapt to the Paid / Organic / All lens.
-  const overviewKpis = view === 'organic' ? [
+  // Overview KPIs adapt to the Paid / Organic / All lens — or, when a channel
+  // bar is focused, to that single revenue channel.
+  const overviewKpis = focus ? [
+    { label: `${channelFocus} Revenue`, value: fmt$(focus.revenue), info: `Revenue from orders attributed to ${channelFocus} in this range.` },
+    { label: 'COGS', value: cogs.hasCogs ? fmt$(focus.cogs) : '—', tone: 'cost', info: `Real cost of goods sold on ${channelFocus} orders — BOM materials × quantities per SKU.` },
+    { label: 'Ad Spend', value: fmt$(focus.adSpend), tone: 'cost', info: PAID_CHANNELS.has(channelFocus) ? `${channelFocus} ad spend in this range.` : `${channelFocus} is an organic/owned channel — no ad spend attached.` },
+    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(focus.netProfit) : '—', ch: cogs.hasCogs && focus.netProfit >= 0, tone: cogs.hasCogs && focus.netProfit < 0 ? 'bad' : undefined, info: `${channelFocus} revenue − COGS − ${channelFocus} ad spend.` },
+    { label: 'True ROAS', value: (cogs.hasCogs && focus.trueRoas != null) ? fmtRoas(focus.trueRoas) : '—', ch: true, info: `${channelFocus} contribution (revenue − COGS) ÷ ${channelFocus} ad spend.` },
+    { label: 'Orders', value: fmtNum(focus.count), info: `Orders attributed to ${channelFocus} in this range.` },
+    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(focus.trueAov) : fmt$2(focus.aov), ch: cogs.hasCogs, info: `Average contribution per ${channelFocus} order (revenue − real COGS ÷ orders).` },
+  ] : view === 'organic' ? [
     { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Klaviyo, organic, Draft Order, …). No ad spend attached.' },
     { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
     { label: 'Margin', value: cogs.hasCogs ? fmt$(vm.contribution) : '—', ch: cogs.hasCogs && vm.contribution >= 0, tone: cogs.hasCogs && vm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on organic orders = revenue − real COGS. Pure margin, no ad cost.' },
@@ -1344,7 +1379,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#161b30] p-0.5 text-[13px] font-semibold">
             {[['all', 'All'], ['paid', 'Paid'], ['organic', 'Organic']].map(([v, l]) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded-md transition ${view === v ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{l}</button>
+              <button key={v} onClick={() => { setView(v); setChannelFocus(null) }} className={`px-3 py-1 rounded-md transition ${view === v ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{l}</button>
             ))}
           </div>
           {prevRange && (
@@ -1406,13 +1441,27 @@ export default function EcomControlCenter({ clientId, clientName }) {
         <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           {/* Overview */}
           <Section id="overview" icon={platformIcon.overview} name="Overview" open={open.overview} onToggle={toggle}
+            headerCtrl={channelFocus ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); setChannelFocus(null) }}
+                title="Clear channel focus"
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold rounded-full pl-2 pr-2.5 py-1 bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/[0.14] transition"
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: channelColor(channelFocus) }} />
+                {channelFocus}
+                <span className="text-gray-400 dark:text-gray-500">✕</span>
+              </button>
+            ) : undefined}
             kpis={overviewKpis}>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
                 {vm.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : vm.byChannel.map(([name, val]) => (
-                  <button key={name} onClick={() => drillOrders(`${name} revenue`, fmt$(val), `Orders attributed to ${name} (by captured source). Click an order in your store for the full record.`, viewOrders.filter(o => deriveChannel(o) === name))}
-                    className="w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/[0.03] px-1 -mx-1 transition cursor-pointer text-left group">
+                  // Bar click → focus this channel (toggle): header KPIs swap to
+                  // its numbers and its orders list expands below the grid.
+                  <button key={name} onClick={() => setChannelFocus(f => f === name ? null : name)}
+                    title={channelFocus === name ? 'Clear channel focus' : `Show ${name} metrics + orders`}
+                    className={`w-full flex items-center gap-3 py-1.5 rounded-md px-1 -mx-1 transition cursor-pointer text-left group ${channelFocus === name ? 'bg-gray-50 dark:bg-white/[0.04] ring-1 ring-blue-500/40' : `hover:bg-gray-50 dark:hover:bg-white/[0.03] ${channelFocus ? 'opacity-50 hover:opacity-100' : ''}`}`}>
                     <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-700 dark:group-hover:text-gray-200">{name}</span>
                     <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
                       <div className="h-full rounded" style={{ width: `${(val / channelMax) * 100}%`, background: channelColor(name) }} />
@@ -1442,6 +1491,45 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 </div>
               </div>
             </div>
+            {/* Focused channel → its orders expand inline (mirrors the chart
+                day-click panel). Rows open the full order record. */}
+            {focus && (
+              <div className="mx-5 mb-5 rounded-xl border border-gray-100 dark:border-white/[0.06] overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#0d1020] border-b border-gray-100 dark:border-white/[0.06]">
+                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: channelColor(channelFocus) }} />
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">{channelFocus} orders</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{focus.count} · {fmt$(focus.revenue)}</span>
+                  <button onClick={() => setChannelFocus(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+                </div>
+                {focus.list.length === 0 ? <p className="p-4 text-sm text-gray-400">No orders in range.</p> : (
+                  <div className="max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-[#0d1020] sticky top-0"><tr className="text-left text-[10px] uppercase tracking-wide text-gray-400">
+                        <th className="px-4 py-2 font-semibold">Order</th>
+                        <th className="px-4 py-2 font-semibold">Date</th>
+                        {cogs.hasCogs && <th className="px-4 py-2 font-semibold text-right">COGS</th>}
+                        <th className="px-4 py-2 font-semibold text-right">Amount</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                        {focus.list.map(o => (
+                          <tr key={o.lead_id} onClick={() => setOrderModal(o)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                            <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{o.shopify_data?.order_name || o.lead_id}</td>
+                            <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}</td>
+                            {cogs.hasCogs && <td className="px-4 py-2 text-right text-amber-500 dark:text-amber-400">{fmt$2(cogsByOrder[o.lead_id]?.cogs || 0)}</td>}
+                            <td className="px-4 py-2 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot><tr className="border-t border-gray-200 dark:border-white/10 font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-[#0d1020]">
+                        <td className="px-4 py-2">Total</td><td />
+                        {cogs.hasCogs && <td className="px-4 py-2 text-right text-amber-500 dark:text-amber-400">{fmt$2(focus.cogs)}</td>}
+                        <td className="px-4 py-2 text-right">{fmt$2(focus.revenue)}</td>
+                      </tr></tfoot>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </Section>
 
           {view !== 'organic' && <>
