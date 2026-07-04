@@ -155,6 +155,20 @@ export default function MissionTerminal() {
     push({ kind: 'you', text: q })
     const lower = q.toLowerCase()
 
+    // Slash inputs are ALWAYS local — a typo like /forcase should get a
+    // correction, never be sent to the LLM as a question.
+    const KNOWN = ['/pause', '/scale', '/forecast', '/campaigns', '/ledger', '/policies', '/range', '/clear', '/help']
+    if (lower.startsWith('/')) {
+      const cmd = lower.split(/\s+/)[0]
+      if (!KNOWN.includes(cmd)) {
+        const guess = KNOWN
+          .map(k => { let s = 0; while (s < Math.min(k.length, cmd.length) && k[s] === cmd[s]) s++; return [k, s] })
+          .sort((a, b) => b[1] - a[1])[0]
+        push({ kind: 'sys', text: `unknown command ${cmd}${guess && guess[1] >= 3 ? ` — did you mean ${guess[0]}?` : ''} · /help lists everything` })
+        return
+      }
+    }
+
     // local commands
     if (lower === '/clear') { histRef.current = []; bootedRef.current = false; setData(d => ({ ...d })); return }
     if (lower.startsWith('/range')) {
@@ -200,11 +214,23 @@ export default function MissionTerminal() {
       return
     }
     if (lower === '/pause' || lower === '/scale') {
-      const pool = m.campaigns.filter(c => c.status === 'ENABLED' && !c.stale && c.spend >= 200 && c.trueRoas != null)
+      // Same guards as the watcher: ≥4 days of data, and pause targets need
+      // attributed orders (0-attribution reads as 0.00x but may be tracking).
+      const pool = m.campaigns.filter(c => c.status === 'ENABLED' && !c.stale && c.spend >= 200 && c.trueRoas != null && c.days >= 4)
       const c = lower === '/pause'
-        ? pool.filter(x => x.trueRoas < 1).sort((a, b) => a.trueRoas - b.trueRoas)[0]
-        : pool.filter(x => x.trueRoas >= 1.5).sort((a, b) => b.trueRoas - a.trueRoas)[0]
-      if (!c) { push({ kind: 'sys', text: lower === '/pause' ? 'nothing to pause — no enabled campaign is below 1.00x breakeven right now.' : 'no clear scale candidate — nothing enabled is ≥1.5x with meaningful spend.' }); return }
+        ? pool.filter(x => x.trueRoas < 1 && x.chOrders > 0).sort((a, b) => a.trueRoas - b.trueRoas)[0]
+        : pool.filter(x => x.trueRoas >= 1.5 && x.spend >= 500 && x.chOrders >= 5).sort((a, b) => b.trueRoas - a.trueRoas)[0]
+      if (!c) { push({ kind: 'sys', text: lower === '/pause' ? 'nothing to pause — no enabled campaign is below 1.00x breakeven right now.' : 'no clear scale candidate — nothing enabled is ≥1.5x with meaningful volume (≥$500 spend, ≥5 attributed orders).' }); return }
+      // Dedupe: if this campaign already has an open card (watcher- or
+      // command-drafted), select it instead of stacking a duplicate.
+      const dupe = turns.find(t => t.kind === 'finding' && t.status === 'open' &&
+        (t.f.action?.campaign_id === c.campaign_id || t.f.id.endsWith(`-${c.campaign_id}`)) &&
+        (lower === '/pause' ? /pause|noattr|bleed/.test(t.f.id) : /scale/.test(t.f.id)))
+      if (dupe) {
+        setSelId(dupe.id)
+        push({ kind: 'sys', text: `already in the queue — selected the existing card for ${c.campaign_name}. y approves it.` })
+        return
+      }
       const f = lower === '/pause' ? {
         id: `cmd-pause-${c.campaign_id}`, severity: 'high', icon: '🚨',
         title: `Pause ${c.campaign_name} (${c.platform}) — below margin breakeven`,
@@ -245,7 +271,7 @@ export default function MissionTerminal() {
       setBusy(false)
       inputRef.current?.focus()
     }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, push, patch])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, push, patch])
 
   const palItems = PALETTE.filter(([c, d]) => (c + d).includes(palQ.toLowerCase()))
 
