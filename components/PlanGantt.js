@@ -68,7 +68,8 @@ export default function PlanGantt({ stays = [], year, today = new Date(), onSele
   const firstRef = useRef(true)
   const level = LEVELS[zoomIdx]
   const cw = level.cw
-  const laneH = compact ? 46 : 56
+  // Full page gets tall lanes so bars fit a photo + headline + city + notes.
+  const laneH = compact ? 46 : 84
 
   /* pack non-overlapping stays into lanes (rows) */
   const lanes = useMemo(() => {
@@ -262,13 +263,30 @@ export default function PlanGantt({ stays = [], year, today = new Date(), onSele
                     const w = nights(s) * cw
                     const n = nights(s)
                     const flightLeft = s.flight_date ? daysBetween(RANGE_START, parseDate(s.flight_date)) * cw : null
+                    // Progressive detail: photo + city + notes appear as the bar
+                    // gets room (zoom level / stay length), never on compact.
+                    const barH = laneH - 16
+                    const showImg = !compact && s.image_url && w >= barH + 50
+                    const imgSz = barH - 12
                     return (
                       <div key={s.id}>
                         <div data-bar onClick={() => onSelect && onSelect(s)}
-                          className="absolute rounded-lg px-3 flex flex-col justify-center cursor-pointer overflow-hidden z-[2] shadow-md hover:brightness-110"
-                          style={{ left, width: w, top: 8, height: laneH - 16, background: `linear-gradient(135deg, ${s.color}, ${s.color}bb)` }}>
-                          <div className="text-xs font-bold whitespace-nowrap overflow-hidden text-ellipsis">{s.name}</div>
-                          {cw >= 11 && <div className="text-[10px] opacity-90 whitespace-nowrap">{money(catTotal(s))} · {money(catTotal(s) / n)}/day</div>}
+                          title={`${s.name}${s.city ? ' · ' + s.city : ''}`}
+                          className="absolute rounded-lg px-1.5 flex items-center gap-2.5 cursor-pointer overflow-hidden z-[2] shadow-md hover:brightness-110"
+                          style={{ left, width: w, top: 8, height: barH, background: `linear-gradient(135deg, ${s.color}, ${s.color}bb)` }}>
+                          {showImg && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={s.image_url} alt="" draggable={false}
+                              className="rounded-md object-cover flex-shrink-0"
+                              style={{ width: imgSz, height: imgSz }}
+                              onError={e => { e.currentTarget.style.display = 'none' }} />
+                          )}
+                          <div className="min-w-0 flex flex-col justify-center leading-tight">
+                            <div className="text-xs font-bold whitespace-nowrap overflow-hidden text-ellipsis">{s.name}</div>
+                            {!compact && cw >= 11 && s.city && <div className="text-[10px] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis">{s.city}</div>}
+                            {cw >= 11 && <div className="text-[10px] opacity-90 whitespace-nowrap">{money(catTotal(s))} · {money(catTotal(s) / n)}/day · {n} night{n === 1 ? '' : 's'}</div>}
+                            {!compact && cw >= 40 && s.notes && <div className="text-[10px] opacity-70 whitespace-nowrap overflow-hidden text-ellipsis">{s.notes}</div>}
+                          </div>
                         </div>
                         {flightLeft != null && (
                           <div className="absolute z-[3] text-sm" style={{ left: flightLeft, top: 14, transform: 'translateX(-50%)' }}>✈️</div>

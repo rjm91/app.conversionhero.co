@@ -24,7 +24,7 @@ export async function GET(_, { params }) {
 
 export async function PATCH(request, { params }) {
   const body = await request.json()
-  const allowed = ['name', 'type', 'city', 'url', 'color', 'start_date', 'end_date', 'start_time', 'cost', 'categories', 'flight_route', 'flight_date', 'notes']
+  const allowed = ['name', 'type', 'city', 'url', 'color', 'start_date', 'end_date', 'start_time', 'cost', 'categories', 'flight_route', 'flight_date', 'notes', 'image_url']
   const updates = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)))
   updates.updated_at = new Date().toISOString()
 

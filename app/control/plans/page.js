@@ -10,12 +10,12 @@ const CATS = [
   { key: 'personal', label: 'Personal' },
   { key: 'fun', label: 'Fun' },
 ]
-const emptyForm = { id: null, name: '', city: '', url: '', color: COLORS[0], start_date: '', end_date: '', airbnb: '', food: '', personal: '', fun: '', flight_route: '', flight_date: '', notes: '' }
+const emptyForm = { id: null, name: '', city: '', url: '', image_url: '', color: COLORS[0], start_date: '', end_date: '', airbnb: '', food: '', personal: '', fun: '', flight_route: '', flight_date: '', notes: '' }
 
 function formFromPlan(p) {
   const c = p.categories || {}
   return {
-    id: p.id, name: p.name || '', city: p.city || '', url: p.url || '', color: p.color || COLORS[0],
+    id: p.id, name: p.name || '', city: p.city || '', url: p.url || '', image_url: p.image_url || '', color: p.color || COLORS[0],
     start_date: p.start_date || '', end_date: p.end_date || '',
     airbnb: c.airbnb ?? '', food: c.food ?? '', personal: c.personal ?? '', fun: c.fun ?? '',
     flight_route: p.flight_route || '', flight_date: p.flight_date || '', notes: p.notes || '',
@@ -52,7 +52,7 @@ export default function PlansPage() {
     if (form.end_date <= form.start_date) { setError('Check-out must be after check-in'); return }
     setSaving(true); setError(null)
     const payload = {
-      name: form.name, city: form.city, url: form.url, color: form.color,
+      name: form.name, city: form.city, url: form.url, image_url: form.image_url || null, color: form.color,
       start_date: form.start_date, end_date: form.end_date,
       categories: {
         airbnb: Number(form.airbnb) || 0, food: Number(form.food) || 0,
@@ -150,6 +150,13 @@ export default function PlansPage() {
               </Field>
               <Field label="Airbnb / listing link">
                 <input value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://airbnb.com/rooms/…" className={inputCls} />
+              </Field>
+              <Field label="Image URL">
+                <input value={form.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://…/photo.jpg — shows on the timeline bar" className={inputCls} />
+                {form.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.image_url} alt="" className="mt-2 h-20 w-full object-cover rounded-lg border border-gray-200 dark:border-white/10" onError={e => { e.currentTarget.style.display = 'none' }} onLoad={e => { e.currentTarget.style.display = '' }} />
+                )}
               </Field>
 
               <div className="grid grid-cols-2 gap-3">

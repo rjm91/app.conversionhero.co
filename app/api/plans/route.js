@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json()
-  const { name, type, city, url, color, start_date, end_date, start_time, cost, categories, flight_route, flight_date, notes } = body
+  const { name, type, city, url, color, start_date, end_date, start_time, cost, categories, flight_route, flight_date, notes, image_url } = body
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
   if (!start_date) return NextResponse.json({ error: 'start_date required' }, { status: 400 })
 
@@ -45,6 +45,7 @@ export async function POST(request) {
       flight_route: flight_route || null,
       flight_date: flight_date || null,
       notes: notes || null,
+      image_url: image_url || null,
     })
     .select()
     .single()
