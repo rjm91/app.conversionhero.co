@@ -136,7 +136,7 @@ async function fetchClientData(clientId, start, end) {
   // Payments
   let paysQ = supabase
     .from('client_payments')
-    .select('amount, date_created')
+    .select('amount, date_created, description, invoice_link')
     .eq('client_id', clientId)
   if (start) paysQ = paysQ.gte('date_created', start)
   if (end) paysQ = paysQ.lte('date_created', end + 'T23:59:59-12:00')
@@ -249,6 +249,15 @@ function buildPipelines(clientsWithData, agencyLeads, showDemo = false, clientFi
       cust: pick(perClientDay[c.client_id] || {}, 'cust'),
       agency: pick(perClientDay[c.client_id] || {}, 'agency'),
     }])),
+    // Raw payment rows behind the Agency Rev series — the chart's click-to-list.
+    payments: activeClients.flatMap(c => (c._payments || []).map(p => ({
+      date: String(p.date_created || '').slice(0, 10),
+      client: c.client_name,
+      client_id: c.client_id,
+      amount: Number(p.amount) || 0,
+      description: p.description || '',
+      invoice_link: p.invoice_link || null,
+    }))).sort((a, b) => b.date.localeCompare(a.date)),
   }
   const clientsPipeline = {
     title: clientFilter === 'active' ? 'Active Clients' : clientFilter === 'inactive' ? 'Inactive Clients' : 'All Clients',
@@ -599,6 +608,9 @@ const CLIENT_CHART_METRICS = [
 ]
 
 function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient }) {
+  // Agency Rev click-to-list: click the chart → underlying client payments.
+  // {day} filters to the clicked point's date; {day: null} = all in range.
+  const [payDrill, setPayDrill] = useState(null)
   if (!chart || !chart.dates || chart.dates.length === 0) return null
   const m = CLIENT_CHART_METRICS.find(x => x.key === metric) || CLIENT_CHART_METRICS[0]
   const src = (selClient && chart.perClient?.[selClient]) ? chart.perClient[selClient] : chart
@@ -632,7 +644,7 @@ function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient 
     <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.06] bg-gray-50/40 dark:bg-white/[0.015]" onClick={e => e.stopPropagation()}>
       <div className="flex flex-wrap gap-1.5 mb-3">
         {CLIENT_CHART_METRICS.map(x => (
-          <button key={x.key} onClick={() => setMetric(x.key)}
+          <button key={x.key} onClick={() => { setMetric(x.key); setPayDrill(null) }}
             className={`text-[12.5px] px-3 py-1.5 rounded-lg transition ${metric === x.key ? 'bg-gray-200 dark:bg-white/[0.08] text-gray-900 dark:text-white font-semibold' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}>
             {x.label}
           </button>
@@ -658,6 +670,10 @@ function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient 
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (evt, elements) => {
+              if (m.key !== 'agency') return
+              setPayDrill({ day: elements?.length ? chart.dates[elements[0].index] : null })
+            },
             plugins: {
               legend: { display: false },
               tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtTip(ctx.parsed.y)}` } },
@@ -669,6 +685,61 @@ function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient 
           }}
         />
       </div>
+      {m.key === 'agency' && !payDrill && (
+        <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Click a spike for that day&apos;s payments · click anywhere else on the chart for the full list</p>
+      )}
+      {m.key === 'agency' && payDrill && (() => {
+        const fmtDay = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        const list = (chart.payments || []).filter(p =>
+          (!selClient || p.client_id === selClient) && (!payDrill.day || p.date === payDrill.day))
+        const total = list.reduce((s, p) => s + p.amount, 0)
+        return (
+          <div className="mt-3 rounded-xl border border-gray-200 dark:border-white/[0.08] overflow-hidden bg-white dark:bg-[#111528]">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#0d1020] border-b border-gray-100 dark:border-white/[0.06]">
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: '#60a5fa' }} />
+              <span className="text-sm font-bold text-gray-900 dark:text-white">Client payments{selClient ? ` · ${who}` : ''}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{list.length} · {fmt$(total)}</span>
+              {payDrill.day && (
+                <button onClick={() => setPayDrill({ day: null })}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-0.5 bg-blue-500/10 text-blue-500 dark:text-blue-300 hover:bg-blue-500/20 transition">
+                  {fmtDay(payDrill.day)} <span className="opacity-60">✕</span>
+                </button>
+              )}
+              <button onClick={() => setPayDrill(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+            </div>
+            {list.length === 0 ? <p className="p-4 text-sm text-gray-400">No payments{payDrill.day ? ` on ${fmtDay(payDrill.day)}` : ' in range'}.</p> : (
+              <div className="max-h-72 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-[#0d1020] sticky top-0"><tr className="text-left text-[10px] uppercase tracking-wide text-gray-400">
+                    <th className="px-4 py-2 font-semibold">Date</th>
+                    <th className="px-4 py-2 font-semibold">Client</th>
+                    <th className="px-4 py-2 font-semibold">Description</th>
+                    <th className="px-4 py-2 font-semibold text-right">Amount</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
+                    {list.map((p, i) => (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDay(p.date)}</td>
+                        <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{p.client}</td>
+                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400 max-w-[280px] truncate">
+                          {p.invoice_link
+                            ? <a href={p.invoice_link} target="_blank" rel="noreferrer" className="hover:text-blue-500 hover:underline">{p.description || 'Invoice'}</a>
+                            : (p.description || '—')}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-blue-500 dark:text-blue-300">{fmt$(p.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr className="border-t border-gray-200 dark:border-white/10 font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-[#0d1020]">
+                    <td className="px-4 py-2">Total</td><td /><td />
+                    <td className="px-4 py-2 text-right">{fmt$(total)}</td>
+                  </tr></tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
