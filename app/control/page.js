@@ -2041,10 +2041,9 @@ export default function ControlPage() {
     const fetchedLeads = agencyLeadsRes.leads || []
     setAgencyLeads(fetchedLeads)
     setClientsData(clientsWithData)
-
-    // Step 3: Build pipelines from enriched data
-    const result = buildPipelines(clientsWithData, fetchedLeads, showDemo, clientFilter)
-    setPipelines(result)
+    // Pipelines are built by the effect below — reading showDemo/clientFilter
+    // here would capture stale values (empty-dep useCallback) and silently
+    // reset the filter on every date-range change.
     setLoading(false)
   }, [])
 
@@ -2054,12 +2053,14 @@ export default function ControlPage() {
     fetchData(preset, customStart, customEnd)
   }, [router, preset, customStart, customEnd, fetchData])
 
-  // Rebuild pipelines when showDemo or clientFilter toggles
+  // Build pipelines whenever the data or the filters change — this is the one
+  // place that owns the build, so a refetch can never clobber the filter.
   useEffect(() => {
     if (clientsData.length > 0) {
       setPipelines(buildPipelines(clientsData, agencyLeads, showDemo, clientFilter))
     }
-  }, [showDemo, clientFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsData, agencyLeads, showDemo, clientFilter])
 
   function handlePresetChange(key) {
     setPreset(key)
