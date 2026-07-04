@@ -615,7 +615,9 @@ function ActiveClientsChart({ chart, metric, setMetric, selClient, setSelClient 
   const m = CLIENT_CHART_METRICS.find(x => x.key === metric) || CLIENT_CHART_METRICS[0]
   const src = (selClient && chart.perClient?.[selClient]) ? chart.perClient[selClient] : chart
   const who = (selClient && chart.perClient?.[selClient]?.name) || 'All Clients'
-  const labels = chart.dates.map(d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  // Full date stamps (year included) — ranges can span years, and the tooltip
+  // title reads from these labels too.
+  const labels = chart.dates.map(d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))
 
   const roasArr = src.rev.map((r, i) => src.spend[i] > 0 ? r / src.spend[i] : 0)
   const cacArr = src.spend.map((s, i) => src.cust[i] > 0 ? s / src.cust[i] : 0)
