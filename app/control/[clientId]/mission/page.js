@@ -9,10 +9,9 @@
 
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchMissionData, computeMission, askContext, rangeDays } from '../../../../lib/mission/data'
-import { buildFindings } from '../../../../lib/mission/watchers'
+import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
-import { deriveChannel } from '../../../../components/EcomControlCenter'
+import { deriveChannel } from '../../../../lib/channels'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
 let turnSeq = 0
@@ -110,16 +109,13 @@ export default function BusinessIDE() {
   const histRef = useRef([])
   const bootedRef = useRef(false)
 
-  const lsKey = (k) => `mission_${k}_${clientId}`
+  // Server-backed state: findings (PROBLEMS), decisions (Ledger), taught
+  // policies — all live in Supabase now, refreshed by the daily cron watcher
+  // AND on every page load (refresh=1 re-runs the watcher server-side).
+  const [srvFindings, setSrvFindings] = useState(null) // null = loading
   const [ledger, setLedger] = useState([])
   const [policies, setPolicies] = useState([])
-  useEffect(() => {
-    try {
-      setLedger(JSON.parse(localStorage.getItem(lsKey('ledger')) || '[]'))
-      setPolicies(JSON.parse(localStorage.getItem(lsKey('policies')) || '[]'))
-    } catch { /* fresh */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId])
+  const [leversMode, setLeversMode] = useState('dry_run')
 
   const range = useMemo(() => rangeDays(rangeN), [rangeN])
   const m = useMemo(() => data ? computeMission(data) : null, [data])
@@ -146,21 +142,31 @@ export default function BusinessIDE() {
   useEffect(() => {
     let alive = true
     bootedRef.current = false
-    setTurns([]); setSelId(null)
-    push({ kind: 'sys', text: `loading ${rangeN}d of ${clientId} — orders, campaigns, BOM margins…` })
+    setTurns([]); setSelId(null); setSrvFindings(null)
+    push({ kind: 'sys', text: `loading ${rangeN}d of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
     fetchMissionData(clientId, range.start, range.end)
       .then(d => { if (alive) setData(d) })
       .catch(e => push({ kind: 'sys', text: 'load failed: ' + e.message }))
+    fetch(`/api/mission/state?client_id=${clientId}&refresh=1&days=${rangeN}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => {
+        if (!alive) return
+        setSrvFindings(s.findings || [])
+        setLedger(s.decisions || [])
+        setPolicies(s.policies || [])
+        setLeversMode(s.levers_mode || 'dry_run')
+        if (s.refreshError) push({ kind: 'sys', text: 'watcher refresh hiccup (showing last-known state): ' + s.refreshError })
+      })
+      .catch(e => { if (alive) { setSrvFindings([]); push({ kind: 'sys', text: 'state load failed: ' + e.message }) } })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, range.start, range.end])
 
   useEffect(() => {
-    if (!m || !data || bootedRef.current) return
+    if (!m || !data || srvFindings === null || bootedRef.current) return
     bootedRef.current = true
-    const dismissed = new Set(policies.map(p => p.findingId))
-    const findings = buildFindings(m).filter(f => !dismissed.has(f.id))
-    setTurns([{ id: tid(), kind: 'sys', text: `session start · ${data.clientName} · ${rangeN}d — ${m.orders} orders, ${m.campaigns.length} campaigns, ${m.hasCogs ? 'BOM margins live (' + (m.margin * 100).toFixed(1) + '%)' : 'no BOM data'} · the terminal follows you across tabs and knows what you're looking at.` }])
+    const findings = srvFindings.map(rowToFinding)
+    setTurns([{ id: tid(), kind: 'sys', text: `session start · ${data.clientName} · ${rangeN}d — ${m.orders} orders, ${m.campaigns.length} campaigns, ${m.hasCogs ? 'BOM margins live (' + (m.margin * 100).toFixed(1) + '%)' : 'no BOM data'} · levers: ${leversMode} · findings + decisions now persist in the database (cron watcher runs daily).` }])
     let firstId = null
     for (const f of findings) {
       const id = tid()
@@ -170,54 +176,81 @@ export default function BusinessIDE() {
     setSelId(firstId)
     setTurns(t => [...t, { id: tid(), kind: 'sys', text: (findings.length ? `${findings.length} in PROBLEMS · y approves the selected card · j/k moves.` : 'no problems — every live campaign clears breakeven.') + ' press ? for the manual · ctrl+\` toggles this panel.' }])
     inputRef.current?.focus()
-  }, [m, data, policies, rangeN])
+  }, [m, data, srvFindings, rangeN, leversMode])
 
   /* ── decisions ── */
   const findingTurns = turns.filter(t => t.kind === 'finding')
   const openTurns = findingTurns.filter(t => t.status === 'open')
 
-  const approve = useCallback((t) => {
+  const decide = useCallback(async (payload) => {
+    const res = await fetch('/api/mission/decide', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, ...payload }),
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error || 'decide failed')
+    return json
+  }, [clientId])
+
+  const approve = useCallback(async (t) => {
     if (t.status !== 'open') return
     patch(t.id, { status: 'executing' })
-    setTimeout(() => {
+    try {
+      const json = await decide({ action: 'approve', finding_key: t.f.id })
       patch(t.id, { status: 'done' })
-      // Full finding payload rides along so the decision can be undone later
-      const row = { when: new Date().toISOString(), what: t.f.action.ledger, impact: Math.round(t.f.impactMonthly), status: 'approved — logged only (no platform write yet)', f: t.f }
-      setLedger(l => { const next = [row, ...l]; localStorage.setItem(lsKey('ledger'), JSON.stringify(next)); return next })
-      push({ kind: 'decision', text: `APPROVED ${t.f.action.ledger}${t.f.impactMonthly > 0 ? ` — ~${money(t.f.impactMonthly)}/mo est.` : ''} · logged (no platform write in this build).` })
+      setLedger(l => [json.decision, ...l])
+      const ex = json.execution || {}
+      const exNote = ex.executed
+        ? `LIVE — executed on ${ex.platform} (rollback info recorded)`
+        : ex.request ? `dry run — exact ${ex.platform} request built & recorded, NOT sent`
+        : ex.note || 'logged'
+      push({ kind: 'decision', text: `APPROVED ${json.decision.what}${t.f.impactMonthly > 0 ? ` — ~${money(t.f.impactMonthly)}/mo est.` : ''} · ${exNote} · measured impact lands in ~7 days.` })
       const next = openTurns.find(x => x.id !== t.id)
       if (next) setSelId(next.id)
-    }, 1100)
+    } catch (e) {
+      patch(t.id, { status: 'open' })
+      push({ kind: 'sys', text: 'approve failed: ' + e.message })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patch, push, openTurns])
+  }, [patch, push, openTurns, decide])
 
-  // Undo: move a ledger decision back to PROBLEMS as an open card.
-  // Used by the Undo button on ledger rows AND the agent's reopen_decision tool.
-  const reopenLedgerRow = useCallback((idx) => {
-    const row = ledger[idx]
-    if (!row) return false
-    if (!row.f) { push({ kind: 'sys', text: `“${row.what}” predates undo support — no stored card to reopen.` }); return false }
-    setLedger(l => { const next = l.filter((_, i) => i !== idx); localStorage.setItem(lsKey('ledger'), JSON.stringify(next)); return next })
-    const id = tid()
-    setTurns(t => [...t, { id, kind: 'finding', f: row.f, status: 'open' },
-      { id: tid(), kind: 'decision', text: `REVERTED “${row.what}” — moved back to PROBLEMS as an open card. y approves it again, n dismisses.` }])
-    setSelId(id)
-    setPanelOpen(true)
-    return true
+  // Undo: revert a ledger decision — the finding reopens in PROBLEMS.
+  const undoDecision = useCallback(async (row) => {
+    if (!row || row.status === 'reverted') return false
+    try {
+      const json = await decide({ action: 'undo', decision_id: row.id })
+      setLedger(l => l.map(x => x.id === row.id ? { ...x, status: 'reverted' } : x))
+      const f = rowToFinding(json.finding)
+      const id = tid()
+      setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' },
+        { id: tid(), kind: 'decision', text: `REVERTED “${row.what}” — reopened in PROBLEMS.${row.execution?.executed ? ' ⚠ the lever ran LIVE on the platform — reversing that is manual; rollback details are stored on the decision.' : ''}` }])
+      setSelId(id)
+      setPanelOpen(true)
+      return true
+    } catch (e) {
+      push({ kind: 'sys', text: 'undo failed: ' + e.message })
+      return false
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ledger, push])
+  }, [decide, push])
 
   const startTeach = useCallback((t) => { if (t.status === 'open') patch(t.id, { status: 'teaching' }) }, [patch])
-  const saveTeach = useCallback((t, reason) => {
+  const saveTeach = useCallback(async (t, reason) => {
     const why = (reason || '').trim() || 'no reason given'
     patch(t.id, { status: 'taught', reason: why })
-    setPolicies(p => { const next = [{ findingId: t.f.id, reason: why, when: new Date().toISOString() }, ...p]; localStorage.setItem(lsKey('policies'), JSON.stringify(next)); return next })
-    push({ kind: 'decision', text: `TAUGHT “${why}” — standing rule saved. /policies (or the Policies doc) lists everything.` })
+    try {
+      const json = await decide({ action: 'dismiss', finding_key: t.f.id, reason: why })
+      setPolicies(p => [json.policy, ...p])
+      push({ kind: 'decision', text: `TAUGHT “${why}” — standing rule saved to the database; the watcher (including the nightly cron) checks it before proposing.` })
+    } catch (e) {
+      patch(t.id, { status: 'open' })
+      push({ kind: 'sys', text: 'teach failed: ' + e.message })
+    }
     const next = openTurns.find(x => x.id !== t.id)
     if (next) setSelId(next.id)
     inputRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patch, push, openTurns])
+  }, [patch, push, openTurns, decide])
 
   /* ── keyboard ── */
   useEffect(() => {
@@ -301,18 +334,21 @@ export default function BusinessIDE() {
         why: `True ROAS ${c.trueRoas.toFixed(2)}x on ${money(c.spend)} spend. At ${money(c.spendPerDay)}/day this loses ~${money(c.spendPerDay * (1 - c.trueRoas))}/day of contribution.`,
         impactMonthly: c.spendPerDay * 30 * (1 - c.trueRoas), confidence: c.days >= 5 ? 'high' : 'medium',
         evidence: [`${c.days} days`, `${c.chOrders} attributed orders`],
-        action: { ledger: `Pause ${c.campaign_name} on ${c.platform}`, campaign_id: c.campaign_id },
+        action: { kind: 'pause_campaign', ledger: `Pause ${c.campaign_name} on ${c.platform}`, platform: c.platform, campaign_id: c.campaign_id },
       } : {
         id: `cmd-scale-${c.campaign_id}`, severity: 'medium', icon: '📈',
         title: `Scale ${c.campaign_name} (${c.platform}) +20% (${money(c.spendPerDay)} → ${money(c.spendPerDay * 1.2)}/day)`,
         why: `True ROAS ${c.trueRoas.toFixed(2)}x — each added $1 returns $${c.trueRoas.toFixed(2)} contribution after BOM COGS, before scaling decay. Revert point saved.`,
         impactMonthly: c.spendPerDay * 0.2 * 30 * (c.trueRoas - 1) * 0.7, confidence: 'medium',
         evidence: [`${c.chOrders} attributed orders`, `${money(c.spend)} over ${c.days} days`],
-        action: { ledger: `Scale ${c.campaign_name} +20%`, campaign_id: c.campaign_id },
+        action: { kind: 'scale_campaign', ledger: `Scale ${c.campaign_name} +20%`, platform: c.platform, campaign_id: c.campaign_id },
       }
-      const id = tid()
-      setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
-      setSelId(id)
+      try {
+        await decide({ action: 'draft', finding: f })  // persist so approve/undo work server-side
+        const id = tid()
+        setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+        setSelId(id)
+      } catch (e) { push({ kind: 'sys', text: 'draft failed: ' + e.message }) }
       return
     }
 
@@ -325,7 +361,7 @@ export default function BusinessIDE() {
         ...askContext(data.clientName, m, range),
         active_view: VIEW_TITLES[activeTab] || activeTab,
         open_problems: openTurns.map(t => t.f.title),
-        recent_decisions: ledger.slice(0, 10).map((r, i) => ({ index: i, decision: r.what, when: r.when.slice(0, 10), undoable: !!r.f })),
+        recent_decisions: ledger.slice(0, 10).map((r, i) => ({ index: i, decision: r.what, when: (r.approved_at || '').slice(0, 10), status: r.status, measured_delta_monthly: r.measured?.delta_monthly ?? null })),
         taught_policies: policies.slice(0, 10).map(p => p.reason),
       }
       const res = await fetch('/api/mission/ask', {
@@ -347,9 +383,10 @@ export default function BusinessIDE() {
           setRangeN(a.input.days)
         } else if (a.name === 'reopen_decision') {
           const match = (a.input?.match || '').toLowerCase()
-          const idx = match ? ledger.findIndex(r => r.what.toLowerCase().includes(match)) : 0
-          if (idx < 0 || !ledger[idx]) push({ kind: 'sys', text: `agent action · couldn't find a ledger decision matching “${a.input?.match}”` })
-          else if (reopenLedgerRow(idx)) push({ kind: 'sys', text: `agent action · reopened “${ledger[idx].what}” into PROBLEMS` })
+          const pool = ledger.filter(r => r.status !== 'reverted')
+          const row = match ? pool.find(r => r.what.toLowerCase().includes(match)) : pool[0]
+          if (!row) push({ kind: 'sys', text: `agent action · couldn't find an active ledger decision${match ? ` matching “${a.input?.match}”` : ''}` })
+          else if (await undoDecision(row)) push({ kind: 'sys', text: `agent action · reopened “${row.what}” into PROBLEMS` })
         } else if (a.name === 'draft_finding' && a.input?.title && a.input?.why) {
           const f = {
             id: `agent-${tid()}`, severity: a.input.severity === 'high' ? 'high' : 'medium', icon: '🤖',
@@ -358,10 +395,13 @@ export default function BusinessIDE() {
             evidence: ['drafted by the agent in this session'],
             action: { ledger: a.input.title },
           }
-          const id = tid()
-          setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
-          setSelId(id)
-          push({ kind: 'sys', text: `agent action · drafted “${a.input.title}” into PROBLEMS — y approves, n dismisses` })
+          try {
+            await decide({ action: 'draft', finding: f })
+            const id = tid()
+            setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+            setSelId(id)
+            push({ kind: 'sys', text: `agent action · drafted “${a.input.title}” into PROBLEMS (saved) — y approves, n dismisses` })
+          } catch (e) { push({ kind: 'sys', text: 'agent draft failed: ' + e.message }) }
         } else {
           push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
         }
@@ -369,7 +409,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, reopenLedgerRow])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide])
 
   const palItems = PALETTE_CMDS.filter(([c, d]) => (c + d).includes(palQ.toLowerCase()))
   const problems = openTurns
@@ -432,7 +472,7 @@ export default function BusinessIDE() {
                 {activeTab === 'orders' && <OrdersView data={data} />}
                 {activeTab === 'klaviyo' && <KlaviyoView m={m} />}
                 {activeTab === 'manual' && <div className="man-body wide"><Markdown text={MANUAL} /></div>}
-                {activeTab === 'ledger' && <LedgerView ledger={ledger} onUndo={reopenLedgerRow} />}
+                {activeTab === 'ledger' && <LedgerView ledger={ledger} onUndo={undoDecision} />}
                 {activeTab === 'policies' && <PoliciesView policies={policies} />}
               </>
             )}
@@ -487,6 +527,9 @@ export default function BusinessIDE() {
               <div className="seg"><span className="dim">margin</span><b>{m.hasCogs ? (m.margin * 100).toFixed(1) + '%' : '—'}</b></div>
               <div className="seg probs" onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
                 <span className="dim">⚠</span><b className={problems.length ? 'warn' : 'good'}>{problems.length}</b>
+              </div>
+              <div className="seg" title="MISSION_LEVERS — off: log only · dry_run: builds platform requests, never sends · live: executes with rollback">
+                <span className="dim">levers</span><b className={leversMode === 'live' ? 'bad' : leversMode === 'dry_run' ? 'warn' : 'dim'}>{leversMode}</b>
               </div>
             </>}
             <div className="spacer" />
@@ -712,16 +755,22 @@ function LedgerView({ ledger, onUndo }) {
   return (
     <div className="v-pad">
       <ResizableTable
-        id="ledger2"
-        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est. impact', num: true }, { label: 'Status' }, { label: '' }]}
-        rows={ledger.map((r, i) => [
+        id="ledger3"
+        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est.', num: true }, { label: 'Measured', num: true }, { label: 'Status' }, { label: '' }]}
+        rows={ledger.map((r) => [
           { v: r.what, cls: 'tname' },
-          { v: new Date(r.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
-          { v: r.impact > 0 ? '+' + money(r.impact) + '/mo' : '—', cls: 'num good' },
-          { v: r.status, cls: 'v-dim' },
-          { v: r.f ? <button className="tt-btn" onClick={() => onUndo(i)} title="move back to PROBLEMS as an open card">↩ undo</button> : '—' },
+          { v: new Date(r.approved_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+          { v: Number(r.est_impact_monthly) > 0 ? '+' + money(r.est_impact_monthly) + '/mo' : '—', cls: 'num v-dim' },
+          {
+            v: r.measured
+              ? (r.measured.delta_monthly != null ? `${r.measured.delta_monthly >= 0 ? '+' : ''}${money(r.measured.delta_monthly)}/mo` : 'n/a')
+              : 'in ~7d',
+            cls: `num ${r.measured?.delta_monthly > 0 ? 'good' : r.measured?.delta_monthly < 0 ? 'bad' : 'v-dim'}`,
+          },
+          { v: <span className={`pill ${r.status === 'executed' ? 'ok' : 'dead'}`}>{r.status}</span> },
+          { v: r.status !== 'reverted' ? <button className="tt-btn" onClick={() => onUndo(r)} title="revert — reopens in PROBLEMS">↩ undo</button> : '—' },
         ])}
-        note="local log in this build — undo moves a decision back to PROBLEMS. Measured (not estimated) impact lands with the cron watcher + DB ledger."
+        note="persisted in the database · Measured = whole-account net/day delta over the 7 days after approval vs the 7 before (directional, not campaign-isolated) · undo reverts the log; live platform changes list rollback info on the decision."
       />
     </div>
   )
@@ -736,9 +785,9 @@ function PoliciesView({ policies }) {
         columns={[{ label: 'Rule' }, { label: 'Taught' }]}
         rows={policies.map(p => [
           { v: p.reason, cls: 'tname' },
-          { v: new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+          { v: new Date(p.taught_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
         ])}
-        note="the watcher checks these before proposing. taught rules suppress their finding for good — delete support comes with the DB version."
+        note="persisted in the database — the watcher (page loads AND the nightly cron) checks these before proposing."
       />
     </div>
   )
