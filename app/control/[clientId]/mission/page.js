@@ -181,7 +181,8 @@ export default function BusinessIDE() {
     patch(t.id, { status: 'executing' })
     setTimeout(() => {
       patch(t.id, { status: 'done' })
-      const row = { when: new Date().toISOString(), what: t.f.action.ledger, impact: Math.round(t.f.impactMonthly), status: 'approved — logged only (no platform write yet)' }
+      // Full finding payload rides along so the decision can be undone later
+      const row = { when: new Date().toISOString(), what: t.f.action.ledger, impact: Math.round(t.f.impactMonthly), status: 'approved — logged only (no platform write yet)', f: t.f }
       setLedger(l => { const next = [row, ...l]; localStorage.setItem(lsKey('ledger'), JSON.stringify(next)); return next })
       push({ kind: 'decision', text: `APPROVED ${t.f.action.ledger}${t.f.impactMonthly > 0 ? ` — ~${money(t.f.impactMonthly)}/mo est.` : ''} · logged (no platform write in this build).` })
       const next = openTurns.find(x => x.id !== t.id)
@@ -189,6 +190,22 @@ export default function BusinessIDE() {
     }, 1100)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patch, push, openTurns])
+
+  // Undo: move a ledger decision back to PROBLEMS as an open card.
+  // Used by the Undo button on ledger rows AND the agent's reopen_decision tool.
+  const reopenLedgerRow = useCallback((idx) => {
+    const row = ledger[idx]
+    if (!row) return false
+    if (!row.f) { push({ kind: 'sys', text: `“${row.what}” predates undo support — no stored card to reopen.` }); return false }
+    setLedger(l => { const next = l.filter((_, i) => i !== idx); localStorage.setItem(lsKey('ledger'), JSON.stringify(next)); return next })
+    const id = tid()
+    setTurns(t => [...t, { id, kind: 'finding', f: row.f, status: 'open' },
+      { id: tid(), kind: 'decision', text: `REVERTED “${row.what}” — moved back to PROBLEMS as an open card. y approves it again, n dismisses.` }])
+    setSelId(id)
+    setPanelOpen(true)
+    return true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger, push])
 
   const startTeach = useCallback((t) => { if (t.status === 'open') patch(t.id, { status: 'teaching' }) }, [patch])
   const saveTeach = useCallback((t, reason) => {
@@ -299,24 +316,60 @@ export default function BusinessIDE() {
       return
     }
 
-    // free text → Claude, grounded + aware of the active tab
+    // free text → Claude, grounded + aware of the active tab, ledger, and queue
     setBusy(true)
     const agentId = tid()
     setTurns(t => [...t, { id: agentId, kind: 'agent', pending: true, text: '' }])
     try {
-      const ctx = { ...askContext(data.clientName, m, range), active_view: VIEW_TITLES[activeTab] || activeTab }
+      const ctx = {
+        ...askContext(data.clientName, m, range),
+        active_view: VIEW_TITLES[activeTab] || activeTab,
+        open_problems: openTurns.map(t => t.f.title),
+        recent_decisions: ledger.slice(0, 10).map((r, i) => ({ index: i, decision: r.what, when: r.when.slice(0, 10), undoable: !!r.f })),
+        taught_policies: policies.slice(0, 10).map(p => p.reason),
+      }
       const res = await fetch('/api/mission/ask', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q, context: ctx, history: histRef.current }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'ask failed')
-      histRef.current = [...histRef.current, { q, a: json.answer }].slice(-6)
+      histRef.current = [...histRef.current, { q, a: json.answer || '[took a UI action]' }].slice(-6)
       patch(agentId, { pending: false, text: json.answer })
+
+      // Execute the agent's UI-only actions, narrating each as a sys turn.
+      for (const a of (json.actions || [])) {
+        if (a.name === 'open_tab' && VIEW_TITLES[a.input?.view]) {
+          openTab(a.input.view)
+          push({ kind: 'sys', text: `agent action · opened the ${VIEW_TITLES[a.input.view]} tab` })
+        } else if (a.name === 'set_range' && [7, 30, 90].includes(a.input?.days)) {
+          push({ kind: 'sys', text: `agent action · switching range to ${a.input.days}d` })
+          setRangeN(a.input.days)
+        } else if (a.name === 'reopen_decision') {
+          const match = (a.input?.match || '').toLowerCase()
+          const idx = match ? ledger.findIndex(r => r.what.toLowerCase().includes(match)) : 0
+          if (idx < 0 || !ledger[idx]) push({ kind: 'sys', text: `agent action · couldn't find a ledger decision matching “${a.input?.match}”` })
+          else if (reopenLedgerRow(idx)) push({ kind: 'sys', text: `agent action · reopened “${ledger[idx].what}” into PROBLEMS` })
+        } else if (a.name === 'draft_finding' && a.input?.title && a.input?.why) {
+          const f = {
+            id: `agent-${tid()}`, severity: a.input.severity === 'high' ? 'high' : 'medium', icon: '🤖',
+            title: a.input.title, why: a.input.why,
+            impactMonthly: Number(a.input.impact_monthly) || 0, confidence: 'medium',
+            evidence: ['drafted by the agent in this session'],
+            action: { ledger: a.input.title },
+          }
+          const id = tid()
+          setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+          setSelId(id)
+          push({ kind: 'sys', text: `agent action · drafted “${a.input.title}” into PROBLEMS — y approves, n dismisses` })
+        } else {
+          push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
+        }
+      }
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, reopenLedgerRow])
 
   const palItems = PALETTE_CMDS.filter(([c, d]) => (c + d).includes(palQ.toLowerCase()))
   const problems = openTurns
@@ -379,7 +432,7 @@ export default function BusinessIDE() {
                 {activeTab === 'orders' && <OrdersView data={data} />}
                 {activeTab === 'klaviyo' && <KlaviyoView m={m} />}
                 {activeTab === 'manual' && <div className="man-body wide"><Markdown text={MANUAL} /></div>}
-                {activeTab === 'ledger' && <LedgerView ledger={ledger} />}
+                {activeTab === 'ledger' && <LedgerView ledger={ledger} onUndo={reopenLedgerRow} />}
                 {activeTab === 'policies' && <PoliciesView policies={policies} />}
               </>
             )}
@@ -654,20 +707,21 @@ function KlaviyoView({ m }) {
   )
 }
 
-function LedgerView({ ledger }) {
+function LedgerView({ ledger, onUndo }) {
   if (!ledger.length) return <p className="loading v-pad">no decisions yet — approve something in PROBLEMS with y.</p>
   return (
     <div className="v-pad">
       <ResizableTable
-        id="ledger"
-        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est. impact', num: true }, { label: 'Status' }]}
-        rows={ledger.map(r => [
+        id="ledger2"
+        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est. impact', num: true }, { label: 'Status' }, { label: '' }]}
+        rows={ledger.map((r, i) => [
           { v: r.what, cls: 'tname' },
           { v: new Date(r.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
           { v: r.impact > 0 ? '+' + money(r.impact) + '/mo' : '—', cls: 'num good' },
           { v: r.status, cls: 'v-dim' },
+          { v: r.f ? <button className="tt-btn" onClick={() => onUndo(i)} title="move back to PROBLEMS as an open card">↩ undo</button> : '—' },
         ])}
-        note="local log in this build — measured (not estimated) impact per decision lands with the cron watcher + DB ledger."
+        note="local log in this build — undo moves a decision back to PROBLEMS. Measured (not estimated) impact lands with the cron watcher + DB ledger."
       />
     </div>
   )

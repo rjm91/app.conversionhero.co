@@ -7,6 +7,53 @@ export const dynamic = 'force-dynamic'
 
 const MODEL = 'claude-opus-4-8'
 
+// UI-only tools. The dashboard executes these in front of the user — they
+// move things around INSIDE the IDE (tabs, cards, local ledger). None of
+// them can touch ad platforms, money, or the database.
+const TOOLS = [
+  {
+    name: 'open_tab',
+    description: 'Open a view tab in the IDE for the user. Use when they ask to see or go to a surface (campaigns, orders, ledger, manual…).',
+    input_schema: {
+      type: 'object',
+      properties: { view: { type: 'string', enum: ['overview', 'google', 'meta', 'orders', 'klaviyo', 'manual', 'ledger', 'policies'] } },
+      required: ['view'],
+    },
+  },
+  {
+    name: 'set_range',
+    description: 'Change the data window the whole IDE is looking at.',
+    input_schema: {
+      type: 'object',
+      properties: { days: { type: 'integer', enum: [7, 30, 90] } },
+      required: ['days'],
+    },
+  },
+  {
+    name: 'reopen_decision',
+    description: 'Local undo: move a previously approved decision from the Ledger back to PROBLEMS as an open card the user can approve or dismiss again. Nothing touches ad platforms. Use when the user asks to undo, revert, or reopen a decision.',
+    input_schema: {
+      type: 'object',
+      properties: { match: { type: 'string', description: 'substring of the decision text to identify it; omit to reopen the most recent decision' } },
+      required: [],
+    },
+  },
+  {
+    name: 'draft_finding',
+    description: 'Draft a NEW action card into PROBLEMS for the user to approve or dismiss. Use when the user asks you to propose or queue something. You draft — the human decides. Base the title/why on real numbers from the data.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        why: { type: 'string', description: 'the evidence and math, from the provided data only' },
+        severity: { type: 'string', enum: ['high', 'medium'] },
+        impact_monthly: { type: 'number', description: 'estimated $/month impact; omit if unknown' },
+      },
+      required: ['title', 'why'],
+    },
+  },
+]
+
 // Mission Control ask bar: grounded Q&A over the exact metrics the page is
 // showing. The client sends a compact JSON context (same numbers as the KPI
 // strip) + the session history, so answers cite real rows and context carries
@@ -28,7 +75,8 @@ export async function POST(request) {
     `Answer questions using ONLY the JSON data provided in the first user message. Never invent numbers, campaigns, or dates. If the data can't answer the question, say exactly what's missing.`,
     `Key definitions you must respect: True ROAS = (UTM-attributed revenue − real BOM COGS) ÷ ad spend, so breakeven is 1.00x. The top-level true_roas_paid_only divides PAID contribution by spend — organic revenue never inflates it. COGS comes from the client's bill of materials, not estimates.`,
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
-    `If the user asks what to DO, give one concrete recommendation with the math behind it, and note it lands in the Action Queue for approval — you never execute anything.`,
+    `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
+    `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or touch any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
   ].join(' ')
 
   const messages = [
@@ -47,10 +95,14 @@ export async function POST(request) {
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
       system,
+      tools: TOOLS,
       messages,
     })
     const answer = response.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
-    return NextResponse.json({ answer, usage: response.usage })
+    // Tool calls come back as actions for the CLIENT to execute (UI-only).
+    // Single pass, no tool loop — these are fire-and-forget UI commands.
+    const actions = response.content.filter(b => b.type === 'tool_use').map(b => ({ name: b.name, input: b.input }))
+    return NextResponse.json({ answer, actions, usage: response.usage })
   } catch (e) {
     console.error('[mission/ask]', e)
     return NextResponse.json({ error: e.message || 'ask failed' }, { status: 500 })
