@@ -1233,10 +1233,12 @@ const CSS = `
 .ide .brow .bv{width:80px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;}
 .ide .brow .bnote{width:200px;font-size:10.5px;color:var(--faint);text-align:right;flex-shrink:0;}
 
-/* prompt */
-.ide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:8px 14px;flex-shrink:0;}
+/* prompt — Cursor style: input sits on the terminal background, bounded by
+   thin hairlines above and below (no box, no radius, no fill) */
+.ide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg);padding:9px 14px;margin-bottom:7px;flex-shrink:0;transition:border-color .15s;}
+.ide .prompt:focus-within{border-top-color:rgba(255,255,255,.18);border-bottom-color:rgba(255,255,255,.18);}
 .ide .ps{color:var(--green);font-weight:800;}
-.ide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;}
+.ide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;caret-color:var(--txt);}
 
 /* status bar */
 .ide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 10px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
