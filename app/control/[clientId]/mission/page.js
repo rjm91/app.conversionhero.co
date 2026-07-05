@@ -529,7 +529,9 @@ function ResizableTable({ id, columns, rows, note }) {
         {/* When customized, the table gets a DEFINITE width (sum of columns) —
             fixed layout + max-content is undefined behavior and was letting
             the table blow up the page's flex height accounting. */}
-        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'fixed' : ''}`}
+        {/* class must NOT be named "fixed" — Tailwind's global .fixed is
+            position:fixed and rips the table out of the page flow */}
+        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'rt-fixed' : ''}`}
           style={widths ? { width: widths.reduce((a, b) => a + b, 0) } : undefined}>
           {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
           <thead><tr>
@@ -855,7 +857,7 @@ const CSS = `
 .ide .tt-btn:hover{color:var(--txt);border-color:var(--dim);}
 .ide .tt-btn.on{color:var(--blue);border-color:rgba(110,168,254,.4);background:rgba(110,168,254,.08);}
 .ide .rt-scroll{overflow-x:auto;max-width:100%;}
-.ide .vtable.rt.fixed{table-layout:fixed;}
+.ide .vtable.rt.rt-fixed{table-layout:fixed;}
 .ide .vtable.rt th{position:relative;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;}
 .ide .vtable.rt .col-grip:hover{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.55) 3px,rgba(110,168,254,.55) 5px,transparent 5px);}
