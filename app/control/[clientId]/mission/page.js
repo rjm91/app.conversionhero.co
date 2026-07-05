@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays } from '../../../../lib/mission/data'
 import { buildFindings } from '../../../../lib/mission/watchers'
+import { MANUAL } from '../../../../lib/mission/manual'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
 let turnSeq = 0
@@ -23,6 +24,7 @@ const PALETTE = [
   ['/ledger', 'decision history'],
   ['/policies', 'rules you have taught'],
   ['/range 7|30|90', 'change the data window'],
+  ['/manual', 'how all of this works'],
   ['/clear', 'reset the session'],
 ]
 
@@ -35,6 +37,7 @@ export default function MissionTerminal() {
   const [busy, setBusy] = useState(false)
   const [palOpen, setPalOpen] = useState(false)
   const [palQ, setPalQ] = useState('')
+  const [manualOpen, setManualOpen] = useState(false)
   const inputRef = useRef(null)
   const endRef = useRef(null)
   const histRef = useRef([])
@@ -91,7 +94,7 @@ export default function MissionTerminal() {
       setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
     }
     setSelId(firstId)
-    setTurns(t => [...t, { id: tid(), kind: 'sys', text: findings.length ? `${findings.length} in queue · y approves the selected card · j/k moves · or ask something — try /forecast.` : 'queue is clear — every live campaign clears breakeven. Ask me anything, or /campaigns for the board.' }])
+    setTurns(t => [...t, { id: tid(), kind: 'sys', text: (findings.length ? `${findings.length} in queue · y approves the selected card · j/k moves · or ask something — try /forecast.` : 'queue is clear — every live campaign clears breakeven. Ask me anything, or /campaigns for the board.') + ' new here? press ? for the manual.' }])
     inputRef.current?.focus()
   }, [m, data, policies, rangeN])
 
@@ -135,9 +138,10 @@ export default function MissionTerminal() {
       const inTeach = e.target.dataset?.teach === '1'
       if (inTeach) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalOpen(o => !o); setPalQ(''); return }
-      if (e.key === 'Escape') { setPalOpen(false); inputRef.current?.focus(); return }
+      if (e.key === 'Escape') { setPalOpen(false); setManualOpen(false); inputRef.current?.focus(); return }
       const typing = e.target === inputRef.current && inputRef.current.value !== ''
-      if (typing || palOpen) return
+      if (!typing && !palOpen && e.key === '?') { e.preventDefault(); setManualOpen(o => !o); return }
+      if (typing || palOpen || manualOpen) return
       const idx = openTurns.findIndex(t => t.id === selId)
       if (e.key === 'j') { e.preventDefault(); const n = openTurns[Math.min(openTurns.length - 1, Math.max(0, idx + 1))]; if (n) setSelId(n.id) }
       else if (e.key === 'k') { e.preventDefault(); const n = openTurns[Math.max(0, idx - 1)]; if (n) setSelId(n.id) }
@@ -146,7 +150,7 @@ export default function MissionTerminal() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [openTurns, selId, approve, startTeach, palOpen])
+  }, [openTurns, selId, approve, startTeach, palOpen, manualOpen])
 
   /* ── ask + slash commands ── */
   const ask = useCallback(async (raw) => {
@@ -157,7 +161,7 @@ export default function MissionTerminal() {
 
     // Slash inputs are ALWAYS local — a typo like /forcase should get a
     // correction, never be sent to the LLM as a question.
-    const KNOWN = ['/pause', '/scale', '/forecast', '/campaigns', '/ledger', '/policies', '/range', '/clear', '/help']
+    const KNOWN = ['/pause', '/scale', '/forecast', '/campaigns', '/ledger', '/policies', '/range', '/clear', '/help', '/manual']
     if (lower.startsWith('/')) {
       const cmd = lower.split(/\s+/)[0]
       if (!KNOWN.includes(cmd)) {
@@ -177,6 +181,7 @@ export default function MissionTerminal() {
       return
     }
     if (lower === '/help') { push({ kind: 'sys', text: PALETTE.map(([c, d]) => `${c} — ${d}`).join('\n') }); return }
+    if (lower === '/manual') { setManualOpen(true); return }
     if (lower === '/ledger') {
       push({
         kind: 'agent', text: ledger.length ? 'The ▸ lines above are the live trail. Everything logged:' : 'No decisions logged yet — approve something with y.',
@@ -291,7 +296,10 @@ export default function MissionTerminal() {
           <div className="seg"><span className="dim">queue</span><b className={openTurns.length ? 'warn' : 'good'}>{openTurns.length}</b></div>
         </>}
         <div className="spacer" />
-        <div className="seg last"><span className="kbd">⌘K</span><span className="dim">cmds</span><span className="kbd">j/k</span><span className="dim">sel</span><span className="kbd">y</span><span className="dim">approve</span><span className="kbd">n</span><span className="dim">teach</span></div>
+        <div className="seg last">
+          <span className="kbd">⌘K</span><span className="dim">cmds</span><span className="kbd">j/k</span><span className="dim">sel</span><span className="kbd">y</span><span className="dim">approve</span><span className="kbd">n</span><span className="dim">teach</span>
+          <button className="helpbtn" title="How this works (?)" onClick={() => setManualOpen(true)}>?</button>
+        </div>
       </div>
 
       {/* stream */}
@@ -312,6 +320,19 @@ export default function MissionTerminal() {
           {PALETTE.slice(0, 6).map(([c, d]) => <span key={c}><b>{c}</b> {d.split(' ').slice(0, 3).join(' ')}</span>)}
         </div>
       </div>
+
+      {/* manual (?) */}
+      {manualOpen && (
+        <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) { setManualOpen(false); inputRef.current?.focus() } }}>
+          <div className="manual">
+            <div className="man-h">
+              <b>Mission Control — how this works</b>
+              <button className="man-x" onClick={() => { setManualOpen(false); inputRef.current?.focus() }}>esc ✕</button>
+            </div>
+            <div className="man-body"><Markdown text={MANUAL} /></div>
+          </div>
+        </div>
+      )}
 
       {/* ⌘K palette */}
       {palOpen && (
@@ -408,6 +429,32 @@ function Bars({ rows }) {
   )
 }
 
+/* Minimal markdown for the manual: ## headings, - bullets, **bold**, paragraphs */
+function Markdown({ text }) {
+  const inline = (s) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    p.startsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : p)
+  const blocks = []
+  let para = [], list = null
+  const flush = () => {
+    if (list) { blocks.push(<ul key={blocks.length}>{list.map((li, i) => <li key={i}>{inline(li)}</li>)}</ul>); list = null }
+    if (para.length) { blocks.push(<p key={blocks.length}>{inline(para.join(' '))}</p>); para = [] }
+  }
+  for (const raw of text.split('\n')) {
+    const line = raw.trimEnd()
+    if (line.startsWith('## ')) { flush(); blocks.push(<h3 key={blocks.length}>{line.slice(3)}</h3>) }
+    else if (/^\s*[-\d]+[.)]?\s/.test(line) && (line.trim().startsWith('- ') || /^\d/.test(line.trim()))) {
+      if (para.length) flush()
+      if (!list) list = []
+      list.push(line.trim().replace(/^-\s|^\d+[.)]\s/, ''))
+    }
+    else if (line.trim() === '') flush()
+    else if (list) list[list.length - 1] += ' ' + line.trim()
+    else para.push(line.trim())
+  }
+  flush()
+  return <div>{blocks}</div>
+}
+
 function DataTable({ head, rows }) {
   return (
     <div className="datatable"><table>
@@ -489,5 +536,17 @@ const CSS = `
 .mt-root .pal .it{padding:10px 16px;display:flex;gap:10px;align-items:baseline;cursor:pointer;font-size:12.5px;}
 .mt-root .pal .it:hover{background:rgba(110,168,254,.08);}
 .mt-root .pal .it .d{color:var(--faint);font-size:11px;margin-left:auto;}
+.mt-root .helpbtn{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font:inherit;font-weight:800;cursor:pointer;margin-left:4px;}
+.mt-root .helpbtn:hover{color:var(--txt);border-color:var(--dim);}
+.mt-root .manual{width:680px;max-width:94vw;max-height:78vh;background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+.mt-root .man-h{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--line);font-size:13px;}
+.mt-root .man-x{background:none;border:none;color:var(--faint);font:inherit;font-size:11px;cursor:pointer;}
+.mt-root .man-x:hover{color:var(--txt);}
+.mt-root .man-body{overflow-y:auto;padding:6px 22px 22px;font-size:12.5px;line-height:1.65;color:var(--dim);}
+.mt-root .man-body h3{color:var(--txt);font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin:18px 0 6px;}
+.mt-root .man-body p{margin:7px 0;}
+.mt-root .man-body ul{margin:7px 0 7px 18px;}
+.mt-root .man-body li{margin:4px 0;}
+.mt-root .man-body b{color:var(--txt);}
 .mt-root ::-webkit-scrollbar{width:10px;} .mt-root ::-webkit-scrollbar-thumb{background:var(--panel2);border-radius:5px;}
 `
