@@ -464,6 +464,90 @@ export default function BusinessIDE() {
   )
 }
 
+/* ══════════ Resizable table — Google Sheets behavior, IDE skin ══════════
+   Drag any header border to resize its column; narrowed text wraps when the
+   wrap toggle is on, truncates with … when off. Widths + wrap persist per
+   table in localStorage. */
+function ResizableTable({ id, columns, rows, note }) {
+  const [widths, setWidths] = useState(null) // null = auto layout until touched
+  const [wrap, setWrap] = useState(true)
+  const tableRef = useRef(null)
+  const dragRef = useRef(null) // {i, startX, startW}
+
+  useEffect(() => {
+    try {
+      const w = JSON.parse(localStorage.getItem(`ide_tw_${id}`) || 'null')
+      if (Array.isArray(w) && w.length === columns.length) setWidths(w)
+      const wr = localStorage.getItem(`ide_wrap_${id}`)
+      if (wr != null) setWrap(wr === '1')
+    } catch { /* defaults */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      setWidths(w => {
+        const next = [...(w || d.snapshot)]
+        next[d.i] = Math.max(56, d.startW + (e.clientX - d.startX))
+        return next
+      })
+    }
+    const up = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      document.body.style.cursor = ''; document.body.style.userSelect = ''
+      setWidths(w => { if (w) localStorage.setItem(`ide_tw_${id}`, JSON.stringify(w)); return w })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [id])
+
+  const startColDrag = (i) => (e) => {
+    e.preventDefault(); e.stopPropagation()
+    // First touch: snapshot current auto-layout widths so only this column moves
+    const ths = [...(tableRef.current?.querySelectorAll('th') || [])]
+    const snapshot = ths.map(th => th.offsetWidth)
+    dragRef.current = { i, startX: e.clientX, startW: (widths || snapshot)[i], snapshot }
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'
+  }
+
+  const toggleWrap = () => setWrap(w => { localStorage.setItem(`ide_wrap_${id}`, w ? '0' : '1'); return !w })
+  const resetCols = () => { setWidths(null); localStorage.removeItem(`ide_tw_${id}`) }
+
+  return (
+    <div>
+      <div className="ttools">
+        <span className="tt-hint">drag column borders to resize</span>
+        <button className={`tt-btn ${wrap ? 'on' : ''}`} onClick={toggleWrap} title="wrap text in cells">↩ wrap {wrap ? 'on' : 'off'}</button>
+        {widths && <button className="tt-btn" onClick={resetCols} title="reset column widths">reset</button>}
+      </div>
+      <div className="rt-scroll">
+        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'fixed' : ''}`}>
+          {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
+          <thead><tr>
+            {columns.map((c, i) => (
+              <th key={i} className={c.num ? 'num' : ''}>
+                {c.label}
+                <span className="col-grip" onMouseDown={startColDrag(i)} />
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri}>{r.map((cell, ci) => <td key={ci} className={cell?.cls || (columns[ci].num ? 'num' : '')}>{cell?.v ?? cell}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {note && <p className="v-note">{note}</p>}
+    </div>
+  )
+}
+
 /* ══════════ Views (tab contents) ══════════ */
 
 function OverviewView({ m }) {
@@ -511,24 +595,21 @@ function CampaignView({ m, platform }) {
   if (!rows.length) return <p className="loading v-pad">no {platform} campaigns in range.</p>
   return (
     <div className="v-pad">
-      <table className="vtable">
-        <thead><tr><th>Campaign</th><th>Status</th><th className="num">Spend</th><th className="num">$/day</th><th className="num">Clicks</th><th className="num">Orders (CH)</th><th className="num">Attr. Rev</th><th className="num">True ROAS</th></tr></thead>
-        <tbody>
-          {rows.map(c => (
-            <tr key={c.campaign_id}>
-              <td className="tname">{c.campaign_name}</td>
-              <td>{c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span>}</td>
-              <td className="num">{money(c.spend)}</td>
-              <td className="num">{money(c.spendPerDay)}</td>
-              <td className="num">{c.clicks.toLocaleString()}</td>
-              <td className="num">{c.chOrders}</td>
-              <td className="num">{money(c.chRevenue)}</td>
-              <td className={`num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`}>{c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="v-note">True ROAS = (UTM-attributed revenue − BOM COGS) ÷ spend · breakeven 1.00x · ask the terminal about any row.</p>
+      <ResizableTable
+        id={`camp-${platform}`}
+        columns={[{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: '$/day', num: true }, { label: 'Clicks', num: true }, { label: 'Orders (CH)', num: true }, { label: 'Attr. Rev', num: true }, { label: 'True ROAS', num: true }]}
+        rows={rows.map(c => [
+          { v: c.campaign_name, cls: 'tname' },
+          { v: c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span> },
+          { v: money(c.spend), cls: 'num' },
+          { v: money(c.spendPerDay), cls: 'num' },
+          { v: c.clicks.toLocaleString(), cls: 'num' },
+          { v: c.chOrders, cls: 'num' },
+          { v: money(c.chRevenue), cls: 'num' },
+          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}` },
+        ])}
+        note="True ROAS = (UTM-attributed revenue − BOM COGS) ÷ spend · breakeven 1.00x · ask the terminal about any row."
+      />
     </div>
   )
 }
@@ -537,20 +618,17 @@ function OrdersView({ data }) {
   const rows = (data?.orders || []).slice(0, 100)
   return (
     <div className="v-pad">
-      <table className="vtable">
-        <thead><tr><th>Order</th><th>Date</th><th>Channel</th><th className="num">Amount</th></tr></thead>
-        <tbody>
-          {rows.map(o => (
-            <tr key={o.lead_id}>
-              <td className="tname">{o.shopify_data?.order_name || o.lead_id}</td>
-              <td>{new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
-              <td>{deriveChannel(o)}</td>
-              <td className="num strong">{money(o.sale_amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {(data?.orders || []).length > 100 && <p className="v-note">showing latest 100 of {data.orders.length}.</p>}
+      <ResizableTable
+        id="orders"
+        columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
+        rows={rows.map(o => [
+          { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname' },
+          { v: new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) },
+          { v: deriveChannel(o) },
+          { v: money(o.sale_amount), cls: 'num strong' },
+        ])}
+        note={(data?.orders || []).length > 100 ? `showing latest 100 of ${data.orders.length}.` : undefined}
+      />
     </div>
   )
 }
@@ -574,20 +652,17 @@ function LedgerView({ ledger }) {
   if (!ledger.length) return <p className="loading v-pad">no decisions yet — approve something in PROBLEMS with y.</p>
   return (
     <div className="v-pad">
-      <table className="vtable">
-        <thead><tr><th>Decision</th><th>When</th><th className="num">Est. impact</th><th>Status</th></tr></thead>
-        <tbody>
-          {ledger.map((r, i) => (
-            <tr key={i}>
-              <td className="tname">{r.what}</td>
-              <td>{new Date(r.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-              <td className="num good">{r.impact > 0 ? '+' + money(r.impact) + '/mo' : '—'}</td>
-              <td className="v-dim">{r.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="v-note">local log in this build — measured (not estimated) impact per decision lands with the cron watcher + DB ledger.</p>
+      <ResizableTable
+        id="ledger"
+        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est. impact', num: true }, { label: 'Status' }]}
+        rows={ledger.map(r => [
+          { v: r.what, cls: 'tname' },
+          { v: new Date(r.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+          { v: r.impact > 0 ? '+' + money(r.impact) + '/mo' : '—', cls: 'num good' },
+          { v: r.status, cls: 'v-dim' },
+        ])}
+        note="local log in this build — measured (not estimated) impact per decision lands with the cron watcher + DB ledger."
+      />
     </div>
   )
 }
@@ -596,15 +671,15 @@ function PoliciesView({ policies }) {
   if (!policies.length) return <p className="loading v-pad">no standing rules yet — dismiss a finding with n and say why.</p>
   return (
     <div className="v-pad">
-      <table className="vtable">
-        <thead><tr><th>Rule</th><th>Taught</th></tr></thead>
-        <tbody>
-          {policies.map((p, i) => (
-            <tr key={i}><td className="tname">{p.reason}</td><td>{new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="v-note">the watcher checks these before proposing. taught rules suppress their finding for good — delete support comes with the DB version.</p>
+      <ResizableTable
+        id="policies"
+        columns={[{ label: 'Rule' }, { label: 'Taught' }]}
+        rows={policies.map(p => [
+          { v: p.reason, cls: 'tname' },
+          { v: new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+        ])}
+        note="the watcher checks these before proposing. taught rules suppress their finding for good — delete support comes with the DB version."
+      />
     </div>
   )
 }
@@ -768,6 +843,23 @@ const CSS = `
 .ide .vtable .tname{color:var(--txt);font-weight:600;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ide .vtable th.num,.ide .vtable td.num{text-align:right;font-variant-numeric:tabular-nums;}
 .ide .pill{font-size:9.5px;font-weight:800;border-radius:99px;padding:1px 8px;}
+
+/* resizable table (Google Sheets behavior, IDE skin) */
+.ide .ttools{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:6px;}
+.ide .tt-hint{color:var(--faint);font-size:10px;margin-right:auto;}
+.ide .tt-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--faint);font:inherit;font-size:10.5px;padding:3px 10px;cursor:pointer;}
+.ide .tt-btn:hover{color:var(--txt);border-color:var(--dim);}
+.ide .tt-btn.on{color:var(--blue);border-color:rgba(110,168,254,.4);background:rgba(110,168,254,.08);}
+.ide .rt-scroll{overflow-x:auto;}
+.ide .vtable.rt.fixed{table-layout:fixed;width:max-content;min-width:100%;}
+.ide .vtable.rt th{position:relative;user-select:none;}
+.ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;}
+.ide .vtable.rt .col-grip:hover{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.55) 3px,rgba(110,168,254,.55) 5px,transparent 5px);}
+.ide .vtable.rt.wrapoff td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ide .vtable.rt.wrapon td{white-space:normal;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}
+.ide .vtable.rt.wrapon td.tname,.ide .vtable.rt.wrapoff td.tname{max-width:none;}
+.ide .vtable.rt.wrapoff td.tname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .vtable.rt.wrapon td.tname{overflow:visible;text-overflow:clip;white-space:normal;}
 .ide .pill.ok{background:rgba(63,214,143,.12);color:var(--green);}
 .ide .pill.dead{background:rgba(255,255,255,.07);color:var(--faint);}
 
