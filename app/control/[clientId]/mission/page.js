@@ -491,7 +491,7 @@ function ResizableTable({ id, columns, rows, note }) {
       e.preventDefault()
       setWidths(w => {
         const next = [...(w || d.snapshot)]
-        next[d.i] = Math.max(56, d.startW + (e.clientX - d.startX))
+        next[d.i] = Math.min(1400, Math.max(56, d.startW + (e.clientX - d.startX)))
         return next
       })
     }
@@ -526,7 +526,11 @@ function ResizableTable({ id, columns, rows, note }) {
         {widths && <button className="tt-btn" onClick={resetCols} title="reset column widths">reset</button>}
       </div>
       <div className="rt-scroll">
-        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'fixed' : ''}`}>
+        {/* When customized, the table gets a DEFINITE width (sum of columns) —
+            fixed layout + max-content is undefined behavior and was letting
+            the table blow up the page's flex height accounting. */}
+        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'fixed' : ''}`}
+          style={widths ? { width: widths.reduce((a, b) => a + b, 0) } : undefined}>
           {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
           <thead><tr>
             {columns.map((c, i) => (
@@ -822,7 +826,7 @@ const CSS = `
 .ide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
 .ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
 .ide .tab-x{color:var(--faint);font-size:13px;} .ide .tab-x:hover{color:var(--txt);}
-.ide .view{flex:1;overflow-y:auto;min-height:0;}
+.ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;position:relative;z-index:1;}
 .ide .loading{color:var(--faint);font-size:12.5px;padding:18px;}
 .ide .v-pad{padding:18px 22px 26px;}
 .ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
@@ -850,9 +854,9 @@ const CSS = `
 .ide .tt-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--faint);font:inherit;font-size:10.5px;padding:3px 10px;cursor:pointer;}
 .ide .tt-btn:hover{color:var(--txt);border-color:var(--dim);}
 .ide .tt-btn.on{color:var(--blue);border-color:rgba(110,168,254,.4);background:rgba(110,168,254,.08);}
-.ide .rt-scroll{overflow-x:auto;}
-.ide .vtable.rt.fixed{table-layout:fixed;width:max-content;min-width:100%;}
-.ide .vtable.rt th{position:relative;user-select:none;}
+.ide .rt-scroll{overflow-x:auto;max-width:100%;}
+.ide .vtable.rt.fixed{table-layout:fixed;}
+.ide .vtable.rt th{position:relative;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;}
 .ide .vtable.rt .col-grip:hover{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.55) 3px,rgba(110,168,254,.55) 5px,transparent 5px);}
 .ide .vtable.rt.wrapoff td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -870,7 +874,7 @@ const CSS = `
 .ide .sp-col:hover i{background:var(--blue);}
 
 /* panel */
-.ide .panel{min-height:120px;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;}
+.ide .panel{min-height:120px;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:10;}
 .ide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
 .ide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
 .ide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
