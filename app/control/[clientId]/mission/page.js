@@ -994,6 +994,17 @@ function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, b
   return null
 }
 
+/* Simple read-only table for agent-rendered specs (ResizableTable is for the
+   interactive doc views; this one is intentionally dependency-free). */
+function DataTable({ head, rows }) {
+  return (
+    <div className="datatable"><table>
+      <thead><tr>{head.map((h, i) => <th key={i} style={i > 0 ? { textAlign: 'right' } : undefined}>{h}</th>)}</tr></thead>
+      <tbody>{(rows || []).map((r, i) => <tr key={i}>{(Array.isArray(r) ? r : [String(r)]).map((c, j) => <td key={j} className={j > 0 ? 'num' : ''}>{c}</td>)}</tr>)}</tbody>
+    </table></div>
+  )
+}
+
 /* Generative UI: render a spec the agent produced (bar | line | table) */
 const SERIES_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f']
 function RenderSpec({ spec }) {
@@ -1006,7 +1017,9 @@ function RenderSpec({ spec }) {
 }
 
 function LineChart({ line }) {
-  const { labels = [], series = [] } = line
+  const labels = line.labels || []
+  // Sanitize model output — a single null/string value must not NaN the SVG
+  const series = (line.series || []).map(s => ({ ...s, values: (s.values || []).map(v => Number(v) || 0) }))
   const W = 620, H = 150, P = 8
   const all = series.flatMap(s => s.values)
   if (!all.length) return null
@@ -1108,6 +1121,12 @@ const CSS = `
 .ide .exp-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* generative UI */
+.ide .datatable{margin:6px 0 2px;border:1px solid var(--line);border-radius:7px;overflow-x:auto;font-size:12px;max-width:640px;}
+.ide .datatable table{width:100%;border-collapse:collapse;}
+.ide .datatable th{text-align:left;color:var(--faint);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:6px 11px;background:var(--panel2);font-weight:700;white-space:nowrap;}
+.ide .datatable td{padding:5.5px 11px;border-top:1px solid var(--line);color:var(--dim);}
+.ide .datatable td:first-child{color:var(--txt);font-weight:600;}
+.ide .datatable td.num{text-align:right;font-variant-numeric:tabular-nums;}
 .ide .render-card{border:1px solid rgba(110,168,254,.2);border-radius:8px;background:rgba(110,168,254,.03);padding:10px 13px;margin-top:3px;max-width:680px;}
 .ide .render-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;}
 .ide .render-t{font-weight:700;font-size:12.5px;}
