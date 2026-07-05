@@ -61,6 +61,10 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
+  const [splitTab, setSplitTab] = useState(null)   // second editor pane (or null)
+  const [splitPct, setSplitPct] = useState(45)     // right pane width %
+  const [qpOpen, setQpOpen] = useState(false)      // ⌘P quick-open
+  const [qpQ, setQpQ] = useState('')
   const [panelOpen, setPanelOpen] = useState(true)
   const [panelTab, setPanelTab] = useState('terminal') // 'terminal' | 'problems'
   const [sideOpen, setSideOpen] = useState(true)
@@ -73,6 +77,7 @@ export default function BusinessIDE() {
       const w = Number(localStorage.getItem('ide_sideW')); if (w >= 140 && w <= 480) setSideW(w)
       const h = Number(localStorage.getItem('ide_panelH')); if (h >= 120 && h <= window.innerHeight - 220) setPanelH(h)
       else setPanelH(Math.round(window.innerHeight * 0.34))
+      const sp = Number(localStorage.getItem('ide_splitPct')); if (sp >= 20 && sp <= 70) setSplitPct(sp)
     } catch { /* defaults */ }
   }, [])
   useEffect(() => {
@@ -83,6 +88,9 @@ export default function BusinessIDE() {
       if (d.type === 'side') {
         const w = Math.min(480, Math.max(140, e.clientX))
         setSideW(w); localStorage.setItem('ide_sideW', String(w))
+      } else if (d.type === 'vsplit') {
+        const pct = Math.min(70, Math.max(20, (window.innerWidth - e.clientX) / window.innerWidth * 100))
+        setSplitPct(pct); localStorage.setItem('ide_splitPct', String(Math.round(pct)))
       } else {
         const h = Math.min(window.innerHeight - 220, Math.max(120, window.innerHeight - e.clientY - 30))
         setPanelH(h); localStorage.setItem('ide_panelH', String(h))
@@ -101,7 +109,7 @@ export default function BusinessIDE() {
   const startDrag = (type) => (e) => {
     e.preventDefault()
     dragRef.current = { type }
-    document.body.style.cursor = type === 'side' ? 'col-resize' : 'row-resize'
+    document.body.style.cursor = type === 'panel' ? 'row-resize' : 'col-resize'
     document.body.style.userSelect = 'none'
   }
   const inputRef = useRef(null)
@@ -265,11 +273,12 @@ export default function BusinessIDE() {
     const onKey = (e) => {
       if (e.target.dataset?.teach === '1') return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalOpen(o => !o); setPalQ(''); return }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setQpOpen(o => !o); setQpQ(''); return }
       if (e.ctrlKey && e.key === '`') { e.preventDefault(); setPanelOpen(o => !o); return }
-      if (e.key === 'Escape') { setPalOpen(false); inputRef.current?.focus(); return }
+      if (e.key === 'Escape') { setPalOpen(false); setQpOpen(false); inputRef.current?.focus(); return }
       const typing = (e.target.tagName === 'INPUT' && e.target.value !== '')
-      if (!typing && !palOpen && e.key === '?') { e.preventDefault(); openTab('manual'); return }
-      if (typing || palOpen) return
+      if (!typing && !palOpen && !qpOpen && e.key === '?') { e.preventDefault(); openTab('manual'); return }
+      if (typing || palOpen || qpOpen) return
       const idx = openTurns.findIndex(t => t.id === selId)
       if (e.key === 'j') { e.preventDefault(); const n = openTurns[Math.min(openTurns.length - 1, Math.max(0, idx + 1))]; if (n) setSelId(n.id) }
       else if (e.key === 'k') { e.preventDefault(); const n = openTurns[Math.max(0, idx - 1)]; if (n) setSelId(n.id) }
@@ -278,7 +287,7 @@ export default function BusinessIDE() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [openTurns, selId, approve, startTeach, palOpen, openTab])
+  }, [openTurns, selId, approve, startTeach, palOpen, qpOpen, openTab])
 
   /* ── ask + slash commands ── */
   const ask = useCallback(async (raw) => {
@@ -496,40 +505,29 @@ export default function BusinessIDE() {
                 {tabs.length > 1 && <span className="tab-x" onClick={e => { e.stopPropagation(); closeTab(id) }}>×</span>}
               </div>
             ))}
+            <div className="tab-spacer" />
+            <button className={`burger ${splitTab ? 'on-btn' : ''}`} title="split editor (side by side)"
+              onClick={() => setSplitTab(s => s ? null : (tabs.find(t => t !== activeTab) || activeTab))}>⫿</button>
           </div>
 
-          <div className="view">
-            {!m ? <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p> : (
-              <>
-                {activeTab === 'overview' && <OverviewView m={m} />}
-                {activeTab === 'google' && <CampaignView m={m} platform="Google" />}
-                {activeTab === 'meta' && <CampaignView m={m} platform="Meta" />}
-                {activeTab === 'orders' && <OrdersView data={data} />}
-                {activeTab === 'klaviyo' && <KlaviyoView m={m} />}
-                {activeTab === 'manual' && <div className="man-body wide"><Markdown text={MANUAL} /></div>}
-                {activeTab === 'ledger' && <LedgerView ledger={ledger} onUndo={undoDecision} />}
-                {activeTab === 'policies' && <PoliciesView policies={policies} />}
-                {activeTab.startsWith('pin:') && (() => {
-                  const p = pins.find(x => 'pin:' + x.id === activeTab)
-                  if (!p) return <p className="loading v-pad">pin not found.</p>
-                  return (
-                    <div className="v-pad">
-                      <div className="pin-head">
-                        <div>
-                          <h3 className="pin-title">📌 {p.title}</h3>
-                          <p className="v-dim">pinned {new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · snapshot of: “{p.question}”</p>
-                        </div>
-                        <div className="pin-actions">
-                          <button className="tt-btn" onClick={() => { setPanelOpen(true); setPanelTab('terminal'); ask(p.question) }}>↻ re-ask (fresh data)</button>
-                          <button className="tt-btn" onClick={() => unpin(p.id)}>✕ unpin</button>
-                        </div>
-                      </div>
-                      <RenderSpec spec={p.spec} />
-                    </div>
-                  )
-                })()}
-              </>
-            )}
+          <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
+            <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
+              <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+            </div>
+            {splitTab && <>
+              <div className="resize-h" onMouseDown={startDrag('vsplit')} title="drag to resize" />
+              <div className="view split" style={{ width: `${splitPct}%` }}>
+                <div className="split-head">
+                  <select value={splitTab} onChange={e => setSplitTab(e.target.value)}>
+                    {tabs.map(id => <option key={id} value={id}>{tabTitle(id)}</option>)}
+                  </select>
+                  <button className="tt-btn" onClick={() => setSplitTab(null)}>✕</button>
+                </div>
+                <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+              </div>
+            </>}
           </div>
 
           {/* ── Panel: terminal + problems ── */}
@@ -595,6 +593,32 @@ export default function BusinessIDE() {
         </div>
       </div>
 
+      {/* ⌘P quick-open — fuzzy jump to any view, pin, or campaign */}
+      {qpOpen && (() => {
+        const items = [
+          ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
+          ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
+          ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
+        ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
+        return (
+          <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setQpOpen(false) }}>
+            <div className="pal">
+              <input autoFocus value={qpQ} onChange={e => setQpQ(e.target.value)} placeholder="jump to a view, pin, or campaign…"
+                onKeyDown={e => {
+                  if (e.key === 'Escape') setQpOpen(false)
+                  if (e.key === 'Enter' && items[0]) { setQpOpen(false); items[0].run() }
+                }} />
+              {items.map(it => (
+                <div key={it.key} className="it" onClick={() => { setQpOpen(false); it.run() }}>
+                  <b className="qp-label">{it.label}</b><span className="d">{it.sub}</span>
+                </div>
+              ))}
+              {!items.length && <div className="it"><span className="d">no matches</span></div>}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ⌘K palette */}
       {palOpen && (
         <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setPalOpen(false) }}>
@@ -614,6 +638,39 @@ export default function BusinessIDE() {
   )
 }
 
+/* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, onUndo, onUnpin, onReask }) {
+  if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
+  if (id === 'overview') return <OverviewView m={m} />
+  if (id === 'google') return <CampaignView m={m} platform="Google" />
+  if (id === 'meta') return <CampaignView m={m} platform="Meta" />
+  if (id === 'orders') return <OrdersView data={data} />
+  if (id === 'klaviyo') return <KlaviyoView m={m} />
+  if (id === 'manual') return <div className="man-body wide"><Markdown text={MANUAL} /></div>
+  if (id === 'ledger') return <LedgerView ledger={ledger} onUndo={onUndo} />
+  if (id === 'policies') return <PoliciesView policies={policies} />
+  if (id.startsWith('pin:')) {
+    const p = pins.find(x => 'pin:' + x.id === id)
+    if (!p) return <p className="loading v-pad">pin not found.</p>
+    return (
+      <div className="v-pad">
+        <div className="pin-head">
+          <div>
+            <h3 className="pin-title">📌 {p.title}</h3>
+            <p className="v-dim">pinned {new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · snapshot of: “{p.question}”</p>
+          </div>
+          <div className="pin-actions">
+            <button className="tt-btn" onClick={() => onReask(p.question)}>↻ re-ask (fresh data)</button>
+            <button className="tt-btn" onClick={() => onUnpin(p.id)}>✕ unpin</button>
+          </div>
+        </div>
+        <RenderSpec spec={p.spec} />
+      </div>
+    )
+  }
+  return <p className="loading v-pad">unknown view.</p>
+}
+
 /* ══════════ Resizable table — Google Sheets behavior, IDE skin ══════════
    Drag any header border to resize its column; narrowed text wraps when the
    wrap toggle is on, truncates with … when off. Widths + wrap persist per
@@ -621,8 +678,22 @@ export default function BusinessIDE() {
 function ResizableTable({ id, columns, rows, note }) {
   const [widths, setWidths] = useState(null) // null = auto layout until touched
   const [wrap, setWrap] = useState(true)
+  const [sort, setSort] = useState(null) // {i, dir: 1|-1}
   const tableRef = useRef(null)
   const dragRef = useRef(null) // {i, startX, startW}
+
+  // Click a header to cycle sort: desc → asc → off. Cells provide `s`
+  // (sortable primitive) alongside `v` (rendered node).
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows
+    const val = (r) => { const c = r[sort.i]; const s = c?.s ?? c?.v ?? c; return typeof s === 'number' ? s : String(s ?? '') }
+    return [...rows].sort((a, b) => {
+      const av = val(a), bv = val(b)
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+      return cmp * sort.dir
+    })
+  }, [rows, sort])
+  const cycleSort = (i) => setSort(s => (!s || s.i !== i) ? { i, dir: -1 } : s.dir === -1 ? { i, dir: 1 } : null)
 
   useEffect(() => {
     try {
@@ -686,14 +757,14 @@ function ResizableTable({ id, columns, rows, note }) {
           {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
           <thead><tr>
             {columns.map((c, i) => (
-              <th key={i} className={c.num ? 'num' : ''}>
-                {c.label}
+              <th key={i} className={`${c.num ? 'num' : ''} sortable`} onClick={() => c.label && cycleSort(i)} title={c.label ? 'click to sort' : undefined}>
+                {c.label}{sort?.i === i ? (sort.dir === -1 ? ' ▾' : ' ▴') : ''}
                 <span className="col-grip" onMouseDown={startColDrag(i)} />
               </th>
             ))}
           </tr></thead>
           <tbody>
-            {rows.map((r, ri) => (
+            {sortedRows.map((r, ri) => (
               <tr key={ri}>{r.map((cell, ci) => <td key={ci} className={cell?.cls || (columns[ci].num ? 'num' : '')}>{cell?.v ?? cell}</td>)}</tr>
             ))}
           </tbody>
@@ -755,14 +826,14 @@ function CampaignView({ m, platform }) {
         id={`camp-${platform}`}
         columns={[{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: '$/day', num: true }, { label: 'Clicks', num: true }, { label: 'Orders (CH)', num: true }, { label: 'Attr. Rev', num: true }, { label: 'True ROAS', num: true }]}
         rows={rows.map(c => [
-          { v: c.campaign_name, cls: 'tname' },
-          { v: c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span> },
-          { v: money(c.spend), cls: 'num' },
-          { v: money(c.spendPerDay), cls: 'num' },
-          { v: c.clicks.toLocaleString(), cls: 'num' },
-          { v: c.chOrders, cls: 'num' },
-          { v: money(c.chRevenue), cls: 'num' },
-          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}` },
+          { v: c.campaign_name, cls: 'tname', s: c.campaign_name },
+          { v: c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span>, s: c.stale ? 'stale' : c.status },
+          { v: money(c.spend), cls: 'num', s: c.spend },
+          { v: money(c.spendPerDay), cls: 'num', s: c.spendPerDay },
+          { v: c.clicks.toLocaleString(), cls: 'num', s: c.clicks },
+          { v: c.chOrders, cls: 'num', s: c.chOrders },
+          { v: money(c.chRevenue), cls: 'num', s: c.chRevenue },
+          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`, s: c.trueRoas ?? -999 },
         ])}
         note="True ROAS = (UTM-attributed revenue − BOM COGS) ÷ spend · breakeven 1.00x · ask the terminal about any row."
       />
@@ -778,10 +849,10 @@ function OrdersView({ data }) {
         id="orders"
         columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
         rows={rows.map(o => [
-          { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname' },
-          { v: new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) },
-          { v: deriveChannel(o) },
-          { v: money(o.sale_amount), cls: 'num strong' },
+          { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: o.shopify_data?.order_name || o.lead_id },
+          { v: new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), s: o.created_at },
+          { v: deriveChannel(o), s: deriveChannel(o) },
+          { v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 },
         ])}
         note={(data?.orders || []).length > 100 ? `showing latest 100 of ${data.orders.length}.` : undefined}
       />
@@ -812,16 +883,17 @@ function LedgerView({ ledger, onUndo }) {
         id="ledger3"
         columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est.', num: true }, { label: 'Measured', num: true }, { label: 'Status' }, { label: '' }]}
         rows={ledger.map((r) => [
-          { v: r.what, cls: 'tname' },
-          { v: new Date(r.approved_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
-          { v: Number(r.est_impact_monthly) > 0 ? '+' + money(r.est_impact_monthly) + '/mo' : '—', cls: 'num v-dim' },
+          { v: r.what, cls: 'tname', s: r.what },
+          { v: new Date(r.approved_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }), s: r.approved_at },
+          { v: Number(r.est_impact_monthly) > 0 ? '+' + money(r.est_impact_monthly) + '/mo' : '—', cls: 'num v-dim', s: Number(r.est_impact_monthly) || 0 },
           {
             v: r.measured
               ? (r.measured.delta_monthly != null ? `${r.measured.delta_monthly >= 0 ? '+' : ''}${money(r.measured.delta_monthly)}/mo` : 'n/a')
               : 'in ~7d',
             cls: `num ${r.measured?.delta_monthly > 0 ? 'good' : r.measured?.delta_monthly < 0 ? 'bad' : 'v-dim'}`,
+            s: r.measured?.delta_monthly ?? -999999,
           },
-          { v: <span className={`pill ${r.status === 'executed' ? 'ok' : 'dead'}`}>{r.status}</span> },
+          { v: <span className={`pill ${r.status === 'executed' ? 'ok' : 'dead'}`}>{r.status}</span>, s: r.status },
           { v: r.status !== 'reverted' ? <button className="tt-btn" onClick={() => onUndo(r)} title="revert — reopens in PROBLEMS">↩ undo</button> : '—' },
         ])}
         note="persisted in the database · Measured = whole-account net/day delta over the 7 days after approval vs the 7 before (directional, not campaign-isolated) · undo reverts the log; live platform changes list rollback info on the decision."
@@ -1051,7 +1123,17 @@ const CSS = `
 .ide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
 .ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
 .ide .tab-x{color:var(--faint);font-size:13px;} .ide .tab-x:hover{color:var(--txt);}
-.ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;position:relative;z-index:1;}
+.ide .view-row{flex:1;display:flex;min-height:0;position:relative;z-index:1;}
+.ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;min-width:0;}
+.ide .view-row.issplit .view{flex:none;}
+.ide .view.split{border-left:1px solid var(--line);}
+.ide .split-head{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2;}
+.ide .split-head select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:11px;border-radius:5px;padding:2px 6px;outline:none;cursor:pointer;max-width:70%;}
+.ide .tab-spacer{flex:1;}
+.ide .burger.on-btn{color:var(--blue);}
+.ide .vtable th.sortable{cursor:pointer;}
+.ide .vtable th.sortable:hover{color:var(--txt);}
+.ide .qp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;}
 .ide .loading{color:var(--faint);font-size:12.5px;padding:18px;}
 .ide .v-pad{padding:18px 22px 26px;}
 .ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
