@@ -65,6 +65,46 @@ export default function BusinessIDE() {
   const [panelOpen, setPanelOpen] = useState(true)
   const [panelTab, setPanelTab] = useState('terminal') // 'terminal' | 'problems'
   const [sideOpen, setSideOpen] = useState(true)
+  // Resizable panes — drag the dividers like a real IDE; sizes persist.
+  const [sideW, setSideW] = useState(218)
+  const [panelH, setPanelH] = useState(300)
+  const dragRef = useRef(null) // {type:'side'|'panel'}
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem('ide_sideW')); if (w >= 140 && w <= 480) setSideW(w)
+      const h = Number(localStorage.getItem('ide_panelH')); if (h >= 120 && h <= window.innerHeight - 220) setPanelH(h)
+      else setPanelH(Math.round(window.innerHeight * 0.34))
+    } catch { /* defaults */ }
+  }, [])
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      if (d.type === 'side') {
+        const w = Math.min(480, Math.max(140, e.clientX))
+        setSideW(w); localStorage.setItem('ide_sideW', String(w))
+      } else {
+        const h = Math.min(window.innerHeight - 220, Math.max(120, window.innerHeight - e.clientY - 30))
+        setPanelH(h); localStorage.setItem('ide_panelH', String(h))
+      }
+    }
+    const up = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [])
+  const startDrag = (type) => (e) => {
+    e.preventDefault()
+    dragRef.current = { type }
+    document.body.style.cursor = type === 'side' ? 'col-resize' : 'row-resize'
+    document.body.style.userSelect = 'none'
+  }
   const inputRef = useRef(null)
   const endRef = useRef(null)
   const histRef = useRef([])
@@ -288,7 +328,7 @@ export default function BusinessIDE() {
       <div className="ide-cols">
         {/* ── Explorer ── */}
         {sideOpen && (
-          <div className="explorer">
+          <div className="explorer" style={{ width: sideW }}>
             <div className="exp-head">
               <span>{data?.clientName || clientId}</span>
               <span className="exp-badge">ECOM</span>
@@ -315,6 +355,8 @@ export default function BusinessIDE() {
             </div>
           </div>
         )}
+
+        {sideOpen && <div className="resize-h" onMouseDown={startDrag('side')} title="drag to resize" />}
 
         {/* ── Right column: tabs / view / panel ── */}
         <div className="main">
@@ -345,7 +387,8 @@ export default function BusinessIDE() {
 
           {/* ── Panel: terminal + problems ── */}
           {panelOpen && (
-            <div className="panel">
+            <div className="panel" style={{ height: panelH }}>
+              <div className="resize-v" onMouseDown={startDrag('panel')} title="drag to resize" />
               <div className="panel-tabs">
                 <span className={panelTab === 'terminal' ? 'on' : ''} onClick={() => { setPanelTab('terminal'); inputRef.current?.focus() }}>TERMINAL</span>
                 <span className={panelTab === 'problems' ? 'on' : ''} onClick={() => setPanelTab('problems')}>PROBLEMS{problems.length ? ` (${problems.length})` : ''}</span>
@@ -679,7 +722,13 @@ const CSS = `
 .ide .strong{font-weight:700;}
 
 /* explorer */
-.ide .explorer{width:218px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
+.ide .explorer{flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
+
+/* resize handles — invisible until hover, like VS Code */
+.ide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
+.ide .resize-h:hover,.ide .resize-h:active{background:rgba(110,168,254,.45);}
+.ide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
+.ide .resize-v:hover,.ide .resize-v:active{background:rgba(110,168,254,.45);}
 .ide .exp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:800;font-size:12.5px;border-bottom:1px solid var(--line);}
 .ide .exp-badge{font-size:9px;font-weight:800;color:var(--green);background:rgba(63,214,143,.12);border-radius:4px;padding:1px 6px;}
 .ide .exp-sec{font-size:9.5px;font-weight:800;letter-spacing:.09em;color:var(--faint);padding:14px 14px 4px;}
@@ -729,7 +778,7 @@ const CSS = `
 .ide .sp-col:hover i{background:var(--blue);}
 
 /* panel */
-.ide .panel{height:34vh;min-height:180px;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;}
+.ide .panel{min-height:120px;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;}
 .ide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
 .ide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
 .ide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
