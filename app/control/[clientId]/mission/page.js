@@ -117,6 +117,14 @@ export default function BusinessIDE() {
   const [policies, setPolicies] = useState([])
   const [leversMode, setLeversMode] = useState('dry_run')
 
+  // Pinned views — any agent-rendered chart/table saved as a "file" in the
+  // explorer. Local to this browser (specs are snapshots; re-ask re-runs).
+  const [pins, setPins] = useState([])
+  useEffect(() => {
+    try { setPins(JSON.parse(localStorage.getItem(`ide_pins_${clientId}`) || '[]')) } catch { /* fresh */ }
+  }, [clientId])
+  const savePins = (next) => { setPins(next); localStorage.setItem(`ide_pins_${clientId}`, JSON.stringify(next)) }
+
   const range = useMemo(() => rangeDays(rangeN), [rangeN])
   const m = useMemo(() => data ? computeMission(data) : null, [data])
 
@@ -402,6 +410,8 @@ export default function BusinessIDE() {
             setSelId(id)
             push({ kind: 'sys', text: `agent action · drafted “${a.input.title}” into PROBLEMS (saved) — y approves, n dismisses` })
           } catch (e) { push({ kind: 'sys', text: 'agent draft failed: ' + e.message }) }
+        } else if (a.name === 'render_view' && a.input?.type && a.input?.title) {
+          setTurns(t => [...t, { id: tid(), kind: 'render', spec: a.input, question: q }])
         } else {
           push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
         }
@@ -410,6 +420,23 @@ export default function BusinessIDE() {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
   }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide])
+
+  const pinView = useCallback((spec, question) => {
+    const id = 'p' + Date.now().toString(36)
+    savePins([...pins, { id, title: spec.title || 'Pinned view', spec, question, when: new Date().toISOString() }])
+    openTab('pin:' + id)
+    push({ kind: 'sys', text: `pinned “${spec.title}” — it's a file in the explorer now (PINNED section).` })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, openTab, push])
+  const unpin = useCallback((id) => {
+    savePins(pins.filter(p => p.id !== id))
+    closeTab('pin:' + id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, closeTab])
+  const tabTitle = useCallback((id) => {
+    if (id.startsWith('pin:')) return '📌 ' + (pins.find(p => 'pin:' + p.id === id)?.title || 'Pinned').slice(0, 24)
+    return VIEW_TITLES[id] || id
+  }, [pins])
 
   const palItems = PALETTE_CMDS.filter(([c, d]) => (c + d).includes(palQ.toLowerCase()))
   const problems = openTurns
@@ -438,6 +465,14 @@ export default function BusinessIDE() {
                 ))}
               </div>
             ))}
+            {pins.length > 0 && <>
+              <div className="exp-sec">PINNED</div>
+              {pins.map(p => (
+                <div key={p.id} className={`exp-item ${activeTab === 'pin:' + p.id ? 'on' : ''}`} onClick={() => openTab('pin:' + p.id)}>
+                  <span className="exp-ic">📌</span><span className="exp-trunc">{p.title}</span>
+                </div>
+              ))}
+            </>}
             <div className="exp-sec">PANEL</div>
             <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
               <span className="exp-ic">⚠️</span>Problems
@@ -457,7 +492,7 @@ export default function BusinessIDE() {
             <button className="burger" onClick={() => setSideOpen(o => !o)} title="Toggle explorer">☰</button>
             {tabs.map(id => (
               <div key={id} className={`tab ${activeTab === id ? 'on' : ''}`} onClick={() => setActiveTab(id)}>
-                {VIEW_TITLES[id]}
+                {tabTitle(id)}
                 {tabs.length > 1 && <span className="tab-x" onClick={e => { e.stopPropagation(); closeTab(id) }}>×</span>}
               </div>
             ))}
@@ -474,6 +509,25 @@ export default function BusinessIDE() {
                 {activeTab === 'manual' && <div className="man-body wide"><Markdown text={MANUAL} /></div>}
                 {activeTab === 'ledger' && <LedgerView ledger={ledger} onUndo={undoDecision} />}
                 {activeTab === 'policies' && <PoliciesView policies={policies} />}
+                {activeTab.startsWith('pin:') && (() => {
+                  const p = pins.find(x => 'pin:' + x.id === activeTab)
+                  if (!p) return <p className="loading v-pad">pin not found.</p>
+                  return (
+                    <div className="v-pad">
+                      <div className="pin-head">
+                        <div>
+                          <h3 className="pin-title">📌 {p.title}</h3>
+                          <p className="v-dim">pinned {new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · snapshot of: “{p.question}”</p>
+                        </div>
+                        <div className="pin-actions">
+                          <button className="tt-btn" onClick={() => { setPanelOpen(true); setPanelTab('terminal'); ask(p.question) }}>↻ re-ask (fresh data)</button>
+                          <button className="tt-btn" onClick={() => unpin(p.id)}>✕ unpin</button>
+                        </div>
+                      </div>
+                      <RenderSpec spec={p.spec} />
+                    </div>
+                  )
+                })()}
               </>
             )}
           </div>
@@ -491,7 +545,7 @@ export default function BusinessIDE() {
               {panelTab === 'terminal' && (
                 <>
                   <div className="stream">
-                    {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} />)}
+                    {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} onPin={() => pinView(t.spec, t.question)} />)}
                     <div ref={endRef} />
                   </div>
                   <div className="prompt">
@@ -795,7 +849,18 @@ function PoliciesView({ policies }) {
 
 /* ══════════ Terminal turns (same grammar as before) ══════════ */
 
-function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, bare }) {
+function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, bare }) {
+  if (t.kind === 'render') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph bluec">▦</div><div className="body">
+      <div className="meta"><span className="who">agent · rendered view</span></div>
+      <div className="render-card">
+        <div className="render-h"><span className="render-t">{t.spec.title}</span>
+          <button className="tt-btn" onClick={onPin} title="save as a file in the explorer">📌 pin to tab</button>
+        </div>
+        <RenderSpec spec={t.spec} />
+      </div>
+    </div></div></div>
+  )
   if (t.kind === 'sys') return bare ? null : (
     <div className="turn"><div className="gutter"><div className="glyph dimc">·</div><div className="body"><div className="txt dim pre">{t.text}</div></div></div></div>
   )
@@ -855,6 +920,52 @@ function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, bare }) 
     )
   }
   return null
+}
+
+/* Generative UI: render a spec the agent produced (bar | line | table) */
+const SERIES_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f']
+function RenderSpec({ spec }) {
+  if (spec.type === 'bar' && spec.bars?.length) {
+    return <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} />
+  }
+  if (spec.type === 'line' && spec.line?.series?.length) return <LineChart line={spec.line} />
+  if (spec.type === 'table' && spec.table?.head) return <DataTable head={spec.table.head} rows={spec.table.rows || []} />
+  return <p className="v-dim">unrenderable spec ({spec.type})</p>
+}
+
+function LineChart({ line }) {
+  const { labels = [], series = [] } = line
+  const W = 620, H = 150, P = 8
+  const all = series.flatMap(s => s.values)
+  if (!all.length) return null
+  const max = Math.max(...all) * 1.08 || 1
+  const min = Math.min(0, ...all)
+  const n = Math.max(...series.map(s => s.values.length))
+  const px = (i) => P + i * (W - 2 * P) / Math.max(1, n - 1)
+  const py = (v) => H - P - (v - min) / (max - min || 1) * (H - 2 * P)
+  return (
+    <div style={{ maxWidth: W }}>
+      <div style={{ marginBottom: 4 }}>
+        {series.map((s, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 14, fontSize: 11, color: 'var(--dim)' }}>
+            <i style={{ width: 10, height: 3, background: SERIES_COLORS[i % SERIES_COLORS.length], display: 'inline-block', borderRadius: 2 }} />{s.name}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%">
+        <line x1={P} y1={py(0)} x2={W - P} y2={py(0)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
+        {series.map((s, i) => (
+          <polyline key={i} fill="none" stroke={SERIES_COLORS[i % SERIES_COLORS.length]} strokeWidth="2"
+            points={s.values.map((v, j) => `${px(j)},${py(v)}`).join(' ')} />
+        ))}
+      </svg>
+      {labels.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--faint)' }}>
+          <span>{labels[0]}</span><span>{labels[Math.floor(labels.length / 2)]}</span><span>{labels[labels.length - 1]}</span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function Bars({ rows }) {
@@ -922,6 +1033,15 @@ const CSS = `
 .ide .exp-ic{width:16px;text-align:center;font-size:11px;}
 .ide .exp-n{margin-left:auto;font-size:10px;color:var(--faint);background:var(--panel2);border-radius:99px;padding:0 6px;}
 .ide .exp-n.warn{color:var(--amber);background:rgba(232,180,90,.12);font-weight:800;}
+.ide .exp-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* generative UI */
+.ide .render-card{border:1px solid rgba(110,168,254,.2);border-radius:8px;background:rgba(110,168,254,.03);padding:10px 13px;margin-top:3px;max-width:680px;}
+.ide .render-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;}
+.ide .render-t{font-weight:700;font-size:12.5px;}
+.ide .pin-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
+.ide .pin-title{font-size:14px;font-weight:800;}
+.ide .pin-actions{display:flex;gap:8px;}
 
 /* main column */
 .ide .main{flex:1;display:flex;flex-direction:column;min-width:0;}

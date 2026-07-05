@@ -39,6 +39,21 @@ const TOOLS = [
     },
   },
   {
+    name: 'render_view',
+    description: 'Render a chart or table NATIVELY in the terminal instead of describing numbers in prose. Use whenever the user asks to compare, chart, visualize, trend, or break down data. Every value must come from (or be arithmetic on) the provided data. Prefer this over long bullet lists of numbers.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['bar', 'line', 'table'] },
+        title: { type: 'string' },
+        bars: { type: 'array', description: 'for type=bar', items: { type: 'object', properties: { label: { type: 'string' }, value: { type: 'number' }, text: { type: 'string', description: 'formatted value shown at bar end, e.g. "$8,136" or "4.17x"' } }, required: ['label', 'value'] } },
+        line: { type: 'object', description: 'for type=line', properties: { labels: { type: 'array', items: { type: 'string' } }, series: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, values: { type: 'array', items: { type: 'number' } } }, required: ['name', 'values'] } } }, required: ['labels', 'series'] },
+        table: { type: 'object', description: 'for type=table', properties: { head: { type: 'array', items: { type: 'string' } }, rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } } }, required: ['head', 'rows'] },
+      },
+      required: ['type', 'title'],
+    },
+  },
+  {
     name: 'draft_finding',
     description: 'Draft a NEW action card into PROBLEMS for the user to approve or dismiss. Use when the user asks you to propose or queue something. You draft — the human decides. Base the title/why on real numbers from the data.',
     input_schema: {
@@ -76,7 +91,7 @@ export async function POST(request) {
     `Key definitions you must respect: True ROAS = (UTM-attributed revenue − real BOM COGS) ÷ ad spend, so breakeven is 1.00x. The top-level true_roas_paid_only divides PAID contribution by spend — organic revenue never inflates it. COGS comes from the client's bill of materials, not estimates.`,
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
     `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
-    `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or touch any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
+    `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding, render_view). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or touch any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
   ].join(' ')
 
   const messages = [
