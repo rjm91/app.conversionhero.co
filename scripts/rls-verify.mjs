@@ -46,6 +46,24 @@ const BATCHES = {
     mayBeEmpty: ['client_lead_meta'],
     users: [],
   },
+  // Campaign tables: tenant select only.
+  batch3b: {
+    tables: ['client_yt_campaigns', 'client_yt_ad_groups', 'client_yt_ads', 'client_meta_campaigns', 'client_klaviyo_campaigns'],
+    mayBeEmpty: ['client_yt_ad_groups', 'client_yt_ads', 'client_klaviyo_campaigns'],
+    users: [],
+  },
+  // Commerce/ops: select (+ billing insert/update).
+  batch3c: {
+    tables: ['client_materials', 'client_skus', 'client_payments', 'client_qb_payments', 'client_google_ads_account', 'client_billing'],
+    mayBeEmpty: ['client_qb_payments', 'client_billing', 'client_google_ads_account'],
+    users: [],
+  },
+  // Content & ops: CRUD on asset/folder/scripts; select elsewhere; self-scope user_activity.
+  batch3d: {
+    tables: ['client_asset', 'client_folder', 'client_video_scripts', 'client_avatar_videos', 'client_campaign_drafts', 'client_automations', 'client_domains', 'calendar_events', 'projects', 'project_tasks', 'user_activity'],
+    mayBeEmpty: ['client_asset', 'client_folder', 'client_video_scripts', 'client_avatar_videos', 'client_campaign_drafts', 'client_automations', 'client_domains', 'calendar_events', 'projects', 'project_tasks', 'user_activity'],
+    users: [],
+  },
 }
 
 async function count(table, key, jwt) {
