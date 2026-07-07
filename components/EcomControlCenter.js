@@ -33,7 +33,7 @@ function platformOf(str) {
   if (/google|adwords|gads|youtube/.test(s))    return 'Google'
   return null
 }
-function deriveChannel(o) {
+export function deriveChannel(o) {
   const sd = o.shopify_data || {}
   // RULE: if Google or Facebook appears ANYWHERE in the journey (first OR last
   // visit, or the merged top-level UTM), attribute the order to that platform —

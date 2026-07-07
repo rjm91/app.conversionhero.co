@@ -1,0 +1,1290 @@
+'use client'
+
+// The Business IDE — VS Code's shape, adapted for running an ecom company.
+// Explorer (left) = the client's surfaces as a tree. Tabs (top) = open views.
+// Panel (lower third) = TERMINAL (the mission session) + PROBLEMS (the queue).
+// Status bar = live KPIs. One persistent session survives tab switches and
+// knows which view you're looking at. Approvals still log locally — no
+// platform writes in this build.
+
+import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
+import { MANUAL } from '../../../../lib/mission/manual'
+import { deriveChannel } from '../../../../lib/channels'
+
+const money = (n) => '$' + Math.round(n || 0).toLocaleString()
+let turnSeq = 0
+const tid = () => 'turn-' + (++turnSeq)
+
+const PALETTE_CMDS = [
+  ['/pause', 'draft a pause for the worst margin bleeder'],
+  ['/scale', 'draft a budget test on the best winner'],
+  ['/forecast', '30-day projection with queue scenarios'],
+  ['/campaigns', 'true ROAS per campaign'],
+  ['/ledger', 'decision history'],
+  ['/policies', 'rules you have taught'],
+  ['/range 7|30|90', 'change the data window'],
+  ['/manual', 'how all of this works'],
+  ['/clear', 'reset the session'],
+]
+
+// The Explorer tree — every leaf is a view backed by live data
+const TREE = [
+  { section: 'WORKSPACE', items: [
+    { id: 'overview', icon: '📊', label: 'Overview' },
+  ]},
+  { section: 'CAMPAIGNS', items: [
+    { id: 'google', icon: '🔍', label: 'Google Ads' },
+    { id: 'meta', icon: '📘', label: 'Meta Ads' },
+  ]},
+  { section: 'REVENUE', items: [
+    { id: 'orders', icon: '🛍', label: 'Orders' },
+    { id: 'klaviyo', icon: '✉️', label: 'Klaviyo' },
+  ]},
+  { section: 'DOCS', items: [
+    { id: 'manual', icon: '📖', label: 'Manual' },
+    { id: 'ledger', icon: '🧾', label: 'Ledger' },
+    { id: 'policies', icon: '🛡', label: 'Policies' },
+  ]},
+]
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
+
+export default function BusinessIDE() {
+  const { clientId } = useParams()
+  const [rangeN, setRangeN] = useState(30)
+  const [data, setData] = useState(null)
+  const [turns, setTurns] = useState([])
+  const [selId, setSelId] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [palOpen, setPalOpen] = useState(false)
+  const [palQ, setPalQ] = useState('')
+  const [tabs, setTabs] = useState(['overview'])
+  const [activeTab, setActiveTab] = useState('overview')
+  const [splitTab, setSplitTab] = useState(null)   // second editor pane (or null)
+  const [splitPct, setSplitPct] = useState(45)     // right pane width %
+  const [qpOpen, setQpOpen] = useState(false)      // ⌘P quick-open
+  const [qpQ, setQpQ] = useState('')
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [panelTab, setPanelTab] = useState('terminal') // 'terminal' | 'problems'
+  const [sideOpen, setSideOpen] = useState(true)
+  // Resizable panes — drag the dividers like a real IDE; sizes persist.
+  const [sideW, setSideW] = useState(218)
+  const [panelH, setPanelH] = useState(300)
+  const dragRef = useRef(null) // {type:'side'|'panel'}
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem('ide_sideW')); if (w >= 140 && w <= 480) setSideW(w)
+      const h = Number(localStorage.getItem('ide_panelH')); if (h >= 120 && h <= window.innerHeight - 220) setPanelH(h)
+      else setPanelH(Math.round(window.innerHeight * 0.34))
+      const sp = Number(localStorage.getItem('ide_splitPct')); if (sp >= 20 && sp <= 70) setSplitPct(sp)
+    } catch { /* defaults */ }
+  }, [])
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      if (d.type === 'side') {
+        const w = Math.min(480, Math.max(140, e.clientX))
+        setSideW(w); localStorage.setItem('ide_sideW', String(w))
+      } else if (d.type === 'vsplit') {
+        const pct = Math.min(70, Math.max(20, (window.innerWidth - e.clientX) / window.innerWidth * 100))
+        setSplitPct(pct); localStorage.setItem('ide_splitPct', String(Math.round(pct)))
+      } else {
+        const h = Math.min(window.innerHeight - 220, Math.max(120, window.innerHeight - e.clientY - 30))
+        setPanelH(h); localStorage.setItem('ide_panelH', String(h))
+      }
+    }
+    const up = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [])
+  const startDrag = (type) => (e) => {
+    e.preventDefault()
+    dragRef.current = { type }
+    document.body.style.cursor = type === 'panel' ? 'row-resize' : 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+  const inputRef = useRef(null)
+  const endRef = useRef(null)
+  const histRef = useRef([])
+  const bootedRef = useRef(false)
+
+  // Server-backed state: findings (PROBLEMS), decisions (Ledger), taught
+  // policies — all live in Supabase now, refreshed by the daily cron watcher
+  // AND on every page load (refresh=1 re-runs the watcher server-side).
+  const [srvFindings, setSrvFindings] = useState(null) // null = loading
+  const [ledger, setLedger] = useState([])
+  const [policies, setPolicies] = useState([])
+  const [leversMode, setLeversMode] = useState('dry_run')
+
+  // Pinned views — any agent-rendered chart/table saved as a "file" in the
+  // explorer. Local to this browser (specs are snapshots; re-ask re-runs).
+  const [pins, setPins] = useState([])
+  useEffect(() => {
+    try { setPins(JSON.parse(localStorage.getItem(`ide_pins_${clientId}`) || '[]')) } catch { /* fresh */ }
+  }, [clientId])
+  const savePins = (next) => { setPins(next); localStorage.setItem(`ide_pins_${clientId}`, JSON.stringify(next)) }
+
+  const range = useMemo(() => rangeDays(rangeN), [rangeN])
+  const m = useMemo(() => data ? computeMission(data) : null, [data])
+
+  const push = useCallback((turn) => setTurns(t => [...t, { id: tid(), ...turn }]), [])
+  const patch = useCallback((id, up) => setTurns(t => t.map(x => x.id === id ? { ...x, ...(typeof up === 'function' ? up(x) : up) } : x)), [])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [turns, panelOpen, panelTab])
+
+  /* ── tabs ── */
+  const openTab = useCallback((id) => {
+    setTabs(t => t.includes(id) ? t : [...t, id])
+    setActiveTab(id)
+  }, [])
+  const closeTab = useCallback((id) => {
+    setTabs(t => {
+      const next = t.filter(x => x !== id)
+      if (next.length === 0) return ['overview']
+      return next
+    })
+    setActiveTab(a => a === id ? (tabs.filter(x => x !== id)[0] || 'overview') : a)
+  }, [tabs])
+
+  /* ── data load + boot ── */
+  useEffect(() => {
+    let alive = true
+    bootedRef.current = false
+    setTurns([]); setSelId(null); setSrvFindings(null)
+    push({ kind: 'sys', text: `loading ${rangeN}d of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
+    fetchMissionData(clientId, range.start, range.end)
+      .then(d => { if (alive) setData(d) })
+      .catch(e => push({ kind: 'sys', text: 'load failed: ' + e.message }))
+    fetch(`/api/mission/state?client_id=${clientId}&refresh=1&days=${rangeN}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => {
+        if (!alive) return
+        setSrvFindings(s.findings || [])
+        setLedger(s.decisions || [])
+        setPolicies(s.policies || [])
+        setLeversMode(s.levers_mode || 'dry_run')
+        if (s.refreshError) push({ kind: 'sys', text: 'watcher refresh hiccup (showing last-known state): ' + s.refreshError })
+      })
+      .catch(e => { if (alive) { setSrvFindings([]); push({ kind: 'sys', text: 'state load failed: ' + e.message }) } })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, range.start, range.end])
+
+  useEffect(() => {
+    if (!m || !data || srvFindings === null || bootedRef.current) return
+    bootedRef.current = true
+    const findings = srvFindings.map(rowToFinding)
+    setTurns([{ id: tid(), kind: 'sys', text: `session start · ${data.clientName} · ${rangeN}d — ${m.orders} orders, ${m.campaigns.length} campaigns, ${m.hasCogs ? 'BOM margins live (' + (m.margin * 100).toFixed(1) + '%)' : 'no BOM data'} · levers: ${leversMode} · findings + decisions now persist in the database (cron watcher runs daily).` }])
+    let firstId = null
+    for (const f of findings) {
+      const id = tid()
+      if (!firstId) firstId = id
+      setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+    }
+    setSelId(firstId)
+    setTurns(t => [...t, { id: tid(), kind: 'sys', text: (findings.length ? `${findings.length} in PROBLEMS · y approves the selected card · j/k moves.` : 'no problems — every live campaign clears breakeven.') + ' press ? for the manual · ctrl+\` toggles this panel.' }])
+    inputRef.current?.focus()
+  }, [m, data, srvFindings, rangeN, leversMode])
+
+  /* ── decisions ── */
+  const findingTurns = turns.filter(t => t.kind === 'finding')
+  const openTurns = findingTurns.filter(t => t.status === 'open')
+
+  const decide = useCallback(async (payload) => {
+    const res = await fetch('/api/mission/decide', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, ...payload }),
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error || 'decide failed')
+    return json
+  }, [clientId])
+
+  const approve = useCallback(async (t) => {
+    if (t.status !== 'open') return
+    patch(t.id, { status: 'executing' })
+    try {
+      const json = await decide({ action: 'approve', finding_key: t.f.id })
+      patch(t.id, { status: 'done' })
+      setLedger(l => [json.decision, ...l])
+      const ex = json.execution || {}
+      const exNote = ex.executed
+        ? `LIVE — executed on ${ex.platform} (rollback info recorded)`
+        : ex.request ? `dry run — exact ${ex.platform} request built & recorded, NOT sent`
+        : ex.note || 'logged'
+      push({ kind: 'decision', text: `APPROVED ${json.decision.what}${t.f.impactMonthly > 0 ? ` — ~${money(t.f.impactMonthly)}/mo est.` : ''} · ${exNote} · measured impact lands in ~7 days.` })
+      const next = openTurns.find(x => x.id !== t.id)
+      if (next) setSelId(next.id)
+    } catch (e) {
+      patch(t.id, { status: 'open' })
+      push({ kind: 'sys', text: 'approve failed: ' + e.message })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patch, push, openTurns, decide])
+
+  // Undo: revert a ledger decision — the finding reopens in PROBLEMS.
+  const undoDecision = useCallback(async (row) => {
+    if (!row || row.status === 'reverted') return false
+    try {
+      const json = await decide({ action: 'undo', decision_id: row.id })
+      setLedger(l => l.map(x => x.id === row.id ? { ...x, status: 'reverted' } : x))
+      const f = rowToFinding(json.finding)
+      const id = tid()
+      setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' },
+        { id: tid(), kind: 'decision', text: `REVERTED “${row.what}” — reopened in PROBLEMS.${row.execution?.executed ? ' ⚠ the lever ran LIVE on the platform — reversing that is manual; rollback details are stored on the decision.' : ''}` }])
+      setSelId(id)
+      setPanelOpen(true)
+      return true
+    } catch (e) {
+      push({ kind: 'sys', text: 'undo failed: ' + e.message })
+      return false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decide, push])
+
+  const startTeach = useCallback((t) => { if (t.status === 'open') patch(t.id, { status: 'teaching' }) }, [patch])
+  const saveTeach = useCallback(async (t, reason) => {
+    const why = (reason || '').trim() || 'no reason given'
+    patch(t.id, { status: 'taught', reason: why })
+    try {
+      const json = await decide({ action: 'dismiss', finding_key: t.f.id, reason: why })
+      setPolicies(p => [json.policy, ...p])
+      push({ kind: 'decision', text: `TAUGHT “${why}” — standing rule saved to the database; the watcher (including the nightly cron) checks it before proposing.` })
+    } catch (e) {
+      patch(t.id, { status: 'open' })
+      push({ kind: 'sys', text: 'teach failed: ' + e.message })
+    }
+    const next = openTurns.find(x => x.id !== t.id)
+    if (next) setSelId(next.id)
+    inputRef.current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patch, push, openTurns, decide])
+
+  /* ── keyboard ── */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.dataset?.teach === '1') return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalOpen(o => !o); setPalQ(''); return }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setQpOpen(o => !o); setQpQ(''); return }
+      if (e.ctrlKey && e.key === '`') { e.preventDefault(); setPanelOpen(o => !o); return }
+      if (e.key === 'Escape') { setPalOpen(false); setQpOpen(false); inputRef.current?.focus(); return }
+      const typing = (e.target.tagName === 'INPUT' && e.target.value !== '')
+      if (!typing && !palOpen && !qpOpen && e.key === '?') { e.preventDefault(); openTab('manual'); return }
+      if (typing || palOpen || qpOpen) return
+      const idx = openTurns.findIndex(t => t.id === selId)
+      if (e.key === 'j') { e.preventDefault(); const n = openTurns[Math.min(openTurns.length - 1, Math.max(0, idx + 1))]; if (n) setSelId(n.id) }
+      else if (e.key === 'k') { e.preventDefault(); const n = openTurns[Math.max(0, idx - 1)]; if (n) setSelId(n.id) }
+      else if (e.key === 'y') { e.preventDefault(); const t = openTurns[idx]; if (t) approve(t) }
+      else if (e.key === 'n') { e.preventDefault(); const t = openTurns[idx]; if (t) startTeach(t) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openTurns, selId, approve, startTeach, palOpen, qpOpen, openTab])
+
+  /* ── ask + slash commands ── */
+  const ask = useCallback(async (raw) => {
+    const q = raw.trim()
+    if (!q || busy || !m) return
+    setPanelOpen(true); setPanelTab('terminal')
+    push({ kind: 'you', text: q })
+    const lower = q.toLowerCase()
+
+    const KNOWN = ['/pause', '/scale', '/forecast', '/campaigns', '/ledger', '/policies', '/range', '/clear', '/help', '/manual']
+    if (lower.startsWith('/')) {
+      const cmd = lower.split(/\s+/)[0]
+      if (!KNOWN.includes(cmd)) {
+        const guess = KNOWN.map(k => { let s = 0; while (s < Math.min(k.length, cmd.length) && k[s] === cmd[s]) s++; return [k, s] }).sort((a, b) => b[1] - a[1])[0]
+        push({ kind: 'sys', text: `unknown command ${cmd}${guess && guess[1] >= 3 ? ` — did you mean ${guess[0]}?` : ''} · /help lists everything` })
+        return
+      }
+    }
+
+    if (lower === '/clear') { histRef.current = []; bootedRef.current = false; setData(d => ({ ...d })); return }
+    if (lower === '/manual') { openTab('manual'); push({ kind: 'sys', text: 'opened the Manual tab.' }); return }
+    if (lower.startsWith('/range')) {
+      const n = Number(lower.split(/\s+/)[1])
+      if ([7, 30, 90].includes(n)) setRangeN(n); else push({ kind: 'sys', text: 'usage: /range 7 | 30 | 90' })
+      return
+    }
+    if (lower === '/help') { push({ kind: 'sys', text: PALETTE_CMDS.map(([c, d]) => `${c} — ${d}`).join('\n') }); return }
+    if (lower === '/ledger') { openTab('ledger'); push({ kind: 'sys', text: `opened the Ledger tab — ${ledger.length} decisions.` }); return }
+    if (lower === '/policies') { openTab('policies'); push({ kind: 'sys', text: `opened the Policies tab — ${policies.length} standing rules.` }); return }
+    if (lower === '/campaigns') {
+      const rows = m.campaigns.filter(c => c.spend > 0)
+      push({ kind: 'agent', text: `True ROAS per campaign (breakeven 1.00x on real BOM margin) · ${rangeN}d:`,
+        bars: rows.map(c => ({ label: `${c.campaign_name}${c.stale ? ' (stale)' : ''}`, value: c.trueRoas ?? 0, color: c.trueRoas == null ? '#5a6377' : c.trueRoas >= 1.5 ? '#3fd68f' : c.trueRoas >= 1 ? '#e8b45a' : '#f4747f', text: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—' })) })
+      return
+    }
+    if (lower === '/forecast') {
+      const perDay = m.netProfit / m.days
+      const base = perDay * 30
+      const openImpact = openTurns.reduce((s, t) => s + (t.f.impactMonthly || 0), 0)
+      push({ kind: 'agent',
+        text: `Naive 30-day projection from the last ${m.days} days' run-rate (${money(perDay)}/day net): ${money(base)}. Clearing PROBLEMS adds an estimated ${money(openImpact)}/mo. This is arithmetic, not a model — a real forecast lands with the cron watcher.`,
+        bars: [
+          { label: 'do nothing', value: base, color: '#5a6377', text: money(base) },
+          { label: 'clear the queue', value: base + openImpact, color: '#3fd68f', text: money(base + openImpact) },
+        ] })
+      return
+    }
+    if (lower === '/pause' || lower === '/scale') {
+      const pool = m.campaigns.filter(c => c.status === 'ENABLED' && !c.stale && c.spend >= 200 && c.trueRoas != null && c.days >= 4)
+      const c = lower === '/pause'
+        ? pool.filter(x => x.trueRoas < 1 && x.chOrders > 0).sort((a, b) => a.trueRoas - b.trueRoas)[0]
+        : pool.filter(x => x.trueRoas >= 1.5 && x.spend >= 500 && x.chOrders >= 5).sort((a, b) => b.trueRoas - a.trueRoas)[0]
+      if (!c) { push({ kind: 'sys', text: lower === '/pause' ? 'nothing to pause — no enabled campaign is below 1.00x breakeven with attributed orders.' : 'no clear scale candidate — nothing enabled is ≥1.5x with real volume.' }); return }
+      const dupe = turns.find(t => t.kind === 'finding' && t.status === 'open' &&
+        (t.f.action?.campaign_id === c.campaign_id || t.f.id.endsWith(`-${c.campaign_id}`)) &&
+        (lower === '/pause' ? /pause|noattr|bleed/.test(t.f.id) : /scale/.test(t.f.id)))
+      if (dupe) { setSelId(dupe.id); push({ kind: 'sys', text: `already in PROBLEMS — selected the existing card for ${c.campaign_name}.` }); return }
+      const f = lower === '/pause' ? {
+        id: `cmd-pause-${c.campaign_id}`, severity: 'high', icon: '🚨',
+        title: `Pause ${c.campaign_name} (${c.platform}) — below margin breakeven`,
+        why: `True ROAS ${c.trueRoas.toFixed(2)}x on ${money(c.spend)} spend. At ${money(c.spendPerDay)}/day this loses ~${money(c.spendPerDay * (1 - c.trueRoas))}/day of contribution.`,
+        impactMonthly: c.spendPerDay * 30 * (1 - c.trueRoas), confidence: c.days >= 5 ? 'high' : 'medium',
+        evidence: [`${c.days} days`, `${c.chOrders} attributed orders`],
+        action: { kind: 'pause_campaign', ledger: `Pause ${c.campaign_name} on ${c.platform}`, platform: c.platform, campaign_id: c.campaign_id },
+      } : {
+        id: `cmd-scale-${c.campaign_id}`, severity: 'medium', icon: '📈',
+        title: `Scale ${c.campaign_name} (${c.platform}) +20% (${money(c.spendPerDay)} → ${money(c.spendPerDay * 1.2)}/day)`,
+        why: `True ROAS ${c.trueRoas.toFixed(2)}x — each added $1 returns $${c.trueRoas.toFixed(2)} contribution after BOM COGS, before scaling decay. Revert point saved.`,
+        impactMonthly: c.spendPerDay * 0.2 * 30 * (c.trueRoas - 1) * 0.7, confidence: 'medium',
+        evidence: [`${c.chOrders} attributed orders`, `${money(c.spend)} over ${c.days} days`],
+        action: { kind: 'scale_campaign', ledger: `Scale ${c.campaign_name} +20%`, platform: c.platform, campaign_id: c.campaign_id },
+      }
+      try {
+        await decide({ action: 'draft', finding: f })  // persist so approve/undo work server-side
+        const id = tid()
+        setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+        setSelId(id)
+      } catch (e) { push({ kind: 'sys', text: 'draft failed: ' + e.message }) }
+      return
+    }
+
+    // free text → Claude, grounded + aware of the active tab, ledger, and queue
+    setBusy(true)
+    const agentId = tid()
+    setTurns(t => [...t, { id: agentId, kind: 'agent', pending: true, text: '' }])
+    try {
+      const ctx = {
+        ...askContext(data.clientName, m, range),
+        active_view: VIEW_TITLES[activeTab] || activeTab,
+        open_problems: openTurns.map(t => t.f.title),
+        recent_decisions: ledger.slice(0, 10).map((r, i) => ({ index: i, decision: r.what, when: (r.approved_at || '').slice(0, 10), status: r.status, measured_delta_monthly: r.measured?.delta_monthly ?? null })),
+        taught_policies: policies.slice(0, 10).map(p => p.reason),
+      }
+      const res = await fetch('/api/mission/ask', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, context: ctx, history: histRef.current }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'ask failed')
+      histRef.current = [...histRef.current, { q, a: json.answer || '[took a UI action]' }].slice(-6)
+      patch(agentId, { pending: false, text: json.answer })
+
+      // Execute the agent's UI-only actions, narrating each as a sys turn.
+      for (const a of (json.actions || [])) {
+        if (a.name === 'open_tab' && VIEW_TITLES[a.input?.view]) {
+          openTab(a.input.view)
+          push({ kind: 'sys', text: `agent action · opened the ${VIEW_TITLES[a.input.view]} tab` })
+        } else if (a.name === 'set_range' && [7, 30, 90].includes(a.input?.days)) {
+          push({ kind: 'sys', text: `agent action · switching range to ${a.input.days}d` })
+          setRangeN(a.input.days)
+        } else if (a.name === 'reopen_decision') {
+          const match = (a.input?.match || '').toLowerCase()
+          const pool = ledger.filter(r => r.status !== 'reverted')
+          const row = match ? pool.find(r => r.what.toLowerCase().includes(match)) : pool[0]
+          if (!row) push({ kind: 'sys', text: `agent action · couldn't find an active ledger decision${match ? ` matching “${a.input?.match}”` : ''}` })
+          else if (await undoDecision(row)) push({ kind: 'sys', text: `agent action · reopened “${row.what}” into PROBLEMS` })
+        } else if (a.name === 'draft_finding' && a.input?.title && a.input?.why) {
+          const f = {
+            id: `agent-${tid()}`, severity: a.input.severity === 'high' ? 'high' : 'medium', icon: '🤖',
+            title: a.input.title, why: a.input.why,
+            impactMonthly: Number(a.input.impact_monthly) || 0, confidence: 'medium',
+            evidence: ['drafted by the agent in this session'],
+            action: { ledger: a.input.title },
+          }
+          try {
+            await decide({ action: 'draft', finding: f })
+            const id = tid()
+            setTurns(t => [...t, { id, kind: 'finding', f, status: 'open' }])
+            setSelId(id)
+            push({ kind: 'sys', text: `agent action · drafted “${a.input.title}” into PROBLEMS (saved) — y approves, n dismisses` })
+          } catch (e) { push({ kind: 'sys', text: 'agent draft failed: ' + e.message }) }
+        } else if (a.name === 'render_view' && a.input?.type && a.input?.title) {
+          setTurns(t => [...t, { id: tid(), kind: 'render', spec: a.input, question: q }])
+        } else {
+          push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
+        }
+      }
+    } catch (e) {
+      patch(agentId, { pending: false, text: '', error: e.message })
+    } finally { setBusy(false); inputRef.current?.focus() }
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide])
+
+  const pinView = useCallback((spec, question) => {
+    const id = 'p' + Date.now().toString(36)
+    savePins([...pins, { id, title: spec.title || 'Pinned view', spec, question, when: new Date().toISOString() }])
+    openTab('pin:' + id)
+    push({ kind: 'sys', text: `pinned “${spec.title}” — it's a file in the explorer now (PINNED section).` })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, openTab, push])
+  const unpin = useCallback((id) => {
+    savePins(pins.filter(p => p.id !== id))
+    closeTab('pin:' + id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, closeTab])
+  const tabTitle = useCallback((id) => {
+    if (id.startsWith('pin:')) return '📌 ' + (pins.find(p => 'pin:' + p.id === id)?.title || 'Pinned').slice(0, 24)
+    return VIEW_TITLES[id] || id
+  }, [pins])
+
+  const palItems = PALETTE_CMDS.filter(([c, d]) => (c + d).includes(palQ.toLowerCase()))
+  const problems = openTurns
+
+  return (
+    <div className="ide">
+      <style>{CSS}</style>
+
+      <div className="ide-cols">
+        {/* ── Explorer ── */}
+        {sideOpen && (
+          <div className="explorer" style={{ width: sideW }}>
+            <div className="exp-head">
+              <span>{data?.clientName || clientId}</span>
+              <span className="exp-badge">ECOM</span>
+            </div>
+            {TREE.map(sec => (
+              <div key={sec.section}>
+                <div className="exp-sec">{sec.section}</div>
+                {sec.items.map(it => (
+                  <div key={it.id} className={`exp-item ${activeTab === it.id ? 'on' : ''}`} onClick={() => openTab(it.id)}>
+                    <span className="exp-ic">{it.icon}</span>{it.label}
+                    {it.id === 'ledger' && ledger.length > 0 && <span className="exp-n">{ledger.length}</span>}
+                    {it.id === 'policies' && policies.length > 0 && <span className="exp-n">{policies.length}</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {pins.length > 0 && <>
+              <div className="exp-sec">PINNED</div>
+              {pins.map(p => (
+                <div key={p.id} className={`exp-item ${activeTab === 'pin:' + p.id ? 'on' : ''}`} onClick={() => openTab('pin:' + p.id)}>
+                  <span className="exp-ic">📌</span><span className="exp-trunc">{p.title}</span>
+                </div>
+              ))}
+            </>}
+            <div className="exp-sec">PANEL</div>
+            <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
+              <span className="exp-ic">⚠️</span>Problems
+              {problems.length > 0 && <span className="exp-n warn">{problems.length}</span>}
+            </div>
+            <div className={`exp-item ${panelOpen && panelTab === 'terminal' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('terminal'); inputRef.current?.focus() }}>
+              <span className="exp-ic">▸</span>Terminal
+            </div>
+          </div>
+        )}
+
+        {sideOpen && <div className="resize-h" onMouseDown={startDrag('side')} title="drag to resize" />}
+
+        {/* ── Right column: tabs / view / panel ── */}
+        <div className="main">
+          <div className="tabbar">
+            <button className="burger" onClick={() => setSideOpen(o => !o)} title="Toggle explorer">☰</button>
+            {tabs.map(id => (
+              <div key={id} className={`tab ${activeTab === id ? 'on' : ''}`} onClick={() => setActiveTab(id)}>
+                {tabTitle(id)}
+                {tabs.length > 1 && <span className="tab-x" onClick={e => { e.stopPropagation(); closeTab(id) }}>×</span>}
+              </div>
+            ))}
+            <div className="tab-spacer" />
+            <button className={`burger ${splitTab ? 'on-btn' : ''}`} title="split editor (side by side)"
+              onClick={() => setSplitTab(s => s ? null : (tabs.find(t => t !== activeTab) || activeTab))}>⫿</button>
+          </div>
+
+          <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
+            <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
+              <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+            </div>
+            {splitTab && <>
+              <div className="resize-h" onMouseDown={startDrag('vsplit')} title="drag to resize" />
+              <div className="view split" style={{ width: `${splitPct}%` }}>
+                <div className="split-head">
+                  <select value={splitTab} onChange={e => setSplitTab(e.target.value)}>
+                    {tabs.map(id => <option key={id} value={id}>{tabTitle(id)}</option>)}
+                  </select>
+                  <button className="tt-btn" onClick={() => setSplitTab(null)}>✕</button>
+                </div>
+                <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+              </div>
+            </>}
+          </div>
+
+          {/* ── Panel: terminal + problems ── */}
+          {panelOpen && (
+            <div className="panel" style={{ height: panelH }}>
+              <div className="resize-v" onMouseDown={startDrag('panel')} title="drag to resize" />
+              <div className="panel-tabs">
+                <span className={panelTab === 'terminal' ? 'on' : ''} onClick={() => { setPanelTab('terminal'); inputRef.current?.focus() }}>TERMINAL</span>
+                <span className={panelTab === 'problems' ? 'on' : ''} onClick={() => setPanelTab('problems')}>PROBLEMS{problems.length ? ` (${problems.length})` : ''}</span>
+                <span className="panel-x" onClick={() => setPanelOpen(false)} title="ctrl+`">▾</span>
+              </div>
+
+              {panelTab === 'terminal' && (
+                <>
+                  <div className="stream">
+                    {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} onPin={() => pinView(t.spec, t.question)} />)}
+                    <div ref={endRef} />
+                  </div>
+                  <div className="prompt">
+                    <span className="ps">❯</span>
+                    <input ref={inputRef} disabled={busy} placeholder={busy ? 'thinking…' : `ask about ${VIEW_TITLES[activeTab]?.toLowerCase() || 'anything'} · / commands · answers use this page's numbers`}
+                      onKeyDown={e => { if (e.key === 'Enter') { const v = e.currentTarget.value; e.currentTarget.value = ''; ask(v) } }}
+                      autoComplete="off" spellCheck="false" />
+                  </div>
+                </>
+              )}
+
+              {panelTab === 'problems' && (
+                <div className="stream">
+                  {problems.length === 0 && <p className="loading">no problems — every live campaign clears breakeven. the watcher re-checks on load and range change.</p>}
+                  {problems.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} bare />)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Status bar ── */}
+          <div className="statusbar">
+            <div className="seg"><span className="pulse" /><b>{data?.clientName?.toLowerCase() || clientId}</b></div>
+            <div className="seg sel-range">
+              <select value={rangeN} onChange={e => setRangeN(Number(e.target.value))}>
+                <option value={7}>7d</option><option value={30}>30d</option><option value={90}>90d</option>
+              </select>
+            </div>
+            {m && <>
+              <div className="seg"><span className="dim">net</span><b className={m.netProfit >= 0 ? 'good' : 'bad'}>{money(m.netProfit)}</b></div>
+              <div className="seg"><span className="dim">tROAS</span><b className="good">{m.trueRoas != null ? m.trueRoas.toFixed(2) + 'x' : '—'}</b></div>
+              <div className="seg"><span className="dim">spend</span><b className="warn">{money(m.adSpend)}</b></div>
+              <div className="seg"><span className="dim">margin</span><b>{m.hasCogs ? (m.margin * 100).toFixed(1) + '%' : '—'}</b></div>
+              <div className="seg probs" onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
+                <span className="dim">⚠</span><b className={problems.length ? 'warn' : 'good'}>{problems.length}</b>
+              </div>
+              <div className="seg" title="MISSION_LEVERS — off: log only · dry_run: builds platform requests, never sends · live: executes with rollback">
+                <span className="dim">levers</span><b className={leversMode === 'live' ? 'bad' : leversMode === 'dry_run' ? 'warn' : 'dim'}>{leversMode}</b>
+              </div>
+            </>}
+            <div className="spacer" />
+            <div className="seg last">
+              <span className="kbd">⌘K</span><span className="kbd">ctrl+`</span><span className="kbd">j/k</span><span className="kbd">y</span><span className="kbd">n</span>
+              <button className="helpbtn" onClick={() => openTab('manual')}>?</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ⌘P quick-open — fuzzy jump to any view, pin, or campaign */}
+      {qpOpen && (() => {
+        const items = [
+          ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
+          ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
+          ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
+        ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
+        return (
+          <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setQpOpen(false) }}>
+            <div className="pal">
+              <input autoFocus value={qpQ} onChange={e => setQpQ(e.target.value)} placeholder="jump to a view, pin, or campaign…"
+                onKeyDown={e => {
+                  if (e.key === 'Escape') setQpOpen(false)
+                  if (e.key === 'Enter' && items[0]) { setQpOpen(false); items[0].run() }
+                }} />
+              {items.map(it => (
+                <div key={it.key} className="it" onClick={() => { setQpOpen(false); it.run() }}>
+                  <b className="qp-label">{it.label}</b><span className="d">{it.sub}</span>
+                </div>
+              ))}
+              {!items.length && <div className="it"><span className="d">no matches</span></div>}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ⌘K palette */}
+      {palOpen && (
+        <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setPalOpen(false) }}>
+          <div className="pal">
+            <input autoFocus value={palQ} onChange={e => setPalQ(e.target.value)} placeholder="type a command…"
+              onKeyDown={e => {
+                if (e.key === 'Escape') setPalOpen(false)
+                if (e.key === 'Enter' && palItems[0]) { setPalOpen(false); ask(palItems[0][0].split(' ')[0]) }
+              }} />
+            {palItems.map(([c, d]) => (
+              <div key={c} className="it" onClick={() => { setPalOpen(false); ask(c.split(' ')[0]) }}><b>{c}</b><span className="d">{d}</span></div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, onUndo, onUnpin, onReask }) {
+  if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
+  if (id === 'overview') return <OverviewView m={m} />
+  if (id === 'google') return <CampaignView m={m} platform="Google" />
+  if (id === 'meta') return <CampaignView m={m} platform="Meta" />
+  if (id === 'orders') return <OrdersView data={data} />
+  if (id === 'klaviyo') return <KlaviyoView m={m} />
+  if (id === 'manual') return <div className="man-body wide"><Markdown text={MANUAL} /></div>
+  if (id === 'ledger') return <LedgerView ledger={ledger} onUndo={onUndo} />
+  if (id === 'policies') return <PoliciesView policies={policies} />
+  if (id.startsWith('pin:')) {
+    const p = pins.find(x => 'pin:' + x.id === id)
+    if (!p) return <p className="loading v-pad">pin not found.</p>
+    return (
+      <div className="v-pad">
+        <div className="pin-head">
+          <div>
+            <h3 className="pin-title">📌 {p.title}</h3>
+            <p className="v-dim">pinned {new Date(p.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · snapshot of: “{p.question}”</p>
+          </div>
+          <div className="pin-actions">
+            <button className="tt-btn" onClick={() => onReask(p.question)}>↻ re-ask (fresh data)</button>
+            <button className="tt-btn" onClick={() => onUnpin(p.id)}>✕ unpin</button>
+          </div>
+        </div>
+        <RenderSpec spec={p.spec} />
+      </div>
+    )
+  }
+  return <p className="loading v-pad">unknown view.</p>
+}
+
+/* ══════════ Resizable table — Google Sheets behavior, IDE skin ══════════
+   Drag any header border to resize its column; narrowed text wraps when the
+   wrap toggle is on, truncates with … when off. Widths + wrap persist per
+   table in localStorage. */
+function ResizableTable({ id, columns, rows, note }) {
+  const [widths, setWidths] = useState(null) // null = auto layout until touched
+  const [wrap, setWrap] = useState(true)
+  const [sort, setSort] = useState(null) // {i, dir: 1|-1}
+  const tableRef = useRef(null)
+  const dragRef = useRef(null) // {i, startX, startW}
+
+  // Click a header to cycle sort: desc → asc → off. Cells provide `s`
+  // (sortable primitive) alongside `v` (rendered node).
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows
+    const val = (r) => { const c = r[sort.i]; const s = c?.s ?? c?.v ?? c; return typeof s === 'number' ? s : String(s ?? '') }
+    return [...rows].sort((a, b) => {
+      const av = val(a), bv = val(b)
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+      return cmp * sort.dir
+    })
+  }, [rows, sort])
+  const cycleSort = (i) => setSort(s => (!s || s.i !== i) ? { i, dir: -1 } : s.dir === -1 ? { i, dir: 1 } : null)
+
+  useEffect(() => {
+    try {
+      const w = JSON.parse(localStorage.getItem(`ide_tw_${id}`) || 'null')
+      if (Array.isArray(w) && w.length === columns.length) setWidths(w)
+      const wr = localStorage.getItem(`ide_wrap_${id}`)
+      if (wr != null) setWrap(wr === '1')
+    } catch { /* defaults */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      setWidths(w => {
+        const next = [...(w || d.snapshot)]
+        next[d.i] = Math.min(1400, Math.max(56, d.startW + (e.clientX - d.startX)))
+        return next
+      })
+    }
+    const up = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      document.body.style.cursor = ''; document.body.style.userSelect = ''
+      setWidths(w => { if (w) localStorage.setItem(`ide_tw_${id}`, JSON.stringify(w)); return w })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [id])
+
+  const startColDrag = (i) => (e) => {
+    e.preventDefault(); e.stopPropagation()
+    // First touch: snapshot current auto-layout widths so only this column moves
+    const ths = [...(tableRef.current?.querySelectorAll('th') || [])]
+    const snapshot = ths.map(th => th.offsetWidth)
+    dragRef.current = { i, startX: e.clientX, startW: (widths || snapshot)[i], snapshot }
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'
+  }
+
+  const toggleWrap = () => setWrap(w => { localStorage.setItem(`ide_wrap_${id}`, w ? '0' : '1'); return !w })
+  const resetCols = () => { setWidths(null); localStorage.removeItem(`ide_tw_${id}`) }
+
+  return (
+    <div>
+      <div className="ttools">
+        <span className="tt-hint">drag column borders to resize</span>
+        <button className={`tt-btn ${wrap ? 'on' : ''}`} onClick={toggleWrap} title="wrap text in cells">↩ wrap {wrap ? 'on' : 'off'}</button>
+        {widths && <button className="tt-btn" onClick={resetCols} title="reset column widths">reset</button>}
+      </div>
+      <div className="rt-scroll">
+        {/* When customized, the table gets a DEFINITE width (sum of columns) —
+            fixed layout + max-content is undefined behavior and was letting
+            the table blow up the page's flex height accounting. */}
+        {/* class must NOT be named "fixed" — Tailwind's global .fixed is
+            position:fixed and rips the table out of the page flow */}
+        <table ref={tableRef} className={`vtable rt ${wrap ? 'wrapon' : 'wrapoff'} ${widths ? 'rt-fixed' : ''}`}
+          style={widths ? { width: widths.reduce((a, b) => a + b, 0) } : undefined}>
+          {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
+          <thead><tr>
+            {columns.map((c, i) => (
+              <th key={i} className={`${c.num ? 'num' : ''} sortable`} onClick={() => c.label && cycleSort(i)} title={c.label ? 'click to sort' : undefined}>
+                {c.label}{sort?.i === i ? (sort.dir === -1 ? ' ▾' : ' ▴') : ''}
+                <span className="col-grip" onMouseDown={startColDrag(i)} />
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {sortedRows.map((r, ri) => (
+              <tr key={ri}>{r.map((cell, ci) => <td key={ci} className={cell?.cls || (columns[ci].num ? 'num' : '')}>{cell?.v ?? cell}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {note && <p className="v-note">{note}</p>}
+    </div>
+  )
+}
+
+/* ══════════ Views (tab contents) ══════════ */
+
+function OverviewView({ m }) {
+  const max = m.byChannel[0]?.revenue || 1
+  const CH = { Meta: '#0866FF', Google: '#e8eaf2', Direct: '#fb7185', Klaviyo: '#f8a5a5', Shop: '#5a31f4' }
+  return (
+    <div className="v-pad">
+      <div className="kpis">
+        {[['Gross Revenue', money(m.revenue), ''], ['COGS (BOM)', m.hasCogs ? money(m.cogs) : '—', 'warn'], ['Ad Spend', money(m.adSpend), 'warn'],
+          ['Net Profit', m.hasCogs ? money(m.netProfit) : '—', m.netProfit >= 0 ? 'good' : 'bad'], ['True ROAS', m.trueRoas != null ? m.trueRoas.toFixed(2) + 'x' : '—', 'good'], ['Orders', String(m.orders), '']].map(([l, v, c]) => (
+          <div key={l} className="kpi"><p className="kl">{l}</p><p className={`kv ${c}`}>{v}</p></div>
+        ))}
+      </div>
+      <h4 className="v-h">Revenue by channel</h4>
+      {m.byChannel.map(c => (
+        <div key={c.name} className="brow wide">
+          <span className="bl">{c.name}</span>
+          <div className="btrack"><i style={{ width: `${(c.revenue / max) * 100}%`, background: CH[c.name] || '#7a8bb5' }} /></div>
+          <span className="bv">{money(c.revenue)}</span>
+          <span className="bnote">{c.orders} orders{m.hasCogs ? ` · ${money(c.revenue - c.cogs)} margin` : ''}</span>
+        </div>
+      ))}
+      <h4 className="v-h">Daily</h4>
+      <Spark daily={m.daily} />
+    </div>
+  )
+}
+
+function Spark({ daily }) {
+  if (!daily?.length) return <p className="loading">no daily data in range.</p>
+  const max = Math.max(...daily.map(d => d.revenue), 1)
+  return (
+    <div className="spark">
+      {daily.map(d => (
+        <div key={d.date} className="sp-col" title={`${d.date} · ${money(d.revenue)} rev · ${d.orders} orders · ${money(d.spend)} spend`}>
+          <i style={{ height: `${Math.max(2, d.revenue / max * 100)}%` }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CampaignView({ m, platform }) {
+  const rows = m.campaigns.filter(c => c.platform === platform)
+  if (!rows.length) return <p className="loading v-pad">no {platform} campaigns in range.</p>
+  return (
+    <div className="v-pad">
+      <ResizableTable
+        id={`camp-${platform}`}
+        columns={[{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: '$/day', num: true }, { label: 'Clicks', num: true }, { label: 'Orders (CH)', num: true }, { label: 'Attr. Rev', num: true }, { label: 'True ROAS', num: true }]}
+        rows={rows.map(c => [
+          { v: c.campaign_name, cls: 'tname', s: c.campaign_name },
+          { v: c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span>, s: c.stale ? 'stale' : c.status },
+          { v: money(c.spend), cls: 'num', s: c.spend },
+          { v: money(c.spendPerDay), cls: 'num', s: c.spendPerDay },
+          { v: c.clicks.toLocaleString(), cls: 'num', s: c.clicks },
+          { v: c.chOrders, cls: 'num', s: c.chOrders },
+          { v: money(c.chRevenue), cls: 'num', s: c.chRevenue },
+          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`, s: c.trueRoas ?? -999 },
+        ])}
+        note="True ROAS = (UTM-attributed revenue − BOM COGS) ÷ spend · breakeven 1.00x · ask the terminal about any row."
+      />
+    </div>
+  )
+}
+
+function OrdersView({ data }) {
+  const rows = (data?.orders || []).slice(0, 100)
+  return (
+    <div className="v-pad">
+      <ResizableTable
+        id="orders"
+        columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
+        rows={rows.map(o => [
+          { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: o.shopify_data?.order_name || o.lead_id },
+          { v: new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), s: o.created_at },
+          { v: deriveChannel(o), s: deriveChannel(o) },
+          { v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 },
+        ])}
+        note={(data?.orders || []).length > 100 ? `showing latest 100 of ${data.orders.length}.` : undefined}
+      />
+    </div>
+  )
+}
+
+function KlaviyoView({ m }) {
+  const k = m.byChannel.find(c => c.name === 'Klaviyo')
+  const share = m.revenue > 0 ? ((k?.revenue || 0) / m.revenue * 100).toFixed(1) : '0'
+  return (
+    <div className="v-pad">
+      <div className="kpis three">
+        <div className="kpi"><p className="kl">Klaviyo Revenue (UTM-verified)</p><p className="kv">{money(k?.revenue || 0)}</p></div>
+        <div className="kpi"><p className="kl">Orders</p><p className="kv">{k?.orders || 0}</p></div>
+        <div className="kpi"><p className="kl">Share of Revenue</p><p className={`kv ${Number(share) < 10 ? 'warn' : 'good'}`}>{share}%</p></div>
+      </div>
+      <p className="v-note">Healthy ecom runs email/SMS at 15–30% of revenue. The full campaign/flow board (Klaviyo&apos;s own attribution alongside first-party) lands here when klaviyo_daily is wired into the mission data layer — it&apos;s on the dashboard today.</p>
+    </div>
+  )
+}
+
+function LedgerView({ ledger, onUndo }) {
+  if (!ledger.length) return <p className="loading v-pad">no decisions yet — approve something in PROBLEMS with y.</p>
+  return (
+    <div className="v-pad">
+      <ResizableTable
+        id="ledger3"
+        columns={[{ label: 'Decision' }, { label: 'When' }, { label: 'Est.', num: true }, { label: 'Measured', num: true }, { label: 'Status' }, { label: '' }]}
+        rows={ledger.map((r) => [
+          { v: r.what, cls: 'tname', s: r.what },
+          { v: new Date(r.approved_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }), s: r.approved_at },
+          { v: Number(r.est_impact_monthly) > 0 ? '+' + money(r.est_impact_monthly) + '/mo' : '—', cls: 'num v-dim', s: Number(r.est_impact_monthly) || 0 },
+          {
+            v: r.measured
+              ? (r.measured.delta_monthly != null ? `${r.measured.delta_monthly >= 0 ? '+' : ''}${money(r.measured.delta_monthly)}/mo` : 'n/a')
+              : 'in ~7d',
+            cls: `num ${r.measured?.delta_monthly > 0 ? 'good' : r.measured?.delta_monthly < 0 ? 'bad' : 'v-dim'}`,
+            s: r.measured?.delta_monthly ?? -999999,
+          },
+          { v: <span className={`pill ${r.status === 'executed' ? 'ok' : 'dead'}`}>{r.status}</span>, s: r.status },
+          { v: r.status !== 'reverted' ? <button className="tt-btn" onClick={() => onUndo(r)} title="revert — reopens in PROBLEMS">↩ undo</button> : '—' },
+        ])}
+        note="persisted in the database · Measured = whole-account net/day delta over the 7 days after approval vs the 7 before (directional, not campaign-isolated) · undo reverts the log; live platform changes list rollback info on the decision."
+      />
+    </div>
+  )
+}
+
+function PoliciesView({ policies }) {
+  if (!policies.length) return <p className="loading v-pad">no standing rules yet — dismiss a finding with n and say why.</p>
+  return (
+    <div className="v-pad">
+      <ResizableTable
+        id="policies"
+        columns={[{ label: 'Rule' }, { label: 'Taught' }]}
+        rows={policies.map(p => [
+          { v: p.reason, cls: 'tname' },
+          { v: new Date(p.taught_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+        ])}
+        note="persisted in the database — the watcher (page loads AND the nightly cron) checks these before proposing."
+      />
+    </div>
+  )
+}
+
+/* ══════════ Terminal turns (same grammar as before) ══════════ */
+
+function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, bare }) {
+  if (t.kind === 'render') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph bluec">▦</div><div className="body">
+      <div className="meta"><span className="who">agent · rendered view</span></div>
+      <div className="render-card">
+        <div className="render-h"><span className="render-t">{t.spec.title}</span>
+          <button className="tt-btn" onClick={onPin} title="save as a file in the explorer">📌 pin to tab</button>
+        </div>
+        <RenderSpec spec={t.spec} />
+      </div>
+    </div></div></div>
+  )
+  if (t.kind === 'sys') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph dimc">·</div><div className="body"><div className="txt dim pre">{t.text}</div></div></div></div>
+  )
+  if (t.kind === 'you') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph goodc">❯</div><div className="body"><div className="meta"><span className="who">you</span></div><div className="txt strong">{t.text}</div></div></div></div>
+  )
+  if (t.kind === 'decision') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph purpc">▸</div><div className="body"><div className="meta"><span className="who">ledger</span></div><div className="txt dim">{t.text}</div></div></div></div>
+  )
+  if (t.kind === 'agent') return bare ? null : (
+    <div className="turn"><div className="gutter"><div className="glyph bluec">◆</div><div className="body">
+      <div className="meta"><span className="who">agent</span></div>
+      {t.pending && <div className="thinkline"><span className="spin" />reading orders · campaigns · BOM margins…</div>}
+      {t.error && <div className="txt badc">error: {t.error}</div>}
+      {t.text && <div className="txt pre">{t.text}</div>}
+      {t.bars && <Bars rows={t.bars} />}
+    </div></div></div>
+  )
+  if (t.kind === 'finding') {
+    const f = t.f
+    const card = (
+      <div className={`card ${f.severity === 'high' ? 'hot' : ''} ${selected && t.status === 'open' ? 'sel' : ''} ${t.status === 'done' ? 'done' : ''} ${t.status === 'taught' ? 'killed' : ''}`} onClick={onSelect}>
+        <div className="card-h"><span className="t">{f.icon} {f.title}</span>
+          {t.status === 'open' && <span className={`sev ${f.severity === 'high' ? 'shot' : 'swarm'}`}>{f.severity === 'high' ? 'NEEDS YOU' : 'REVIEW'}</span>}
+          {t.status === 'executing' && <span className="sev sok">EXECUTING</span>}
+          {t.status === 'done' && <span className="sev sok">LOGGED</span>}
+          {t.status === 'taught' && <span className="sev sdead">TAUGHT</span>}
+        </div>
+        <div className="why">{f.why}</div>
+        <div className="evrow">
+          {f.impactMonthly > 0 && <span className="imp">~{money(f.impactMonthly)}/mo</span>}
+          <span>confidence {f.confidence}</span>
+          {f.evidence.map((e, i) => <span key={i}>· {e}</span>)}
+        </div>
+        {t.status === 'open' && (
+          <div className="actrow">
+            <span className="kbd act" onClick={e => { e.stopPropagation(); onApprove() }}>y</span> approve (logs only)
+            <span className="kbd act" onClick={e => { e.stopPropagation(); onTeach() }}>n</span> dismiss+teach
+          </div>
+        )}
+        {t.status === 'executing' && <div className="actrow"><span className="exec"><span className="spin" />logging decision…</span></div>}
+        {t.status === 'teaching' && (
+          <div className="actrow">
+            <input data-teach="1" autoFocus placeholder="why is this wrong? (enter saves a standing rule)" className="teach"
+              onKeyDown={e => { if (e.key === 'Enter') onSaveTeach(e.currentTarget.value) }} />
+          </div>
+        )}
+        {t.status === 'taught' && <div className="actrow"><span className="dim">policy learned: “{t.reason}”</span></div>}
+        {t.status === 'done' && <div className="actrow"><span className="goodc" style={{ fontWeight: 700 }}>✓ logged to ledger</span></div>}
+      </div>
+    )
+    if (bare) return <div className="turn">{card}</div>
+    return (
+      <div className="turn"><div className="gutter"><div className="glyph bluec">◆</div><div className="body">
+        <div className="meta"><span className="who">watcher · finding</span></div>{card}
+      </div></div></div>
+    )
+  }
+  return null
+}
+
+/* Simple read-only table for agent-rendered specs (ResizableTable is for the
+   interactive doc views; this one is intentionally dependency-free). */
+function DataTable({ head, rows }) {
+  return (
+    <div className="datatable"><table>
+      <thead><tr>{head.map((h, i) => <th key={i} style={i > 0 ? { textAlign: 'right' } : undefined}>{h}</th>)}</tr></thead>
+      <tbody>{(rows || []).map((r, i) => <tr key={i}>{(Array.isArray(r) ? r : [String(r)]).map((c, j) => <td key={j} className={j > 0 ? 'num' : ''}>{c}</td>)}</tr>)}</tbody>
+    </table></div>
+  )
+}
+
+/* Generative UI: render a spec the agent produced (bar | line | table) */
+const SERIES_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f']
+function RenderSpec({ spec }) {
+  if (spec.type === 'bar' && spec.bars?.length) {
+    return <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} />
+  }
+  if (spec.type === 'line' && spec.line?.series?.length) return <LineChart line={spec.line} />
+  if (spec.type === 'table' && spec.table?.head) return <DataTable head={spec.table.head} rows={spec.table.rows || []} />
+  return <p className="v-dim">unrenderable spec ({spec.type})</p>
+}
+
+function LineChart({ line }) {
+  const labels = line.labels || []
+  // Sanitize model output — a single null/string value must not NaN the SVG
+  const series = (line.series || []).map(s => ({ ...s, values: (s.values || []).map(v => Number(v) || 0) }))
+  const W = 620, H = 150, P = 8
+  const all = series.flatMap(s => s.values)
+  if (!all.length) return null
+  const max = Math.max(...all) * 1.08 || 1
+  const min = Math.min(0, ...all)
+  const n = Math.max(...series.map(s => s.values.length))
+  const px = (i) => P + i * (W - 2 * P) / Math.max(1, n - 1)
+  const py = (v) => H - P - (v - min) / (max - min || 1) * (H - 2 * P)
+  return (
+    <div style={{ maxWidth: W }}>
+      <div style={{ marginBottom: 4 }}>
+        {series.map((s, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 14, fontSize: 11, color: 'var(--dim)' }}>
+            <i style={{ width: 10, height: 3, background: SERIES_COLORS[i % SERIES_COLORS.length], display: 'inline-block', borderRadius: 2 }} />{s.name}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%">
+        <line x1={P} y1={py(0)} x2={W - P} y2={py(0)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
+        {series.map((s, i) => (
+          <polyline key={i} fill="none" stroke={SERIES_COLORS[i % SERIES_COLORS.length]} strokeWidth="2"
+            points={s.values.map((v, j) => `${px(j)},${py(v)}`).join(' ')} />
+        ))}
+      </svg>
+      {labels.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--faint)' }}>
+          <span>{labels[0]}</span><span>{labels[Math.floor(labels.length / 2)]}</span><span>{labels[labels.length - 1]}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Bars({ rows }) {
+  const max = Math.max(...rows.map(r => r.value), 0.001)
+  return (
+    <div className="bars">
+      {rows.map((r, i) => (
+        <div key={i} className="brow">
+          <span className="bl">{r.label}</span>
+          <div className="btrack"><i style={{ width: `${Math.max(3, r.value / max * 100)}%`, background: r.color }} /></div>
+          <span className="bv" style={{ color: r.color }}>{r.text}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Markdown({ text }) {
+  const inline = (s) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) => p.startsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : p)
+  const blocks = []
+  let para = [], list = null
+  const flush = () => {
+    if (list) { blocks.push(<ul key={blocks.length}>{list.map((li, i) => <li key={i}>{inline(li)}</li>)}</ul>); list = null }
+    if (para.length) { blocks.push(<p key={blocks.length}>{inline(para.join(' '))}</p>); para = [] }
+  }
+  for (const raw of text.split('\n')) {
+    const line = raw.trimEnd()
+    if (line.startsWith('## ')) { flush(); blocks.push(<h3 key={blocks.length}>{line.slice(3)}</h3>) }
+    else if (/^\s*[-\d]+[.)]?\s/.test(line) && (line.trim().startsWith('- ') || /^\d/.test(line.trim()))) {
+      if (para.length) flush()
+      if (!list) list = []
+      list.push(line.trim().replace(/^-\s|^\d+[.)]\s/, ''))
+    }
+    else if (line.trim() === '') flush()
+    else if (list) list[list.length - 1] += ' ' + line.trim()
+    else para.push(line.trim())
+  }
+  flush()
+  return <div>{blocks}</div>
+}
+
+/* ══════════ IDE CSS ══════════ */
+const CSS = `
+.ide{--bg:#0b0e14;--panel:#11151f;--panel2:#161b28;--line:rgba(255,255,255,.07);--txt:#dbe1ee;--dim:#8a93a8;--faint:#5a6377;--green:#3fd68f;--red:#f4747f;--amber:#e8b45a;--blue:#6ea8fe;--purple:#a78bfa;
+  position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;background:var(--bg);color:var(--txt);font:13px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+.ide-cols{display:flex;height:100%;}
+.ide .dim{color:var(--faint);} .ide .good{color:var(--green);} .ide .warn{color:var(--amber);} .ide .bad,.ide .badc{color:var(--red);}
+.ide .goodc{color:var(--green);} .ide .bluec{color:var(--blue);} .ide .purpc{color:var(--purple);} .ide .dimc{color:var(--faint);}
+.ide .strong{font-weight:700;}
+
+/* explorer */
+.ide .explorer{flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
+
+/* resize handles — invisible until hover, like VS Code */
+.ide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
+.ide .resize-h:hover,.ide .resize-h:active{background:rgba(110,168,254,.45);}
+.ide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
+.ide .resize-v:hover,.ide .resize-v:active{background:rgba(110,168,254,.45);}
+.ide .exp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:800;font-size:12.5px;border-bottom:1px solid var(--line);}
+.ide .exp-badge{font-size:9px;font-weight:800;color:var(--green);background:rgba(63,214,143,.12);border-radius:4px;padding:1px 6px;}
+.ide .exp-sec{font-size:9.5px;font-weight:800;letter-spacing:.09em;color:var(--faint);padding:14px 14px 4px;}
+.ide .exp-item{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:12.5px;color:var(--dim);cursor:pointer;border-left:2px solid transparent;}
+.ide .exp-item:hover{color:var(--txt);background:rgba(255,255,255,.02);}
+.ide .exp-item.on{color:var(--txt);background:rgba(110,168,254,.07);border-left-color:var(--blue);}
+.ide .exp-ic{width:16px;text-align:center;font-size:11px;}
+.ide .exp-n{margin-left:auto;font-size:10px;color:var(--faint);background:var(--panel2);border-radius:99px;padding:0 6px;}
+.ide .exp-n.warn{color:var(--amber);background:rgba(232,180,90,.12);font-weight:800;}
+.ide .exp-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* generative UI */
+.ide .datatable{margin:6px 0 2px;border:1px solid var(--line);border-radius:7px;overflow-x:auto;font-size:12px;max-width:640px;}
+.ide .datatable table{width:100%;border-collapse:collapse;}
+.ide .datatable th{text-align:left;color:var(--faint);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:6px 11px;background:var(--panel2);font-weight:700;white-space:nowrap;}
+.ide .datatable td{padding:5.5px 11px;border-top:1px solid var(--line);color:var(--dim);}
+.ide .datatable td:first-child{color:var(--txt);font-weight:600;}
+.ide .datatable td.num{text-align:right;font-variant-numeric:tabular-nums;}
+.ide .render-card{border:1px solid rgba(110,168,254,.2);border-radius:8px;background:rgba(110,168,254,.03);padding:10px 13px;margin-top:3px;max-width:680px;}
+.ide .render-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;}
+.ide .render-t{font-weight:700;font-size:12.5px;}
+.ide .pin-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
+.ide .pin-title{font-size:14px;font-weight:800;}
+.ide .pin-actions{display:flex;gap:8px;}
+
+/* main column */
+.ide .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.ide .tabbar{display:flex;align-items:stretch;background:var(--panel);border-bottom:1px solid var(--line);height:34px;flex-shrink:0;overflow-x:auto;}
+.ide .burger{background:none;border:none;color:var(--faint);font:inherit;padding:0 12px;cursor:pointer;border-right:1px solid var(--line);}
+.ide .burger:hover{color:var(--txt);}
+.ide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
+.ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
+.ide .tab-x{color:var(--faint);font-size:13px;} .ide .tab-x:hover{color:var(--txt);}
+.ide .view-row{flex:1;display:flex;min-height:0;position:relative;z-index:1;}
+.ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;min-width:0;}
+.ide .view-row.issplit .view{flex:none;}
+.ide .view.split{border-left:1px solid var(--line);}
+.ide .split-head{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2;}
+.ide .split-head select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:11px;border-radius:5px;padding:2px 6px;outline:none;cursor:pointer;max-width:70%;}
+.ide .tab-spacer{flex:1;}
+.ide .burger.on-btn{color:var(--blue);}
+.ide .vtable th.sortable{cursor:pointer;}
+.ide .vtable th.sortable:hover{color:var(--txt);}
+.ide .qp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;}
+.ide .loading{color:var(--faint);font-size:12.5px;padding:18px;}
+.ide .v-pad{padding:18px 22px 26px;}
+.ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
+.ide .v-note{color:var(--faint);font-size:11px;margin-top:12px;}
+.ide .v-dim{color:var(--faint);font-size:11px;}
+
+/* kpis */
+.ide .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+.ide .kpis.three{grid-template-columns:repeat(3,1fr);}
+.ide .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 13px;}
+.ide .kl{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);}
+.ide .kv{font-size:18px;font-weight:800;margin-top:2px;}
+
+/* view tables */
+.ide .vtable{width:100%;border-collapse:collapse;font-size:12.5px;}
+.ide .vtable th{text-align:left;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:7px 10px;border-bottom:1px solid var(--line);font-weight:700;}
+.ide .vtable td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--dim);}
+.ide .vtable .tname{color:var(--txt);font-weight:600;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .vtable th.num,.ide .vtable td.num{text-align:right;font-variant-numeric:tabular-nums;}
+.ide .pill{font-size:9.5px;font-weight:800;border-radius:99px;padding:1px 8px;}
+
+/* resizable table (Google Sheets behavior, IDE skin) */
+.ide .ttools{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:6px;}
+.ide .tt-hint{color:var(--faint);font-size:10px;margin-right:auto;}
+.ide .tt-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--faint);font:inherit;font-size:10.5px;padding:3px 10px;cursor:pointer;}
+.ide .tt-btn:hover{color:var(--txt);border-color:var(--dim);}
+.ide .tt-btn.on{color:var(--blue);border-color:rgba(110,168,254,.4);background:rgba(110,168,254,.08);}
+.ide .rt-scroll{overflow-x:auto;max-width:100%;}
+.ide .vtable.rt.rt-fixed{table-layout:fixed;}
+.ide .vtable.rt th{position:relative;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;}
+.ide .vtable.rt .col-grip:hover{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.55) 3px,rgba(110,168,254,.55) 5px,transparent 5px);}
+.ide .vtable.rt.wrapoff td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ide .vtable.rt.wrapon td{white-space:normal;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}
+.ide .vtable.rt.wrapon td.tname,.ide .vtable.rt.wrapoff td.tname{max-width:none;}
+.ide .vtable.rt.wrapoff td.tname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .vtable.rt.wrapon td.tname{overflow:visible;text-overflow:clip;white-space:normal;}
+.ide .pill.ok{background:rgba(63,214,143,.12);color:var(--green);}
+.ide .pill.dead{background:rgba(255,255,255,.07);color:var(--faint);}
+
+/* daily spark */
+.ide .spark{display:flex;align-items:flex-end;gap:2px;height:90px;max-width:900px;}
+.ide .sp-col{flex:1;height:100%;display:flex;align-items:flex-end;}
+.ide .sp-col i{display:block;width:100%;background:rgba(110,168,254,.55);border-radius:2px 2px 0 0;min-height:2px;}
+.ide .sp-col:hover i{background:var(--blue);}
+
+/* panel */
+.ide .panel{min-height:120px;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:10;}
+.ide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
+.ide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
+.ide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
+.ide .panel-x{margin-left:auto;}
+.ide .stream{flex:1;overflow-y:auto;padding:12px 16px;}
+.ide .turn{margin-bottom:11px;animation:ideup .15s ease;}
+@keyframes ideup{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+.ide .gutter{display:flex;gap:9px;}
+.ide .glyph{width:20px;flex-shrink:0;text-align:center;font-weight:700;}
+.ide .body{flex:1;min-width:0;}
+.ide .meta{font-size:10px;color:var(--faint);margin-bottom:1px;}
+.ide .who{font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.ide .txt{color:var(--txt);font-size:12.5px;} .ide .txt.dim{color:var(--dim);}
+.ide .pre{white-space:pre-wrap;}
+.ide .thinkline{color:var(--faint);font-size:11px;display:flex;gap:7px;align-items:center;}
+.ide .spin{width:8px;height:8px;border-radius:50%;border:2px solid var(--blue);border-top-color:transparent;animation:iderot .6s linear infinite;display:inline-block;flex-shrink:0;}
+@keyframes iderot{to{transform:rotate(360deg);}}
+
+/* finding cards */
+.ide .card{border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:7px;background:var(--panel);margin-top:3px;}
+.ide .card.hot{border-left-color:var(--red);}
+.ide .card.sel{border-color:var(--blue);border-left-color:var(--blue);box-shadow:0 0 0 1px rgba(110,168,254,.25);}
+.ide .card.done{opacity:.55;border-left-color:var(--green);}
+.ide .card.killed{opacity:.45;border-left-color:var(--faint);}
+.ide .card-h{display:flex;gap:8px;align-items:baseline;padding:8px 12px 0;}
+.ide .card-h .t{font-weight:700;font-size:12.5px;flex:1;}
+.ide .sev{font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 7px;border-radius:99px;flex-shrink:0;}
+.ide .sev.shot{background:rgba(244,116,127,.13);color:var(--red);}
+.ide .sev.swarm{background:rgba(232,180,90,.13);color:var(--amber);}
+.ide .sev.sok{background:rgba(63,214,143,.13);color:var(--green);}
+.ide .sev.sdead{background:rgba(255,255,255,.07);color:var(--faint);}
+.ide .why{padding:4px 12px 0;color:var(--dim);font-size:12px;line-height:1.5;}
+.ide .evrow{display:flex;gap:11px;padding:6px 12px 8px;font-size:10.5px;color:var(--faint);flex-wrap:wrap;}
+.ide .evrow .imp{color:var(--green);font-weight:700;}
+.ide .actrow{display:flex;gap:8px;align-items:center;border-top:1px dashed var(--line);padding:7px 12px;font-size:11px;color:var(--faint);flex-wrap:wrap;}
+.ide .exec{color:var(--blue);display:flex;gap:7px;align-items:center;}
+.ide .kbd{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--panel2);}
+.ide .kbd.act{cursor:pointer;} .ide .kbd.act:hover{color:var(--txt);border-color:var(--dim);}
+.ide .teach{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11px;padding:5px 9px;outline:none;}
+.ide .teach:focus{border-color:rgba(110,168,254,.5);}
+
+/* bars */
+.ide .bars{margin:7px 0 2px;max-width:620px;}
+.ide .brow{display:flex;align-items:center;gap:9px;margin:3px 0;font-size:12px;}
+.ide .brow.wide{max-width:900px;}
+.ide .brow .bl{width:190px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;flex-shrink:0;}
+.ide .brow .btrack{flex:1;height:9px;background:var(--panel2);border-radius:3px;overflow:hidden;}
+.ide .brow .btrack i{display:block;height:100%;border-radius:3px;}
+.ide .brow .bv{width:80px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.ide .brow .bnote{width:200px;font-size:10.5px;color:var(--faint);text-align:right;flex-shrink:0;}
+
+/* prompt — Cursor style: input sits on the terminal background, bounded by
+   thin hairlines above and below (no box, no radius, no fill) */
+.ide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg);padding:9px 14px;margin-bottom:7px;flex-shrink:0;transition:border-color .15s;}
+.ide .prompt:focus-within{border-top-color:rgba(255,255,255,.18);border-bottom-color:rgba(255,255,255,.18);}
+.ide .ps{color:var(--green);font-weight:800;}
+.ide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;caret-color:var(--txt);}
+
+/* status bar */
+.ide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 10px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
+.ide .seg{padding:0 10px;border-right:1px solid var(--line);display:flex;gap:6px;align-items:center;height:100%;}
+.ide .seg.last{border-right:none;gap:6px;}
+.ide .seg.probs{cursor:pointer;}
+.ide .sel-range select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:11px;border-radius:5px;padding:1px 5px;outline:none;cursor:pointer;}
+.ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
+@keyframes idepu{50%{opacity:.3;}}
+.ide .spacer{flex:1;}
+.ide .helpbtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font:inherit;font-size:11px;font-weight:800;cursor:pointer;}
+.ide .helpbtn:hover{color:var(--txt);}
+
+/* manual in a tab */
+.ide .man-body.wide{max-width:760px;padding:6px 26px 30px;font-size:12.5px;line-height:1.65;color:var(--dim);}
+.ide .man-body h3{color:var(--txt);font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin:18px 0 6px;}
+.ide .man-body p{margin:7px 0;}
+.ide .man-body ul{margin:7px 0 7px 18px;}
+.ide .man-body li{margin:4px 0;}
+.ide .man-body b{color:var(--txt);}
+
+/* palette */
+.ide .palette{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:70;}
+.ide .pal{width:520px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+.ide .pal input{width:100%;background:var(--panel2);border:none;outline:none;color:var(--txt);font:inherit;padding:13px 16px;border-bottom:1px solid var(--line);}
+.ide .pal .it{padding:10px 16px;display:flex;gap:10px;align-items:baseline;cursor:pointer;font-size:12.5px;}
+.ide .pal .it:hover{background:rgba(110,168,254,.08);}
+.ide .pal .it .d{color:var(--faint);font-size:11px;margin-left:auto;}
+.ide ::-webkit-scrollbar{width:10px;height:10px;} .ide ::-webkit-scrollbar-thumb{background:var(--panel2);border-radius:5px;}
+`
