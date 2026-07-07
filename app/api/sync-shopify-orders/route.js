@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
-import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL, ORDER_GQL_FIELDS, orderNodeToLeadRow } from '../../../lib/shopify'
+import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL, ORDER_GQL_FIELDS, orderNodeToOrderRow } from '../../../lib/shopify'
 
-// Pulls Shopify orders and writes them into client_lead so they appear on the
-// Leads page and auto-route to the right campaign via the existing UTM→campaign
-// match (fetchAttribution reads client_lead.utm_campaign).
+// Pulls Shopify orders and writes them into client_orders so they appear on
+// the Customers page and auto-route to the right campaign via the existing
+// UTM→campaign match (fetchAttribution reads client_orders.utm_campaign).
 //
 // Usage:
 //   /api/sync-shopify-orders?client_id=ch069                 (one client)
@@ -42,13 +42,13 @@ async function syncOne(conn, start, end) {
     const data = await shopifyGraphQL(conn.shop_domain, conn.access_token, ORDERS_QUERY, { cursor, q })
     const orders = data.orders
     for (const { node } of orders.edges) {
-      rows.push(orderNodeToLeadRow(conn.client_id, node))
+      rows.push(orderNodeToOrderRow(conn.client_id, node))
     }
     cursor = orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null
   } while (cursor)
 
   if (rows.length) {
-    const { error } = await db.from('client_lead').upsert(rows, { onConflict: 'lead_id' })
+    const { error } = await db.from('client_orders').upsert(rows, { onConflict: 'order_id' })
     if (error) throw new Error(error.message)
   }
   return rows.length

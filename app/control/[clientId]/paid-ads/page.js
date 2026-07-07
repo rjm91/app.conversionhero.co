@@ -92,6 +92,7 @@ export default function PaidAdsPage() {
     const oauthOk    = searchParams.get('google_ads_connected')
     if (oauthError) setError(decodeURIComponent(oauthError))
     if (oauthOk)    setConnected(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function updateURL(start, end, status) {
@@ -110,13 +111,24 @@ export default function PaidAdsPage() {
   }, [clientId])
 
   const fetchAttribution = useCallback(async (start, end) => {
-    const { data: leads } = await supabase
-      .from('client_lead')
-      .select('utm_campaign, utm_adgroup, utm_content')
-      .eq('client_id', clientId)
-      .neq('lead_status', 'in_progress')
-      .gte('created_at', start)
-      .lte('created_at', end + 'T23:59:59-12:00')
+    // CH conversions = true leads (client_lead) + ecom orders (client_orders)
+    const [{ data: leadRows }, { data: orderRows }] = await Promise.all([
+      supabase
+        .from('client_lead')
+        .select('utm_campaign, utm_adgroup, utm_content')
+        .eq('client_id', clientId)
+        .neq('lead_status', 'in_progress')
+        .not('lead_id', 'like', 'shopify_%')
+        .gte('created_at', start)
+        .lte('created_at', end + 'T23:59:59-12:00'),
+      supabase
+        .from('client_orders')
+        .select('utm_campaign, utm_adgroup, utm_content')
+        .eq('client_id', clientId)
+        .gte('created_at', start)
+        .lte('created_at', end + 'T23:59:59-12:00'),
+    ])
+    const leads = [...(leadRows || []), ...(orderRows || [])]
 
     const campaignMap = {}
     const adGroupMap = {}
@@ -415,6 +427,8 @@ export default function PaidAdsPage() {
     })
 
     return rows
+    // getChLeads/getRowName only read state already listed below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentData, statusFilter, searchQuery, sortCol, sortDir, chAttribution, chAdGroupAttr, chAdAttr, view])
 
   // Build daily spend chart data (respects status + search filters, campaign view only)
@@ -458,6 +472,7 @@ export default function PaidAdsPage() {
     clicks:   acc.clicks  + (Number(row.clicks)  || 0),
     conv:     acc.conv    + (Number(row.conversions) || 0),
     chConv:   acc.chConv  + getChLeads(row),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), { budget: 0, cost: 0, clicks: 0, conv: 0, chConv: 0 }), [filtered, chAttribution, view])
 
   const totalCpc         = totals.clicks > 0 ? totals.cost / totals.clicks : 0

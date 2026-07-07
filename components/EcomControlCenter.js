@@ -780,10 +780,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const dayStartISO = new Date(`${appliedStart}T00:00:00`).toISOString()
     const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
     const [ordersRes, campRes, metaRes, tiktokRes, klaviyoRes] = await Promise.all([
-      supabase.from('client_lead')
-        .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
+      supabase.from('client_orders')
+        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
         .eq('client_id', clientId)
-        .like('lead_id', 'shopify_%')
         .gte('created_at', dayStartISO)
         .lte('created_at', dayEndISO)
         .order('created_at', { ascending: false }),
@@ -1022,21 +1021,21 @@ export default function EcomControlCenter({ clientId, clientName }) {
   // daily rows feeding the charts, so the whole ad view reflects the selection.
   // Effective status = what the pill shows: stale-ENABLED counts as paused, so
   // the filter never shows a "Paused" badge under "Enabled".
-  const matchStatus = (s, stale) => {
+  const matchStatus = useCallback((s, stale) => {
     if (statusFilter === 'all') return true
     const enabled = s === 'ENABLED' && !stale
     return statusFilter === 'enabled' ? enabled : !enabled
-  }
+  }, [statusFilter])
   const staleIds = (list) => new Set(list.filter(c => c.stale).map(c => String(c.campaign_id)))
   const staleGoogle  = useMemo(() => staleIds(campaigns),       [campaigns])
   const staleMeta    = useMemo(() => staleIds(metaCampaigns),   [metaCampaigns])
   const staleTik     = useMemo(() => staleIds(tiktokCampaigns), [tiktokCampaigns])
-  const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status, c.stale)),     [campaigns, statusFilter])
-  const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status, c.stale)), [metaCampaigns, statusFilter])
-  const fTik         = useMemo(() => tiktokCampaigns.filter(c => matchStatus(c.status, c.stale)), [tiktokCampaigns, statusFilter])
-  const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status, staleGoogle.has(String(r.campaign_id)))),   [googleDaily, statusFilter, staleGoogle])
-  const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status, staleMeta.has(String(r.campaign_id)))),     [metaDaily, statusFilter, staleMeta])
-  const fTikDaily    = useMemo(() => tiktokDaily.filter(r => matchStatus(r.status, staleTik.has(String(r.campaign_id)))),   [tiktokDaily, statusFilter, staleTik])
+  const fCampaigns   = useMemo(() => campaigns.filter(c => matchStatus(c.status, c.stale)),     [campaigns, matchStatus])
+  const fMeta        = useMemo(() => metaCampaigns.filter(c => matchStatus(c.status, c.stale)), [metaCampaigns, matchStatus])
+  const fTik         = useMemo(() => tiktokCampaigns.filter(c => matchStatus(c.status, c.stale)), [tiktokCampaigns, matchStatus])
+  const fGoogleDaily = useMemo(() => googleDaily.filter(r => matchStatus(r.status, staleGoogle.has(String(r.campaign_id)))),   [googleDaily, matchStatus, staleGoogle])
+  const fMetaDaily   = useMemo(() => metaDaily.filter(r => matchStatus(r.status, staleMeta.has(String(r.campaign_id)))),     [metaDaily, matchStatus, staleMeta])
+  const fTikDaily    = useMemo(() => tiktokDaily.filter(r => matchStatus(r.status, staleTik.has(String(r.campaign_id)))),   [tiktokDaily, matchStatus, staleTik])
 
   // Per-campaign attribution from orders (utm_campaign → orders/revenue)
   const campaignAttr = useMemo(() => {
