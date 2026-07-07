@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AssemblyAI } from 'assemblyai'
+import { fetch as undiciFetch, ProxyAgent } from 'undici'
+
+// YouTube bot-walls datacenter IPs (Vercel's included). When YOUTUBE_PROXY_URL
+// is set (e.g. a rotating residential proxy), all YouTube traffic goes
+// through it; locally a residential IP works without one.
+const ytDispatcher = process.env.YOUTUBE_PROXY_URL ? new ProxyAgent(process.env.YOUTUBE_PROXY_URL) : null
+const ytFetch = (url, init = {}) =>
+  ytDispatcher ? undiciFetch(url, { ...init, dispatcher: ytDispatcher }) : fetch(url, init)
 
 export const maxDuration = 300
 
@@ -69,52 +77,88 @@ function formatAssemblyTranscript(transcript) {
   return transcript.text
 }
 
-// ── Fetch YouTube captions via the InnerTube API (ANDROID client) ──
+// ── Fetch YouTube captions via the InnerTube API ──
 // The watch-page caption URLs now require a proof-of-origin token and return
-// empty 200s, which is why the old scraping approach silently died. The
-// InnerTube /player endpoint queried as the ANDROID client still hands out
-// caption URLs that work without a token.
-const INNERTUBE_UA = 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip'
+// empty 200s, which is why the old scraping approach silently died. Instead,
+// query the InnerTube /player endpoint whose caption URLs still work without
+// a token. YouTube gates each InnerTube client differently (and gates
+// datacenter IPs like Vercel's harder than residential ones), so try several
+// clients, then fall back to the transcript-panel endpoint (get_transcript),
+// which is gated separately from /player.
+const PLAYER_CLIENTS = [
+  {
+    label: 'ANDROID',
+    ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip',
+    client: { clientName: 'ANDROID', clientVersion: '20.10.38', androidSdkVersion: 30, hl: 'en', gl: 'US' },
+  },
+  {
+    label: 'IOS',
+    ua: 'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)',
+    client: { clientName: 'IOS', clientVersion: '20.10.4', deviceModel: 'iPhone16,2', hl: 'en', gl: 'US' },
+  },
+  {
+    label: 'WEB_EMBEDDED',
+    ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    client: { clientName: 'WEB_EMBEDDED_PLAYER', clientVersion: '1.20250310.01.00', hl: 'en', gl: 'US' },
+    thirdParty: { embedUrl: 'https://www.google.com' },
+  },
+]
 
-async function fetchYouTubeCaptions(videoId) {
-  const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
-    method: 'POST',
-    cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': INNERTUBE_UA },
-    body: JSON.stringify({
-      context: {
-        client: { clientName: 'ANDROID', clientVersion: '20.10.38', androidSdkVersion: 30, hl: 'en', gl: 'US' },
-      },
-      videoId,
-      contentCheckOk: true,
-      racyCheckOk: true,
-    }),
-  })
-  if (!res.ok) throw new Error(`YouTube player API returned ${res.status}`)
-  const player = await res.json()
-
-  const playability = player?.playabilityStatus
-  if (playability?.status && playability.status !== 'OK') {
-    throw new Error(playability.reason || `Video unavailable (${playability.status})`)
-  }
-
-  const title = player?.videoDetails?.title || null
-  const durationSec = player?.videoDetails?.lengthSeconds
-    ? parseInt(player.videoDetails.lengthSeconds, 10)
-    : null
-
+function pickTrack(tracks) {
   // Prefer human English captions, then auto-generated English, then first available
-  const tracks = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || []
-  const track = tracks.find(t => t.languageCode === 'en' && t.kind !== 'asr')
+  return tracks.find(t => t.languageCode === 'en' && t.kind !== 'asr')
     || tracks.find(t => t.languageCode === 'en')
     || tracks[0]
-  if (!track?.baseUrl) return { title, durationSec, transcript: null }
+}
 
-  const capRes = await fetch(track.baseUrl, { cache: 'no-store', headers: { 'User-Agent': INNERTUBE_UA } })
-  if (!capRes.ok) throw new Error(`Caption fetch failed: ${capRes.status}`)
-  const body = await capRes.text()
+async function fetchYouTubeCaptions(videoId) {
+  let title = null
+  let durationSec = null
+  let lastReason = null
 
-  return { title, durationSec, transcript: parseCaptionBody(body) }
+  for (const c of PLAYER_CLIENTS) {
+    try {
+      const res = await ytFetch('https://www.youtube.com/youtubei/v1/player', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': c.ua },
+        body: JSON.stringify({
+          context: { client: c.client, ...(c.thirdParty ? { thirdParty: c.thirdParty } : {}) },
+          videoId,
+          contentCheckOk: true,
+          racyCheckOk: true,
+        }),
+      })
+      if (!res.ok) { lastReason = `YouTube player API returned ${res.status}`; continue }
+      const player = await res.json()
+
+      const playability = player?.playabilityStatus
+      if (playability?.status && playability.status !== 'OK') {
+        lastReason = playability.reason || `Video unavailable (${playability.status})`
+        continue
+      }
+
+      title = title || player?.videoDetails?.title || null
+      durationSec = durationSec || (player?.videoDetails?.lengthSeconds
+        ? parseInt(player.videoDetails.lengthSeconds, 10)
+        : null)
+
+      const track = pickTrack(player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [])
+      if (!track?.baseUrl) continue
+
+      const capRes = await ytFetch(track.baseUrl, { cache: 'no-store', headers: { 'User-Agent': c.ua } })
+      if (!capRes.ok) { lastReason = `Caption fetch failed: ${capRes.status}`; continue }
+      const transcript = parseCaptionBody(await capRes.text())
+      if (transcript) return { title, durationSec, transcript }
+    } catch (err) {
+      lastReason = err.message
+    }
+  }
+
+  // Genuinely captionless video → transcript null (caller shows Upload hint);
+  // blocked/gated video → surface the reason.
+  if (lastReason) throw new Error(lastReason)
+  return { title, durationSec, transcript: null }
 }
 
 function decodeEntities(s) {
