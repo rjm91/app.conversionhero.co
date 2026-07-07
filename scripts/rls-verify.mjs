@@ -34,6 +34,12 @@ const BATCHES = {
     mayBeEmpty: ['integrations'],
     users: [],
   },
+  // Mission tables: tenant_select for authenticated (can_access_client); anon locked out.
+  batch2: {
+    tables: ['mission_findings', 'mission_decisions', 'mission_policies', 'client_daily_metrics'],
+    mayBeEmpty: ['mission_policies'],
+    users: [],
+  },
 }
 
 async function count(table, key, jwt) {
