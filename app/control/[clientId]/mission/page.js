@@ -878,42 +878,121 @@ function CampaignView({ m, platform }) {
   )
 }
 
+// Every column of client_orders — the picker can mirror the table 1:1.
+// def: shown by default. cell(o) → ResizableTable cell {v, s(ort), cls}.
+const fmtDateShort = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const oc = (v) => ({ v: v || <span className="dimc">—</span>, s: String(v || '') })
+const ORDER_FIELDS = [
+  { key: 'order',        label: 'Order',        def: true, cell: o => ({ v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: String(o.shopify_data?.order_name || o.lead_id) }) },
+  { key: 'date',         label: 'Date',         def: true, cell: o => ({ v: fmtDateShort(o.created_at), s: o.created_at }) },
+  { key: 'channel',      label: 'Channel',      def: true, cell: o => oc(deriveChannel(o)) },
+  { key: 'amount',       label: 'Amount',       def: true, num: true, cell: o => ({ v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 }) },
+  { key: 'customer',     label: 'Customer',     cell: o => oc([o.first_name, o.last_name].filter(Boolean).join(' ')) },
+  { key: 'email',        label: 'Email',        cell: o => oc(o.email) },
+  { key: 'phone',        label: 'Phone',        cell: o => oc(o.phone) },
+  { key: 'address',      label: 'Address',      cell: o => oc(o.address) },
+  { key: 'city',         label: 'City',         cell: o => oc(o.city) },
+  { key: 'state',        label: 'State',        cell: o => oc(o.state) },
+  { key: 'zip_code',     label: 'Zip',          cell: o => oc(o.zip_code) },
+  { key: 'source',       label: 'Source',       cell: o => oc(o.source) },
+  { key: 'utm_source',   label: 'UTM Source',   cell: o => oc(o.utm_source) },
+  { key: 'utm_medium',   label: 'UTM Medium',   cell: o => oc(o.utm_medium) },
+  { key: 'utm_campaign', label: 'UTM Campaign', cell: o => oc(o.utm_campaign) },
+  { key: 'utm_adgroup',  label: 'UTM Adgroup',  cell: o => oc(o.utm_adgroup) },
+  { key: 'utm_content',  label: 'UTM Content',  cell: o => oc(o.utm_content) },
+  { key: 'utm_term',     label: 'UTM Term',     cell: o => oc(o.utm_term) },
+  { key: 'gclid',        label: 'GCLID',        cell: o => oc(o.gclid) },
+  { key: 'wbraid',       label: 'WBRAID',       cell: o => oc(o.wbraid) },
+  { key: 'funnel_id',    label: 'Funnel ID',    cell: o => oc(o.funnel_id) },
+  { key: 'order_id',     label: 'Order ID',     cell: o => oc(o.order_id || o.lead_id) },
+  { key: 'notes',        label: 'Notes',        cell: o => oc(o.notes) },
+]
+const DEFAULT_ORDER_COLS = ORDER_FIELDS.filter(f => f.def).map(f => f.key)
+
 function OrdersView({ data, filter = '', setFilter }) {
   const all = data?.orders || []
   const q = filter.trim().toLowerCase()
-  const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  // Column picker — persisted; "all" mirrors the client_orders table exactly.
+  const [cols, setCols] = useState(null) // null = defaults
+  const [pickOpen, setPickOpen] = useState(false)
+  const pickRef = useRef(null)
+  useEffect(() => {
+    try { const c = JSON.parse(localStorage.getItem('ide_ordercols') || 'null'); if (Array.isArray(c) && c.length) setCols(c) } catch { /* defaults */ }
+  }, [])
+  useEffect(() => {
+    if (!pickOpen) return
+    const close = (e) => { if (pickRef.current && !pickRef.current.contains(e.target)) setPickOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [pickOpen])
+  const activeKeys = cols || DEFAULT_ORDER_COLS
+  const activeSet = new Set(activeKeys)
+  const fields = ORDER_FIELDS.filter(f => activeSet.has(f.key))
+  const saveCols = (next) => {
+    if (!next || !next.length) return
+    setCols(next); localStorage.setItem('ide_ordercols', JSON.stringify(next))
+  }
+  const toggleCol = (k) => {
+    const s = new Set(activeSet); s.has(k) ? s.delete(k) : s.add(k)
+    saveCols(ORDER_FIELDS.map(f => f.key).filter(x => s.has(x)))
+  }
   // Filter matches whatever a chart label plausibly names: order #, channel,
-  // or a date in either "Jul 5" or ISO form.
+  // a date ("Jul 5" or ISO) — plus customer/email/campaign when present.
   const matched = q ? all.filter(o => {
-    const name = String(o.shopify_data?.order_name || o.lead_id || '').toLowerCase()
-    const ch = deriveChannel(o).toLowerCase()
-    const date = fmtDate(o.created_at).toLowerCase()
-    const iso = String(o.created_at).slice(0, 10)
-    return name.includes(q) || ch.includes(q) || date.includes(q) || iso.includes(q)
+    const hay = [
+      o.shopify_data?.order_name || o.lead_id, deriveChannel(o), fmtDateShort(o.created_at),
+      String(o.created_at).slice(0, 10), o.first_name, o.last_name, o.email, o.utm_campaign, o.utm_source,
+    ].filter(Boolean).join(' ').toLowerCase()
+    return hay.includes(q)
   }) : all
-  const rows = matched.slice(0, 100)
+  // Pagination — 100 at a time; resets when the filter or range changes.
+  const [shown, setShown] = useState(100)
+  useEffect(() => { setShown(100) }, [q, all.length])
+  const rows = matched.slice(0, shown)
   return (
     <div className="v-pad">
       <div className="ofilter">
         <input value={filter} onChange={e => setFilter?.(e.target.value)}
-          placeholder="filter — order #, channel (Meta, Direct…), or date (Jul 5)" />
+          placeholder="filter — order #, channel (Meta, Direct…), date (Jul 5), customer, campaign" />
         {q && <button className="tt-btn" onClick={() => setFilter?.('')}>✕ clear</button>}
         {q && <span className="of-count">{matched.length} of {all.length} match</span>}
+        <div className="colpick" ref={pickRef}>
+          <button className={`tt-btn ${cols ? 'on' : ''}`} onClick={() => setPickOpen(o => !o)} title="choose columns">
+            ⊞ columns {activeKeys.length}/{ORDER_FIELDS.length}
+          </button>
+          {pickOpen && (
+            <div className="colpick-pop">
+              {ORDER_FIELDS.map(f => (
+                <label key={f.key} className="colpick-it">
+                  <input type="checkbox" checked={activeSet.has(f.key)} onChange={() => toggleCol(f.key)} />
+                  {f.label}
+                </label>
+              ))}
+              <div className="colpick-foot">
+                <button className="tt-btn" onClick={() => saveCols(ORDER_FIELDS.map(f => f.key))}>all — mirror db</button>
+                <button className="tt-btn" onClick={() => { setCols(null); localStorage.removeItem('ide_ordercols') }}>reset</button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       {q && matched.length === 0 ? (
         <p className="loading">no orders match “{filter}” — chart buckets like “Wk1” aggregate many rows; try a channel or a date.</p>
       ) : (
-        <ResizableTable
-          id="orders"
-          columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
-          rows={rows.map(o => [
-            { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: o.shopify_data?.order_name || o.lead_id },
-            { v: fmtDate(o.created_at), s: o.created_at },
-            { v: deriveChannel(o), s: deriveChannel(o) },
-            { v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 },
-          ])}
-          note={matched.length > 100 ? `showing latest 100 of ${matched.length}${q ? ' matching' : ''}.` : undefined}
-        />
+        <>
+          <ResizableTable
+            id={`orders.${activeKeys.join('.')}`}
+            columns={fields.map(f => ({ label: f.label, num: f.num }))}
+            rows={rows.map(o => fields.map(f => f.cell(o)))}
+            note={`showing ${rows.length} of ${matched.length}${q ? ' matching' : ''}.`}
+          />
+          {matched.length > shown && (
+            <div className="o-more">
+              <button className="tt-btn" onClick={() => setShown(s => s + 100)}>▾ load 100 more ({matched.length - shown} left)</button>
+              <button className="tt-btn" onClick={() => setShown(matched.length)}>show all {matched.length}</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -1396,4 +1475,11 @@ const CSS = `
 .ide .ofilter input{flex:0 1 380px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--txt);font:inherit;font-size:12px;padding:6px 10px;outline:none;}
 .ide .ofilter input:focus{border-color:rgba(110,168,254,.45);}
 .ide .of-count{color:var(--dim);font-size:11px;}
+.ide .colpick{position:relative;margin-left:auto;}
+.ide .colpick-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:40;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px;display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:1px 12px;box-shadow:0 14px 34px rgba(0,0,0,.55);}
+.ide .colpick-it{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);padding:3px 5px;cursor:pointer;border-radius:5px;white-space:nowrap;}
+.ide .colpick-it:hover{color:var(--txt);background:rgba(255,255,255,.04);}
+.ide .colpick-it input{accent-color:var(--blue);cursor:pointer;}
+.ide .colpick-foot{grid-column:1/-1;display:flex;gap:8px;margin-top:7px;padding-top:9px;border-top:1px solid var(--line);}
+.ide .o-more{display:flex;gap:8px;margin-top:10px;}
 `
