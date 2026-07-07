@@ -393,6 +393,62 @@ export default function ClientLayout({ children }) {
 
   const sidebarW = !hasPins ? '0px' : isCollapsed ? '54px' : '240px'
 
+  // ── Mission = the Business IDE. It owns the whole viewport: the regular nav
+  // is replaced by a slim IDE titlebar (client switcher · view-as · user menu)
+  // and the IDE's fixed overlay starts right below it (--mt-top). The old nav
+  // destinations live inside the IDE's explorer (APPS section) and ⌘P.
+  if (activeKey === 'mission') {
+    return (
+      <div className="flex flex-col h-screen bg-[#0b0e14]" style={{ '--mt-top': '36px' }}>
+        <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#0b0e14] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
+          {/* Client switcher — same dropdown as the classic nav, IDE-skinned */}
+          <div ref={el => dropdownRefs.current['brand'] = el} className="relative h-full flex items-center">
+            <button
+              onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
+              className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition group"
+            >
+              <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
+              <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
+              <svg className="w-2.5 h-2.5 text-[#5a6377] group-hover:text-[#8a93a8] transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            {openDropdown === 'brand' && isAgencyAdmin && (
+              <div className="absolute top-full left-1 mt-1 bg-[#161b28] border border-white/[0.07] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
+                <Link href="/control" onClick={() => setOpenDropdown(null)}
+                  className="flex items-center gap-2 px-2.5 py-2 text-[#8a93a8] text-[12px] rounded-md hover:text-[#dbe1ee] hover:bg-white/5 transition">
+                  <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Agency
+                </Link>
+                <div className="my-1 border-t border-white/[0.07]" />
+                {clients.map(c => (
+                  <Link key={c.client_id} href={`/control/${c.client_id}/mission`} onClick={() => setOpenDropdown(null)}
+                    className={`flex items-center gap-2 px-2.5 py-2 text-[12px] rounded-md transition ${c.client_id === clientId ? 'bg-[rgba(110,168,254,.12)] text-[#dbe1ee]' : 'text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/5'}`}>
+                    <span className="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-[8px] font-bold text-[#8a93a8] flex-shrink-0">{(c.client_name || 'CA').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
+                    {c.client_name}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+          <span className="text-[#5a6377] text-[11px] ml-1">mission</span>
+          <div className="ml-auto flex items-center gap-2">
+            {realAgencyAdmin && (
+              <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/[0.06]'}`}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg>
+                {viewAsClient ? 'client view' : 'view-as'}
+              </button>
+            )}
+            <UserMenu />
+          </div>
+        </header>
+        <main className="flex-1 min-h-0">
+          <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
+        </main>
+        <Toast message={toast} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
 

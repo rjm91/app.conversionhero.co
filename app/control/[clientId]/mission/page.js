@@ -7,7 +7,7 @@
 // knows which view you're looking at. Approvals still log locally — no
 // platform writes in this build.
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
@@ -50,8 +50,27 @@ const TREE = [
 ]
 const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
 
+// APPS — the rest of the control center, reachable without leaving the IDE
+// chrome. These navigate to the classic pages (the old nav is gone on /mission).
+const APPS = [
+  { key: 'dashboard', icon: '🏠', label: 'Dashboard' },
+  { key: 'command-hub', icon: '🕹', label: 'Command Hub', only: 'ch069' },
+  { key: 'projection', icon: '📽', label: 'Projection', only: 'ch069' },
+  { key: 'paid-ads', icon: '📣', label: 'Paid Ads' },
+  { key: 'funnels', icon: '🧲', label: 'Funnels' },
+  { key: 'videos', icon: '🎬', label: 'Videos' },
+  { key: 'contacts', icon: '👥', label: 'Customers' },
+  { key: 'calendar', icon: '📅', label: 'Calendar' },
+  { key: 'manufacturing', icon: '🏭', label: 'Manufacturing' },
+  { key: 'company', icon: '🏢', label: 'Company' },
+  { key: 'automations', icon: '⚡', label: 'Automations' },
+  { key: 'billing', icon: '💳', label: 'Billing' },
+]
+
 export default function BusinessIDE() {
   const { clientId } = useParams()
+  const router = useRouter()
+  const apps = useMemo(() => APPS.filter(a => !a.only || a.only === clientId), [clientId])
   const [rangeN, setRangeN] = useState(30)
   const [data, setData] = useState(null)
   const [turns, setTurns] = useState([])
@@ -490,6 +509,13 @@ export default function BusinessIDE() {
                 </div>
               ))}
             </>}
+            <div className="exp-sec">APPS</div>
+            {apps.map(a => (
+              <div key={a.key} className="exp-item" onClick={() => router.push(`/control/${clientId}/${a.key}`)}>
+                <span className="exp-ic">{a.icon}</span>{a.label}
+                <span className="exp-n">↗</span>
+              </div>
+            ))}
             <div className="exp-sec">PANEL</div>
             <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
               <span className="exp-ic">⚠️</span>Problems
@@ -609,6 +635,7 @@ export default function BusinessIDE() {
           ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
           ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
           ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
+          ...apps.map(a => ({ key: 'a' + a.key, label: a.icon + ' ' + a.label, sub: 'app ↗', run: () => router.push(`/control/${clientId}/${a.key}`) })),
         ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
         return (
           <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setQpOpen(false) }}>
