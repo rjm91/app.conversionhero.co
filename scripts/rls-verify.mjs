@@ -40,6 +40,12 @@ const BATCHES = {
     mayBeEmpty: ['mission_policies'],
     users: [],
   },
+  // Orders/leads core: tenant CRUD for authenticated; anon locked out.
+  batch3a: {
+    tables: ['client_orders', 'client_lead', 'client_lead_meta'],
+    mayBeEmpty: ['client_lead_meta'],
+    users: [],
+  },
 }
 
 async function count(table, key, jwt) {
