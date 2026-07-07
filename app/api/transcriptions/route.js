@@ -39,126 +39,112 @@ function extractVideoId(url) {
   return null
 }
 
-function formatAssemblyTranscript(transcript) {
-  const lines = []
-  if (transcript.words?.length) {
-    let currentLine = []
-    let lineStart = transcript.words[0].start
-    for (const word of transcript.words) {
-      currentLine.push(word.text)
-      if (currentLine.length >= 10) {
-        lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
-        currentLine = []
-        lineStart = word.end
-      }
-    }
-    if (currentLine.length) {
-      lines.push(`[${formatMs(lineStart)}] ${currentLine.join(' ')}`)
+// Group timed cues into readable paragraph blocks (~30s / ~500 chars each):
+// a timestamp header line, then flowing prose. Much easier to read and to
+// paste into an LLM than one line per caption cue.
+function formatCueBlocks(cues) {
+  const blocks = []
+  let cur = null
+  for (const c of cues) {
+    const text = (c.text || '').trim()
+    if (!text) continue
+    if (!cur || c.startMs - cur.startMs >= 30000 || cur.text.length >= 500) {
+      if (cur) blocks.push(cur)
+      cur = { startMs: c.startMs, text }
+    } else {
+      cur.text += ' ' + text
     }
   }
-  return lines.length ? lines.join('\n') : transcript.text
+  if (cur) blocks.push(cur)
+  return blocks.length
+    ? blocks.map(b => `${formatMs(b.startMs)}\n${b.text}`).join('\n\n')
+    : null
 }
 
-// ── Fetch YouTube captions by scraping the watch page ──
+function formatAssemblyTranscript(transcript) {
+  if (transcript.words?.length) {
+    const formatted = formatCueBlocks(transcript.words.map(w => ({ startMs: w.start, text: w.text })))
+    if (formatted) return formatted
+  }
+  return transcript.text
+}
+
+// ── Fetch YouTube captions via the InnerTube API (ANDROID client) ──
+// The watch-page caption URLs now require a proof-of-origin token and return
+// empty 200s, which is why the old scraping approach silently died. The
+// InnerTube /player endpoint queried as the ANDROID client still hands out
+// caption URLs that work without a token.
+const INNERTUBE_UA = 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip'
+
 async function fetchYouTubeCaptions(videoId) {
-  // Fetch the YouTube watch page with consent cookie to bypass cookie walls
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
-  const res = await fetch(watchUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cookie': 'CONSENT=PENDING+999; SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMwODI5LjA3X3AxGgJlbiACGgYIgJnZpwY',
-    },
+  const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': INNERTUBE_UA },
+    body: JSON.stringify({
+      context: {
+        client: { clientName: 'ANDROID', clientVersion: '20.10.38', androidSdkVersion: 30, hl: 'en', gl: 'US' },
+      },
+      videoId,
+      contentCheckOk: true,
+      racyCheckOk: true,
+    }),
   })
+  if (!res.ok) throw new Error(`YouTube player API returned ${res.status}`)
+  const player = await res.json()
 
-  if (!res.ok) throw new Error(`YouTube returned ${res.status}`)
-
-  const html = await res.text()
-
-  // Extract video title
-  const titleMatch = html.match(/<title>(.+?)<\/title>/)
-  let title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : null
-
-  // Extract ytInitialPlayerResponse — use brace-matching for reliable JSON extraction
-  const marker = 'ytInitialPlayerResponse'
-  const markerIdx = html.indexOf(marker)
-  if (markerIdx === -1) throw new Error('Could not find player response in page')
-
-  const jsonStart = html.indexOf('{', markerIdx)
-  if (jsonStart === -1) throw new Error('Could not find player response JSON')
-
-  // Find the matching closing brace by counting depth
-  let depth = 0
-  let jsonEnd = jsonStart
-  for (let i = jsonStart; i < html.length && i < jsonStart + 500000; i++) {
-    if (html[i] === '{') depth++
-    else if (html[i] === '}') {
-      depth--
-      if (depth === 0) { jsonEnd = i; break }
-    }
+  const playability = player?.playabilityStatus
+  if (playability?.status && playability.status !== 'OK') {
+    throw new Error(playability.reason || `Video unavailable (${playability.status})`)
   }
 
-  let player
-  try {
-    player = JSON.parse(html.substring(jsonStart, jsonEnd + 1))
-  } catch {
-    // Fallback: try regex approach
-    const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/)
-    if (!playerMatch) throw new Error('Could not parse player response')
-    player = JSON.parse(playerMatch[1])
-  }
-
-  // Get video title from player response if not found in HTML
-  if (!title) {
-    title = player?.videoDetails?.title || null
-  }
-
-  // Get duration
+  const title = player?.videoDetails?.title || null
   const durationSec = player?.videoDetails?.lengthSeconds
     ? parseInt(player.videoDetails.lengthSeconds, 10)
     : null
 
-  // Find caption tracks
-  const captions = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks
-  if (!captions?.length) {
-    return { title, durationSec, transcript: null }
+  // Prefer human English captions, then auto-generated English, then first available
+  const tracks = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || []
+  const track = tracks.find(t => t.languageCode === 'en' && t.kind !== 'asr')
+    || tracks.find(t => t.languageCode === 'en')
+    || tracks[0]
+  if (!track?.baseUrl) return { title, durationSec, transcript: null }
+
+  const capRes = await fetch(track.baseUrl, { cache: 'no-store', headers: { 'User-Agent': INNERTUBE_UA } })
+  if (!capRes.ok) throw new Error(`Caption fetch failed: ${capRes.status}`)
+  const body = await capRes.text()
+
+  return { title, durationSec, transcript: parseCaptionBody(body) }
+}
+
+function decodeEntities(s) {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+}
+
+// Caption bodies come back as timedtext XML (<p t="ms" d="ms">text</p>),
+// occasionally as json3 events. Handle both, group into paragraph blocks.
+function parseCaptionBody(body) {
+  const cues = []
+  try {
+    const events = JSON.parse(body)?.events || []
+    for (const e of events) {
+      if (!e.segs) continue
+      const text = e.segs.map(s => s.utf8 || '').join('').replace(/\n/g, ' ')
+      cues.push({ startMs: e.tStartMs || 0, text })
+    }
+  } catch {
+    const re = /<p t="(\d+)"[^>]*>([\s\S]*?)<\/p>/g
+    let m
+    while ((m = re.exec(body))) {
+      const text = decodeEntities(m[2].replace(/<[^>]+>/g, '')).replace(/\n/g, ' ')
+      cues.push({ startMs: Number(m[1]), text })
+    }
   }
-
-  // Prefer English, then auto-generated English, then first available
-  let captionTrack = captions.find(c => c.languageCode === 'en' && !c.kind)
-    || captions.find(c => c.languageCode === 'en')
-    || captions[0]
-
-  if (!captionTrack?.baseUrl) {
-    return { title, durationSec, transcript: null }
-  }
-
-  // Fetch the caption XML
-  const captionUrl = captionTrack.baseUrl + '&fmt=json3'
-  const captionRes = await fetch(captionUrl)
-  if (!captionRes.ok) throw new Error(`Caption fetch failed: ${captionRes.status}`)
-
-  const captionData = await captionRes.json()
-
-  if (!captionData?.events?.length) {
-    return { title, durationSec, transcript: null }
-  }
-
-  // Format caption events into timestamped transcript
-  const lines = []
-  for (const event of captionData.events) {
-    if (!event.segs) continue
-    const text = event.segs.map(s => s.utf8 || '').join('').trim()
-    if (!text || text === '\n') continue
-    const startSec = (event.tStartMs || 0) / 1000
-    lines.push(`[${formatSec(startSec)}] ${text}`)
-  }
-
-  return {
-    title,
-    durationSec,
-    transcript: lines.length ? lines.join('\n') : null,
-  }
+  return formatCueBlocks(cues)
 }
 
 // GET — list all transcriptions
