@@ -1353,8 +1353,9 @@ const CSS = `
 .ide .rt-scroll{overflow-x:auto;max-width:100%;}
 .ide .vtable.rt.rt-fixed{table-layout:fixed;}
 .ide .vtable.rt th{position:relative;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;}
-.ide .vtable.rt .col-grip:hover{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.55) 3px,rgba(110,168,254,.55) 5px,transparent 5px);}
+.ide .vtable.rt .col-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;
+  background:linear-gradient(to right,transparent 3.5px,rgba(255,255,255,.14) 3.5px,rgba(255,255,255,.14) 4.5px,transparent 4.5px);}
+.ide .vtable.rt .col-grip:hover,.ide .vtable.rt .col-grip:active{background:linear-gradient(to right,transparent 3px,rgba(110,168,254,.6) 3px,rgba(110,168,254,.6) 5px,transparent 5px);}
 .ide .vtable.rt.wrapoff td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ide .vtable.rt.wrapon td{white-space:normal;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}
 .ide .vtable.rt.wrapon td.tname,.ide .vtable.rt.wrapoff td.tname{max-width:none;}
