@@ -19,9 +19,11 @@
 --      rows from client_lead. The app excludes them from every lead query,
 --      so timing of the cleanup is not critical.
 --
--- RLS: intentionally left disabled to match client_lead — the browser reads
--- both tables directly with the anon key today. Revisit both together when
--- RLS is rolled out.
+-- RLS: intentionally DISABLED to match client_lead — the browser reads both
+-- tables directly with the anon key today. Made explicit below because
+-- Supabase can flip RLS on for new tables (with no policies, anon then reads
+-- 0 rows and the dashboard goes blank). Revisit both tables together when
+-- per-client RLS is rolled out.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create table if not exists public.client_orders (
@@ -55,6 +57,10 @@ create index if not exists client_orders_client_created_idx
   on public.client_orders (client_id, created_at desc);
 create index if not exists client_orders_client_campaign_idx
   on public.client_orders (client_id, utm_campaign);
+
+-- Match client_lead: anon-key browser reads need RLS off until per-client
+-- policies exist (see header note). Idempotent.
+alter table public.client_orders disable row level security;
 
 -- Backfill: copy every Shopify order row out of client_lead, keeping the same
 -- primary-key values so in-app keys (cogsByOrder[lead_id]) and any
