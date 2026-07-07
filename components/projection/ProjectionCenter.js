@@ -266,10 +266,9 @@ export default function ProjectionCenter({ clientId, clientName }) {
     const dayStartISO = new Date(`${histStart}T00:00:00`).toISOString()
     const dayEndISO = new Date(`${histEnd}T23:59:59.999`).toISOString()
     Promise.all([
-      supabase.from('client_lead')
-        .select('lead_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at')
+      supabase.from('client_orders')
+        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at')
         .eq('client_id', clientId)
-        .like('lead_id', 'shopify_%')
         .gte('created_at', dayStartISO)
         .lte('created_at', dayEndISO),
       supabase.from('client_yt_campaigns')

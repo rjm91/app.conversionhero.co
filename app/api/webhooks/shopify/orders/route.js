@@ -6,14 +6,14 @@ import {
   verifyShopifyWebhook,
   getShopifyConnectionByShop,
   fetchShopifyOrder,
-  orderNodeToLeadRow,
+  orderNodeToOrderRow,
 } from '../../../../../lib/shopify'
 
 // Receives Shopify orders/create + orders/updated webhooks for real-time
 // attribution. The webhook payload doesn't include the customer-journey UTM
 // data, so we use it as a trigger: verify the signature, then fetch that one
 // order's full data (incl. customerJourneySummary) via GraphQL and upsert it
-// into client_lead — same shape as the bulk sync.
+// into client_orders — same shape as the bulk sync.
 
 function admin() {
   return createClient(
@@ -46,8 +46,8 @@ export async function POST(request) {
     const node = await fetchShopifyOrder(conn, orderGid)
     if (!node) return new Response('Order not found', { status: 200 })
 
-    const row = orderNodeToLeadRow(conn.client_id, node)
-    const { error } = await admin().from('client_lead').upsert(row, { onConflict: 'lead_id' })
+    const row = orderNodeToOrderRow(conn.client_id, node)
+    const { error } = await admin().from('client_orders').upsert(row, { onConflict: 'order_id' })
     if (error) throw new Error(error.message)
 
     return new Response('ok', { status: 200 })

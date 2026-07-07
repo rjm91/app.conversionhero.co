@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-26 18:15:45 UTC",
+  "generatedAt": "2026-07-07 04:32:42 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -1443,6 +1443,75 @@
       ]
     },
     {
+      "name": "client_daily_metrics",
+      "columns": [
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "revenue",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "orders",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cogs",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "spend_google",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "spend_meta",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_domains",
       "columns": [
         {
@@ -1812,6 +1881,123 @@
       ]
     },
     {
+      "name": "client_klaviyo_campaigns",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "channel",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "recipients",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "opens",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "clicks",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions_value",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_lead",
       "columns": [
         {
@@ -2150,6 +2336,67 @@
       ]
     },
     {
+      "name": "client_materials",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_membership",
       "columns": [
         {
@@ -2304,6 +2551,203 @@
         {
           "name": "conversions_value",
           "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_orders",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "zip_code",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "sale_amount",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_source",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_medium",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_campaign",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_adgroup",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_content",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "utm_term",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "gclid",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "wbraid",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "funnel_id",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "shopify_data",
+          "type": "jsonb",
           "nullable": true,
           "default": null,
           "pk": false,
@@ -2523,6 +2967,59 @@
           "name": "synced_at",
           "type": "timestamp with time zone",
           "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_skus",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "parent_sku",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "size",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "bom",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
           "default": null,
           "pk": false,
           "fk": null
@@ -3541,6 +4038,333 @@
           "name": "updated_at",
           "type": "timestamp with time zone",
           "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "mission_decisions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "finding_key",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "what",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "est_impact_monthly",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "finding",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "baseline",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "measured",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "measured_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "execution",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "approved_by",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "mission_findings",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "finding_key",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "severity",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "icon",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "why",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "impact_monthly",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "confidence",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "evidence",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "action",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_seen",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_seen",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "resolved_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "decided_by",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "teach_reason",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "mission_policies",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "finding_key",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "taught_by",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "taught_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
           "default": null,
           "pk": false,
           "fk": null

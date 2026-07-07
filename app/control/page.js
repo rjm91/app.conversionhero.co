@@ -116,12 +116,13 @@ function statusColor(status) {
 
 /* ─── Fetch data for one client (same pattern as the working dashboard page) ─── */
 async function fetchClientData(clientId, start, end) {
-  // Leads
+  // Leads (true leads only — ecom orders live in client_orders)
   let leadsQ = supabase
     .from('client_lead')
     .select('lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, city, state, created_at, appt_date')
     .eq('client_id', clientId)
     .neq('lead_status', 'in_progress')
+    .not('lead_id', 'like', 'shopify_%')
   if (start) leadsQ = leadsQ.gte('created_at', start)
   if (end) leadsQ = leadsQ.lte('created_at', end + 'T23:59:59-12:00')
 
@@ -141,11 +142,10 @@ async function fetchClientData(clientId, start, end) {
   if (start) paysQ = paysQ.gte('date_created', start)
   if (end) paysQ = paysQ.lte('date_created', end + 'T23:59:59-12:00')
 
-  // Client business revenue — every client_lead row carrying a sale_amount
-  // (Shopify orders for ecom, sold jobs for home service). No lead_status
-  // filter so null-status Shopify orders aren't dropped by `!= in_progress`.
+  // Client business revenue — ecom orders (client_orders) plus sold home
+  // service jobs (client_lead rows carrying a sale_amount).
   let ordersQ = supabase
-    .from('client_lead')
+    .from('client_orders')
     .select('sale_amount, created_at')
     .eq('client_id', clientId)
     .gt('sale_amount', 0)
@@ -153,9 +153,20 @@ async function fetchClientData(clientId, start, end) {
   if (start) ordersQ = ordersQ.gte('created_at', start)
   if (end) ordersQ = ordersQ.lte('created_at', end + 'T23:59:59-12:00')
 
-  const [{ data: leads }, { data: campaigns }, { data: payments }, { data: orders }] = await Promise.all([
-    leadsQ, campsQ, paysQ, ordersQ,
+  let jobsQ = supabase
+    .from('client_lead')
+    .select('sale_amount, created_at')
+    .eq('client_id', clientId)
+    .gt('sale_amount', 0)
+    .not('lead_id', 'like', 'shopify_%')
+    .limit(10000)
+  if (start) jobsQ = jobsQ.gte('created_at', start)
+  if (end) jobsQ = jobsQ.lte('created_at', end + 'T23:59:59-12:00')
+
+  const [{ data: leads }, { data: campaigns }, { data: payments }, { data: orderRows }, { data: jobRows }] = await Promise.all([
+    leadsQ, campsQ, paysQ, ordersQ, jobsQ,
   ])
+  const orders = [...(orderRows || []), ...(jobRows || [])]
 
   return {
     leads: leads || [],

@@ -32,6 +32,7 @@ export async function GET(request) {
   if (end) campaignsQuery = campaignsQuery.lte('date', end)
 
   let leadsQuery = supabase.from('client_lead').select('client_id, lead_id, lead_status, appt_status, sale_status, first_name, last_name, email, phone, company, city, state, created_at, appt_date')
+    .not('lead_id', 'like', 'shopify_%') // ecom orders live in client_orders, not the lead pipeline
   if (start) leadsQuery = leadsQuery.gte('created_at', start)
   if (end) leadsQuery = leadsQuery.lte('created_at', end + 'T23:59:59')
 

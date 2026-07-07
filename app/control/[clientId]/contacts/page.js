@@ -138,11 +138,21 @@ const VALUE_LABELS = {
   unknown:  "I don't know",
 }
 
-async function deleteLeads(leadIds) {
-  // Delete child rows first, then parent
-  await supabase.from('client_lead_meta').delete().in('lead_id', leadIds)
-  const { error } = await supabase.from('client_lead').delete().in('lead_id', leadIds)
-  if (error) throw error
+async function deleteRecords(ids, rows) {
+  // Rows can come from two tables: orders (client_orders) and leads
+  // (client_lead). Split by the row's _kind and delete from the right one.
+  const orderIds = ids.filter(id => rows.find(r => r.lead_id === id)?._kind === 'order')
+  const leadIds  = ids.filter(id => !orderIds.includes(id))
+  if (orderIds.length) {
+    const { error } = await supabase.from('client_orders').delete().in('order_id', orderIds)
+    if (error) throw error
+  }
+  if (leadIds.length) {
+    // Delete child rows first, then parent
+    await supabase.from('client_lead_meta').delete().in('lead_id', leadIds)
+    const { error } = await supabase.from('client_lead').delete().in('lead_id', leadIds)
+    if (error) throw error
+  }
 }
 
 export default function ContactsPage() {
@@ -164,6 +174,7 @@ export default function ContactsPage() {
   const [chartSeries, setChartSeries] = useState({ labels: [], orders: [], sales: [], adspend: [], aov: [] })
   const toggleMetric = (key) => setActiveMetrics(m => ({ ...m, [key]: !m[key] }))
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchLeads() }, [clientId])
 
   useEffect(() => {
@@ -176,14 +187,35 @@ export default function ContactsPage() {
   }, [selected?.lead_id])
 
   async function fetchLeads() {
-    const { data, error } = await supabase
-      .from('client_lead')
-      .select('*')
-      .eq('client_id', clientId)
-      .neq('lead_status', 'in_progress')
-      .order('created_at', { ascending: false })
-    if (error) console.error('Error fetching leads:', error)
-    else setLeads(data || [])
+    // Two sources: true leads (client_lead) and ecom orders (client_orders).
+    // Order rows are mapped into the lead-row shape so the table/panel render
+    // both without special cases.
+    const [leadsRes, ordersRes] = await Promise.all([
+      supabase
+        .from('client_lead')
+        .select('*')
+        .eq('client_id', clientId)
+        .neq('lead_status', 'in_progress')
+        .not('lead_id', 'like', 'shopify_%')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('client_orders')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false }),
+    ])
+    if (leadsRes.error) console.error('Error fetching leads:', leadsRes.error)
+    if (ordersRes.error) console.error('Error fetching orders:', ordersRes.error)
+    const orderRows = (ordersRes.data || []).map(o => ({
+      ...o,
+      lead_id: o.order_id,
+      ch_notes: o.notes,
+      lead_status: 'Customer',
+      _kind: 'order',
+    }))
+    const merged = [...(leadsRes.data || []), ...orderRows]
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    setLeads(merged)
     setLoading(false)
   }
 
@@ -241,6 +273,32 @@ export default function ContactsPage() {
       return
     }
 
+    // ─── Update an existing order (ecom row lives in client_orders) ───
+    if (selected._kind === 'order') {
+      const { error } = await supabase
+        .from('client_orders')
+        .update({
+          first_name:  selected.first_name,
+          last_name:   selected.last_name,
+          email:       selected.email,
+          phone:       selected.phone,
+          address:     selected.address,
+          city:        selected.city,
+          state:       selected.state,
+          zip_code:    selected.zip_code,
+          sale_amount: selected.sale_amount,
+          notes:       selected.ch_notes,
+        })
+        .eq('order_id', selected.lead_id)
+      if (!error) {
+        setLeads(prev => prev.map(l => l.lead_id === selected.lead_id ? selected : l))
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 2000)
+      }
+      setSaving(false)
+      return
+    }
+
     // ─── Update an existing lead ───
     const { error } = await supabase
       .from('client_lead')
@@ -275,7 +333,7 @@ export default function ContactsPage() {
   async function handleDeleteOne() {
     setDeleting(true)
     try {
-      await deleteLeads([selected.lead_id])
+      await deleteRecords([selected.lead_id], leads)
       setLeads(prev => prev.filter(l => l.lead_id !== selected.lead_id))
       setSelected(null)
       setConfirmDelete(false)
@@ -290,7 +348,7 @@ export default function ContactsPage() {
     setDeleting(true)
     const ids = [...checked]
     try {
-      await deleteLeads(ids)
+      await deleteRecords(ids, leads)
       setLeads(prev => prev.filter(l => !ids.includes(l.lead_id)))
       setChecked(new Set())
     } catch (e) {
@@ -339,7 +397,7 @@ export default function ContactsPage() {
   }
 
   // Ecom (Shopify-connected) account → render the Shopify Orders-style columns.
-  const isEcom = leads.some(l => String(l.lead_id || '').startsWith('shopify_'))
+  const isEcom = leads.some(l => l._kind === 'order')
 
   // Orders-over-time chart: pull daily order counts for the selected range
   // straight from the DB (the loaded list is capped at 1,000 rows).
@@ -351,10 +409,9 @@ export default function ContactsPage() {
       const all = []
       for (let from = 0; ; from += 1000) {
         let q = supabase
-          .from('client_lead')
+          .from('client_orders')
           .select('created_at, sale_amount')
           .eq('client_id', clientId)
-          .neq('lead_status', 'in_progress')
           .order('created_at', { ascending: true })
           .range(from, from + 999)
         if (start) q = q.gte('created_at', start.toISOString())
@@ -931,7 +988,7 @@ export default function ContactsPage() {
                     <span className="text-xs text-red-500 font-medium">Failed — check automation config</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-2">Re-sends the lead notification email to all recipients configured in this client's automations.</p>
+                <p className="text-xs text-gray-400 mt-2">Re-sends the lead notification email to all recipients configured in this client&apos;s automations.</p>
               </div>
 
               {/* Danger zone */}
