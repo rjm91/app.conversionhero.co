@@ -7,7 +7,7 @@
 // knows which view you're looking at. Approvals still log locally — no
 // platform writes in this build.
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
@@ -50,8 +50,27 @@ const TREE = [
 ]
 const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
 
+// APPS — the rest of the control center, reachable without leaving the IDE
+// chrome. These navigate to the classic pages (the old nav is gone on /mission).
+const APPS = [
+  { key: 'dashboard', icon: '🏠', label: 'Dashboard' },
+  { key: 'command-hub', icon: '🕹', label: 'Command Hub', only: 'ch069' },
+  { key: 'projection', icon: '📽', label: 'Projection', only: 'ch069' },
+  { key: 'paid-ads', icon: '📣', label: 'Paid Ads' },
+  { key: 'funnels', icon: '🧲', label: 'Funnels' },
+  { key: 'videos', icon: '🎬', label: 'Videos' },
+  { key: 'contacts', icon: '👥', label: 'Customers' },
+  { key: 'calendar', icon: '📅', label: 'Calendar' },
+  { key: 'manufacturing', icon: '🏭', label: 'Manufacturing' },
+  { key: 'company', icon: '🏢', label: 'Company' },
+  { key: 'automations', icon: '⚡', label: 'Automations' },
+  { key: 'billing', icon: '💳', label: 'Billing' },
+]
+
 export default function BusinessIDE() {
   const { clientId } = useParams()
+  const router = useRouter()
+  const apps = useMemo(() => APPS.filter(a => !a.only || a.only === clientId), [clientId])
   const [rangeN, setRangeN] = useState(30)
   const [data, setData] = useState(null)
   const [turns, setTurns] = useState([])
@@ -153,6 +172,14 @@ export default function BusinessIDE() {
     })
     setActiveTab(a => a === id ? (tabs.filter(x => x !== id)[0] || 'overview') : a)
   }, [tabs])
+
+  // Chart drill-down — clicking a point/bar in an agent-rendered chart opens
+  // the Orders tab pre-filtered to that label (channel, date, order #…).
+  const [ordersQ, setOrdersQ] = useState('')
+  const drill = useCallback((label) => {
+    setOrdersQ(String(label ?? '').trim())
+    openTab('orders')
+  }, [openTab])
 
   /* ── data load + boot ── */
   useEffect(() => {
@@ -482,6 +509,13 @@ export default function BusinessIDE() {
                 </div>
               ))}
             </>}
+            <div className="exp-sec">APPS</div>
+            {apps.map(a => (
+              <div key={a.key} className="exp-item" onClick={() => router.push(`/control/${clientId}/${a.key}`)}>
+                <span className="exp-ic">{a.icon}</span>{a.label}
+                <span className="exp-n">↗</span>
+              </div>
+            ))}
             <div className="exp-sec">PANEL</div>
             <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
               <span className="exp-ic">⚠️</span>Problems
@@ -513,6 +547,7 @@ export default function BusinessIDE() {
           <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -525,6 +560,7 @@ export default function BusinessIDE() {
                   <button className="tt-btn" onClick={() => setSplitTab(null)}>✕</button>
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                  ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -543,7 +579,7 @@ export default function BusinessIDE() {
               {panelTab === 'terminal' && (
                 <>
                   <div className="stream">
-                    {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} onPin={() => pinView(t.spec, t.question)} />)}
+                    {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} onPin={() => pinView(t.spec, t.question)} onDrill={drill} />)}
                     <div ref={endRef} />
                   </div>
                   <div className="prompt">
@@ -599,6 +635,7 @@ export default function BusinessIDE() {
           ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
           ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
           ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
+          ...apps.map(a => ({ key: 'a' + a.key, label: a.icon + ' ' + a.label, sub: 'app ↗', run: () => router.push(`/control/${clientId}/${a.key}`) })),
         ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
         return (
           <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setQpOpen(false) }}>
@@ -639,12 +676,12 @@ export default function BusinessIDE() {
 }
 
 /* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
-function ViewBody({ id, m, data, rangeN, ledger, policies, pins, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, onUndo, onUnpin, onReask }) {
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
-  if (id === 'orders') return <OrdersView data={data} />
+  if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
   if (id === 'klaviyo') return <KlaviyoView m={m} />
   if (id === 'manual') return <div className="man-body wide"><Markdown text={MANUAL} /></div>
   if (id === 'ledger') return <LedgerView ledger={ledger} onUndo={onUndo} />
@@ -664,7 +701,7 @@ function ViewBody({ id, m, data, rangeN, ledger, policies, pins, onUndo, onUnpin
             <button className="tt-btn" onClick={() => onUnpin(p.id)}>✕ unpin</button>
           </div>
         </div>
-        <RenderSpec spec={p.spec} />
+        <RenderSpec spec={p.spec} onDrill={onDrill} />
       </div>
     )
   }
@@ -841,21 +878,43 @@ function CampaignView({ m, platform }) {
   )
 }
 
-function OrdersView({ data }) {
-  const rows = (data?.orders || []).slice(0, 100)
+function OrdersView({ data, filter = '', setFilter }) {
+  const all = data?.orders || []
+  const q = filter.trim().toLowerCase()
+  const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  // Filter matches whatever a chart label plausibly names: order #, channel,
+  // or a date in either "Jul 5" or ISO form.
+  const matched = q ? all.filter(o => {
+    const name = String(o.shopify_data?.order_name || o.lead_id || '').toLowerCase()
+    const ch = deriveChannel(o).toLowerCase()
+    const date = fmtDate(o.created_at).toLowerCase()
+    const iso = String(o.created_at).slice(0, 10)
+    return name.includes(q) || ch.includes(q) || date.includes(q) || iso.includes(q)
+  }) : all
+  const rows = matched.slice(0, 100)
   return (
     <div className="v-pad">
-      <ResizableTable
-        id="orders"
-        columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
-        rows={rows.map(o => [
-          { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: o.shopify_data?.order_name || o.lead_id },
-          { v: new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), s: o.created_at },
-          { v: deriveChannel(o), s: deriveChannel(o) },
-          { v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 },
-        ])}
-        note={(data?.orders || []).length > 100 ? `showing latest 100 of ${data.orders.length}.` : undefined}
-      />
+      <div className="ofilter">
+        <input value={filter} onChange={e => setFilter?.(e.target.value)}
+          placeholder="filter — order #, channel (Meta, Direct…), or date (Jul 5)" />
+        {q && <button className="tt-btn" onClick={() => setFilter?.('')}>✕ clear</button>}
+        {q && <span className="of-count">{matched.length} of {all.length} match</span>}
+      </div>
+      {q && matched.length === 0 ? (
+        <p className="loading">no orders match “{filter}” — chart buckets like “Wk1” aggregate many rows; try a channel or a date.</p>
+      ) : (
+        <ResizableTable
+          id="orders"
+          columns={[{ label: 'Order' }, { label: 'Date' }, { label: 'Channel' }, { label: 'Amount', num: true }]}
+          rows={rows.map(o => [
+            { v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: o.shopify_data?.order_name || o.lead_id },
+            { v: fmtDate(o.created_at), s: o.created_at },
+            { v: deriveChannel(o), s: deriveChannel(o) },
+            { v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 },
+          ])}
+          note={matched.length > 100 ? `showing latest 100 of ${matched.length}${q ? ' matching' : ''}.` : undefined}
+        />
+      )}
     </div>
   )
 }
@@ -921,7 +980,7 @@ function PoliciesView({ policies }) {
 
 /* ══════════ Terminal turns (same grammar as before) ══════════ */
 
-function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, bare }) {
+function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, onDrill, bare }) {
   if (t.kind === 'render') return bare ? null : (
     <div className="turn"><div className="gutter"><div className="glyph bluec">▦</div><div className="body">
       <div className="meta"><span className="who">agent · rendered view</span></div>
@@ -929,7 +988,7 @@ function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, b
         <div className="render-h"><span className="render-t">{t.spec.title}</span>
           <button className="tt-btn" onClick={onPin} title="save as a file in the explorer">📌 pin to tab</button>
         </div>
-        <RenderSpec spec={t.spec} />
+        <RenderSpec spec={t.spec} onDrill={onDrill} />
       </div>
     </div></div></div>
   )
@@ -948,7 +1007,7 @@ function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, b
       {t.pending && <div className="thinkline"><span className="spin" />reading orders · campaigns · BOM margins…</div>}
       {t.error && <div className="txt badc">error: {t.error}</div>}
       {t.text && <div className="txt pre">{t.text}</div>}
-      {t.bars && <Bars rows={t.bars} />}
+      {t.bars && <Bars rows={t.bars} onDrill={onDrill} />}
     </div></div></div>
   )
   if (t.kind === 'finding') {
@@ -1007,19 +1066,20 @@ function DataTable({ head, rows }) {
 
 /* Generative UI: render a spec the agent produced (bar | line | table) */
 const SERIES_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f']
-function RenderSpec({ spec }) {
+function RenderSpec({ spec, onDrill }) {
   if (spec.type === 'bar' && spec.bars?.length) {
-    return <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} />
+    return <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} onDrill={onDrill} />
   }
-  if (spec.type === 'line' && spec.line?.series?.length) return <LineChart line={spec.line} />
+  if (spec.type === 'line' && spec.line?.series?.length) return <LineChart line={spec.line} onDrill={onDrill} />
   if (spec.type === 'table' && spec.table?.head) return <DataTable head={spec.table.head} rows={spec.table.rows || []} />
   return <p className="v-dim">unrenderable spec ({spec.type})</p>
 }
 
-function LineChart({ line }) {
+function LineChart({ line, onDrill }) {
   const labels = line.labels || []
   // Sanitize model output — a single null/string value must not NaN the SVG
   const series = (line.series || []).map(s => ({ ...s, values: (s.values || []).map(v => Number(v) || 0) }))
+  const [hover, setHover] = useState(null) // point index under the cursor
   const W = 620, H = 150, P = 8
   const all = series.flatMap(s => s.values)
   if (!all.length) return null
@@ -1028,6 +1088,14 @@ function LineChart({ line }) {
   const n = Math.max(...series.map(s => s.values.length))
   const px = (i) => P + i * (W - 2 * P) / Math.max(1, n - 1)
   const py = (v) => H - P - (v - min) / (max - min || 1) * (H - 2 * P)
+  const fmt = (v) => Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : String(Math.round(v * 100) / 100)
+  const onMove = (e) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    const x = (e.clientX - box.left) / box.width * W
+    setHover(Math.min(n - 1, Math.max(0, Math.round((x - P) / ((W - 2 * P) / Math.max(1, n - 1))))))
+  }
+  // Tooltip flips sides past the midpoint so it never clips at the edges
+  const tipLeft = hover != null ? px(hover) / W * 100 : 0
   return (
     <div style={{ maxWidth: W }}>
       <div style={{ marginBottom: 4 }}>
@@ -1037,13 +1105,35 @@ function LineChart({ line }) {
           </span>
         ))}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%">
-        <line x1={P} y1={py(0)} x2={W - P} y2={py(0)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
-        {series.map((s, i) => (
-          <polyline key={i} fill="none" stroke={SERIES_COLORS[i % SERIES_COLORS.length]} strokeWidth="2"
-            points={s.values.map((v, j) => `${px(j)},${py(v)}`).join(' ')} />
-        ))}
-      </svg>
+      <div className="ct-wrap">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={onDrill ? { cursor: 'pointer' } : undefined}
+          onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+          onClick={() => { if (hover != null && labels[hover] != null) onDrill?.(labels[hover]) }}>
+          <line x1={P} y1={py(0)} x2={W - P} y2={py(0)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
+          {series.map((s, i) => (
+            <polyline key={i} fill="none" stroke={SERIES_COLORS[i % SERIES_COLORS.length]} strokeWidth="2"
+              points={s.values.map((v, j) => `${px(j)},${py(v)}`).join(' ')} />
+          ))}
+          {hover != null && <>
+            <line x1={px(hover)} y1={P} x2={px(hover)} y2={H - P} stroke="rgba(255,255,255,.28)" strokeWidth="1" strokeDasharray="3 3" />
+            {series.map((s, i) => s.values[hover] != null && (
+              <circle key={i} cx={px(hover)} cy={py(s.values[hover])} r="3.5"
+                fill={SERIES_COLORS[i % SERIES_COLORS.length]} stroke="#0b0e14" strokeWidth="1.5" />
+            ))}
+          </>}
+        </svg>
+        {hover != null && (
+          <div className="ct-tip" style={tipLeft > 55 ? { right: `${100 - tipLeft}%`, marginRight: 8 } : { left: `${tipLeft}%`, marginLeft: 8 }}>
+            <div className="ct-tip-l">{labels[hover] ?? `#${hover + 1}`}</div>
+            {series.map((s, i) => s.values[hover] != null && (
+              <div key={i} className="ct-tip-r">
+                <i style={{ background: SERIES_COLORS[i % SERIES_COLORS.length] }} />{s.name}<b>{fmt(s.values[hover])}</b>
+              </div>
+            ))}
+            {onDrill && <div className="ct-tip-h">click → matching orders</div>}
+          </div>
+        )}
+      </div>
       {labels.length > 1 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--faint)' }}>
           <span>{labels[0]}</span><span>{labels[Math.floor(labels.length / 2)]}</span><span>{labels[labels.length - 1]}</span>
@@ -1053,12 +1143,13 @@ function LineChart({ line }) {
   )
 }
 
-function Bars({ rows }) {
+function Bars({ rows, onDrill }) {
   const max = Math.max(...rows.map(r => r.value), 0.001)
   return (
     <div className="bars">
       {rows.map((r, i) => (
-        <div key={i} className="brow">
+        <div key={i} className={`brow ${onDrill ? 'drill' : ''}`} title={onDrill ? 'click → matching orders' : undefined}
+          onClick={onDrill ? () => onDrill(r.label) : undefined}>
           <span className="bl">{r.label}</span>
           <div className="btrack"><i style={{ width: `${Math.max(3, r.value / max * 100)}%`, background: r.color }} /></div>
           <span className="bv" style={{ color: r.color }}>{r.text}</span>
@@ -1287,4 +1378,22 @@ const CSS = `
 .ide .pal .it:hover{background:rgba(110,168,254,.08);}
 .ide .pal .it .d{color:var(--faint);font-size:11px;margin-left:auto;}
 .ide ::-webkit-scrollbar{width:10px;height:10px;} .ide ::-webkit-scrollbar-thumb{background:var(--panel2);border-radius:5px;}
+
+/* interactive charts — hover tooltip + click-to-drill */
+.ide .ct-wrap{position:relative;}
+.ide .ct-tip{position:absolute;top:4px;background:var(--panel2);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:7px 10px;font-size:11px;line-height:1.5;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:5;}
+.ide .ct-tip-l{color:var(--txt);font-weight:700;margin-bottom:2px;}
+.ide .ct-tip-r{display:flex;align-items:center;gap:6px;color:var(--dim);}
+.ide .ct-tip-r i{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0;}
+.ide .ct-tip-r b{color:var(--txt);margin-left:auto;padding-left:12px;}
+.ide .ct-tip-h{color:var(--faint);font-size:10px;margin-top:3px;border-top:1px solid var(--line);padding-top:3px;}
+.ide .brow.drill{cursor:pointer;border-radius:5px;}
+.ide .brow.drill:hover{background:rgba(110,168,254,.07);}
+.ide .brow.drill:hover .bl{color:var(--txt);}
+
+/* orders filter bar (drill target) */
+.ide .ofilter{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+.ide .ofilter input{flex:0 1 380px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--txt);font:inherit;font-size:12px;padding:6px 10px;outline:none;}
+.ide .ofilter input:focus{border-color:rgba(110,168,254,.45);}
+.ide .of-count{color:var(--dim);font-size:11px;}
 `
