@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetch-all'
 import { isAgencyAdmin } from '../lib/roles'
 import { buildCostBook, buildSkuIndex, orderCogs } from '../lib/cogs'
 import MetaConnectionModal from './MetaConnectionModal'
@@ -779,13 +780,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
     // viewer's calendar day exactly rather than UTC midnight.
     const dayStartISO = new Date(`${appliedStart}T00:00:00`).toISOString()
     const dayEndISO   = new Date(`${appliedEnd}T23:59:59.999`).toISOString()
-    const [ordersRes, campRes, metaRes, tiktokRes, klaviyoRes] = await Promise.all([
-      supabase.from('client_orders')
+    const [allOrders, campRes, metaRes, tiktokRes, klaviyoRes] = await Promise.all([
+      // Paginated — PostgREST caps single requests at 1,000 rows, which
+      // silently truncated wide ranges (All-Time showed the newest 1,000
+      // orders only) once history grew past that.
+      fetchAllRows((from, to) => supabase.from('client_orders')
         .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
         .eq('client_id', clientId)
         .gte('created_at', dayStartISO)
         .lte('created_at', dayEndISO)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .range(from, to)).catch(() => []),
       supabase.from('client_yt_campaigns')
         .select('*')
         .eq('client_id', clientId)
@@ -809,7 +814,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
         .catch(() => ({ rows: [] })),
     ])
 
-    setOrders(ordersRes.data || [])
+    setOrders(allOrders || [])
     setGoogleDaily(campRes.data || [])
     setMetaDaily(metaRes.data || [])
     setTiktokDaily(tiktokRes.data || [])
