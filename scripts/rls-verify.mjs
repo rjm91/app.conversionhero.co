@@ -58,6 +58,12 @@ const BATCHES = {
     mayBeEmpty: ['client_qb_payments', 'client_billing', 'client_google_ads_account'],
     users: [],
   },
+  // Identity & tenancy: reach-based selects; plans/templates/roadmap/audit service-only.
+  batch4: {
+    tables: ['client', 'agency', 'agency_membership', 'client_membership', 'profiles', 'plans', 'email_templates', 'dev_roadmap', 'role_change_audit', 'agency_leads', 'agency_automations', 'agency_transcriptions'],
+    mayBeEmpty: ['agency_transcriptions', 'dev_roadmap', 'role_change_audit', 'email_templates', 'agency_automations'],
+    users: [],
+  },
   // Content & ops: CRUD on asset/folder/scripts; select elsewhere; self-scope user_activity.
   batch3d: {
     tables: ['client_asset', 'client_folder', 'client_video_scripts', 'client_avatar_videos', 'client_campaign_drafts', 'client_automations', 'client_domains', 'calendar_events', 'projects', 'project_tasks', 'user_activity'],
