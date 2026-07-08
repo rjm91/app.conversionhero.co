@@ -170,6 +170,17 @@ export default function BusinessIDE() {
     try { localStorage.setItem(`ide_campaigns_${clientId}`, JSON.stringify(next)) } catch { /* quota */ }
   }, [clientId])
 
+  // Meta (Facebook/Instagram) campaigns — different object model from Google
+  // (objective → ad set → creative, no keywords). Own doc + persistence.
+  const [metaDoc, setMetaDoc] = useState({ campaigns: [] })
+  useEffect(() => {
+    try { const d = JSON.parse(localStorage.getItem(`ide_meta_${clientId}`) || 'null'); if (d?.campaigns) setMetaDoc(d) } catch { /* fresh */ }
+  }, [clientId])
+  const saveMetaDoc = useCallback((next) => {
+    setMetaDoc(next)
+    try { localStorage.setItem(`ide_meta_${clientId}`, JSON.stringify(next)) } catch { /* quota */ }
+  }, [clientId])
+
   const range = useMemo(() => rangeDays(rangeN), [rangeN])
   const m = useMemo(() => data ? computeMission(data) : null, [data])
 
@@ -490,7 +501,25 @@ export default function BusinessIDE() {
           saveCampaignDoc({ campaigns: [...campaignDoc.campaigns, ...norm] })
           openTab('campaign')
           const c = docCounts({ campaigns: norm })
-          push({ kind: 'sys', text: `agent action · drafted ${c.campaigns} campaign${c.campaigns !== 1 ? 's' : ''} (${c.adGroups} ad groups · ${c.keywords} keywords · ${c.ads} ads) into the Campaign Builder — review, then export the Google Ads Editor CSV.` })
+          push({ kind: 'sys', text: `agent action · drafted ${c.campaigns} Google campaign${c.campaigns !== 1 ? 's' : ''} (${c.adGroups} ad groups · ${c.keywords} keywords · ${c.ads} ads) into the Campaign Builder — review, then export the Google Ads Editor CSV.` })
+        } else if (a.name === 'build_meta_campaign' && Array.isArray(a.input?.campaigns)) {
+          const norm = a.input.campaigns.map(c => ({
+            name: c.name || 'Untitled campaign', objective: c.objective || 'OUTCOME_SALES',
+            status: c.status || 'Paused', dailyBudget: Number(c.dailyBudget) || null,
+            adSets: (c.adSets || []).map(s => ({
+              name: s.name || 'Ad set', optimizationGoal: s.optimizationGoal || 'OFFSITE_CONVERSIONS',
+              audience: s.audience || {}, placements: s.placements || 'Automatic',
+              ads: (s.ads || []).map(ad => ({
+                name: ad.name || 'Ad', primaryText: ad.primaryText || '', headline: ad.headline || '',
+                description: ad.description || '', finalUrl: ad.finalUrl || '', creativeNote: ad.creativeNote || '',
+              })),
+            })),
+          }))
+          saveMetaDoc({ campaigns: [...metaDoc.campaigns, ...norm] })
+          openTab('campaign')
+          const nSets = norm.reduce((n, c) => n + (c.adSets || []).length, 0)
+          const nAds = norm.reduce((n, c) => n + (c.adSets || []).reduce((m, s) => m + (s.ads || []).length, 0), 0)
+          push({ kind: 'sys', text: `agent action · drafted ${norm.length} Meta campaign${norm.length !== 1 ? 's' : ''} (${nSets} ad sets · ${nAds} ads) into the Campaign Builder — review the audience + copy; pushing to Meta comes once ads_management is authed.` })
         } else if (a.name === 'remember' && a.input?.content) {
           // Already saved server-side; reflect it locally + note it.
           setMemories(prev => [{ id: 'local-' + tid(), content: a.input.content, kind: a.input.kind || 'insight', source: a.input.source || null, created_at: new Date().toISOString() }, ...prev])
@@ -502,7 +531,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc, metaDoc, saveMetaDoc])
 
   const pinView = useCallback((spec, question) => {
     const id = 'p' + Date.now().toString(36)
@@ -595,7 +624,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId} memories={memories}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -609,7 +638,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId} memories={memories}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -765,54 +794,58 @@ function MemoryView({ memories, clientName, onReask }) {
   )
 }
 
-/* ══════════ Campaign Builder — Google Ads sheet the agent drafts ══════════ */
-function CampaignSheetView({ doc, onSave, clientName, onReask }) {
-  const campaigns = doc?.campaigns || []
-  const counts = docCounts(doc)
-  const slug = String(clientName || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+/* ══════════ Campaign Builder — Google (CSV) + Meta (API push) ══════════ */
+function CampaignSheetView({ doc, onSave, metaDoc, onSaveMeta, clientName, onReask }) {
+  const google = doc?.campaigns || []
+  const meta = metaDoc?.campaigns || []
+  if (!google.length && !meta.length) return (
+    <div className="v-pad">
+      <h4 className="v-h">Campaign Builder</h4>
+      <p className="loading" style={{ padding: '8px 0' }}>No campaigns drafted yet. Ask the agent in the terminal — “build a Google search campaign for our top product” or “build a Meta prospecting campaign” — and it fills a sheet here. Google exports as a Google Ads Editor CSV; Meta pushes via API (paused) once authed.</p>
+      <div className="cb-actions">
+        <button className="tt-btn" onClick={() => onReask?.('build a Google Ads Search campaign for this client’s best-selling product, grounded in the order data')}>✦ draft a Google campaign</button>
+        <button className="tt-btn" onClick={() => onReask?.('build a Meta prospecting campaign for this client’s best-selling product, grounded in the order data')}>✦ draft a Meta campaign</button>
+      </div>
+    </div>
+  )
+  return (
+    <div className="v-pad">
+      {!!google.length && <GoogleCampaigns campaigns={google} onSave={onSave} clientName={clientName} />}
+      {!!meta.length && <MetaCampaigns campaigns={meta} onSave={onSaveMeta} />}
+    </div>
+  )
+}
 
+function GoogleCampaigns({ campaigns, onSave, clientName }) {
+  const counts = docCounts({ campaigns })
+  const slug = String(clientName || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   const download = (someDoc, filename) => {
     const blob = new Blob([buildCsv(someDoc)], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = filename
+    const a = document.createElement('a'); a.href = url; a.download = filename
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
   }
-  const campSlug = (name) => String(name || 'campaign').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
-  const exportAll = () => download(doc, `google-ads-${slug}-all-campaigns.csv`)
-  const exportOne = (c) => download({ campaigns: [c] }, `google-ads-${slug}-${campSlug(c.name)}.csv`)
-  const removeCampaign = (i) => onSave({ campaigns: campaigns.filter((_, ix) => ix !== i) })
-
-  if (!campaigns.length) return (
-    <div className="v-pad">
-      <h4 className="v-h">Campaign Builder</h4>
-      <p className="loading" style={{ padding: '8px 0' }}>No campaigns drafted yet. Ask the agent in the terminal — e.g. “build a non-brand search campaign for our top product” — and it fills this sheet. You review here, export the Google Ads Editor CSV, and push it manually in Editor.</p>
-      <button className="tt-btn" onClick={() => onReask?.('build a Google Ads Search campaign for this client’s best-selling product, grounded in the order data')}>✦ ask the agent to draft one</button>
-    </div>
-  )
-
+  const cs = (n) => String(n || 'campaign').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
   return (
-    <div className="v-pad">
+    <div className="cb-platform">
       <div className="cb-head">
         <div>
-          <h4 className="v-h" style={{ margin: 0 }}>Campaign Builder</h4>
-          <span className="v-dim">{counts.campaigns} campaigns · {counts.adGroups} ad groups · {counts.keywords} keywords · {counts.ads} ads</span>
+          <h4 className="v-h" style={{ margin: 0 }}>🔍 Google Ads</h4>
+          <span className="v-dim">{counts.campaigns} campaigns · {counts.adGroups} ad groups · {counts.keywords} keywords · {counts.ads} ads · export → Google Ads Editor</span>
         </div>
         <div className="cb-actions">
-          <button className="tt-btn on" onClick={exportAll} title="one CSV with every campaign — Editor imports them all">⬇ Export all{campaigns.length > 1 ? ` (${campaigns.length})` : ''}</button>
+          <button className="tt-btn on" onClick={() => download({ campaigns }, `google-ads-${slug}-all-campaigns.csv`)}>⬇ Export all{campaigns.length > 1 ? ` (${campaigns.length})` : ''}</button>
           <button className="tt-btn" onClick={() => onSave({ campaigns: [] })}>clear</button>
         </div>
       </div>
-      <p className="v-note">Import into Google Ads Editor → review → post. Campaigns default to Paused so nothing spends until you enable them. “Export all” bundles every campaign into one CSV; the ⬇ on each campaign exports just that one.</p>
-
       {campaigns.map((c, ci) => (
         <div key={ci} className="cb-camp">
           <div className="cb-camp-head">
             <span className="cb-camp-name">{c.name}</span>
             <span className={`cb-badge ${c.status === 'Enabled' ? 'en' : ''}`}>{c.status || 'Paused'}</span>
             <span className="v-dim">{c.bidStrategy}</span>
-            <button className="cb-dl" title="export just this campaign" onClick={() => exportOne(c)}>⬇</button>
-            <button className="cb-x" title="remove from sheet" onClick={() => removeCampaign(ci)}>✕</button>
+            <button className="cb-dl" title="export just this campaign" onClick={() => download({ campaigns: [c] }, `google-ads-${slug}-${cs(c.name)}.csv`)}>⬇</button>
+            <button className="cb-x" title="remove" onClick={() => onSave({ campaigns: campaigns.filter((_, ix) => ix !== ci) })}>✕</button>
           </div>
           {(c.adGroups || []).map((g, gi) => (
             <div key={gi} className="cb-ag">
@@ -828,14 +861,8 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
                   {(g.ads || []).map((ad, ai) => (
                     <div key={ai}>
                       <div className="cb-col-h">Responsive Search Ad · {(ad.headlines || []).length}H / {(ad.descriptions || []).length}D</div>
-                      {(ad.headlines || []).map((h, hi) => {
-                        const t = h?.text || ''; const over = t.length > 30
-                        return <div key={'h' + hi} className={`cb-asset ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div>
-                      })}
-                      {(ad.descriptions || []).map((d, di) => {
-                        const t = d?.text || ''; const over = t.length > 90
-                        return <div key={'d' + di} className={`cb-asset desc ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div>
-                      })}
+                      {(ad.headlines || []).map((h, hi) => { const t = h?.text || ''; const over = t.length > 30; return <div key={'h' + hi} className={`cb-asset ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div> })}
+                      {(ad.descriptions || []).map((d, di) => { const t = d?.text || ''; const over = t.length > 90; return <div key={'d' + di} className={`cb-asset desc ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div> })}
                       {ad.finalUrl && <div className="cb-url">{ad.finalUrl}</div>}
                     </div>
                   ))}
@@ -849,10 +876,67 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, clientName, memories, onUndo, onUnpin, onReask }) {
+const META_OBJ = { OUTCOME_SALES: 'Sales', OUTCOME_LEADS: 'Leads', OUTCOME_TRAFFIC: 'Traffic', OUTCOME_AWARENESS: 'Awareness', OUTCOME_ENGAGEMENT: 'Engagement' }
+function MetaCampaigns({ campaigns, onSave }) {
+  const nSets = campaigns.reduce((n, c) => n + (c.adSets || []).length, 0)
+  const nAds = campaigns.reduce((n, c) => n + (c.adSets || []).reduce((m, s) => m + (s.ads || []).length, 0), 0)
+  return (
+    <div className="cb-platform" style={{ marginTop: campaigns.length ? 26 : 0 }}>
+      <div className="cb-head">
+        <div>
+          <h4 className="v-h" style={{ margin: 0 }}>📘 Meta Ads</h4>
+          <span className="v-dim">{campaigns.length} campaigns · {nSets} ad sets · {nAds} ads · push via API (all paused)</span>
+        </div>
+        <div className="cb-actions">
+          <button className="tt-btn" disabled title="enable ads_management on the Meta token to push (coming in phase 2)" style={{ opacity: 0.5, cursor: 'not-allowed' }}>⇪ Push to Meta (needs auth)</button>
+          <button className="tt-btn" onClick={() => onSave({ campaigns: [] })}>clear</button>
+        </div>
+      </div>
+      <p className="v-note" style={{ marginTop: 0 }}>Meta has no keywords — review the audience + creative below. Pushing creates everything Paused in your ad account for a final check in Ads Manager (enabled once the token has ads_management).</p>
+      {campaigns.map((c, ci) => (
+        <div key={ci} className="cb-camp">
+          <div className="cb-camp-head">
+            <span className="cb-camp-name">{c.name}</span>
+            <span className={`cb-badge ${c.status === 'Active' ? 'en' : ''}`}>{c.status || 'Paused'}</span>
+            <span className="v-dim">{META_OBJ[c.objective] || c.objective}{c.dailyBudget ? ` · $${c.dailyBudget}/day` : ''}</span>
+            <button className="cb-x" style={{ marginLeft: 'auto' }} title="remove" onClick={() => onSave({ campaigns: campaigns.filter((_, ix) => ix !== ci) })}>✕</button>
+          </div>
+          {(c.adSets || []).map((s, si) => (
+            <div key={si} className="cb-ag">
+              <div className="cb-ag-name">▸ {s.name} <span className="v-dim">· {s.optimizationGoal} · {s.placements}</span></div>
+              <div className="cb-cols">
+                <div className="cb-col">
+                  <div className="cb-col-h">Audience</div>
+                  {s.audience?.locations && <div className="cb-kw">📍 {s.audience.locations}</div>}
+                  {(s.audience?.ageMin || s.audience?.ageMax) && <div className="cb-kw">👤 {s.audience.ageMin || 18}–{s.audience.ageMax || 65}{s.audience.genders && s.audience.genders !== 'All' ? ` · ${s.audience.genders}` : ''}</div>}
+                  {(s.audience?.interests || []).map((it, ii) => <div key={ii} className="cb-kw"># {it}</div>)}
+                  {s.audience?.note && <div className="cb-asset desc">{s.audience.note}</div>}
+                </div>
+                <div className="cb-col">
+                  {(s.ads || []).map((ad, ai) => (
+                    <div key={ai}>
+                      <div className="cb-col-h">Ad{ad.name ? ` · ${ad.name}` : ''}</div>
+                      {ad.headline && <div className="cb-asset"><span className="cb-len">H</span>{ad.headline}</div>}
+                      {ad.primaryText && <div className="cb-asset desc"><span className="cb-len">B</span>{ad.primaryText}</div>}
+                      {ad.description && <div className="cb-asset desc"><span className="cb-len">D</span>{ad.description}</div>}
+                      {ad.creativeNote && <div className="cb-creative">🎨 {ad.creativeNote}</div>}
+                      {ad.finalUrl && <div className="cb-url">{ad.finalUrl}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
-  if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} clientName={clientName} onReask={onReask} />
+  if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} />
@@ -1533,6 +1617,7 @@ const CSS = `
 .ide .cb-len{font-size:9px;color:var(--faint);min-width:20px;text-align:right;font-variant-numeric:tabular-nums;}
 .ide .cb-asset.over .cb-len{color:var(--red);font-weight:700;}
 .ide .cb-url{font-size:11px;color:var(--blue);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .cb-creative{font-size:11px;color:var(--purple);margin-top:5px;font-style:italic;}
 
 /* memory */
 .ide .mem-list{margin-top:12px;display:flex;flex-direction:column;gap:1px;}

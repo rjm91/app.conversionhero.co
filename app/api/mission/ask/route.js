@@ -146,6 +146,66 @@ const TOOLS = [
     },
   },
   {
+    name: 'build_meta_campaign',
+    description: "Draft one or more Meta (Facebook/Instagram) ad campaigns into the terminal's Campaign Builder. Meta is structured differently from Google — NO keywords. Structure: Campaign (objective) → Ad Set (audience + budget + optimization) → Ad (creative copy). Generate complete, ready-to-review structure grounded in this client's data, products, and funnels. You draft the targeting and copy; the user reviews and pushes it to Meta (all campaigns land Paused). You describe the creative (image/video) in creativeNote since you can't produce the asset. Each call ADDS campaigns to the Meta sheet.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        campaigns: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'e.g. Prospecting_Sales_ShieldTech_US' },
+              objective: { type: 'string', enum: ['OUTCOME_SALES', 'OUTCOME_LEADS', 'OUTCOME_TRAFFIC', 'OUTCOME_AWARENESS', 'OUTCOME_ENGAGEMENT'], description: 'campaign objective' },
+              status: { type: 'string', enum: ['Paused', 'Active'], description: 'defaults to Paused' },
+              dailyBudget: { type: 'number', description: 'daily budget in USD (whole dollars)' },
+              adSets: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    optimizationGoal: { type: 'string', enum: ['OFFSITE_CONVERSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'REACH', 'IMPRESSIONS'], description: 'what the ad set optimizes for' },
+                    audience: {
+                      type: 'object',
+                      properties: {
+                        locations: { type: 'string', description: 'e.g. "United States" or specific states/DMAs' },
+                        ageMin: { type: 'integer' }, ageMax: { type: 'integer' },
+                        genders: { type: 'string', enum: ['All', 'Men', 'Women'] },
+                        interests: { type: 'array', items: { type: 'string' }, description: 'interest/behavior targeting terms' },
+                        note: { type: 'string', description: 'custom/lookalike audience notes if relevant' },
+                      },
+                    },
+                    placements: { type: 'string', description: 'e.g. "Automatic" or "Feeds + Reels"' },
+                    ads: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string' },
+                          primaryText: { type: 'string', description: 'the main ad body copy' },
+                          headline: { type: 'string', description: 'short headline (~40 chars)' },
+                          description: { type: 'string', description: 'link description (~30 chars, optional)' },
+                          finalUrl: { type: 'string', description: "landing page — the client's funnel if known" },
+                          creativeNote: { type: 'string', description: 'describe the image/video the user should supply (you cannot create the asset)' },
+                        },
+                        required: ['primaryText', 'headline'],
+                      },
+                    },
+                  },
+                  required: ['name'],
+                },
+              },
+            },
+            required: ['name', 'objective', 'adSets'],
+          },
+        },
+      },
+      required: ['campaigns'],
+    },
+  },
+  {
     name: 'remember',
     description: "Save a durable memory about this client for future sessions. Use ONLY for things the database can't answer: a stated preference (\"hates video ads\"), context (\"Q4 is their peak season\"), an external fact (\"supplier raised prices in June\"), or the reasoning behind a decision. NEVER memorize metrics, counts, or revenue — those are always queried fresh. Save when the user tells you something worth keeping, or explicitly asks you to remember. One clear fact per call.",
     input_schema: {
@@ -207,9 +267,9 @@ export async function POST(request) {
     `Key definitions you must respect: True ROAS = (UTM-attributed revenue − real BOM COGS) ÷ ad spend, so breakeven is 1.00x. The top-level true_roas_paid_only divides PAID contribution by spend — organic revenue never inflates it. COGS comes from the client's bill of materials, not estimates.`,
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
     `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
-    `TOOLS: open_tab, set_range, reopen_decision, draft_finding, render_view, build_campaign (UI-only), plus remember (persists a memory). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or publish to any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X", "build a campaign for Y"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
+    `TOOLS: open_tab, set_range, reopen_decision, draft_finding, render_view, build_campaign, build_meta_campaign (UI-only), plus remember (persists a memory). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or publish to any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X", "build a campaign for Y"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
     `MEMORY: when the user says "remember…" or shares a durable fact the DATABASE can't answer (a preference, seasonality, an external event, decision rationale), you MUST call the remember tool — one call per distinct fact. A conversational "noted" does NOT persist anything; only the tool does, so never claim you'll remember something without calling it. NEVER save metrics/counts/revenue (those are always queried fresh). Relevant memories are surfaced above when they exist.`,
-    `CAMPAIGNS: build_campaign drafts full Google Ads Search campaigns into a sheet the user exports as a Google Ads Editor CSV and pushes manually (Basic API access — you draft, they push, nothing publishes). Keywords need match types; ads need 10-15 headlines ≤30 chars and 3-4 descriptions ≤90 chars. Ground copy/targeting in this client's real data and funnels.`,
+    `CAMPAIGNS: build_campaign drafts GOOGLE Search campaigns (keywords + RSAs; user exports a Google Ads Editor CSV and pushes manually). build_meta_campaign drafts META (Facebook/Instagram) campaigns — NO keywords; instead Campaign objective → Ad Set (audience + budget + optimization) → Ad (primary text, headline, creative note). Pick the tool matching the platform the user names; if they just say "a campaign", ask which platform or infer from context (search intent → Google, audience/awareness → Meta). Ground all copy and targeting in this client's real data and funnels. Nothing publishes — the user reviews and pushes.`,
     allowQueries
       ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
       : `Answer ONLY from the context JSON. This user's role does not include database querying — if the context can't answer, say what's missing and suggest they ask an admin.`,
