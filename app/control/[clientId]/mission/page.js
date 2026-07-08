@@ -50,9 +50,10 @@ const TREE = [
     { id: 'manual', icon: '📖', label: 'Manual' },
     { id: 'ledger', icon: '🧾', label: 'Ledger' },
     { id: 'policies', icon: '🛡', label: 'Policies' },
+    { id: 'memory', icon: '🧠', label: 'Memory' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -148,6 +149,7 @@ export default function BusinessIDE() {
   const [policies, setPolicies] = useState([])
   const [leversMode, setLeversMode] = useState('dry_run')
   const [viewer, setViewer] = useState(null) // { role, queries } — who the asker is here
+  const [memories, setMemories] = useState([]) // agent's durable memory for this client
 
   // Pinned views — any agent-rendered chart/table saved as a "file" in the
   // explorer. Local to this browser (specs are snapshots; re-ask re-runs).
@@ -215,6 +217,7 @@ export default function BusinessIDE() {
         setPolicies(s.policies || [])
         setLeversMode(s.levers_mode || 'dry_run')
         setViewer(s.viewer || null)
+        setMemories(s.memories || [])
         if (s.refreshError) push({ kind: 'sys', text: 'watcher refresh hiccup (showing last-known state): ' + s.refreshError })
       })
       .catch(e => { if (alive) { setSrvFindings([]); push({ kind: 'sys', text: 'state load failed: ' + e.message }) } })
@@ -488,6 +491,10 @@ export default function BusinessIDE() {
           openTab('campaign')
           const c = docCounts({ campaigns: norm })
           push({ kind: 'sys', text: `agent action · drafted ${c.campaigns} campaign${c.campaigns !== 1 ? 's' : ''} (${c.adGroups} ad groups · ${c.keywords} keywords · ${c.ads} ads) into the Campaign Builder — review, then export the Google Ads Editor CSV.` })
+        } else if (a.name === 'remember' && a.input?.content) {
+          // Already saved server-side; reflect it locally + note it.
+          setMemories(prev => [{ id: 'local-' + tid(), content: a.input.content, kind: a.input.kind || 'insight', source: a.input.source || null, created_at: new Date().toISOString() }, ...prev])
+          push({ kind: 'sys', text: `agent action · remembered “${a.input.content}” — it's in the Memory tab now.` })
         } else {
           push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
         }
@@ -588,7 +595,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId} memories={memories}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -602,7 +609,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId} memories={memories}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -731,6 +738,33 @@ export default function BusinessIDE() {
 }
 
 /* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
+/* ══════════ Memory — the agent's durable, client-visible knowledge ══════════ */
+function MemoryView({ memories, clientName, onReask }) {
+  const KIND = { preference: '❤', context: '🗓', external: '🌐', decision: '⚖', insight: '💡' }
+  const fmt = (d) => { try { return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) } catch { return '' } }
+  return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>Memory</h4>
+      <p className="v-note" style={{ marginTop: 0 }}>What the agent knows about {clientName} beyond the raw data — preferences, context, external facts, decision rationale. Metrics are never memorized (always queried fresh). Tell the agent “remember that…” to add one.</p>
+      {!memories?.length ? (
+        <p className="loading" style={{ padding: '8px 0' }}>Nothing remembered yet. As you work with the agent it will save durable facts here — or say “remember that we hate video ads / Q4 is our peak / the supplier raised prices in June.”</p>
+      ) : (
+        <div className="mem-list">
+          {memories.map(m => (
+            <div key={m.id} className="mem-row">
+              <span className="mem-kind" title={m.kind}>{KIND[m.kind] || '•'}</span>
+              <div className="mem-body">
+                <div className="mem-content">{m.content}</div>
+                <div className="mem-meta">{m.kind}{m.source ? ` · ${m.source}` : ''} · {fmt(m.created_at)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ══════════ Campaign Builder — Google Ads sheet the agent drafts ══════════ */
 function CampaignSheetView({ doc, onSave, clientName, onReask }) {
   const campaigns = doc?.campaigns || []
@@ -812,10 +846,11 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, clientName, onUndo, onUnpin, onReask }) {
-  // Campaign Builder is independent of the mission metrics — render before the
-  // !m gate so it works even while data is still loading.
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, clientName, memories, onUndo, onUnpin, onReask }) {
+  // Campaign Builder + Memory are independent of the mission metrics — render
+  // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} clientName={clientName} onReask={onReask} />
+  if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
@@ -1493,6 +1528,14 @@ const CSS = `
 .ide .cb-len{font-size:9px;color:var(--faint);min-width:20px;text-align:right;font-variant-numeric:tabular-nums;}
 .ide .cb-asset.over .cb-len{color:var(--red);font-weight:700;}
 .ide .cb-url{font-size:11px;color:var(--blue);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* memory */
+.ide .mem-list{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
+.ide .mem-row{display:flex;gap:11px;padding:9px 4px;border-top:1px solid var(--line);}
+.ide .mem-row:first-child{border-top:none;}
+.ide .mem-kind{flex-shrink:0;font-size:13px;width:18px;text-align:center;}
+.ide .mem-content{color:var(--txt);font-size:13px;line-height:1.45;}
+.ide .mem-meta{color:var(--faint);font-size:10.5px;margin-top:3px;text-transform:capitalize;}
 .ide .v-dim{color:var(--faint);font-size:11px;}
 
 /* kpis */

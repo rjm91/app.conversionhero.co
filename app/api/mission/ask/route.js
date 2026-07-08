@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase-server'
 import { userCanAccessClient } from '../../../../lib/access'
 import { userCanUseQueries } from '../../../../lib/mission/authority'
 import { getAgentDb, runAgentQuery, agentSchemaPrompt } from '../../../../lib/mission/agent-db'
+import { recallMemories, rememberMemory } from '../../../../lib/mission/memory'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -145,6 +146,19 @@ const TOOLS = [
     },
   },
   {
+    name: 'remember',
+    description: "Save a durable memory about this client for future sessions. Use ONLY for things the database can't answer: a stated preference (\"hates video ads\"), context (\"Q4 is their peak season\"), an external fact (\"supplier raised prices in June\"), or the reasoning behind a decision. NEVER memorize metrics, counts, or revenue — those are always queried fresh. Save when the user tells you something worth keeping, or explicitly asks you to remember. One clear fact per call.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'the fact, self-contained (one sentence)' },
+        kind: { type: 'string', enum: ['preference', 'context', 'external', 'decision', 'insight'] },
+        source: { type: 'string', description: 'where it came from, e.g. "user told me 2026-07-08"' },
+      },
+      required: ['content'],
+    },
+  },
+  {
     name: 'draft_finding',
     description: 'Draft a NEW action card into PROBLEMS for the user to approve or dismiss. Use when the user asks you to propose or queue something. You draft — the human decides. Base the title/why on real numbers from the data.',
     input_schema: {
@@ -194,6 +208,7 @@ export async function POST(request) {
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
     `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
     `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding, render_view, build_campaign). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or publish to any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X", "build a campaign for Y"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
+    `MEMORY: use remember to save durable facts the DATABASE can't answer — preferences, seasonality, external events, decision rationale. NEVER save metrics/counts/revenue (always queried fresh). Save when the user shares something worth keeping or says "remember that". Relevant memories are already surfaced above when they exist.`,
     `CAMPAIGNS: build_campaign drafts full Google Ads Search campaigns into a sheet the user exports as a Google Ads Editor CSV and pushes manually (Basic API access — you draft, they push, nothing publishes). Keywords need match types; ads need 10-15 headlines ≤30 chars and 3-4 descriptions ≤90 chars. Ground copy/targeting in this client's real data and funnels.`,
     allowQueries
       ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
@@ -201,9 +216,16 @@ export async function POST(request) {
   ].join(' ')
   const tools = allowQueries ? TOOLS : TOOLS.filter(t => t.name !== 'query_data')
 
+  // Recall relevant long-term memories for this question (best-effort — never
+  // blocks an answer). Injected as a labeled block the agent can lean on.
+  const memories = await recallMemories(clientId, question).catch(() => [])
+  const memoryBlock = memories.length
+    ? `\n\nWHAT YOU REMEMBER ABOUT THIS CLIENT (durable memory — cite as "you told me…" / "from the June 12 call…", never as live data):\n${memories.map(m => `- [${m.kind}] ${m.content}${m.source ? ` (${m.source})` : ''}`).join('\n')}`
+    : ''
+
   const messages = [
-    { role: 'user', content: `DATA (range ${context.range?.start} → ${context.range?.end}):\n${JSON.stringify(context, null, 1)}` },
-    { role: 'assistant', content: 'Understood. I have the data and will answer only from it.' },
+    { role: 'user', content: `DATA (range ${context.range?.start} → ${context.range?.end}):\n${JSON.stringify(context, null, 1)}${memoryBlock}` },
+    { role: 'assistant', content: 'Understood. I have the data and my memory, and will answer only from them.' },
   ]
   for (const turn of (history || []).slice(-6)) {
     messages.push({ role: 'user', content: turn.q })
@@ -257,6 +279,19 @@ export async function POST(request) {
             }
           }
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) })
+        } else if (tu.name === 'remember') {
+          // Real server write — saves a durable memory (audited to this user).
+          try {
+            await rememberMemory(clientId, {
+              content: tu.input?.content, kind: tu.input?.kind || 'insight',
+              source: tu.input?.source || `${user.email} · ${context.range?.end || ''}`.trim(),
+              createdBy: user.id,
+            })
+            actions.push({ name: 'remember', input: tu.input }) // UI shows a "remembered" note
+            results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'saved to memory.' })
+          } catch (e) {
+            results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify({ error: e.message }) })
+          }
         } else {
           // UI-only tool: hand to the dashboard. Honest ack — the page still
           // validates the input and may skip it, so don't claim it ran.
