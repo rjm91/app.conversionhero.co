@@ -1,9 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '../../../../lib/supabase-server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { userCanAccessClient } from '../../../../lib/access'
-import { isAgencyUser } from '../../../../lib/roles'
+import { userCanUseQueries } from '../../../../lib/mission/authority'
 import { getAgentDb, runAgentQuery, agentSchemaPrompt } from '../../../../lib/mission/agent-db'
 
 export const runtime = 'nodejs'
@@ -110,24 +109,6 @@ const TOOLS = [
     },
   },
 ]
-
-// Role check for the query tool: agency-side users (memberships or legacy
-// profile role) and this client's client_admins. Mirrors lib/access.js's
-// membership-first-with-profile-fallback pattern.
-async function userCanUseQueries(userId, clientId) {
-  const db = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-  const [{ data: profRows }, { data: clientMems }, { data: agencyMems }] = await Promise.all([
-    db.from('profiles').select('role, client_id').eq('id', userId).limit(1),
-    db.from('client_membership').select('role').eq('profile_id', userId).eq('client_id', clientId),
-    db.from('agency_membership').select('role').eq('profile_id', userId).then(r => r, () => ({ data: null })),
-  ])
-  const profile = profRows?.[0]
-  if (profile && isAgencyUser(profile.role)) return true
-  if ((agencyMems || []).some(m => isAgencyUser(m.role))) return true
-  if ((clientMems || []).some(m => m.role === 'client_admin')) return true
-  if (profile?.client_id === clientId && profile.role === 'client_admin') return true
-  return false
-}
 
 // Mission Control ask bar: grounded Q&A over the exact metrics the page is
 // showing. The client sends a compact JSON context (same numbers as the KPI
