@@ -143,6 +143,7 @@ export default function BusinessIDE() {
   const [ledger, setLedger] = useState([])
   const [policies, setPolicies] = useState([])
   const [leversMode, setLeversMode] = useState('dry_run')
+  const [viewer, setViewer] = useState(null) // { role, queries } — who the asker is here
 
   // Pinned views — any agent-rendered chart/table saved as a "file" in the
   // explorer. Local to this browser (specs are snapshots; re-ask re-runs).
@@ -198,6 +199,7 @@ export default function BusinessIDE() {
         setLedger(s.decisions || [])
         setPolicies(s.policies || [])
         setLeversMode(s.levers_mode || 'dry_run')
+        setViewer(s.viewer || null)
         if (s.refreshError) push({ kind: 'sys', text: 'watcher refresh hiccup (showing last-known state): ' + s.refreshError })
       })
       .catch(e => { if (alive) { setSrvFindings([]); push({ kind: 'sys', text: 'state load failed: ' + e.message }) } })
@@ -592,7 +594,14 @@ export default function BusinessIDE() {
                     </div>
                     <div className="prompt-hint">
                       <span className={`ph-mode ${leversMode === 'live' ? 'bad' : leversMode === 'dry_run' ? 'warn' : 'dim'}`}>▶▶ levers {leversMode}</span>
-                      <span className="dim"> {leversMode === 'live' ? '(executes with rollback)' : leversMode === 'dry_run' ? '(drafts only — approvals stay yours)' : '(log only)'} · ⌘K commands · ? manual</span>
+                      <span className="dim"> {leversMode === 'live' ? '(executes with rollback)' : leversMode === 'dry_run' ? '(drafts only — approvals stay yours)' : '(log only)'}</span>
+                      <span className="dim"> · agent </span><span className="ph-agent">{(data?.clientName || clientId).toLowerCase()}</span>
+                      {viewer && <>
+                        <span className="dim"> · you: {viewer.role.replace(/_/g, ' ')} (</span>
+                        <span className={viewer.queries ? 'ph-q-on' : 'dim'}>{viewer.queries ? 'queries on' : 'queries off'}</span>
+                        <span className="dim">)</span>
+                      </>}
+                      <span className="dim"> · ⌘K commands · ? manual</span>
                     </div>
                   </div>
                 </>
@@ -1440,6 +1449,8 @@ const CSS = `
 .ide .prompt-hint{padding:5px 4px 6px;font-size:11.5px;letter-spacing:.01em;user-select:none;}
 .ide .ph-mode{font-weight:700;}
 .ide .ph-mode.warn{color:var(--amber);} .ide .ph-mode.bad{color:var(--red);} .ide .ph-mode.dim{color:var(--faint);}
+.ide .ph-agent{color:var(--blue);font-weight:700;}
+.ide .ph-q-on{color:var(--green);}
 .ide .ps{color:var(--green);font-weight:800;}
 .ide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;caret-color:var(--txt);}
 

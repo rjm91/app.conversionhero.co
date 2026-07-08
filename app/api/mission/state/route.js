@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '../../../../lib/supabase-server'
 import { userCanAccessClient } from '../../../../lib/access'
+import { getViewerAuthority } from '../../../../lib/mission/authority'
 import { refreshClient, measureDueDecisions } from '../../../../lib/mission/server'
 
 export const runtime = 'nodejs'
@@ -35,13 +36,14 @@ export async function GET(request) {
     }
   }
 
-  const [findings, decisions, policies] = await Promise.all([
+  const [findings, decisions, policies, viewer] = await Promise.all([
     db.from('mission_findings').select('*').eq('client_id', clientId).eq('status', 'open')
       .order('severity', { ascending: true }).order('impact_monthly', { ascending: false }),
     db.from('mission_decisions').select('*').eq('client_id', clientId)
       .order('approved_at', { ascending: false }).limit(50),
     db.from('mission_policies').select('*').eq('client_id', clientId).eq('active', true)
       .order('taught_at', { ascending: false }),
+    getViewerAuthority(user.id, clientId).catch(() => ({ role: 'viewer', queries: false })),
   ])
   return NextResponse.json({
     findings: findings.data || [],
@@ -49,5 +51,7 @@ export async function GET(request) {
     policies: policies.data || [],
     refreshError,
     levers_mode: (process.env.MISSION_LEVERS || 'dry_run').toLowerCase(),
+    // Prompt-hint identity strip: who the viewer is here + what they unlock.
+    viewer,
   })
 }
