@@ -583,11 +583,17 @@ export default function BusinessIDE() {
                     {turns.map(t => <Turn key={t.id} t={t} selected={t.id === selId} onSelect={() => setSelId(t.id)} onApprove={() => approve(t)} onTeach={() => startTeach(t)} onSaveTeach={(r) => saveTeach(t, r)} onPin={() => pinView(t.spec, t.question)} onDrill={drill} />)}
                     <div ref={endRef} />
                   </div>
-                  <div className="prompt">
-                    <span className="ps">❯</span>
-                    <input ref={inputRef} disabled={busy} placeholder={busy ? 'thinking…' : `ask about ${VIEW_TITLES[activeTab]?.toLowerCase() || 'anything'} · / commands · answers use this page's numbers`}
-                      onKeyDown={e => { if (e.key === 'Enter') { const v = e.currentTarget.value; e.currentTarget.value = ''; ask(v) } }}
-                      autoComplete="off" spellCheck="false" />
+                  <div className="prompt-wrap">
+                    <div className="prompt">
+                      <span className="ps">❯</span>
+                      <input ref={inputRef} disabled={busy} placeholder={busy ? 'thinking…' : `ask about ${VIEW_TITLES[activeTab]?.toLowerCase() || 'anything'} · / commands · answers use this page's numbers`}
+                        onKeyDown={e => { if (e.key === 'Enter') { const v = e.currentTarget.value; e.currentTarget.value = ''; ask(v) } }}
+                        autoComplete="off" spellCheck="false" />
+                    </div>
+                    <div className="prompt-hint">
+                      <span className={`ph-mode ${leversMode === 'live' ? 'bad' : leversMode === 'dry_run' ? 'warn' : 'dim'}`}>▶▶ levers {leversMode}</span>
+                      <span className="dim"> {leversMode === 'live' ? '(executes with rollback)' : leversMode === 'dry_run' ? '(drafts only — approvals stay yours)' : '(log only)'} · ⌘K commands · ? manual</span>
+                    </div>
                   </div>
                 </>
               )}
@@ -1426,8 +1432,14 @@ const CSS = `
 
 /* prompt — Cursor style: input sits on the terminal background, bounded by
    thin hairlines above and below (no box, no radius, no fill) */
-.ide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg);padding:9px 14px;margin-bottom:7px;flex-shrink:0;transition:border-color .15s;}
-.ide .prompt:focus-within{border-top-color:rgba(255,255,255,.18);border-bottom-color:rgba(255,255,255,.18);}
+/* Claude Code-style prompt: thin rules above/below the input, inset from the
+   edges, with a status hint line tucked under the lower rule. */
+.ide .prompt-wrap{margin:2px 12px 4px;flex-shrink:0;}
+.ide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid rgba(255,255,255,.26);border-bottom:1px solid rgba(255,255,255,.26);background:var(--bg);padding:9px 4px;transition:border-color .15s;}
+.ide .prompt:focus-within{border-top-color:rgba(255,255,255,.45);border-bottom-color:rgba(255,255,255,.45);}
+.ide .prompt-hint{padding:5px 4px 6px;font-size:11.5px;letter-spacing:.01em;user-select:none;}
+.ide .ph-mode{font-weight:700;}
+.ide .ph-mode.warn{color:var(--amber);} .ide .ph-mode.bad{color:var(--red);} .ide .ph-mode.dim{color:var(--faint);}
 .ide .ps{color:var(--green);font-weight:800;}
 .ide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;caret-color:var(--txt);}
 
