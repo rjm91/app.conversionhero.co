@@ -1,7 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '../../../../lib/supabase-server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { userCanAccessClient } from '../../../../lib/access'
+import { isAgencyUser } from '../../../../lib/roles'
 import { getAgentDb, runAgentQuery, agentSchemaPrompt } from '../../../../lib/mission/agent-db'
 
 export const runtime = 'nodejs'
@@ -99,6 +101,24 @@ const TOOLS = [
   },
 ]
 
+// Role check for the query tool: agency-side users (memberships or legacy
+// profile role) and this client's client_admins. Mirrors lib/access.js's
+// membership-first-with-profile-fallback pattern.
+async function userCanUseQueries(userId, clientId) {
+  const db = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  const [{ data: profRows }, { data: clientMems }, { data: agencyMems }] = await Promise.all([
+    db.from('profiles').select('role, client_id').eq('id', userId).limit(1),
+    db.from('client_membership').select('role').eq('profile_id', userId).eq('client_id', clientId),
+    db.from('agency_membership').select('role').eq('profile_id', userId).then(r => r, () => ({ data: null })),
+  ])
+  const profile = profRows?.[0]
+  if (profile && isAgencyUser(profile.role)) return true
+  if ((agencyMems || []).some(m => isAgencyUser(m.role))) return true
+  if ((clientMems || []).some(m => m.role === 'client_admin')) return true
+  if (profile?.client_id === clientId && profile.role === 'client_admin') return true
+  return false
+}
+
 // Mission Control ask bar: grounded Q&A over the exact metrics the page is
 // showing. The client sends a compact JSON context (same numbers as the KPI
 // strip) + the session history, so answers cite real rows and context carries
@@ -118,6 +138,11 @@ export async function POST(request) {
   if (!clientId || !(await userCanAccessClient(user.id, clientId))) {
     return NextResponse.json({ error: 'no access to this client' }, { status: 403 })
   }
+  // Presentation-layer role gate (decision 1a): the agent identity can read
+  // the whole tenant, so free-form querying is only exposed to users whose
+  // role already sees everything — agency users and this client's admins.
+  // client_standard users keep the context-grounded terminal, no query tool.
+  const allowQueries = await userCanUseQueries(user.id, clientId)
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -128,8 +153,11 @@ export async function POST(request) {
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
     `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
     `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding, render_view). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or touch any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
-    `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`,
+    allowQueries
+      ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
+      : `Answer ONLY from the context JSON. This user's role does not include database querying — if the context can't answer, say what's missing and suggest they ask an admin.`,
   ].join(' ')
+  const tools = allowQueries ? TOOLS : TOOLS.filter(t => t.name !== 'query_data')
 
   const messages = [
     { role: 'user', content: `DATA (range ${context.range?.start} → ${context.range?.end}):\n${JSON.stringify(context, null, 1)}` },
@@ -141,22 +169,30 @@ export async function POST(request) {
   }
   messages.push({ role: 'user', content: question })
 
+  // Tool loop: query_data executes server-side AS THE AGENT IDENTITY
+  // (RLS-scoped session — a bad query reads at most this tenant); UI tools
+  // are shipped to the dashboard to run client-side.
+  const actions = []
+  const texts = []
+  let queriesUsed = 0
+  let agentDb = null
+  let response = null
+  let loopError = null
   try {
-    // Tool loop: query_data executes server-side AS THE AGENT IDENTITY
-    // (RLS-scoped session — a bad query reads at most this tenant); UI tools
-    // are acked immediately and shipped to the dashboard to run client-side.
-    const actions = []
-    const texts = []
-    let queriesUsed = 0
-    let agentDb = null
-    let response
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      // Rounds exhausted with tools still pending → force a final text turn
+      // so the user never gets an empty or mid-plan answer.
+      const finalTurn = round === MAX_TOOL_ROUNDS - 1
+      if (finalTurn) {
+        messages.push({ role: 'user', content: 'Tool budget is exhausted. Give your final answer now from what you already have — no more tool calls.' })
+      }
       response = await client.messages.create({
         model: MODEL,
         max_tokens: 16000,
         thinking: { type: 'adaptive' },
         system,
-        tools: TOOLS,
+        tools,
+        ...(finalTurn ? { tool_choice: { type: 'none' } } : {}),
         messages,
       })
       texts.push(...response.content.filter(b => b.type === 'text').map(b => b.text))
@@ -180,19 +216,30 @@ export async function POST(request) {
           }
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) })
         } else {
-          // UI-only tool: hand to the dashboard, ack so the loop can continue.
+          // UI-only tool: hand to the dashboard. Honest ack — the page still
+          // validates the input and may skip it, so don't claim it ran.
           actions.push({ name: tu.name, input: tu.input })
-          results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'done — executed in the UI.' })
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'queued — the dashboard will run this if the input is valid.' })
         }
       }
       messages.push({ role: 'assistant', content: response.content })
       messages.push({ role: 'user', content: results })
       if (response.stop_reason !== 'tool_use') break
     }
-    const answer = texts.join('\n').trim()
-    return NextResponse.json({ answer, actions, usage: response?.usage, queries: queriesUsed })
   } catch (e) {
+    // Partial failure: don't 500 away work already done — deliver collected
+    // text + already-queued UI actions (drafted cards etc.) with the error.
     console.error('[mission/ask]', e)
-    return NextResponse.json({ error: e.message || 'ask failed' }, { status: 500 })
+    loopError = e.message || 'ask failed'
   }
+  const answer = texts.join('\n').trim()
+  if (!answer && loopError) {
+    return NextResponse.json({ error: loopError, actions, queries: queriesUsed }, { status: 500 })
+  }
+  return NextResponse.json({
+    answer: loopError ? `${answer}\n\n(interrupted: ${loopError})`.trim() : answer,
+    actions,
+    usage: response?.usage,
+    queries: queriesUsed,
+  })
 }
