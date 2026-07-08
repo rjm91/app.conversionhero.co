@@ -61,7 +61,7 @@ const TOOLS = [
   },
   {
     name: 'query_data',
-    description: 'Query the client\'s live database (their tenant only — enforced by row-level security). Use when the provided context JSON cannot answer the question: individual orders, customer fields, zip codes, ad-group/ad level stats, date ranges outside the loaded window, etc. Returns raw rows. Prefer the context JSON when it already has the answer — it is pre-aggregated and faster.',
+    description: 'Query the client\'s live database (their tenant only — enforced by row-level security). Use when the provided context JSON cannot answer the question: individual orders, customer fields, zip codes, ad-group/ad level stats, date ranges outside the loaded window, etc. TWO MODES: raw rows (default, capped at 200 — good for "show me" / "top N by a column"), or aggregate (group_by + metrics — scans up to 10,000 rows server-side and returns compact groups; ALWAYS use this for counts/sums/averages over a period, never sample raw rows and extrapolate). Prefer the context JSON when it already has the answer.',
     input_schema: {
       type: 'object',
       properties: {
@@ -80,7 +80,17 @@ const TOOLS = [
           },
         },
         order: { type: 'object', properties: { column: { type: 'string' }, ascending: { type: 'boolean' } } },
-        limit: { type: 'integer', description: 'max rows (server caps at 200)' },
+        limit: { type: 'integer', description: 'max rows (server caps at 200; ignored in aggregate mode)' },
+        aggregate: {
+          type: 'object',
+          description: 'group-by mode: returns {groups:[{<group_by>, count, sum_<col>, …}], rows_scanned}. Use for any count/sum/avg question.',
+          properties: {
+            group_by: { type: 'string', description: 'column to group on' },
+            metrics: { type: 'array', items: { type: 'object', properties: { op: { type: 'string', enum: ['count', 'sum', 'avg', 'min', 'max'] }, column: { type: 'string', description: 'omit for count' } }, required: ['op'] } },
+            top: { type: 'integer', description: 'return top N groups (max 50), sorted by the first non-count metric, else count' },
+          },
+          required: ['group_by'],
+        },
       },
       required: ['table'],
     },
