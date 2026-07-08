@@ -771,14 +771,16 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
   const counts = docCounts(doc)
   const slug = String(clientName || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  const exportCsv = () => {
-    const csv = buildCsv(doc)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const download = (someDoc, filename) => {
+    const blob = new Blob([buildCsv(someDoc)], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `google-ads-${slug}-campaigns.csv`
+    a.href = url; a.download = filename
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
   }
+  const campSlug = (name) => String(name || 'campaign').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
+  const exportAll = () => download(doc, `google-ads-${slug}-all-campaigns.csv`)
+  const exportOne = (c) => download({ campaigns: [c] }, `google-ads-${slug}-${campSlug(c.name)}.csv`)
   const removeCampaign = (i) => onSave({ campaigns: campaigns.filter((_, ix) => ix !== i) })
 
   if (!campaigns.length) return (
@@ -797,11 +799,11 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
           <span className="v-dim">{counts.campaigns} campaigns · {counts.adGroups} ad groups · {counts.keywords} keywords · {counts.ads} ads</span>
         </div>
         <div className="cb-actions">
-          <button className="tt-btn on" onClick={exportCsv}>⬇ Export Google Ads CSV</button>
+          <button className="tt-btn on" onClick={exportAll} title="one CSV with every campaign — Editor imports them all">⬇ Export all{campaigns.length > 1 ? ` (${campaigns.length})` : ''}</button>
           <button className="tt-btn" onClick={() => onSave({ campaigns: [] })}>clear</button>
         </div>
       </div>
-      <p className="v-note">Import this CSV into Google Ads Editor → review → post. Campaigns default to Paused so nothing spends until you enable them in Editor.</p>
+      <p className="v-note">Import into Google Ads Editor → review → post. Campaigns default to Paused so nothing spends until you enable them. “Export all” bundles every campaign into one CSV; the ⬇ on each campaign exports just that one.</p>
 
       {campaigns.map((c, ci) => (
         <div key={ci} className="cb-camp">
@@ -809,6 +811,7 @@ function CampaignSheetView({ doc, onSave, clientName, onReask }) {
             <span className="cb-camp-name">{c.name}</span>
             <span className={`cb-badge ${c.status === 'Enabled' ? 'en' : ''}`}>{c.status || 'Paused'}</span>
             <span className="v-dim">{c.bidStrategy}</span>
+            <button className="cb-dl" title="export just this campaign" onClick={() => exportOne(c)}>⬇</button>
             <button className="cb-x" title="remove from sheet" onClick={() => removeCampaign(ci)}>✕</button>
           </div>
           {(c.adGroups || []).map((g, gi) => (
@@ -1510,7 +1513,9 @@ const CSS = `
 .ide .cb-camp-name{font-weight:700;color:var(--txt);}
 .ide .cb-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--amber);background:rgba(232,180,90,.14);border-radius:4px;padding:1px 6px;}
 .ide .cb-badge.en{color:var(--green);background:rgba(63,214,143,.14);}
-.ide .cb-x{margin-left:auto;color:var(--faint);cursor:pointer;background:none;border:none;font:inherit;}
+.ide .cb-dl{margin-left:auto;color:var(--faint);cursor:pointer;background:none;border:none;font:inherit;padding:0 4px;}
+.ide .cb-dl:hover{color:var(--blue);}
+.ide .cb-x{color:var(--faint);cursor:pointer;background:none;border:none;font:inherit;padding:0 2px;}
 .ide .cb-x:hover{color:var(--red);}
 .ide .cb-ag{padding:10px 12px;border-top:1px solid var(--line);}
 .ide .cb-ag:first-child{border-top:none;}
