@@ -403,6 +403,7 @@ export default function BusinessIDE() {
     try {
       const ctx = {
         ...askContext(data.clientName, m, range),
+        clientId,
         active_view: VIEW_TITLES[activeTab] || activeTab,
         open_problems: openTurns.map(t => t.f.title),
         recent_decisions: ledger.slice(0, 10).map((r, i) => ({ index: i, decision: r.what, when: (r.approved_at || '').slice(0, 10), status: r.status, measured_delta_monthly: r.measured?.delta_monthly ?? null })),
@@ -455,7 +456,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId])
 
   const pinView = useCallback((spec, question) => {
     const id = 'p' + Date.now().toString(36)
