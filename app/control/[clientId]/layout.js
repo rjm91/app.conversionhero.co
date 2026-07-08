@@ -401,16 +401,24 @@ export default function ClientLayout({ children }) {
     return (
       <div className="flex flex-col h-screen bg-[#0b0e14]" style={{ '--mt-top': '36px' }}>
         <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#0b0e14] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
-          {/* Client switcher — same dropdown as the classic nav, IDE-skinned */}
+          {/* Client switcher — same dropdown as the classic nav, IDE-skinned.
+              Only agency admins get the dropdown, so only they get the button. */}
           <div ref={el => dropdownRefs.current['brand'] = el} className="relative h-full flex items-center">
-            <button
-              onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
-              className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition group"
-            >
-              <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
-              <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
-              <svg className="w-2.5 h-2.5 text-[#5a6377] group-hover:text-[#8a93a8] transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
+            {isAgencyAdmin ? (
+              <button
+                onClick={() => setOpenDropdown(o => o === 'brand' ? null : 'brand')}
+                className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition group"
+              >
+                <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
+                <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
+                <svg className="w-2.5 h-2.5 text-[#5a6377] group-hover:text-[#8a93a8] transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 px-2 py-1">
+                <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
+                <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
+              </span>
+            )}
             {openDropdown === 'brand' && isAgencyAdmin && (
               <div className="absolute top-full left-1 mt-1 bg-[#161b28] border border-white/[0.07] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
                 <Link href="/control" onClick={() => setOpenDropdown(null)}
@@ -442,7 +450,11 @@ export default function ClientLayout({ children }) {
           </div>
         </header>
         <main className="flex-1 min-h-0">
-          <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
+          {/* Same access gate as the classic layout — a user whose admin hid
+              this tab must never see the IDE render while the redirect fires. */}
+          {roleLoaded && clientLoaded && !canAccessActive ? (
+            <div className="p-8 text-sm text-gray-500">Loading…</div>
+          ) : <ErrorBoundary key={pathname}>{children}</ErrorBoundary>}
         </main>
         <Toast message={toast} />
       </div>
