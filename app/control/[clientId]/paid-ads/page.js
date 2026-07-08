@@ -3,6 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../../../lib/supabase'
+import { fetchAllRows } from '../../../../lib/fetch-all'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import CampaignBuilder from '../../../../components/CampaignBuilder'
@@ -111,22 +112,27 @@ export default function PaidAdsPage() {
   }, [clientId])
 
   const fetchAttribution = useCallback(async (start, end) => {
-    // CH conversions = true leads (client_lead) + ecom orders (client_orders)
-    const [{ data: leadRows }, { data: orderRows }] = await Promise.all([
-      supabase
+    // CH conversions = true leads (client_lead) + ecom orders (client_orders).
+    // Paginated — the 1,000-row cap silently undercounted busy ranges.
+    const [leadRows, orderRows] = await Promise.all([
+      fetchAllRows((from, to) => supabase
         .from('client_lead')
         .select('utm_campaign, utm_adgroup, utm_content')
         .eq('client_id', clientId)
         .neq('lead_status', 'in_progress')
         .not('lead_id', 'like', 'shopify_%')
         .gte('created_at', start)
-        .lte('created_at', end + 'T23:59:59-12:00'),
-      supabase
+        .lte('created_at', end + 'T23:59:59-12:00')
+        .order('created_at', { ascending: false })
+        .range(from, to)).catch(() => []),
+      fetchAllRows((from, to) => supabase
         .from('client_orders')
         .select('utm_campaign, utm_adgroup, utm_content')
         .eq('client_id', clientId)
         .gte('created_at', start)
-        .lte('created_at', end + 'T23:59:59-12:00'),
+        .lte('created_at', end + 'T23:59:59-12:00')
+        .order('created_at', { ascending: false })
+        .range(from, to)).catch(() => []),
     ])
     const leads = [...(leadRows || []), ...(orderRows || [])]
 

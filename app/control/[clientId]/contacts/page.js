@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
+import { fetchAllRows } from '../../../../lib/fetch-all'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
@@ -198,11 +199,14 @@ export default function ContactsPage() {
         .neq('lead_status', 'in_progress')
         .not('lead_id', 'like', 'shopify_%')
         .order('created_at', { ascending: false }),
-      supabase
+      // Paginated — PostgREST caps single requests at 1,000 rows; the store
+      // has more orders than that, and the merged list must show all of them.
+      fetchAllRows((from, to) => supabase
         .from('client_orders')
         .select('*')
         .eq('client_id', clientId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .range(from, to)).then(rows => ({ data: rows })).catch(e => ({ data: [], error: e })),
     ])
     if (leadsRes.error) console.error('Error fetching leads:', leadsRes.error)
     if (ordersRes.error) console.error('Error fetching orders:', ordersRes.error)

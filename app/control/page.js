@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetch-all'
 import { nights as planNights, catTotal as planCatTotal, amount as planAmount, money as planMoney, isEvent as planIsEvent, PLAN_TYPE_META, fmtTime as planFmtTime } from '../../components/PlanGantt'
 import PlanCalendar from '../../components/PlanCalendar'
 import AgencyRevenueChannels from '../../components/AgencyRevenueChannels'
@@ -143,15 +144,19 @@ async function fetchClientData(clientId, start, end) {
   if (end) paysQ = paysQ.lte('date_created', end + 'T23:59:59-12:00')
 
   // Client business revenue — ecom orders (client_orders) plus sold home
-  // service jobs (client_lead rows carrying a sale_amount).
-  let ordersQ = supabase
-    .from('client_orders')
-    .select('sale_amount, created_at')
-    .eq('client_id', clientId)
-    .gt('sale_amount', 0)
-    .limit(10000)
-  if (start) ordersQ = ordersQ.gte('created_at', start)
-  if (end) ordersQ = ordersQ.lte('created_at', end + 'T23:59:59-12:00')
+  // service jobs (client_lead rows carrying a sale_amount). Paginated:
+  // .limit(10000) never worked — PostgREST clamps every request to 1,000.
+  const ordersQ = fetchAllRows((from, to) => {
+    let q = supabase
+      .from('client_orders')
+      .select('sale_amount, created_at')
+      .eq('client_id', clientId)
+      .gt('sale_amount', 0)
+      .order('created_at', { ascending: false })
+    if (start) q = q.gte('created_at', start)
+    if (end) q = q.lte('created_at', end + 'T23:59:59-12:00')
+    return q.range(from, to)
+  }).then(rows => ({ data: rows })).catch(() => ({ data: [] }))
 
   let jobsQ = supabase
     .from('client_lead')

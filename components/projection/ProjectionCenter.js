@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetch-all'
 import { buildCostBook, buildSkuIndex, orderCogs } from '../../lib/cogs'
 import { isPaidOrder } from '../EcomControlCenter'
 import { projectSeries, applyScenario, isNeutralScenario, defaultScenario } from './forecast'
@@ -266,11 +267,14 @@ export default function ProjectionCenter({ clientId, clientName }) {
     const dayStartISO = new Date(`${histStart}T00:00:00`).toISOString()
     const dayEndISO = new Date(`${histEnd}T23:59:59.999`).toISOString()
     Promise.all([
-      supabase.from('client_orders')
+      // Paginated — PostgREST's 1,000-row cap silently truncates busy ranges.
+      fetchAllRows((from, to) => supabase.from('client_orders')
         .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at')
         .eq('client_id', clientId)
         .gte('created_at', dayStartISO)
-        .lte('created_at', dayEndISO),
+        .lte('created_at', dayEndISO)
+        .order('created_at', { ascending: false })
+        .range(from, to)).then(rows => ({ data: rows })).catch(() => ({ data: [] })),
       supabase.from('client_yt_campaigns')
         .select('date, cost')
         .eq('client_id', clientId)
