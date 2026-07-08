@@ -95,6 +95,56 @@ const TOOLS = [
     },
   },
   {
+    name: 'build_campaign',
+    description: "Draft one or more Google Ads Search campaigns into the terminal's Campaign Builder sheet. Use whenever the user asks to build, create, or add a campaign, ad group, keywords, or ads. Generate COMPLETE, ready-to-use structure: keywords with match types, and Responsive Search Ads with 10-15 distinct headlines (each ≤30 chars) and 3-4 descriptions (each ≤90 chars). Ground the targeting/copy in what you know about this client from the data and their funnels. This fills a sheet the user reviews, edits, and exports as a Google Ads Editor CSV — it does NOT publish to Google Ads. Each call ADDS campaigns to the sheet.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        campaigns: {
+          type: 'array',
+          description: 'One or more campaigns to add to the sheet.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Descriptive campaign name, e.g. NonBrand_Search_ShieldTech_US' },
+              status: { type: 'string', enum: ['Paused', 'Enabled'], description: 'Defaults to Paused.' },
+              bidStrategy: { type: 'string', description: 'e.g. Maximize clicks, Maximize conversions, Manual CPC' },
+              adGroups: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    keywords: {
+                      type: 'array',
+                      items: { type: 'object', properties: { text: { type: 'string' }, matchType: { type: 'string', enum: ['Exact', 'Phrase', 'Broad'] } }, required: ['text'] },
+                    },
+                    ads: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          headlines: { type: 'array', items: { type: 'string' }, description: '10-15 headlines, each ≤30 chars' },
+                          descriptions: { type: 'array', items: { type: 'string' }, description: '3-4 descriptions, each ≤90 chars' },
+                          path1: { type: 'string', description: 'Display path 1, ≤15 chars (optional)' },
+                          path2: { type: 'string', description: 'Display path 2, ≤15 chars (optional)' },
+                          finalUrl: { type: 'string', description: "Landing page URL — the client's funnel if known, else blank." },
+                        },
+                      },
+                    },
+                  },
+                  required: ['name'],
+                },
+              },
+            },
+            required: ['name', 'adGroups'],
+          },
+        },
+      },
+      required: ['campaigns'],
+    },
+  },
+  {
     name: 'draft_finding',
     description: 'Draft a NEW action card into PROBLEMS for the user to approve or dismiss. Use when the user asks you to propose or queue something. You draft — the human decides. Base the title/why on real numbers from the data.',
     input_schema: {
@@ -143,7 +193,8 @@ export async function POST(request) {
     `Key definitions you must respect: True ROAS = (UTM-attributed revenue − real BOM COGS) ÷ ad spend, so breakeven is 1.00x. The top-level true_roas_paid_only divides PAID contribution by spend — organic revenue never inflates it. COGS comes from the client's bill of materials, not estimates.`,
     `Style: lead with the direct answer and the number. 2-5 short sentences, then bullet lines only when comparing items. No markdown emphasis (no asterisks). Round dollars to whole numbers. When you reference a figure, it must appear in (or be arithmetic on) the provided data.`,
     `If the user asks what to DO, give one concrete recommendation with the math behind it — and when appropriate, draft it as a card with the draft_finding tool so it lands in PROBLEMS for their approval.`,
-    `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding, render_view). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or touch any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
+    `TOOLS: you have UI-only tools (open_tab, set_range, reopen_decision, draft_finding, render_view, build_campaign). They are executed by the dashboard in front of the user, instantly. They move things around INSIDE the IDE only — they can never pause campaigns, change budgets, or publish to any ad platform, and you must never claim otherwise. Approving is always the human's move: you may draft cards and reopen decisions, never approve them. Use a tool when the user's request is an action ("reopen that", "show me orders", "draft a card for X", "build a campaign for Y"); answer in text when it's a question. After calling a tool, one short sentence confirming what you did is enough.`,
+    `CAMPAIGNS: build_campaign drafts full Google Ads Search campaigns into a sheet the user exports as a Google Ads Editor CSV and pushes manually (Basic API access — you draft, they push, nothing publishes). Keywords need match types; ads need 10-15 headlines ≤30 chars and 3-4 descriptions ≤90 chars. Ground copy/targeting in this client's real data and funnels.`,
     allowQueries
       ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
       : `Answer ONLY from the context JSON. This user's role does not include database querying — if the context can't answer, say what's missing and suggest they ask an admin.`,

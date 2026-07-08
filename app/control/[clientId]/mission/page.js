@@ -11,6 +11,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
+import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
 import { deriveChannel } from '../../../../lib/channels'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
@@ -42,13 +43,16 @@ const TREE = [
     { id: 'orders', icon: '🛍', label: 'Orders' },
     { id: 'klaviyo', icon: '✉️', label: 'Klaviyo' },
   ]},
+  { section: 'BUILD', items: [
+    { id: 'campaign', icon: '🎯', label: 'Campaign Builder' },
+  ]},
   { section: 'DOCS', items: [
     { id: 'manual', icon: '📖', label: 'Manual' },
     { id: 'ledger', icon: '🧾', label: 'Ledger' },
     { id: 'policies', icon: '🛡', label: 'Policies' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', manual: 'Manual', ledger: 'Ledger', policies: 'Policies' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -152,6 +156,17 @@ export default function BusinessIDE() {
     try { setPins(JSON.parse(localStorage.getItem(`ide_pins_${clientId}`) || '[]')) } catch { /* fresh */ }
   }, [clientId])
   const savePins = (next) => { setPins(next); localStorage.setItem(`ide_pins_${clientId}`, JSON.stringify(next)) }
+
+  // Campaign Builder sheet — a Google Ads doc the agent drafts via build_campaign
+  // and the user exports as a Google Ads Editor CSV. Local + persisted per client.
+  const [campaignDoc, setCampaignDoc] = useState({ campaigns: [] })
+  useEffect(() => {
+    try { const d = JSON.parse(localStorage.getItem(`ide_campaigns_${clientId}`) || 'null'); if (d?.campaigns) setCampaignDoc(d) } catch { /* fresh */ }
+  }, [clientId])
+  const saveCampaignDoc = useCallback((next) => {
+    setCampaignDoc(next)
+    try { localStorage.setItem(`ide_campaigns_${clientId}`, JSON.stringify(next)) } catch { /* quota */ }
+  }, [clientId])
 
   const range = useMemo(() => rangeDays(rangeN), [rangeN])
   const m = useMemo(() => data ? computeMission(data) : null, [data])
@@ -451,6 +466,28 @@ export default function BusinessIDE() {
           } catch (e) { push({ kind: 'sys', text: 'agent draft failed: ' + e.message }) }
         } else if (a.name === 'render_view' && a.input?.type && a.input?.title) {
           setTurns(t => [...t, { id: tid(), kind: 'render', spec: a.input, question: q }])
+        } else if (a.name === 'build_campaign' && Array.isArray(a.input?.campaigns)) {
+          // Normalize the agent's shape → the CSV doc shape (headlines/
+          // descriptions arrive as string[], the builder wants [{text}]).
+          const norm = a.input.campaigns.map(c => ({
+            name: c.name || 'Untitled campaign',
+            status: c.status || 'Paused',
+            bidStrategy: c.bidStrategy || 'Maximize conversions',
+            adGroups: (c.adGroups || []).map(g => ({
+              name: g.name || 'Ad group',
+              keywords: (g.keywords || []).map(k => ({ text: k.text, matchType: k.matchType || 'Broad' })),
+              ads: (g.ads || []).map(ad => ({
+                adType: 'Responsive search ad',
+                headlines: (ad.headlines || []).map(h => ({ text: typeof h === 'string' ? h : h?.text })),
+                descriptions: (ad.descriptions || []).map(d => ({ text: typeof d === 'string' ? d : d?.text })),
+                path1: ad.path1 || '', path2: ad.path2 || '', finalUrl: ad.finalUrl || '',
+              })),
+            })),
+          }))
+          saveCampaignDoc({ campaigns: [...campaignDoc.campaigns, ...norm] })
+          openTab('campaign')
+          const c = docCounts({ campaigns: norm })
+          push({ kind: 'sys', text: `agent action · drafted ${c.campaigns} campaign${c.campaigns !== 1 ? 's' : ''} (${c.adGroups} ad groups · ${c.keywords} keywords · ${c.ads} ads) into the Campaign Builder — review, then export the Google Ads Editor CSV.` })
         } else {
           push({ kind: 'sys', text: `agent action · ${a.name} — unknown or invalid input, skipped` })
         }
@@ -458,7 +495,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId])
+  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc])
 
   const pinView = useCallback((spec, question) => {
     const id = 'p' + Date.now().toString(36)
@@ -551,6 +588,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -564,6 +602,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} clientName={data?.clientName || clientId}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -692,7 +731,91 @@ export default function BusinessIDE() {
 }
 
 /* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
-function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, onUndo, onUnpin, onReask }) {
+/* ══════════ Campaign Builder — Google Ads sheet the agent drafts ══════════ */
+function CampaignSheetView({ doc, onSave, clientName, onReask }) {
+  const campaigns = doc?.campaigns || []
+  const counts = docCounts(doc)
+  const slug = String(clientName || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  const exportCsv = () => {
+    const csv = buildCsv(doc)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `google-ads-${slug}-campaigns.csv`
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+  }
+  const removeCampaign = (i) => onSave({ campaigns: campaigns.filter((_, ix) => ix !== i) })
+
+  if (!campaigns.length) return (
+    <div className="v-pad">
+      <h4 className="v-h">Campaign Builder</h4>
+      <p className="loading" style={{ padding: '8px 0' }}>No campaigns drafted yet. Ask the agent in the terminal — e.g. “build a non-brand search campaign for our top product” — and it fills this sheet. You review here, export the Google Ads Editor CSV, and push it manually in Editor.</p>
+      <button className="tt-btn" onClick={() => onReask?.('build a Google Ads Search campaign for this client’s best-selling product, grounded in the order data')}>✦ ask the agent to draft one</button>
+    </div>
+  )
+
+  return (
+    <div className="v-pad">
+      <div className="cb-head">
+        <div>
+          <h4 className="v-h" style={{ margin: 0 }}>Campaign Builder</h4>
+          <span className="v-dim">{counts.campaigns} campaigns · {counts.adGroups} ad groups · {counts.keywords} keywords · {counts.ads} ads</span>
+        </div>
+        <div className="cb-actions">
+          <button className="tt-btn on" onClick={exportCsv}>⬇ Export Google Ads CSV</button>
+          <button className="tt-btn" onClick={() => onSave({ campaigns: [] })}>clear</button>
+        </div>
+      </div>
+      <p className="v-note">Import this CSV into Google Ads Editor → review → post. Campaigns default to Paused so nothing spends until you enable them in Editor.</p>
+
+      {campaigns.map((c, ci) => (
+        <div key={ci} className="cb-camp">
+          <div className="cb-camp-head">
+            <span className="cb-camp-name">{c.name}</span>
+            <span className={`cb-badge ${c.status === 'Enabled' ? 'en' : ''}`}>{c.status || 'Paused'}</span>
+            <span className="v-dim">{c.bidStrategy}</span>
+            <button className="cb-x" title="remove from sheet" onClick={() => removeCampaign(ci)}>✕</button>
+          </div>
+          {(c.adGroups || []).map((g, gi) => (
+            <div key={gi} className="cb-ag">
+              <div className="cb-ag-name">▸ {g.name}</div>
+              <div className="cb-cols">
+                <div className="cb-col">
+                  <div className="cb-col-h">Keywords ({(g.keywords || []).length})</div>
+                  {(g.keywords || []).map((k, ki) => (
+                    <div key={ki} className="cb-kw"><span className={`cb-mt cb-mt-${(k.matchType || 'Broad').toLowerCase()}`}>{(k.matchType || 'Broad')[0]}</span>{k.text}</div>
+                  ))}
+                </div>
+                <div className="cb-col">
+                  {(g.ads || []).map((ad, ai) => (
+                    <div key={ai}>
+                      <div className="cb-col-h">Responsive Search Ad · {(ad.headlines || []).length}H / {(ad.descriptions || []).length}D</div>
+                      {(ad.headlines || []).map((h, hi) => {
+                        const t = h?.text || ''; const over = t.length > 30
+                        return <div key={'h' + hi} className={`cb-asset ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div>
+                      })}
+                      {(ad.descriptions || []).map((d, di) => {
+                        const t = d?.text || ''; const over = t.length > 90
+                        return <div key={'d' + di} className={`cb-asset desc ${over ? 'over' : ''}`}><span className="cb-len">{t.length}</span>{t}</div>
+                      })}
+                      {ad.finalUrl && <div className="cb-url">{ad.finalUrl}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, clientName, onUndo, onUnpin, onReask }) {
+  // Campaign Builder is independent of the mission metrics — render before the
+  // !m gate so it works even while data is still loading.
+  if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} clientName={clientName} onReask={onReask} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
@@ -1343,6 +1466,33 @@ const CSS = `
 .ide .v-pad{padding:18px 22px 26px;}
 .ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
 .ide .v-note{color:var(--faint);font-size:11px;margin-top:12px;}
+
+/* campaign builder sheet */
+.ide .cb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.ide .cb-actions{display:flex;gap:8px;}
+.ide .cb-camp{border:1px solid var(--line);border-radius:9px;margin-top:14px;overflow:hidden;}
+.ide .cb-camp-head{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel2);border-bottom:1px solid var(--line);}
+.ide .cb-camp-name{font-weight:700;color:var(--txt);}
+.ide .cb-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--amber);background:rgba(232,180,90,.14);border-radius:4px;padding:1px 6px;}
+.ide .cb-badge.en{color:var(--green);background:rgba(63,214,143,.14);}
+.ide .cb-x{margin-left:auto;color:var(--faint);cursor:pointer;background:none;border:none;font:inherit;}
+.ide .cb-x:hover{color:var(--red);}
+.ide .cb-ag{padding:10px 12px;border-top:1px solid var(--line);}
+.ide .cb-ag:first-child{border-top:none;}
+.ide .cb-ag-name{font-weight:600;color:var(--dim);margin-bottom:8px;font-size:12px;}
+.ide .cb-cols{display:grid;grid-template-columns:minmax(180px,1fr) minmax(240px,2fr);gap:16px;}
+.ide .cb-col-h{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:6px 0 5px;}
+.ide .cb-kw{font-size:12px;color:var(--dim);padding:2px 0;display:flex;align-items:center;gap:7px;}
+.ide .cb-mt{display:inline-flex;width:14px;height:14px;align-items:center;justify-content:center;border-radius:3px;font-size:9px;font-weight:800;flex-shrink:0;}
+.ide .cb-mt-exact{background:rgba(63,214,143,.16);color:var(--green);}
+.ide .cb-mt-phrase{background:rgba(110,168,254,.16);color:var(--blue);}
+.ide .cb-mt-broad{background:rgba(138,147,168,.16);color:var(--dim);}
+.ide .cb-asset{font-size:12px;color:var(--dim);padding:2px 0;display:flex;align-items:baseline;gap:8px;}
+.ide .cb-asset.desc{color:var(--faint);}
+.ide .cb-asset.over{color:var(--red);}
+.ide .cb-len{font-size:9px;color:var(--faint);min-width:20px;text-align:right;font-variant-numeric:tabular-nums;}
+.ide .cb-asset.over .cb-len{color:var(--red);font-weight:700;}
+.ide .cb-url{font-size:11px;color:var(--blue);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ide .v-dim{color:var(--faint);font-size:11px;}
 
 /* kpis */
