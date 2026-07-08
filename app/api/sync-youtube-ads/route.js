@@ -3,9 +3,12 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
 import { getGoogleAdsAccessToken } from '../../../lib/google-ads'
 
+// Service role — this is a system sync job (cron + dashboard refresh). It ran
+// on the anon key for a year, which silently became read-nothing/write-nothing
+// when RLS landed (2026-07-07): "No active Google Ads accounts found."
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
 // Safe JSON parser — returns { ok, data, rawText } so we never throw on HTML responses
