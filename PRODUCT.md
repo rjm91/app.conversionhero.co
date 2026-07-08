@@ -118,18 +118,24 @@ A multi-tenant **agency client portal** built on Next.js + Supabase, currently s
 - **Campaign builder** (`/control/campaign-builder`) — Google Ads Search campaign builder with Editor export
 - **Automations & email templates** — new-lead email notifications, reusable agency email templates
 - **Internal ops** — projects/tasks (`/control/projects`), product roadmap (`/control/roadmap`), activity/audit log (`/control/activity`), transcriptions, agent-access registry
+- **Business IDE** (`/control/[clientId]/mission`) — a VS Code-shaped cockpit per client: Explorer tree (Overview / Google / Meta / Orders / Klaviyo / Ledger / Policies, plus an **APPS** section linking back to the classic pages), tabs, a TERMINAL session with `/` commands, and a live-KPI status bar. Fullscreen — the classic nav is replaced by a slim IDE titlebar on this route. The Orders view has 100-row pagination and a persisted column picker that can mirror `client_orders` 1:1.
+- **Fleet Mission Control** (`/control/mission`) — every ecom client's problems, 30-day economics, and decisions with measured impact in one queue; agency-side users only, click-through to each client's IDE.
+- **Mission engine** (`lib/mission/` — core/data/levers/manual/server/watchers) — daily cron `/api/cron/mission-watcher` refreshes rollups, dedupes findings, and measures decision outcomes (~7 days after approval); levers gated by `MISSION_LEVERS` (`off` | `dry_run` default | `live`) — dry_run builds the exact platform request + rollback plan, never sends.
 - Full drill-down into any client's per-client modules (dashboard, billing, paid ads, funnels, videos, manufacturing, projection)
 
 ### Client Layer (`client_admin` / `client_standard`)
 - Branded portal — clients only see their own data
+- **Ecom control center** (dashboard, for `account_type = ecom`) — blended + per-channel performance (Google / Meta / TikTok / Klaviyo / Shopify orders), **True ROAS** (paid revenue − COGS ÷ spend), a **Paid/Organic/All** lens (ROAS always divides *paid* revenue by spend), Revenue-by-Channel with per-channel exclude ✕ + restore chips (visual only — header KPIs still count them)
 - YouTube Ads performance metrics (synced from Google Ads API)
 - Video script library with approval workflow
 - Contact/lead management
 - Team member management with role-based access
 
 ### Infrastructure
-- **Auth**: Supabase Auth with role-based access control (agency_admin, agency_admin_security, client_admin, client_standard)
-- **Database**: Supabase Postgres — clients, profiles, campaigns, scripts, leads, billing
+- **Auth**: Supabase Auth with role-based access control (agency_admin, agency_admin_security, agency_standard, client_admin, client_standard, + a DB-level `agent` role — see Role Hierarchy)
+- **Database**: Supabase Postgres — clients, profiles, campaigns, scripts, leads, orders, billing
+- **Row-Level Security**: all 53 tables governed (2026-07-07 rollout) — SQL access helpers (`accessible_agencies` / `is_root_admin` / `can_access_client` / `can_access_agency`) mirror `lib/access.js` in lockstep; policy naming `<table>_(tenant|self|public)_(cmd)`; credential/internal tables are service-only; funnels keep public read of `live` rows; verification harness `scripts/rls-verify.mjs`
+- **Browser Supabase client**: single cookie-aware client in `lib/supabase.js` (`createBrowserClient`); `lib/supabase-browser.js` re-exports it
 - **Google Ads API**: Live sync of YouTube campaign data
 - **Middleware**: Server-side route protection, role-based redirects
 - **Deployment**: Vercel (auto-deploy on push to `main`)
@@ -145,8 +151,9 @@ Currently on **Google Ads Developer Access** (read-only sync). Pending approval 
 - Adding/swapping video creatives in live campaigns
 - Full campaign lifecycle management via API
 
-### 2. AI Agent Core
-A chat + voice interface where users talk directly to the agent:
+### 2. AI Agent Core *(partially shipped)*
+**Built:** the AgentPanel chat (Claude tool-calling — read tools + `propose*` write proposals), the Business IDE mission terminal (UI tools incl. `render_view` generative UI + pin-to-tab), the watcher → findings → approval → ledger loop, and dry-run levers that build exact platform requests + rollback plans without sending.
+**Remaining:** live lever execution (flip `MISSION_LEVERS` to `live` / dark→live in the registry), wiring the minted per-client agent identity into runtime (retiring service-role reads), the guarded free-form query tool, and pgvector memory. The target loop:
 - **Plan** — research audiences, recommend campaign structure and budget
 - **Launch** — create campaigns, ad groups, and upload creatives automatically
 - **Optimize** — analyze performance data, make bid/budget adjustments, pause underperformers
@@ -193,8 +200,8 @@ All triggered by a single instruction from the user, or run fully autonomously o
 | Backend | Next.js API Routes (serverless) |
 | Database | Supabase (Postgres + Auth) |
 | Ads API | Google Ads API |
-| Video AI | HeyGen API *(coming soon)* |
-| AI Agent | *(coming soon)* |
+| Video AI | HeyGen API (Avatar Studio live; account still on free tier — 8 renders/day) |
+| AI Agent | Anthropic Claude (`claude-sonnet-4-5`) — AgentPanel chat + mission terminal (`app/api/agent/chat`, `app/api/mission/ask`) |
 | Deployment | Vercel |
 
 ---
@@ -211,16 +218,23 @@ All triggered by a single instruction from the user, or run fully autonomously o
 | `client_google_ads_account` | Google Ads account credentials per client |
 | `client_yt_campaigns` | Synced YouTube campaign performance data |
 | `client_video_scripts` | Scripts written for/by each client |
-| `client_lead` | Per-client leads **and** Shopify orders (ecom); `sale_amount` = **client business revenue**; `lead_id LIKE 'shopify_%'` marks ecom orders |
+| `client_lead` | Per-client **leads/contacts only** (funnel form fills, quote requests, manual contacts) — Shopify order rows were split out to `client_orders` and deleted (2026-07-06); `sale_amount` = sold-job revenue for lead-driven industries |
+| `client_orders` | Ecom order transactions — **client business revenue** for ecom. `order_id` platform-prefixed (`shopify_<id>` today), full UTM/gclid/wbraid attribution + `shopify_data` jsonb; written by the Shopify sync + webhook via `orderNodeToOrderRow` (`lib/shopify.js`) |
 | `client_payments` | QuickBooks-synced payments = **agency revenue** (commission + setup fees) per client |
 | `agency_leads` | The agency's *own* leads/prospects (incl. Blaztr cold-email via `meta.source`); drives the My-Agency sales pipeline + Revenue Channels |
+| `client_materials` / `client_skus` | BOM → COGS unit-economics data per client (drives True ROAS / max-allowable CAC via `lib/cogs.js`) |
+| `client_klaviyo_campaigns` | Synced Klaviyo campaign/flow stats (email/retention channel on the ecom dashboard) |
+| `mission_findings` | Watcher findings — the IDE's PROBLEMS panel; deduped per client by `finding_key` |
+| `mission_decisions` | The Ledger — approved actions with baseline snapshot, lever execution record, and measured before/after (written by the cron ~7 days later) |
+| `mission_policies` | Standing rules taught via dismiss+teach |
+| `client_daily_metrics` | Derived daily rollup cache (revenue/orders/COGS/spend per channel) refreshed by cron + page loads — never a source of truth |
 | `client_billing` | Billing and payment records |
 
 ---
 
 ## Role Hierarchy
 
-Multi-tenant (white-label). Access is resolved by `lib/access.js`: **an agency member sees their agency + all descendant agencies' clients; a client member sees only assigned clients.** ConversionHero is the root agency, so its admins still see everything. The rule for delegation: *you can only grant access to what you control* — a sub-agency admin (Keith/FIT) can scope his own staff to his clients, but can't reach ConversionHero's other clients.
+Multi-tenant (white-label). Access is resolved by `lib/access.js`: **an agency member sees their agency + all descendant agencies' clients; a client member sees only assigned clients.** ConversionHero is the root agency, so its admins still see everything. As of 2026-07-07 these boundaries are also **DB-enforced via RLS** — SQL helpers (`accessible_agencies` / `is_root_admin` / `can_access_client` / `can_access_agency`) mirror `lib/access.js` and must stay in lockstep with it. The rule for delegation: *you can only grant access to what you control* — a sub-agency admin (Keith/FIT) can scope his own staff to his clients, but can't reach ConversionHero's other clients.
 
 ```
 agency (root: ConversionHero)
@@ -233,9 +247,11 @@ agency (root: ConversionHero)
 
 `agency_admin_security` additionally has sole access to the Agent Access registry, the **Schema Map**, and the **Agencies** view (security-governance surfaces).
 
+**`agent`** is a first-class role at the DB layer (2026-07-07): the role check constraints on `profiles` / `client_membership` / `agency_membership` accept it, and the first agent identity is minted — ShieldTech's agent is a real auth user (`agent+ch069@conversionhero.co`) with `client_membership` role `agent`, password rotated + discarded (runtime mints sessions). Caveat: enforcement is DB/RLS-only so far — `lib/roles.js` doesn't include `agent` in `ROLE_ORDER` or the capability matrix, so it has no UI-level behavior yet.
+
 ---
 
-## Current Status (April 2026)
+## Current Status (July 2026)
 
 - ✅ Multi-tenant portal live at `app-conversionhero-co.vercel.app`
 - ✅ Real Supabase Auth with role-based access and middleware protection
@@ -243,7 +259,7 @@ agency (root: ConversionHero)
 - ✅ Company page with team member management (create, edit, delete users)
 - ✅ Video scripts module
 - ✅ Contacts/leads module
-- ✅ AI Agent panel (floating chat UI) with tool-calling: `getLeads`, `getPipeline`, `getAdSpend`
+- ✅ AI Agent panel (floating chat UI, Claude `claude-sonnet-4-5`) with a 12-tool set (`lib/agent/tools.js`): read tools (client summary, scripts, brand board, ad spend, leads, payments) + `propose*` write proposals (scripts, agreements, payments, campaigns)
 - ✅ HeyGen integration — Avatar Studio with avatar/voice pickers, script editor, advanced controls (speed, emotion, aspect ratio, bg color), preview-clip render, generation + status polling, Supabase persistence via `client_avatar_videos`, history view with resume-poll
 - ✅ Videos tab restructure: **Videos** (finished, default) | **Scripts** | **Avatar** (AI generation) | **Media**
 - ✅ Funnels tab + `client_funnels` table (list view with conversion rate)
@@ -257,12 +273,19 @@ agency (root: ConversionHero)
 - ✅ **Agency control two-zone redesign** (Client Portfolio + My Agency) with a Chart.js revenue-vs-spend trend line above the portfolio
 - ✅ **Revenue Channels** (Blaztr / Google / Meta) wired to real data via `GET /api/agency/revenue-channels` (aggregates `agency_leads` by `meta.source` + best-effort Blaztr API for sent/replied)
 - ✅ **Client Portfolio columns reworked** — split **Client Rev** (their business sales) vs **Agency Rev** (QuickBooks fees), real **ROAS** = Client Rev ÷ Ad Spend, tenure, order-based Customers/CAC (works for ecom)
-- ⏳ Content Calendar (agency-wide + per-client) — mockup approved at `/control/[clientId]/videos/calendar-preview`, building next
+- ✅ Content Calendar — agency-wide `/control/calendar` (all clients color-coded) + per-client `/control/[clientId]/calendar`
+- ✅ **Multi-tenant agency hierarchy + memberships** — `agency` self-nesting tenant root, `agency_membership`/`client_membership`, access resolved by `lib/access.js` (see decisions log 2026-06-26)
+- ✅ **Ecom control center** — True ROAS (COGS-aware), Paid/Organic/All lens, Revenue-by-Channel per-channel exclude ✕ + restore chips; Shopify + Meta + TikTok syncs on cron, Klaviyo campaigns/flows (`/api/sync-klaviyo`, `/api/klaviyo-stats`)
+- ✅ **Manufacturing / COGS module** — `client_materials` + `client_skus`, CSV BOM upload on the Manufacturing page, `lib/cogs.js` → True ROAS (live for ShieldTech)
+- ✅ **Business IDE** (`/control/[clientId]/mission`) + **Fleet Mission Control** (`/control/mission`) — mission engine in `lib/mission/`, daily cron watcher, findings/ledger/policies persisted in DB, levers in dry_run; mission terminal has UI tools incl. `render_view` generative UI + pin-to-tab
+- ✅ **Orders/leads split** — `client_orders` table for ecom transactions; `client_lead` is leads-only again (cleanup ran)
+- ✅ **Full RLS rollout** — all 53 tables governed; SQL access helpers mirror `lib/access.js`; credential tables service-only; ~12 legacy permissive policies dropped; `scripts/rls-verify.mjs` verification harness
+- ✅ **`agent` role** in DB check constraints + first agent identity minted (ShieldTech — `agent+ch069@conversionhero.co`)
 - ⏳ `ad_campaigns` table + "Push to Google" flow — deferred until Google Ads Standard Access lands
 - ⏳ Google Ads Standard Access (pending Google approval) — unlocks write API
 - ⏳ Avatar V (HeyGen Digital Twin) — API-accessible on Creator plan; current HeyGen account on free tier (8 API renders/day limit)
-- ⏳ Voice/full-chat AI agent interface (current panel is text-only)
-- ⏳ Autonomous campaign management
+- ⏳ Voice UI-wide — voice/AI form-filling live in the AgentPanel (`<action>:apply` pattern); incremental rollout across the rest of the app's forms
+- ⏳ Autonomous campaign management — levers built but dry_run only; live execution + runtime agent identity + free-form query tool + pgvector memory remain (see Roadmap §2)
 
 ---
 
@@ -292,7 +315,10 @@ agency (root: ConversionHero)
 - **Multi-tenant white-label (2026-06-26)**: the platform is going **white-label to multiple agencies**. `agency` is the tenant root; `agency.parent_agency_id` lets agencies **nest** (master ▸ sub-agency), so a parent agency can query down into a sub-agency's clients. ConversionHero is the root; **FIT (Keith's agency)** nests under it. Each client carries `agency_id`. A fixed default agency id keeps existing inserts working with no code change. *(Org instinct resolved: not a separate "Org" table and not a merged DB — the agency table self-nests. A separate product like **Nura** stays its own app/DB and connects via API; one-login-across-products is a future thin identity/HQ layer, not shared data.)*
 - **Membership model = the access keystone (2026-06-26)**: replaced one-user-one-client with `agency_membership` + `client_membership` (user ↔ scope, per-membership role). One identity can be an **agency operator AND a multi-client owner** (Keith = FIT agency_admin + ShieldTech/Heritage client_admin). Access resolved in `lib/access.js`: agency member → their agency + descendant agencies' clients; client member → assigned clients only; root-agency admin → everything. Backward-compatible (legacy `profiles.role/client_id` fallback) so it deploys safely before/after the migration. Delegation rule: **you can only grant access to what you control.** UI client lists (`/control`, account switcher, `/api/clients`) scope via `GET /api/access/clients`.
 - **Security-admin governance surfaces (2026-06-25/26)**: `agency_admin_security` gets read-only **Schema Map** (`/control/schema` — live DB ERD from the committed `db/schema.json` snapshot, regen via `npm run db:schema`) and **Agencies** (`/control/agencies` — the white-label hierarchy with clients + members). Both gated like the Agent Access registry.
+- **Business IDE (2026-07-05)**: mission control ships as a **VS Code-shaped IDE per client** (`/control/[clientId]/mission`) + an agency **fleet view** (`/control/mission`) — explorer/tabs/terminal/status-bar, one persistent session that knows the active view. Findings (PROBLEMS), decisions (Ledger, with baseline → measured outcomes), and taught policies **persist in the DB** (`sql/2026-07-05_mission_tables.sql`); a daily cron watcher (`/api/cron/mission-watcher`) refreshes rollups and turns estimates into receipts. Levers ship in **dry_run** (exact platform request + rollback plan, never sent) — the trust-ladder pattern from the dark-tools decision, applied.
+- **Orders ≠ leads (2026-07-06)**: Shopify orders split out of `client_lead` into **`client_orders`** — orders are *transactions*, leads are *intent*, different lifecycles. `client_lead` means leads/contacts again, which scales across industries with no special-casing: ecom → orders primary, home service → leads primary, both can coexist per client. Two-step rollout (copy → deploy → verify → destructive cleanup); cleanup ran, shopify rows deleted.
 - **Agent × data architecture (2026-07-07)**: stay relational — one multi-tenant Postgres, no NoSQL restructure, **no per-client DBs, no per-client fine-tuning**. Four decisions (full doc: `docs/internal/agent-data-architecture.md`): **(1) Identity** — the DB enforces tenant boundaries via two-tier RLS (client_id OR owning-agency subtree); one scoped agent identity per client, asking user recorded in the ledger; service key retired to cron/webhooks/migrations. **(2) Query freedom** — free-form *reads* via a guarded structured query tool (row caps, timeouts, per-turn budget), curated *writes* via levers; `db/schema.json` is the agent's single source of schema truth, filtered per client module. **(3) Memory** — pgvector in the same Postgres; log everything, remember selectively; *if a query can answer it, it's not a memory*; Memory is a client-visible IDE surface with supersede-not-overwrite corrections; first corpora = call transcripts → ledger why-text → brand docs. **(4) Actions/trust** — autonomy per action category (report free / budget bounded / pause policy-gated / new-spend always-ask); ledger rows carry authority, before/after state, reasoning, undo class, outcome window; the agency owns the autonomy dial, clients can only tighten. Build order: RLS → query tool → memory → ledger/autonomy.
+- **RLS shipped + `agent` role (2026-07-07)**: step 1 of the agent-data build order is done — **all 53 tables governed** in batched migrations (`sql/2026-07-07_rls_*.sql`): SQL access helpers (`accessible_agencies` / `is_root_admin` / `can_access_client` / `can_access_agency`) in lockstep with `lib/access.js`; policy naming `<table>_(tenant|self|public)_(cmd)`; credential/internal tables service-only; funnels keep the intentional public read of `live` rows; ~12 legacy permissive policies dropped; service key confined to cron/webhooks/server routes. Verified per batch with `scripts/rls-verify.mjs` (anon must see zero, service must see the true nonzero count — "silently empty" can't read as a pass). **`agent`** added to the role check constraints (`sql/2026-07-07_agent_role.sql`) and the first agent identity minted (ShieldTech: auth user `agent+ch069@conversionhero.co` + `client_membership` role `agent`, password rotated + discarded).
 
 ---
 

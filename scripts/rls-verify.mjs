@@ -58,6 +58,20 @@ const BATCHES = {
     mayBeEmpty: ['client_qb_payments', 'client_billing', 'client_google_ads_account'],
     users: [],
   },
+  // Identity & tenancy: reach-based selects; plans/templates/roadmap/audit service-only.
+  batch4: {
+    tables: ['client', 'agency', 'agency_membership', 'client_membership', 'profiles', 'plans', 'email_templates', 'dev_roadmap', 'role_change_audit', 'agency_leads', 'agency_automations', 'agency_transcriptions'],
+    mayBeEmpty: ['agency_transcriptions', 'dev_roadmap', 'role_change_audit', 'email_templates', 'agency_automations'],
+    users: [],
+  },
+  // Funnels: client_funnels/steps intentionally anon-readable for LIVE rows (subset);
+  // events + agency funnel tables service-only.
+  batch5: {
+    tables: ['client_funnels', 'client_funnel_steps', 'funnel_events', 'agency_funnels', 'agency_funnel_steps', 'agency_funnel_events'],
+    mayBeEmpty: ['funnel_events', 'agency_funnels', 'agency_funnel_steps', 'agency_funnel_events'],
+    anonPublic: ['client_funnels', 'client_funnel_steps'], // anon > 0 is correct; must be ≤ service
+    users: [],
+  },
   // Content & ops: CRUD on asset/folder/scripts; select elsewhere; self-scope user_activity.
   batch3d: {
     tables: ['client_asset', 'client_folder', 'client_video_scripts', 'client_avatar_videos', 'client_campaign_drafts', 'client_automations', 'client_domains', 'calendar_events', 'projects', 'project_tasks', 'user_activity'],
@@ -98,8 +112,13 @@ for (const t of batch.tables) {
   const okStatus = (s) => s === 200 || s === 206
   const svcOk = okStatus(svc.status) && (svc.count > 0 || batch.mayBeEmpty.includes(t))
   // Before the flip anon typically MATCHES service (RLS off) — informational.
-  // After the flip anon must be 0 (RLS filters silently) or denied outright.
-  const anonLocked = (okStatus(anon.status) && anon.count === 0) || anon.status === 401 || anon.status === 403 || anon.status === 404
+  // After the flip anon must be 0 (RLS filters silently) or denied outright —
+  // EXCEPT anonPublic tables (live-funnel reads), where anon must be a strict
+  // subset of service (public sees live rows only, never everything… unless
+  // everything is live, so require ≤ and rely on the policy report for shape).
+  const anonLocked = (batch.anonPublic || []).includes(t)
+    ? okStatus(anon.status) && anon.count <= svc.count
+    : (okStatus(anon.status) && anon.count === 0) || anon.status === 401 || anon.status === 403 || anon.status === 404
   const pass = before ? svcOk : (svcOk && anonLocked)
   if (!pass) failures++
   rows.push({
