@@ -36,19 +36,23 @@ export async function GET(request) {
     }
   }
 
-  const [findings, decisions, policies, viewer] = await Promise.all([
+  const [findings, decisions, policies, memories, viewer] = await Promise.all([
     db.from('mission_findings').select('*').eq('client_id', clientId).eq('status', 'open')
       .order('severity', { ascending: true }).order('impact_monthly', { ascending: false }),
     db.from('mission_decisions').select('*').eq('client_id', clientId)
       .order('approved_at', { ascending: false }).limit(50),
     db.from('mission_policies').select('*').eq('client_id', clientId).eq('active', true)
       .order('taught_at', { ascending: false }),
+    db.from('agent_memories').select('id, content, kind, source, created_at').eq('client_id', clientId)
+      .is('superseded_by', null).order('created_at', { ascending: false }).limit(200)
+      .then(r => r, () => ({ data: [] })), // table may not exist yet
     getViewerAuthority(user.id, clientId).catch(() => ({ role: 'viewer', queries: false })),
   ])
   return NextResponse.json({
     findings: findings.data || [],
     decisions: decisions.data || [],
     policies: policies.data || [],
+    memories: memories.data || [],
     refreshError,
     levers_mode: (process.env.MISSION_LEVERS || 'dry_run').toLowerCase(),
     // Prompt-hint identity strip: who the viewer is here + what they unlock.
