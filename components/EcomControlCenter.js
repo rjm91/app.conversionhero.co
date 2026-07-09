@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetch-all'
 import { isAgencyAdmin } from '../lib/roles'
 import { buildCostBook, buildSkuIndex, orderCogs } from '../lib/cogs'
+import { computeDailyPnl, orderMoney } from '../lib/mission/pnl'
 import MetaConnectionModal from './MetaConnectionModal'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
@@ -15,6 +16,53 @@ const fmt$    = (n) => { const v = Math.round(Number(n) || 0); return (v < 0 ? '
 const fmt$2   = (n) => { const v = Number(n) || 0; return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 const fmtNum  = (n) => Number(n || 0).toLocaleString()
 const fmtPct  = (n) => (Math.round((n || 0) * 1000) / 10) + '%'
+
+// Daily P&L panel — Jason's morning report, dashboard-styled. Reads the shared
+// pnl object (lib/mission/pnl) so it matches the mission Overview exactly.
+function PnlPanel({ p }) {
+  if (!p) return null
+  const pc = (n) => n == null ? '' : (n * 100).toFixed(1) + '%'
+  const ga = p.users == null
+  const C = { good: 'text-[#1a9e6e] dark:text-[#34CC93]', warn: 'text-amber-600 dark:text-amber-400', bad: 'text-red-500 dark:text-red-400', dim: 'text-gray-400 dark:text-gray-500', '': 'text-gray-900 dark:text-white' }
+  const Row = ({ l, v, r = '', t = '', strong }) => (
+    <div className="flex items-baseline gap-3 px-3.5 py-1.5 odd:bg-gray-50/60 dark:odd:bg-white/[0.015]">
+      <span className="flex-1 text-[13px] text-gray-500 dark:text-gray-400">{l}</span>
+      <span className={`text-[13px] tabular-nums ${strong ? 'font-extrabold' : 'font-semibold'} ${C[t]}`}>{v}</span>
+      <span className="w-20 text-right text-[11px] text-gray-400 dark:text-gray-500">{r}</span>
+    </div>
+  )
+  const Sep = () => <div className="h-px bg-gray-100 dark:bg-white/[0.06] my-1" />
+  return (
+    <div className="max-w-lg rounded-xl border border-gray-100 dark:border-white/[0.06] overflow-hidden bg-white dark:bg-transparent">
+      <Row l="Gross Sales" v={fmt$2(p.grossSales)} strong />
+      <Row l="Discounts" v={'-' + fmt$2(p.discounts)} r={pc(p.discountsPct)} t="warn" />
+      <Row l="Refunds" v={'-' + fmt$2(p.refunds)} r={pc(p.refundsPct)} t="warn" />
+      <Row l="Net Sales" v={fmt$2(p.netSales)} strong />
+      <Sep />
+      <Row l="Total Orders" v={fmtNum(p.totalOrders)} />
+      <Row l="New Orders" v={p.newClassified ? fmtNum(p.nOrders) : '—'} r={p.newClassified ? pc(p.nOrderPct) : ''} />
+      <Row l="True AOV" v={fmt$2(p.trueAov)} t="good" />
+      <Sep />
+      <Row l="Meta Spend" v={fmt$(p.metaSpend)} r={pc(p.metaPctOfNet) + ' net'} t="warn" />
+      <Row l="Google Spend" v={fmt$(p.googleSpend)} r={pc(p.googlePctOfNet) + ' net'} t="warn" />
+      <Row l="Blended ROAS" v={p.blendedRoas == null ? '—' : fmtRoas(p.blendedRoas)} t="good" />
+      <Row l="Blended CPA" v={fmt$(p.blendedCpa)} />
+      <Row l="New CPA" v={p.newClassified ? fmt$(p.nCpa) : '—'} />
+      <Sep />
+      <Row l="Users (sessions)" v={ga ? '— needs GA4' : fmtNum(p.users)} t={ga ? 'dim' : ''} />
+      <Row l="Cost / Visit" v={ga ? '—' : fmt$2(p.cpVisit)} t={ga ? 'dim' : ''} />
+      <Row l="Conversion Rate" v={ga ? '—' : pc(p.cvrBlended)} t={ga ? 'dim' : 'good'} />
+      <Sep />
+      <Row l="COGS" v={fmt$(p.cogs)} r={pc(p.cogsPct)} t="bad" />
+      <Row l="Contribution Margin" v={fmt$2(p.contributionMargin)} t="good" />
+      <Row l="Orders Shipped" v={fmtNum(p.ordersShipped)} />
+      <Row l={`Shipping ($${p.avgCostPerLabel}/label)`} v={'-' + fmt$2(p.shippingCosts)} r={pc(p.shippingPct)} t="warn" />
+      <Sep />
+      <Row l="Gross Profit" v={fmt$2(p.grossProfit)} r={pc(p.grossProfitPct)} t="good" strong />
+      <Row l="Profit Margin" v={pc(p.profitMargin)} t={p.profitMargin >= 0 ? 'good' : 'bad'} strong />
+    </div>
+  )
+}
 const fmtRoas = (n) => (Math.round((n || 0) * 100) / 100) + 'x'
 
 // Process layer: classify an order into a MARKETING SOURCE bucket (what drove
@@ -738,6 +786,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const [prevRange, setPrevRange]       = useState(null) // restore point after a single-day drill
 
   const [orders, setOrders]       = useState([])
+  const [newEmails, setNewEmails] = useState(null) // set of emails whose first-ever order is in range (daily P&L)
   const [campaigns, setCampaigns] = useState([])
   const [metaCampaigns, setMetaCampaigns] = useState([])
   const [tiktokCampaigns, setTiktokCampaigns] = useState([])
@@ -815,6 +864,21 @@ export default function EcomControlCenter({ clientId, clientName }) {
     ])
 
     setOrders(allOrders || [])
+    // New-customer classification for the daily P&L: first-order date per email
+    // across all history → "new in range" if first order ∈ [start, end].
+    ;(async () => {
+      try {
+        const hist = await fetchAllRows((from, to) => supabase.from('client_orders')
+          .select('email, created_at').eq('client_id', clientId)
+          .not('email', 'is', null).order('created_at', { ascending: true }).range(from, to))
+        const first = new Map()
+        for (const r of hist) { const e = (r.email || '').toLowerCase().trim(); if (e && !first.has(e)) first.set(e, r.created_at) }
+        const s = new Date(`${appliedStart}T00:00:00`), en = new Date(`${appliedEnd}T23:59:59.999`)
+        const set = new Set()
+        for (const [e, d] of first) { const t = new Date(d); if (t >= s && t <= en) set.add(e) }
+        setNewEmails(set)
+      } catch { setNewEmails(null) }
+    })()
     setGoogleDaily(campRes.data || [])
     setMetaDaily(metaRes.data || [])
     setTiktokDaily(tiktokRes.data || [])
@@ -1148,6 +1212,20 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const contribution = m.revenue - totalCogs
     return { hasCogs: true, totalCogs, contribution, trueRoas: m.adSpend ? contribution / m.adSpend : null, trueAov: m.orderCount ? contribution / m.orderCount : 0, unmatched: [...unmatched] }
   }, [orders, cogsByOrder, hasCogs, m.revenue, m.adSpend, m.orderCount])
+
+  // Daily P&L — Jason's morning report. Shared calc (lib/mission/pnl) so this
+  // matches the mission Overview to the dollar. Pick "Today"/"Yesterday" in
+  // the date picker for the daily view.
+  const pnl = useMemo(() => {
+    const pnlOrders = orders.map(o => ({
+      ...orderMoney(o),
+      isNew: newEmails ? newEmails.has((o.email || '').toLowerCase().trim()) : false,
+      shipped: (o.shopify_data?.fulfillment_status || '').toUpperCase() === 'FULFILLED',
+    }))
+    const p = computeDailyPnl(pnlOrders, { google: m.googleSpend, meta: m.metaSpend }, cogs.totalCogs, { costPerLabel: 25, sessions: null })
+    p.newClassified = !!newEmails
+    return p
+  }, [orders, newEmails, m.googleSpend, m.metaSpend, cogs.totalCogs])
 
   // Paid-only rollup (Google/Meta/TikTok-attributed orders). True ROAS always
   // divides PAID contribution by ad spend — organic/direct never inflates it.
@@ -1545,6 +1623,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   ))}
                 </div>
               </div>
+            </div>
+            {/* Daily P&L — Jason's morning report. Pick Today/Yesterday above
+                for the daily view. Same numbers as the mission Overview. */}
+            <div className="px-5 pb-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Daily P&amp;L</p>
+              <PnlPanel p={pnl} />
             </div>
             {/* Focused channel → its orders expand inline (mirrors the chart
                 day-click panel). Rows open the full order record. */}
