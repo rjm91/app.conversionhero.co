@@ -1562,7 +1562,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
               </button>
             ) : undefined}
             kpis={overviewKpis}>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Daily P&L — Jason's morning report, top-left. Pick Today/
+                  Yesterday above for the daily view. Same numbers as mission. */}
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Daily P&amp;L</p>
+                <PnlPanel p={pnl} />
+              </div>
+              <div className="space-y-6">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
                 {vm.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : visChannels.map(([name, val]) => (
@@ -1623,12 +1630,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                   ))}
                 </div>
               </div>
-            </div>
-            {/* Daily P&L — Jason's morning report. Pick Today/Yesterday above
-                for the daily view. Same numbers as the mission Overview. */}
-            <div className="px-5 pb-5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Daily P&amp;L</p>
-              <PnlPanel p={pnl} />
+              </div>
             </div>
             {/* Focused channel → its orders expand inline (mirrors the chart
                 day-click panel). Rows open the full order record. */}
