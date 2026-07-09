@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { refreshClient, measureDueDecisions } from '../../../../lib/mission/server'
+import { snapshotDailyPnl } from '../../../../lib/mission/pnl-snapshot'
+import { rangeDays } from '../../../../lib/mission/core'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -35,6 +37,9 @@ export async function GET(request) {
 
       const r = await refreshClient(db, c.client_id, 35)
       const measured = await measureDueDecisions(db, c.client_id)
+      // Lock the daily P&L record for the rolling 35-day window (re-locks
+      // recent days so refunds land; older days stay frozen). Best-effort.
+      try { const { start, end } = rangeDays(35); await snapshotDailyPnl(db, c.client_id, start, end) } catch (e) { console.error('[pnl-snapshot]', c.client_id, e.message) }
 
       const after = await db.from('mission_findings')
         .select('finding_key, severity, title, impact_monthly').eq('client_id', c.client_id).eq('status', 'open')
