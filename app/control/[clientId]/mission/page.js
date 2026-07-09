@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
 import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
+import { supabase } from '../../../../lib/supabase'
 import { deriveChannel } from '../../../../lib/channels'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
@@ -46,6 +47,9 @@ const TREE = [
   { section: 'BUILD', items: [
     { id: 'campaign', icon: '🎯', label: 'Campaign Builder' },
   ]},
+  { section: 'RECORDS', items: [
+    { id: 'pnl_history', icon: '📒', label: 'P&L History' },
+  ]},
   { section: 'DOCS', items: [
     { id: 'manual', icon: '📖', label: 'Manual' },
     { id: 'ledger', icon: '🧾', label: 'Ledger' },
@@ -53,7 +57,7 @@ const TREE = [
     { id: 'memory', icon: '🧠', label: 'Memory' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -782,6 +786,83 @@ export default function BusinessIDE() {
 }
 
 /* ══════════ ViewBody — renders any tab id (used by both editor panes) ══════════ */
+/* ══════════ P&L History — browse the client_daily_pnl RECORD; trace to source ══════════ */
+function PnlHistoryView() {
+  const { clientId } = useParams()
+  const [rows, setRows] = useState(null)
+  const [openDate, setOpenDate] = useState(null)
+  const [src, setSrc] = useState({}) // date → { loading, orders }
+
+  useEffect(() => {
+    let alive = true
+    supabase.from('client_daily_pnl')
+      .select('date, gross_sales:metrics->grossSales, discounts:metrics->discounts, net_sales, total_orders, new_orders:metrics->nOrders, meta_spend:metrics->metaSpend, google_spend:metrics->googleSpend, cogs, gross_profit, source_refs, computed_at')
+      .eq('client_id', clientId).order('date', { ascending: false }).limit(120)
+      .then(({ data }) => { if (alive) setRows(data || []) })
+    return () => { alive = false }
+  }, [clientId])
+
+  const drill = async (row) => {
+    if (openDate === row.date) { setOpenDate(null); return }
+    setOpenDate(row.date)
+    const ids = row.source_refs?.order_ids || []
+    if (src[row.date] || !ids.length) return
+    setSrc(s => ({ ...s, [row.date]: { loading: true } }))
+    // Trace: the order IDs stored on the day → the actual client_orders rows.
+    const { data } = await supabase.from('client_orders')
+      .select('order_id, created_at, sale_amount, email, shopify_data->>order_name, shopify_data->>fulfillment_status')
+      .eq('client_id', clientId).in('order_id', ids.slice(0, 200)).order('created_at', { ascending: true })
+    setSrc(s => ({ ...s, [row.date]: { loading: false, orders: data || [] } }))
+  }
+
+  const $ = (n) => n == null ? '—' : '$' + Math.round(Number(n)).toLocaleString()
+  if (!rows) return <p className="loading v-pad">loading the P&amp;L record…</p>
+  if (!rows.length) return <p className="loading v-pad">No snapshots yet — the nightly cron writes them, or backfill via /api/mission/pnl-snapshot.</p>
+
+  return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>P&amp;L History — the record</h4>
+      <p className="v-note" style={{ marginTop: 0 }}>Each row is a locked daily snapshot from client_daily_pnl. Click a day to trace it to the exact orders behind it (source_refs → client_orders) and cross-check against the live Overview.</p>
+      <div className="rec">
+        <div className="rec-head">
+          <span className="rec-c date">Date</span><span className="rec-c">Gross</span><span className="rec-c">Disc</span><span className="rec-c">Net</span><span className="rec-c">Ord</span><span className="rec-c">New</span><span className="rec-c">Meta</span><span className="rec-c">Ggl</span><span className="rec-c">COGS</span><span className="rec-c">Gross Profit</span>
+        </div>
+        {rows.map(r => (
+          <div key={r.date}>
+            <div className={`rec-row ${openDate === r.date ? 'on' : ''}`} onClick={() => drill(r)}>
+              <span className="rec-c date">{r.date}</span>
+              <span className="rec-c">{$(r.gross_sales)}</span>
+              <span className="rec-c warn">-{$(r.discounts)}</span>
+              <span className="rec-c strong">{$(r.net_sales)}</span>
+              <span className="rec-c">{r.total_orders}</span>
+              <span className="rec-c dim">{r.new_orders ?? '—'}</span>
+              <span className="rec-c warn">{$(r.meta_spend)}</span>
+              <span className="rec-c warn">{$(r.google_spend)}</span>
+              <span className="rec-c bad">{$(r.cogs)}</span>
+              <span className="rec-c good strong">{$(r.gross_profit)}</span>
+            </div>
+            {openDate === r.date && (
+              <div className="rec-src">
+                <div className="rec-src-h">{(r.source_refs?.order_ids || []).length} source orders · locked {String(r.computed_at).slice(0, 10)}</div>
+                {src[r.date]?.loading ? <div className="v-dim">tracing…</div>
+                  : (src[r.date]?.orders || []).map(o => (
+                    <div key={o.order_id} className="rec-o">
+                      <span className="rec-o-name">{o.order_name || o.order_id}</span>
+                      <span className="v-dim">{String(o.created_at).slice(0, 10)}</span>
+                      <span className="v-dim">{o.email}</span>
+                      <span className={`rec-o-f ${o.fulfillment_status === 'FULFILLED' ? 'good' : 'dim'}`}>{o.fulfillment_status || '—'}</span>
+                      <span className="rec-o-amt">{$(o.sale_amount)}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ══════════ Memory — the agent's durable, client-visible knowledge ══════════ */
 function MemoryView({ memories, clientName, onReask }) {
   const KIND = { preference: '❤', context: '🗓', external: '🌐', decision: '⚖', insight: '💡' }
@@ -953,6 +1034,7 @@ function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrd
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
+  if (id === 'pnl_history') return <PnlHistoryView />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
@@ -1697,6 +1779,23 @@ const CSS = `
 .ide .pnl-edit:hover{color:var(--blue);}
 .ide .pnl-editin{color:var(--txt);font-size:11px;}
 .ide .pnl-editin input{width:48px;background:var(--panel2);border:1px solid var(--blue);border-radius:4px;color:var(--txt);font:inherit;font-size:11px;padding:0 4px;margin:0 1px;outline:none;}
+
+/* P&L history record table */
+.ide .rec{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:6px;max-width:860px;}
+.ide .rec-head,.ide .rec-row{display:grid;grid-template-columns:96px repeat(9,1fr);gap:6px;align-items:center;padding:6px 12px;font-size:12px;}
+.ide .rec-head{background:var(--panel2);color:var(--faint);font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;}
+.ide .rec-row{border-top:1px solid var(--line);cursor:pointer;font-variant-numeric:tabular-nums;}
+.ide .rec-row:hover{background:rgba(255,255,255,.02);}
+.ide .rec-row.on{background:rgba(110,168,254,.08);}
+.ide .rec-c{text-align:right;color:var(--dim);overflow:hidden;text-overflow:ellipsis;}
+.ide .rec-c.date{text-align:left;color:var(--txt);font-weight:600;}
+.ide .rec-c.strong{font-weight:800;color:var(--txt);} .ide .rec-c.good{color:var(--green);} .ide .rec-c.warn{color:var(--amber);} .ide .rec-c.bad{color:var(--red);} .ide .rec-c.dim{color:var(--faint);}
+.ide .rec-src{padding:8px 14px 12px;background:var(--bg);border-top:1px solid var(--line);}
+.ide .rec-src-h{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:6px;}
+.ide .rec-o{display:grid;grid-template-columns:130px 84px 1fr 90px 80px;gap:10px;align-items:center;padding:2px 0;font-size:11.5px;}
+.ide .rec-o-name{color:var(--txt);font-weight:600;}
+.ide .rec-o-f.good{color:var(--green);} .ide .rec-o-f.dim{color:var(--faint);}
+.ide .rec-o-amt{text-align:right;color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums;}
 
 /* memory */
 .ide .mem-list{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
