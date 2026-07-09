@@ -182,7 +182,22 @@ export default function BusinessIDE() {
   }, [clientId])
 
   const range = useMemo(() => rangeDays(rangeN), [rangeN])
-  const m = useMemo(() => data ? computeMission(data) : null, [data])
+  // Cost-per-label override: edited inline, saved to client settings, applied
+  // to the P&L immediately (no reload) by injecting into computeMission.
+  const [labelOverride, setLabelOverride] = useState(null)
+  const m = useMemo(() => {
+    if (!data) return null
+    const costPerLabel = labelOverride != null ? labelOverride : data.pnlConfig?.costPerLabel
+    return computeMission({ ...data, pnlConfig: { ...data.pnlConfig, costPerLabel } })
+  }, [data, labelOverride])
+  const isAgencyRole = viewer?.role?.startsWith('agency')
+  const saveCostPerLabel = useCallback(async (v) => {
+    const val = Math.max(0, Number(v) || 0)
+    setLabelOverride(val) // optimistic — P&L updates instantly
+    try {
+      await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { cost_per_label: val } }) })
+    } catch { /* stays applied locally; next load re-reads */ }
+  }, [clientId])
 
   const push = useCallback((turn) => setTurns(t => [...t, { id: tid(), ...turn }]), [])
   const patch = useCallback((id, up) => setTurns(t => t.map(x => x.id === id ? { ...x, ...(typeof up === 'function' ? up(x) : up) } : x)), [])
@@ -939,7 +954,7 @@ function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrd
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} />
+  if (id === 'overview') return <OverviewView m={m} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -1075,17 +1090,31 @@ function ResizableTable({ id, columns, rows, note }) {
 
 /* ══════════ Views (tab contents) ══════════ */
 
-function OverviewView({ m }) {
+function OverviewView({ m, canEditLabel, onSaveLabel }) {
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
-      <PnlTable p={m.pnl} />
+      <PnlTable p={m.pnl} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
     </div>
   )
 }
 
 // The client's morning report. Mirrors Jason's sheet row-for-row.
-function PnlTable({ p }) {
+function LabelEditor({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [v, setV] = useState(value)
+  useEffect(() => { setV(value) }, [value])
+  if (!editing) return <button className="pnl-edit" title="edit cost per label" onClick={() => setEditing(true)}>✎</button>
+  const commit = () => { setEditing(false); if (Number(v) !== Number(value)) onSave(v) }
+  return (
+    <span className="pnl-editin">$<input autoFocus type="number" step="0.5" value={v}
+      onChange={e => setV(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setV(value); setEditing(false) } }}
+      onBlur={commit} />/label</span>
+  )
+}
+
+function PnlTable({ p, canEditLabel, onSaveLabel }) {
   if (!p) return <p className="v-dim">no P&amp;L for this range.</p>
   const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
   const $2 = (n) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1115,7 +1144,7 @@ function PnlTable({ p }) {
     ['COGS', $(p.cogs), pc(p.cogsPct), 'bad'],
     ['Contribution Margin', $2(p.contributionMargin), '', 'good'],
     ['Orders Shipped', String(p.ordersShipped), '', ''],
-    ['Shipping Costs', $2(p.shippingCosts) + ` (@ $${p.avgCostPerLabel}/label)`, pc(p.shippingPct), 'warn'],
+    ['Shipping Costs', $2(p.shippingCosts), pc(p.shippingPct), 'warn', 'shipping'],
     ['sep'],
     ['Gross Profit', $2(p.grossProfit), pc(p.grossProfitPct), 'good'],
     ['Profit Margin', pc(p.profitMargin), '', p.profitMargin >= 0 ? 'good' : 'bad'],
@@ -1124,7 +1153,12 @@ function PnlTable({ p }) {
     <div className="pnl">
       {rows.map((r, i) => r[0] === 'sep'
         ? <div key={i} className="pnl-sep" />
-        : <div key={i} className="pnl-row"><span className="pnl-l">{r[0]}</span><span className={`pnl-v ${r[3]}`}>{r[1]}</span><span className="pnl-pct">{r[2]}</span></div>
+        : <div key={i} className="pnl-row">
+            <span className="pnl-l">{r[0]}{r[4] === 'shipping' && (
+              <span className="pnl-sub"> @ {canEditLabel ? <LabelEditor value={p.avgCostPerLabel} onSave={onSaveLabel} /> : `$${p.avgCostPerLabel}/label`}</span>
+            )}</span>
+            <span className={`pnl-v ${r[3]}`}>{r[1]}</span><span className="pnl-pct">{r[2]}</span>
+          </div>
       )}
     </div>
   )
@@ -1658,6 +1692,11 @@ const CSS = `
 .ide .pnl-v.good{color:var(--green);} .ide .pnl-v.warn{color:var(--amber);} .ide .pnl-v.bad{color:var(--red);} .ide .pnl-v.dim{color:var(--faint);font-weight:500;}
 .ide .pnl-pct{color:var(--faint);font-size:10.5px;min-width:90px;text-align:right;}
 .ide .pnl-sep{height:1px;background:var(--line);margin:3px 0;}
+.ide .pnl-sub{color:var(--faint);font-size:10.5px;}
+.ide .pnl-edit{background:none;border:none;color:var(--faint);cursor:pointer;font:inherit;font-size:10px;padding:0 3px;}
+.ide .pnl-edit:hover{color:var(--blue);}
+.ide .pnl-editin{color:var(--txt);font-size:11px;}
+.ide .pnl-editin input{width:48px;background:var(--panel2);border:1px solid var(--blue);border-radius:4px;color:var(--txt);font:inherit;font-size:11px;padding:0 4px;margin:0 1px;outline:none;}
 
 /* memory */
 .ide .mem-list{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
