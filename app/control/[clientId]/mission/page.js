@@ -48,7 +48,7 @@ const TREE = [
     { id: 'campaign', icon: '🎯', label: 'Campaign Builder' },
   ]},
   { section: 'RECORDS', items: [
-    { id: 'pnl_history', icon: '📒', label: 'P&L History' },
+    { id: 'pnl_history', icon: '📒', label: 'Daily P&L History' },
   ]},
   { section: 'DOCS', items: [
     { id: 'manual', icon: '📖', label: 'Manual' },
@@ -57,7 +57,7 @@ const TREE = [
     { id: 'memory', icon: '🧠', label: 'Memory' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -868,7 +868,7 @@ function PnlHistoryView() {
 
   return (
     <div className="v-pad">
-      <h4 className="v-h" style={{ marginTop: 0 }}>P&amp;L History — the record</h4>
+      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L History — the record</h4>
       <p className="v-note" style={{ marginTop: 0 }}>Each row is a locked daily snapshot from client_daily_pnl. Hover a header for what it means, drag a column border to resize, and click a day to trace it to the exact orders behind it (source_refs → client_orders).</p>
       <ResizableTable id="pnl_history" columns={columns} rows={tableRows}
         onRowClick={drill} expandedKey={openDate} rowKeyOf={(r) => r.date} renderExpanded={renderExpanded} />
