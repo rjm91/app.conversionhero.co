@@ -8,7 +8,7 @@
 // platform writes in this build.
 
 import { useParams, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
 import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
@@ -819,46 +819,59 @@ function PnlHistoryView() {
   if (!rows) return <p className="loading v-pad">loading the P&amp;L record…</p>
   if (!rows.length) return <p className="loading v-pad">No snapshots yet — the nightly cron writes them, or backfill via /api/mission/pnl-snapshot.</p>
 
+  // Full-word headers, each with a hover description. `num` right-aligns +
+  // makes the column sort numerically; `s` on a cell is the sortable primitive.
+  const columns = [
+    { label: 'Date', desc: "Calendar day in the client's business timezone" },
+    { label: 'Gross Sales', num: true, desc: 'Sales before discounts and refunds' },
+    { label: 'Discounts', num: true, desc: 'Total discounts applied that day' },
+    { label: 'Net Sales', num: true, desc: 'Gross sales minus discounts and refunds' },
+    { label: 'Total Orders', num: true, desc: 'Orders placed that day' },
+    { label: 'New Orders', num: true, desc: 'Orders from first-time customers' },
+    { label: 'Meta Spend', num: true, desc: 'Meta (Facebook / Instagram) ad spend' },
+    { label: 'Google Spend', num: true, desc: 'Google Ads spend' },
+    { label: 'COGS', num: true, desc: 'Cost of goods sold, from BOM / SKU costs' },
+    { label: 'Gross Profit', num: true, desc: 'Net sales minus COGS, ad spend, and shipping labels' },
+  ]
+  const tableRows = rows.map(r => {
+    const cells = [
+      { v: r.date, s: r.date, cls: 'mono' },
+      { v: $(r.gross_sales), s: Number(r.gross_sales) || 0, cls: 'num' },
+      { v: '-' + $(r.discounts), s: Number(r.discounts) || 0, cls: 'num warn' },
+      { v: $(r.net_sales), s: Number(r.net_sales) || 0, cls: 'num strong' },
+      { v: r.total_orders, s: Number(r.total_orders) || 0, cls: 'num' },
+      { v: r.new_orders ?? '—', s: Number(r.new_orders) || 0, cls: 'num dim' },
+      { v: $(r.meta_spend), s: Number(r.meta_spend) || 0, cls: 'num warn' },
+      { v: $(r.google_spend), s: Number(r.google_spend) || 0, cls: 'num warn' },
+      { v: $(r.cogs), s: Number(r.cogs) || 0, cls: 'num bad' },
+      { v: $(r.gross_profit), s: Number(r.gross_profit) || 0, cls: 'num good strong' },
+    ]
+    cells.__rec = r // carry the record so the row stays clickable after a sort
+    return cells
+  })
+
+  const renderExpanded = (r) => (
+    <div className="rec-src">
+      <div className="rec-src-h">{(r.source_refs?.order_ids || []).length} source orders · locked {String(r.computed_at).slice(0, 10)}</div>
+      {src[r.date]?.loading ? <div className="v-dim">tracing…</div>
+        : (src[r.date]?.orders || []).map(o => (
+          <div key={o.order_id} className="rec-o">
+            <span className="rec-o-name">{o.order_name || o.order_id}</span>
+            <span className="v-dim">{String(o.created_at).slice(0, 10)}</span>
+            <span className="v-dim">{o.email}</span>
+            <span className={`rec-o-f ${o.fulfillment_status === 'FULFILLED' ? 'good' : 'dim'}`}>{o.fulfillment_status || '—'}</span>
+            <span className="rec-o-amt">{$(o.sale_amount)}</span>
+          </div>
+        ))}
+    </div>
+  )
+
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>P&amp;L History — the record</h4>
-      <p className="v-note" style={{ marginTop: 0 }}>Each row is a locked daily snapshot from client_daily_pnl. Click a day to trace it to the exact orders behind it (source_refs → client_orders) and cross-check against the live Overview.</p>
-      <div className="rec">
-        <div className="rec-head">
-          <span className="rec-c date">Date</span><span className="rec-c">Gross</span><span className="rec-c">Disc</span><span className="rec-c">Net</span><span className="rec-c">Ord</span><span className="rec-c">New</span><span className="rec-c">Meta</span><span className="rec-c">Ggl</span><span className="rec-c">COGS</span><span className="rec-c">Gross Profit</span>
-        </div>
-        {rows.map(r => (
-          <div key={r.date}>
-            <div className={`rec-row ${openDate === r.date ? 'on' : ''}`} onClick={() => drill(r)}>
-              <span className="rec-c date">{r.date}</span>
-              <span className="rec-c">{$(r.gross_sales)}</span>
-              <span className="rec-c warn">-{$(r.discounts)}</span>
-              <span className="rec-c strong">{$(r.net_sales)}</span>
-              <span className="rec-c">{r.total_orders}</span>
-              <span className="rec-c dim">{r.new_orders ?? '—'}</span>
-              <span className="rec-c warn">{$(r.meta_spend)}</span>
-              <span className="rec-c warn">{$(r.google_spend)}</span>
-              <span className="rec-c bad">{$(r.cogs)}</span>
-              <span className="rec-c good strong">{$(r.gross_profit)}</span>
-            </div>
-            {openDate === r.date && (
-              <div className="rec-src">
-                <div className="rec-src-h">{(r.source_refs?.order_ids || []).length} source orders · locked {String(r.computed_at).slice(0, 10)}</div>
-                {src[r.date]?.loading ? <div className="v-dim">tracing…</div>
-                  : (src[r.date]?.orders || []).map(o => (
-                    <div key={o.order_id} className="rec-o">
-                      <span className="rec-o-name">{o.order_name || o.order_id}</span>
-                      <span className="v-dim">{String(o.created_at).slice(0, 10)}</span>
-                      <span className="v-dim">{o.email}</span>
-                      <span className={`rec-o-f ${o.fulfillment_status === 'FULFILLED' ? 'good' : 'dim'}`}>{o.fulfillment_status || '—'}</span>
-                      <span className="rec-o-amt">{$(o.sale_amount)}</span>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <p className="v-note" style={{ marginTop: 0 }}>Each row is a locked daily snapshot from client_daily_pnl. Hover a header for what it means, drag a column border to resize, and click a day to trace it to the exact orders behind it (source_refs → client_orders).</p>
+      <ResizableTable id="pnl_history" columns={columns} rows={tableRows}
+        onRowClick={drill} expandedKey={openDate} rowKeyOf={(r) => r.date} renderExpanded={renderExpanded} />
     </div>
   )
 }
@@ -1070,7 +1083,7 @@ function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrd
    Drag any header border to resize its column; narrowed text wraps when the
    wrap toggle is on, truncates with … when off. Widths + wrap persist per
    table in localStorage. */
-function ResizableTable({ id, columns, rows, note }) {
+function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowKeyOf, renderExpanded }) {
   const [widths, setWidths] = useState(null) // null = auto layout until touched
   const [wrap, setWrap] = useState(true)
   const [sort, setSort] = useState(null) // {i, dir: 1|-1}
@@ -1152,16 +1165,27 @@ function ResizableTable({ id, columns, rows, note }) {
           {widths && <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>}
           <thead><tr>
             {columns.map((c, i) => (
-              <th key={i} className={`${c.num ? 'num' : ''} sortable`} onClick={() => c.label && cycleSort(i)} title={c.label ? 'click to sort' : undefined}>
+              <th key={i} className={`${c.num ? 'num' : ''} sortable`} onClick={() => c.label && cycleSort(i)}
+                title={c.label ? [c.desc, 'click to sort'].filter(Boolean).join(' · ') : undefined}>
                 {c.label}{sort?.i === i ? (sort.dir === -1 ? ' ▾' : ' ▴') : ''}
                 <span className="col-grip" onMouseDown={startColDrag(i)} />
               </th>
             ))}
           </tr></thead>
           <tbody>
-            {sortedRows.map((r, ri) => (
-              <tr key={ri}>{r.map((cell, ci) => <td key={ci} className={cell?.cls || (columns[ci].num ? 'num' : '')}>{cell?.v ?? cell}</td>)}</tr>
-            ))}
+            {sortedRows.map((r, ri) => {
+              const rec = r.__rec
+              const key = rec !== undefined && rowKeyOf ? rowKeyOf(rec) : ri
+              const open = renderExpanded && expandedKey != null && key === expandedKey
+              return (
+                <Fragment key={key}>
+                  <tr className={`${onRowClick ? 'rt-click' : ''} ${open ? 'on' : ''}`} onClick={onRowClick ? () => onRowClick(rec) : undefined}>
+                    {r.map((cell, ci) => <td key={ci} className={cell?.cls || (columns[ci].num ? 'num' : '')}>{cell?.v ?? cell}</td>)}
+                  </tr>
+                  {open && <tr className="rt-exrow"><td colSpan={columns.length}>{renderExpanded(rec)}</td></tr>}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -1819,6 +1843,11 @@ const CSS = `
 .ide .vtable td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--dim);}
 .ide .vtable .tname{color:var(--txt);font-weight:600;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ide .vtable th.num,.ide .vtable td.num{text-align:right;font-variant-numeric:tabular-nums;}
+.ide .vtable td.mono{color:var(--txt);font-weight:600;white-space:nowrap;}
+.ide .vtable td.strong{font-weight:800;color:var(--txt);} .ide .vtable td.good{color:var(--green);} .ide .vtable td.warn{color:var(--amber);} .ide .vtable td.bad{color:var(--red);} .ide .vtable td.dim{color:var(--faint);}
+.ide .vtable tr.rt-click{cursor:pointer;} .ide .vtable tr.rt-click:hover td{background:rgba(255,255,255,.02);}
+.ide .vtable tr.rt-click.on td{background:rgba(110,168,254,.08);}
+.ide .vtable tr.rt-exrow td{padding:0;background:var(--bg);}
 .ide .pill{font-size:9.5px;font-weight:800;border-radius:99px;padding:1px 8px;}
 
 /* resizable table (Google Sheets behavior, IDE skin) */
