@@ -1097,6 +1097,54 @@ function OverviewView({ m }) {
       ))}
       <h4 className="v-h">Daily</h4>
       <Spark daily={m.daily} />
+      <h4 className="v-h">Daily P&amp;L</h4>
+      <PnlTable p={m.pnl} />
+    </div>
+  )
+}
+
+// The client's morning report. Mirrors Jason's sheet row-for-row.
+function PnlTable({ p }) {
+  if (!p) return <p className="v-dim">no P&amp;L for this range.</p>
+  const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
+  const $2 = (n) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const pc = (n) => n == null ? '' : (n * 100).toFixed(2) + '%'
+  const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
+  const gaGap = p.users == null // Users/CPVisit/CVR need GA4
+  const rows = [
+    ['Gross Sales', $2(p.grossSales), '', 'strong'],
+    ['Discounts', '-' + $2(p.discounts), pc(p.discountsPct), 'warn'],
+    ['Refunds', '-' + $2(p.refunds), pc(p.refundsPct), 'warn'],
+    ['Net Sales', $2(p.netSales), '', 'strong'],
+    ['sep'],
+    ['Total Orders', String(p.totalOrders), '', ''],
+    ['New Orders', p.newClassified ? String(p.nOrders) : '— (classifying)', p.newClassified ? pc(p.nOrderPct) : '', ''],
+    ['True AOV', $2(p.trueAov), '', 'good'],
+    ['sep'],
+    ['Meta Spend', $(p.metaSpend), pc(p.metaPctOfNet) + ' of net', 'warn'],
+    ['Google Spend', $(p.googleSpend), pc(p.googlePctOfNet) + ' of net', 'warn'],
+    ['Blended ROAS', x(p.blendedRoas), '', 'good'],
+    ['Blended CPA', $(p.blendedCpa), '', ''],
+    ['New CPA', p.newClassified ? $(p.nCpa) : '—', '', ''],
+    ['sep'],
+    ['Users (sessions)', gaGap ? '— needs GA4' : p.users.toLocaleString(), '', gaGap ? 'dim' : ''],
+    ['Cost / Visit', gaGap ? '—' : $2(p.cpVisit), '', gaGap ? 'dim' : ''],
+    ['Conversion Rate', gaGap ? '—' : pc(p.cvrBlended), '', gaGap ? 'dim' : 'good'],
+    ['sep'],
+    ['COGS', $(p.cogs), pc(p.cogsPct), 'bad'],
+    ['Contribution Margin', $2(p.contributionMargin), '', 'good'],
+    ['Orders Shipped', String(p.ordersShipped), '', ''],
+    ['Shipping Costs', $2(p.shippingCosts) + ` (@ $${p.avgCostPerLabel}/label)`, pc(p.shippingPct), 'warn'],
+    ['sep'],
+    ['Gross Profit', $2(p.grossProfit), pc(p.grossProfitPct), 'good'],
+    ['Profit Margin', pc(p.profitMargin), '', p.profitMargin >= 0 ? 'good' : 'bad'],
+  ]
+  return (
+    <div className="pnl">
+      {rows.map((r, i) => r[0] === 'sep'
+        ? <div key={i} className="pnl-sep" />
+        : <div key={i} className="pnl-row"><span className="pnl-l">{r[0]}</span><span className={`pnl-v ${r[3]}`}>{r[1]}</span><span className="pnl-pct">{r[2]}</span></div>
+      )}
     </div>
   )
 }
@@ -1618,6 +1666,17 @@ const CSS = `
 .ide .cb-asset.over .cb-len{color:var(--red);font-weight:700;}
 .ide .cb-url{font-size:11px;color:var(--blue);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ide .cb-creative{font-size:11px;color:var(--purple);margin-top:5px;font-style:italic;}
+
+/* daily P&L */
+.ide .pnl{max-width:520px;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
+.ide .pnl-row{display:flex;align-items:baseline;gap:10px;padding:5px 13px;font-size:12.5px;}
+.ide .pnl-row:nth-child(odd){background:rgba(255,255,255,.015);}
+.ide .pnl-l{color:var(--dim);flex:1;}
+.ide .pnl-v{font-variant-numeric:tabular-nums;font-weight:600;color:var(--txt);}
+.ide .pnl-v.strong{font-weight:800;}
+.ide .pnl-v.good{color:var(--green);} .ide .pnl-v.warn{color:var(--amber);} .ide .pnl-v.bad{color:var(--red);} .ide .pnl-v.dim{color:var(--faint);font-weight:500;}
+.ide .pnl-pct{color:var(--faint);font-size:10.5px;min-width:90px;text-align:right;}
+.ide .pnl-sep{height:1px;background:var(--line);margin:3px 0;}
 
 /* memory */
 .ide .mem-list{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
