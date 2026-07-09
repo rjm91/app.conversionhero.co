@@ -1086,6 +1086,8 @@ function OverviewView({ m }) {
           <div key={l} className="kpi"><p className="kl">{l}</p><p className={`kv ${c}`}>{v}</p></div>
         ))}
       </div>
+      <h4 className="v-h">Daily P&amp;L</h4>
+      <PnlTable p={m.pnl} />
       <h4 className="v-h">Revenue by channel</h4>
       {m.byChannel.map(c => (
         <div key={c.name} className="brow wide">
@@ -1097,8 +1099,6 @@ function OverviewView({ m }) {
       ))}
       <h4 className="v-h">Daily</h4>
       <Spark daily={m.daily} />
-      <h4 className="v-h">Daily P&amp;L</h4>
-      <PnlTable p={m.pnl} />
     </div>
   )
 }
