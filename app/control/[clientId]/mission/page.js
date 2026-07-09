@@ -1076,29 +1076,10 @@ function ResizableTable({ id, columns, rows, note }) {
 /* ══════════ Views (tab contents) ══════════ */
 
 function OverviewView({ m }) {
-  const max = m.byChannel[0]?.revenue || 1
-  const CH = { Meta: '#0866FF', Google: '#e8eaf2', Direct: '#fb7185', Klaviyo: '#f8a5a5', Shop: '#5a31f4' }
   return (
     <div className="v-pad">
-      <div className="kpis">
-        {[['Gross Revenue', money(m.revenue), ''], ['COGS (BOM)', m.hasCogs ? money(m.cogs) : '—', 'warn'], ['Ad Spend', money(m.adSpend), 'warn'],
-          ['Net Profit', m.hasCogs ? money(m.netProfit) : '—', m.netProfit >= 0 ? 'good' : 'bad'], ['True ROAS', m.trueRoas != null ? m.trueRoas.toFixed(2) + 'x' : '—', 'good'], ['Orders', String(m.orders), '']].map(([l, v, c]) => (
-          <div key={l} className="kpi"><p className="kl">{l}</p><p className={`kv ${c}`}>{v}</p></div>
-        ))}
-      </div>
-      <h4 className="v-h">Daily P&amp;L</h4>
+      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
       <PnlTable p={m.pnl} />
-      <h4 className="v-h">Revenue by channel</h4>
-      {m.byChannel.map(c => (
-        <div key={c.name} className="brow wide">
-          <span className="bl">{c.name}</span>
-          <div className="btrack"><i style={{ width: `${(c.revenue / max) * 100}%`, background: CH[c.name] || '#7a8bb5' }} /></div>
-          <span className="bv">{money(c.revenue)}</span>
-          <span className="bnote">{c.orders} orders{m.hasCogs ? ` · ${money(c.revenue - c.cogs)} margin` : ''}</span>
-        </div>
-      ))}
-      <h4 className="v-h">Daily</h4>
-      <Spark daily={m.daily} />
     </div>
   )
 }
