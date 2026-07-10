@@ -1325,64 +1325,95 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
   if (!p) return <p className="v-dim">no P&amp;L for this range.</p>
   const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
   const $2 = (n) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const pc = (n) => n == null ? '' : (n * 100).toFixed(2) + '%'
   const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
   const gaGap = p.users == null // Users/CPVisit/CVR need GA4
+  const pc1 = (n) => n == null ? '' : (n * 100).toFixed(1) + '%'
+  const pc0 = (n) => n == null ? '—' : Math.round(n * 100) + '%'
+  // Jason reads the P&L as RATIOS AGAINST GROSS SALES. Every cost/margin line
+  // shows "% of gross"; the two ad platforms show their share "of spend" (they
+  // sum to 100%). Each % carries an ⓘ naming its denominator, so if the basis
+  // ever needs to change it's explicit and easy to find.
+  const gross = p.grossSales || 0
+  const totalSpend = (p.metaSpend || 0) + (p.googleSpend || 0)
+  const ofG = (n) => gross ? n / gross : null            // share of gross sales
+  const share = (n) => totalSpend ? n / totalSpend : null // share of total ad spend
+  const G = (n) => pc1(ofG(n)) + ' of gross'
   // Each drillable line names the source it traces to. `d` = drill descriptor.
   const O = (measure) => ({ kind: 'orders', measure })
   const rows = [
     ['Gross Sales', $2(p.grossSales), '', 'strong', null, O('gross')],
-    ['Discounts', '-' + $2(p.discounts), pc(p.discountsPct), 'warn', null, O('discounts')],
-    ['Refunds', '-' + $2(p.refunds), pc(p.refundsPct), 'warn', null, O('refunds')],
-    ['Net Sales', $2(p.netSales), '', 'strong', null, O('net')],
+    ['Discounts', '-' + $2(p.discounts), G(p.discounts), 'warn', null, O('discounts')],
+    ['Refunds', '-' + $2(p.refunds), G(p.refunds), 'warn', null, O('refunds')],
+    ['Net Sales', $2(p.netSales), G(p.netSales), 'strong', null, O('net')],
     ['sep'],
     ['Total Orders', String(p.totalOrders), '', '', null, O('countAll')],
-    ['New Orders', p.newClassified ? String(p.nOrders) : '— (classifying)', p.newClassified ? pc(p.nOrderPct) : '', '', null, p.newClassified ? O('countNew') : null],
+    ['New Orders', p.newClassified ? String(p.nOrders) : '— (classifying)', p.newClassified ? pc1(p.nOrderPct) + ' of orders' : '', '', null, p.newClassified ? O('countNew') : null],
     ['True AOV', $2(p.trueAov), '', 'good', null, O('aov')],
     ['sep'],
-    ['Meta Spend', $(p.metaSpend), pc(p.metaPctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Meta' }],
-    ['Google Spend', $(p.googleSpend), pc(p.googlePctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Google' }],
+    ['Meta Spend', $(p.metaSpend), pc1(share(p.metaSpend)) + ' of spend', 'warn', null, { kind: 'campaigns', platform: 'Meta' }],
+    ['Google Spend', $(p.googleSpend), pc1(share(p.googleSpend)) + ' of spend', 'warn', null, { kind: 'campaigns', platform: 'Google' }],
+    ['Ad Spend (total)', $(totalSpend), G(totalSpend), 'warn'],
     ['Blended ROAS', x(p.blendedRoas), '', 'good'],
     ['Blended CAC', $(p.blendedCpa), '', ''],
     ['New CAC', p.newClassified ? $(p.nCpa) : '—', '', ''],
     ['sep'],
     ['Users (sessions)', gaGap ? '— needs GA4' : p.users.toLocaleString(), '', gaGap ? 'dim' : ''],
     ['Cost / Visit', gaGap ? '—' : $2(p.cpVisit), '', gaGap ? 'dim' : ''],
-    ['Conversion Rate', gaGap ? '—' : pc(p.cvrBlended), '', gaGap ? 'dim' : 'good'],
+    ['Conversion Rate', gaGap ? '—' : pc1(p.cvrBlended), '', gaGap ? 'dim' : 'good'],
     ['sep'],
-    ['COGS', $(p.cogs), pc(p.cogsPct), 'bad', null, sources?.hasCogs ? O('cogs') : null],
-    ['Contribution Margin', $2(p.contributionMargin), '', 'good'],
+    ['COGS', $(p.cogs), G(p.cogs), 'bad', null, sources?.hasCogs ? O('cogs') : null],
+    ['Contribution Margin', $2(p.contributionMargin), G(p.contributionMargin), 'good'],
     ['Orders Shipped', String(p.ordersShipped), '', '', null, O('shipped')],
-    ['Shipping Costs', $2(p.shippingCosts), pc(p.shippingPct), 'warn', 'shipping', O('shippingCost')],
+    ['Shipping Costs', $2(p.shippingCosts), G(p.shippingCosts), 'warn', 'shipping', O('shippingCost')],
     ['sep'],
-    ['Gross Profit', $2(p.grossProfit), pc(p.grossProfitPct), 'good'],
-    ['Profit Margin', pc(p.profitMargin), '', p.profitMargin >= 0 ? 'good' : 'bad'],
+    ['Gross Profit', $2(p.grossProfit), G(p.grossProfit), 'good'],
+    ['Profit Margin', pc1(ofG(p.grossProfit)), 'of gross', p.grossProfit >= 0 ? 'good' : 'bad'],
+  ]
+  // The ratio strip up top — the percentages Jason scans first, all vs gross
+  // (except the spend split, which is share-of-spend). ⓘ names each denominator.
+  const ratios = [
+    { l: 'Profit Margin', v: pc1(ofG(p.grossProfit)), cls: 'good', d: 'Gross Profit ÷ Gross Sales.' },
+    { l: 'Ad Spend / Gross', v: pc1(ofG(totalSpend)), cls: 'warn', d: 'Total ad spend (Meta + Google) ÷ Gross Sales.' },
+    { l: 'Spend Split', v: `M ${pc0(share(p.metaSpend))} · G ${pc0(share(p.googleSpend))}`, cls: 'split', d: 'Each platform’s share of total ad spend (Meta + Google = 100%).' },
+    { l: 'COGS / Gross', v: pc1(ofG(p.cogs)), cls: 'bad', d: 'COGS ÷ Gross Sales.' },
+    { l: 'Shipping / Gross', v: pc1(ofG(p.shippingCosts)), cls: 'warn', d: 'Shipping costs ÷ Gross Sales.' },
+    { l: 'Discount / Gross', v: pc1(ofG(p.discounts)), cls: 'warn', d: 'Discounts ÷ Gross Sales.' },
   ]
   // Plain-language definition for each line — shown via the ⓘ info icon.
   const DESC = {
-    'Gross Sales': 'Merchandise sales before discounts and refunds (order subtotal + discounts). Excludes tax and shipping.',
-    'Discounts': 'Total discounts applied across orders in range.',
-    'Refunds': 'Money refunded to customers in range.',
-    'Net Sales': 'Gross sales minus discounts and refunds — the real top line the rest of the P&L is measured against.',
+    'Gross Sales': 'Merchandise sales before discounts and refunds (order subtotal + discounts). Excludes tax and shipping. This is the base every "% of gross" is measured against.',
+    'Discounts': 'Total discounts applied across orders in range. Shown as % of Gross Sales.',
+    'Refunds': 'Money refunded to customers in range. Shown as % of Gross Sales.',
+    'Net Sales': 'Gross sales minus discounts and refunds. The % is Net ÷ Gross Sales — how much of gross survives.',
     'Total Orders': 'Orders with positive net sales in the range.',
-    'New Orders': "Orders from first-time customers — a customer whose first-ever order (matched by email, across all history) falls in this range. Counts new customers, not repeat buyers.",
+    'New Orders': "Orders from first-time customers — a customer whose first-ever order (matched by email, across all history) falls in this range. The % is new ÷ total orders.",
     'True AOV': 'Average order value after discounts & refunds — Net Sales ÷ Total Orders.',
-    'Meta Spend': 'Meta (Facebook / Instagram) ad spend in range, from client_meta_campaigns.',
-    'Google Spend': 'Google Ads spend in range, from client_yt_campaigns.',
+    'Meta Spend': 'Meta (Facebook / Instagram) ad spend, from client_meta_campaigns. The % is Meta’s share of total ad spend (Meta + Google).',
+    'Google Spend': 'Google Ads spend, from client_yt_campaigns. The % is Google’s share of total ad spend (Meta + Google).',
+    'Ad Spend (total)': 'Meta + Google spend combined. Shown as % of Gross Sales.',
     'Blended ROAS': 'Return on ad spend, blended across all channels — Net Sales ÷ total ad spend. 3x = $3 of net sales per $1 spent.',
     'Blended CAC': 'Blended customer-acquisition cost — total ad spend ÷ Total Orders. Cost per order across new AND returning buyers.',
     'New CAC': 'New-customer acquisition cost — total ad spend ÷ New Customers. What it costs to acquire one first-time buyer.',
     'Users (sessions)': 'Website sessions in range. Needs a GA4 connection.',
     'Cost / Visit': 'Ad spend ÷ website sessions. Needs GA4.',
     'Conversion Rate': 'Orders ÷ website sessions — how many visits become orders. Needs GA4.',
-    'COGS': 'Cost of goods sold — the real material cost of what shipped, computed from each order’s SKUs → BOM → client_materials.',
-    'Contribution Margin': 'Net Sales − COGS − ad spend. What’s left to cover shipping, overhead, and profit.',
+    'COGS': 'Cost of goods sold — the real material cost of what shipped, from each order’s SKUs → BOM → client_materials. Shown as % of Gross Sales.',
+    'Contribution Margin': 'Net Sales − COGS − ad spend. What’s left to cover shipping, overhead, and profit. Shown as % of Gross Sales.',
     'Orders Shipped': 'Orders marked fulfilled in range.',
-    'Shipping Costs': 'Orders shipped × cost per label (the average pick/pack/label cost you set).',
-    'Gross Profit': 'Contribution Margin − shipping costs. The bottom line of this P&L.',
-    'Profit Margin': 'Gross Profit ÷ Net Sales — profit as a share of net revenue.',
+    'Shipping Costs': 'Orders shipped × cost per label (the average pick/pack/label cost you set). Shown as % of Gross Sales.',
+    'Gross Profit': 'Contribution Margin − shipping costs — the bottom line of this P&L. Shown as % of Gross Sales.',
+    'Profit Margin': 'Gross Profit ÷ Gross Sales — profit as a share of gross revenue.',
   }
   return (
+    <>
+    <div className="pnl-ratios">
+      {ratios.map((r, i) => (
+        <div key={i} className="ratio">
+          <div className="ratio-l">{r.l}<span className="pnl-info" title={r.d}>ⓘ</span></div>
+          <div className={`ratio-v ${r.cls}`}>{r.v}</div>
+        </div>
+      ))}
+    </div>
     <div className="pnl">
       {rows.map((r, i) => {
         if (r[0] === 'sep') return <div key={i} className="pnl-sep" />
@@ -1412,6 +1443,7 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
         )
       })}
     </div>
+    </>
   )
 }
 
@@ -2042,7 +2074,14 @@ const CSS = `
 .ide .pnl-v{font-variant-numeric:tabular-nums;font-weight:600;color:var(--txt);}
 .ide .pnl-v.strong{font-weight:800;}
 .ide .pnl-v.good{color:var(--green);} .ide .pnl-v.warn{color:var(--amber);} .ide .pnl-v.bad{color:var(--red);} .ide .pnl-v.dim{color:var(--faint);font-weight:500;}
-.ide .pnl-pct{color:var(--faint);font-size:10.5px;min-width:90px;text-align:right;}
+.ide .pnl-pct{color:var(--dim);font-size:11px;font-weight:600;min-width:104px;text-align:right;font-variant-numeric:tabular-nums;}
+/* ratio strip — the percentages Jason scans first */
+.ide .pnl-ratios{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:680px;margin:2px 0 12px;}
+.ide .ratio{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;}
+.ide .ratio-l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;}
+.ide .ratio-v{font-size:19px;font-weight:800;margin-top:3px;color:var(--txt);font-variant-numeric:tabular-nums;}
+.ide .ratio-v.good{color:var(--green);} .ide .ratio-v.warn{color:var(--amber);} .ide .ratio-v.bad{color:var(--red);}
+.ide .ratio-v.split{font-size:15px;letter-spacing:-.01em;}
 .ide .pnl-sep{height:1px;background:var(--line);margin:3px 0;}
 .ide .pnl-sub{color:var(--faint);font-size:10.5px;}
 .ide .pnl-info{color:var(--faint);font-size:10px;margin-left:5px;cursor:help;opacity:.55;vertical-align:middle;}
