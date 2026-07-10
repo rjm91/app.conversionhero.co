@@ -1049,7 +1049,7 @@ function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrd
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'pnl_history') return <PnlHistoryView />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+  if (id === 'overview') return <OverviewView m={m} rangeN={rangeN} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -1196,11 +1196,12 @@ function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowK
 
 /* ══════════ Views (tab contents) ══════════ */
 
-function OverviewView({ m, canEditLabel, onSaveLabel }) {
+function OverviewView({ m, rangeN, canEditLabel, onSaveLabel }) {
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
-      <PnlTable p={m.pnl} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+      <p className="v-note" style={{ marginTop: 0 }}>Last {rangeN}d. Click any line to trace it to its source table — orders drill down to line items → SKU → BOM → the raw material cost.</p>
+      <PnlTable p={m.pnl} sources={m.sources} campaigns={m.campaigns} rangeN={rangeN} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
     </div>
   )
 }
@@ -1220,25 +1221,28 @@ function LabelEditor({ value, onSave }) {
   )
 }
 
-function PnlTable({ p, canEditLabel, onSaveLabel }) {
+function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) {
+  const [open, setOpen] = useState(null) // label of the drilled line
   if (!p) return <p className="v-dim">no P&amp;L for this range.</p>
   const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
   const $2 = (n) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const pc = (n) => n == null ? '' : (n * 100).toFixed(2) + '%'
   const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
   const gaGap = p.users == null // Users/CPVisit/CVR need GA4
+  // Each drillable line names the source it traces to. `d` = drill descriptor.
+  const O = (measure) => ({ kind: 'orders', measure })
   const rows = [
-    ['Gross Sales', $2(p.grossSales), '', 'strong'],
-    ['Discounts', '-' + $2(p.discounts), pc(p.discountsPct), 'warn'],
-    ['Refunds', '-' + $2(p.refunds), pc(p.refundsPct), 'warn'],
-    ['Net Sales', $2(p.netSales), '', 'strong'],
+    ['Gross Sales', $2(p.grossSales), '', 'strong', null, O('gross')],
+    ['Discounts', '-' + $2(p.discounts), pc(p.discountsPct), 'warn', null, O('discounts')],
+    ['Refunds', '-' + $2(p.refunds), pc(p.refundsPct), 'warn', null, O('refunds')],
+    ['Net Sales', $2(p.netSales), '', 'strong', null, O('net')],
     ['sep'],
-    ['Total Orders', String(p.totalOrders), '', ''],
-    ['New Orders', p.newClassified ? String(p.nOrders) : '— (classifying)', p.newClassified ? pc(p.nOrderPct) : '', ''],
-    ['True AOV', $2(p.trueAov), '', 'good'],
+    ['Total Orders', String(p.totalOrders), '', '', null, O('countAll')],
+    ['New Orders', p.newClassified ? String(p.nOrders) : '— (classifying)', p.newClassified ? pc(p.nOrderPct) : '', '', null, p.newClassified ? O('countNew') : null],
+    ['True AOV', $2(p.trueAov), '', 'good', null, O('aov')],
     ['sep'],
-    ['Meta Spend', $(p.metaSpend), pc(p.metaPctOfNet) + ' of net', 'warn'],
-    ['Google Spend', $(p.googleSpend), pc(p.googlePctOfNet) + ' of net', 'warn'],
+    ['Meta Spend', $(p.metaSpend), pc(p.metaPctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Meta' }],
+    ['Google Spend', $(p.googleSpend), pc(p.googlePctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Google' }],
     ['Blended ROAS', x(p.blendedRoas), '', 'good'],
     ['Blended CPA', $(p.blendedCpa), '', ''],
     ['New CPA', p.newClassified ? $(p.nCpa) : '—', '', ''],
@@ -1247,25 +1251,142 @@ function PnlTable({ p, canEditLabel, onSaveLabel }) {
     ['Cost / Visit', gaGap ? '—' : $2(p.cpVisit), '', gaGap ? 'dim' : ''],
     ['Conversion Rate', gaGap ? '—' : pc(p.cvrBlended), '', gaGap ? 'dim' : 'good'],
     ['sep'],
-    ['COGS', $(p.cogs), pc(p.cogsPct), 'bad'],
+    ['COGS', $(p.cogs), pc(p.cogsPct), 'bad', null, sources?.hasCogs ? O('cogs') : null],
     ['Contribution Margin', $2(p.contributionMargin), '', 'good'],
-    ['Orders Shipped', String(p.ordersShipped), '', ''],
-    ['Shipping Costs', $2(p.shippingCosts), pc(p.shippingPct), 'warn', 'shipping'],
+    ['Orders Shipped', String(p.ordersShipped), '', '', null, O('shipped')],
+    ['Shipping Costs', $2(p.shippingCosts), pc(p.shippingPct), 'warn', 'shipping', O('shippingCost')],
     ['sep'],
     ['Gross Profit', $2(p.grossProfit), pc(p.grossProfitPct), 'good'],
     ['Profit Margin', pc(p.profitMargin), '', p.profitMargin >= 0 ? 'good' : 'bad'],
   ]
   return (
     <div className="pnl">
-      {rows.map((r, i) => r[0] === 'sep'
-        ? <div key={i} className="pnl-sep" />
-        : <div key={i} className="pnl-row">
-            <span className="pnl-l">{r[0]}{r[4] === 'shipping' && (
-              <span className="pnl-sub"> @ {canEditLabel ? <LabelEditor value={p.avgCostPerLabel} onSave={onSaveLabel} /> : `$${p.avgCostPerLabel}/label`}</span>
-            )}</span>
-            <span className={`pnl-v ${r[3]}`}>{r[1]}</span><span className="pnl-pct">{r[2]}</span>
+      {rows.map((r, i) => {
+        if (r[0] === 'sep') return <div key={i} className="pnl-sep" />
+        const drill = r[5]
+        const on = open === r[0]
+        return (
+          <Fragment key={i}>
+            <div className={`pnl-row ${drill ? 'drillable' : ''} ${on ? 'on' : ''}`} onClick={drill ? () => setOpen(on ? null : r[0]) : undefined}>
+              <span className="pnl-l">
+                {drill && <span className="pnl-caret">{on ? '▾' : '▸'}</span>}
+                {r[0]}{r[4] === 'shipping' && (
+                  <span className="pnl-sub" onClick={e => e.stopPropagation()}> @ {canEditLabel ? <LabelEditor value={p.avgCostPerLabel} onSave={onSaveLabel} /> : `$${p.avgCostPerLabel}/label`}</span>
+                )}
+              </span>
+              <span className={`pnl-v ${r[3]}`}>{r[1]}</span><span className="pnl-pct">{r[2]}</span>
+            </div>
+            {on && drill && (
+              <div className="pnl-drill">
+                {drill.kind === 'orders'
+                  ? <PnlOrdersDrill orders={sources?.orders || []} measure={drill.measure} costPerLabel={sources?.costPerLabel} rangeN={rangeN} />
+                  : <PnlCampaignsDrill campaigns={campaigns || []} platform={drill.platform} rangeN={rangeN} />}
+              </div>
+            )}
+          </Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
+// One order line's cost cascade: line item → SKU → BOM → client_materials.
+function OrderCogsCascade({ lines }) {
+  const [open, setOpen] = useState(null)
+  const $c = (n) => '$' + Number(n || 0).toFixed(2)
+  if (!lines?.length) return <div className="v-dim casc-empty">no line items on this order</div>
+  return (
+    <div className="casc">
+      {lines.map((l, i) => {
+        const on = open === i
+        return (
+          <div key={i} className="casc-line">
+            <div className={`casc-lhead ${l.matched ? '' : 'unmatched'}`} onClick={() => l.matched && setOpen(on ? null : i)}>
+              <span className="casc-name">{l.matched && <span className="pnl-caret">{on ? '▾' : '▸'}</span>}{l.sku || '—'} <span className="v-dim">×{l.qty}</span></span>
+              <span className="casc-sku v-dim">{l.matched ? `sku ${l.parent} · ${l.vinyl}` : 'no SKU match → $0'}</span>
+              <span className="casc-cost">{$c(l.cost)}</span>
+            </div>
+            {on && (
+              <div className="casc-bom">
+                <div className="casc-bom-h">BOM → client_materials · {$c(l.unit)}/unit × {l.qty}</div>
+                {l.bom?.length ? l.bom.map((b, j) => (
+                  <div key={j} className="casc-brow">
+                    <span className="casc-bname">{b.component}</span>
+                    <span className="v-dim">{b.qty} × {$c(b.unit)}</span>
+                    <span className="casc-cost">{$c(b.cost)}</span>
+                  </div>
+                )) : <div className="v-dim">no priced BOM components</div>}
+              </div>
+            )}
           </div>
-      )}
+        )
+      })}
+    </div>
+  )
+}
+
+// Orders behind a P&L line — source: client_orders, for the selected range.
+function PnlOrdersDrill({ orders, measure, costPerLabel, rangeN }) {
+  const [open, setOpen] = useState(null)
+  const $2 = (n) => '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  // measure → per-order value + inclusion filter + a label for the header total.
+  const M = {
+    gross: { val: o => o.gross, keep: o => o.gross, label: 'gross', money: true },
+    discounts: { val: o => o.discounts, keep: o => o.discounts > 0, label: 'discounts', money: true },
+    refunds: { val: o => o.refunds, keep: o => o.refunds > 0, label: 'refunds', money: true },
+    net: { val: o => o.net, keep: o => o.net, label: 'net', money: true },
+    countAll: { val: o => o.net, keep: o => o.net > 0, label: 'net', money: true, count: true },
+    countNew: { val: o => o.net, keep: o => o.isNew && o.net > 0, label: 'net', money: true, count: true },
+    aov: { val: o => o.net, keep: o => o.net > 0, label: 'net', money: true, count: true },
+    cogs: { val: o => o.cogs, keep: o => o.cogs > 0, label: 'COGS', money: true },
+    shipped: { val: o => (costPerLabel || 0), keep: o => o.shipped, label: 'label cost', money: true, count: true },
+    shippingCost: { val: o => (costPerLabel || 0), keep: o => o.shipped, label: 'label cost', money: true },
+  }[measure] || { val: o => o.net, keep: () => true, label: 'net', money: true }
+  const rows = orders.filter(M.keep).map(o => ({ o, v: M.val(o) })).sort((a, b) => b.v - a.v)
+  const total = rows.reduce((s, r) => s + r.v, 0)
+  const srcNote = `source: client_orders · ${rows.length} order${rows.length === 1 ? '' : 's'} · last ${rangeN}d`
+  return (
+    <div className="src">
+      <div className="src-h">{srcNote} · {M.count ? `${rows.length} @ ` : 'total '}{$2(total)}{measure === 'aov' && rows.length ? ` · avg ${$2(total / rows.length)}` : ''}</div>
+      <div className="src-scroll">
+        {rows.length === 0 ? <div className="v-dim">no orders contribute to this line in range.</div> : rows.map(({ o, v }) => {
+          const on = open === o.id
+          const canCasc = measure === 'cogs' && o.lines?.length
+          return (
+            <div key={o.id} className="src-o">
+              <div className={`src-orow ${canCasc ? 'drillable' : ''} ${on ? 'on' : ''}`} onClick={canCasc ? () => setOpen(on ? null : o.id) : undefined}>
+                <span className="src-name">{canCasc && <span className="pnl-caret">{on ? '▾' : '▸'}</span>}{o.name}</span>
+                <span className="v-dim src-date">{String(o.date).slice(0, 10)}</span>
+                <span className="v-dim src-email">{o.email}{o.isNew ? ' · new' : ''}</span>
+                <span className="src-amt">{$2(v)}</span>
+              </div>
+              {on && canCasc && <OrderCogsCascade lines={o.lines} />}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Campaigns behind a spend line — source: the platform's campaign table.
+function PnlCampaignsDrill({ campaigns, platform, rangeN }) {
+  const $ = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
+  const rows = campaigns.filter(c => c.platform === platform).sort((a, b) => (b.spend || 0) - (a.spend || 0))
+  const table = platform === 'Meta' ? 'client_meta_campaigns' : 'client_yt_campaigns'
+  const total = rows.reduce((s, c) => s + (Number(c.spend) || 0), 0)
+  return (
+    <div className="src">
+      <div className="src-h">source: {table} · {rows.length} campaign{rows.length === 1 ? '' : 's'} · last {rangeN}d · total {$(total)}</div>
+      <div className="src-scroll">
+        {rows.length === 0 ? <div className="v-dim">no {platform} campaigns in range.</div> : rows.map((c, i) => (
+          <div key={i} className="src-crow">
+            <span className="src-name">{c.stale ? '⏸ ' : ''}{c.campaign_name}</span>
+            <span className="v-dim">{(c.clicks || 0).toLocaleString()} clicks · {(c.impressions || 0).toLocaleString()} impr</span>
+            <span className="src-amt">{$(c.spend)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -1789,7 +1910,7 @@ const CSS = `
 .ide .cb-creative{font-size:11px;color:var(--purple);margin-top:5px;font-style:italic;}
 
 /* daily P&L */
-.ide .pnl{max-width:520px;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
+.ide .pnl{max-width:680px;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
 .ide .pnl-row{display:flex;align-items:baseline;gap:10px;padding:5px 13px;font-size:12.5px;}
 .ide .pnl-row:nth-child(odd){background:rgba(255,255,255,.015);}
 .ide .pnl-l{color:var(--dim);flex:1;}
@@ -1803,6 +1924,35 @@ const CSS = `
 .ide .pnl-edit:hover{color:var(--blue);}
 .ide .pnl-editin{color:var(--txt);font-size:11px;}
 .ide .pnl-editin input{width:48px;background:var(--panel2);border:1px solid var(--blue);border-radius:4px;color:var(--txt);font:inherit;font-size:11px;padding:0 4px;margin:0 1px;outline:none;}
+/* drill-to-source (Overview P&L → client_orders → line → SKU → BOM → materials) */
+.ide .pnl-row.drillable{cursor:pointer;}
+.ide .pnl-row.drillable:hover{background:rgba(255,255,255,.03);}
+.ide .pnl-row.on{background:rgba(110,168,254,.07);}
+.ide .pnl-caret{display:inline-block;width:12px;color:var(--faint);font-size:9px;}
+.ide .pnl-row.drillable:hover .pnl-caret{color:var(--blue);}
+.ide .pnl-drill{background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+.ide .src{padding:8px 13px 10px;}
+.ide .src-h{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin-bottom:6px;}
+.ide .src-scroll{max-height:320px;overflow-y:auto;}
+.ide .src-orow,.ide .src-crow{display:grid;grid-template-columns:1fr 78px minmax(0,1.3fr) 92px;gap:8px;align-items:center;padding:3px 4px;font-size:11.5px;border-top:1px solid rgba(255,255,255,.04);}
+.ide .src-crow{grid-template-columns:1fr minmax(0,1.4fr) 92px;}
+.ide .src-o:first-child .src-orow,.ide .src-scroll>.src-crow:first-child{border-top:none;}
+.ide .src-orow.drillable{cursor:pointer;} .ide .src-orow.drillable:hover{background:rgba(255,255,255,.03);}
+.ide .src-orow.on{background:rgba(110,168,254,.07);}
+.ide .src-name{color:var(--txt);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .src-email,.ide .src-date{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .src-amt{text-align:right;color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums;}
+.ide .casc{background:var(--panel);border-top:1px solid var(--line);padding:4px 4px 4px 16px;}
+.ide .casc-line{border-top:1px solid rgba(255,255,255,.04);} .ide .casc-line:first-child{border-top:none;}
+.ide .casc-lhead{display:grid;grid-template-columns:1fr minmax(0,1.2fr) 80px;gap:8px;align-items:center;padding:3px 4px;font-size:11px;cursor:pointer;}
+.ide .casc-lhead.unmatched{cursor:default;opacity:.6;}
+.ide .casc-lhead:not(.unmatched):hover{background:rgba(255,255,255,.03);}
+.ide .casc-name{color:var(--txt);} .ide .casc-sku{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .casc-cost{text-align:right;font-variant-numeric:tabular-nums;color:var(--txt);}
+.ide .casc-bom{padding:2px 4px 4px 16px;background:var(--bg);}
+.ide .casc-bom-h{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:2px 0 3px;}
+.ide .casc-brow{display:grid;grid-template-columns:1fr minmax(0,120px) 70px;gap:8px;align-items:center;padding:1px 4px;font-size:10.5px;}
+.ide .casc-bname{color:var(--dim);} .ide .casc-empty{padding:4px 8px;}
 
 /* P&L history record table */
 .ide .rec{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:6px;max-width:860px;}
