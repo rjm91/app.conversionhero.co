@@ -924,6 +924,8 @@ function SettingsView({ canEdit, clientName }) {
       body: JSON.stringify({ client_id: clientId, settings: patch }),
     })
     const j = await res.json().catch(() => ({}))
+    // Reflect the just-saved values so 'Send test now' enables immediately.
+    if (res.ok) setSettings(s => ({ ...(s || {}), ...patch }))
     setState({ saving: false, testing: false, msg: res.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: j.error || 'Save failed.' } })
   }
 
@@ -946,7 +948,7 @@ function SettingsView({ canEdit, clientName }) {
       <p className="v-note">Settings are managed by agency admins.</p>
     </div>
   )
-  const savedWebhook = settings.slack_pnl_webhook
+  const canTest = !!settings.slack_pnl_webhook || /^https:\/\/hooks\.slack\.com\//.test(webhook.trim())
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
@@ -964,7 +966,7 @@ function SettingsView({ canEdit, clientName }) {
         </label>
         <div className="set-actions">
           <button className="set-btn primary" onClick={save} disabled={state.saving}>{state.saving ? 'saving…' : 'Save'}</button>
-          <button className="set-btn" onClick={sendTest} disabled={state.testing || !savedWebhook} title={savedWebhook ? 'post yesterday’s P&L now' : 'save a webhook first'}>{state.testing ? 'sending…' : 'Send test now'}</button>
+          <button className="set-btn" onClick={sendTest} disabled={state.testing || !canTest} title={canTest ? 'post yesterday’s P&L now' : 'save a webhook first'}>{state.testing ? 'sending…' : 'Send test now'}</button>
           {state.msg && <span className={`set-msg ${state.msg.ok ? 'good' : 'bad'}`}>{state.msg.text}</span>}
         </div>
       </div>
