@@ -28,11 +28,13 @@ const TOOLS = [
   },
   {
     name: 'set_range',
-    description: 'Change the data window the whole IDE is looking at.',
+    description: 'Change the date window the whole IDE is looking at. Use `days` for a rolling lookback, or `preset` for a calendar window.',
     input_schema: {
       type: 'object',
-      properties: { days: { type: 'integer', enum: [7, 30, 90] } },
-      required: ['days'],
+      properties: {
+        days: { type: 'integer', enum: [7, 14, 30, 90] },
+        preset: { type: 'string', enum: ['today', 'yesterday', 'this_month', 'last_month', 'this_year', 'last_year', 'all_time'] },
+      },
     },
   },
   {

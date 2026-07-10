@@ -9,7 +9,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchMissionData, computeMission, askContext, rangeDays, rowToFinding } from '../../../../lib/mission/data'
+import { fetchMissionData, computeMission, askContext, resolveRange, RANGE_PRESETS, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
 import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
 import { supabase } from '../../../../lib/supabase'
@@ -26,7 +26,7 @@ const PALETTE_CMDS = [
   ['/campaigns', 'true ROAS per campaign'],
   ['/ledger', 'decision history'],
   ['/policies', 'rules you have taught'],
-  ['/range 7|30|90', 'change the data window'],
+  ['/range 7|30|90|this_month|…', 'change the date window'],
   ['/manual', 'how all of this works'],
   ['/clear', 'reset the session'],
 ]
@@ -80,7 +80,8 @@ export default function BusinessIDE() {
   const { clientId } = useParams()
   const router = useRouter()
   const apps = useMemo(() => APPS.filter(a => !a.only || a.only === clientId), [clientId])
-  const [rangeN, setRangeN] = useState(30)
+  const [rangeKey, setRangeKey] = useState('30d')
+  const [customRange, setCustomRange] = useState({ start: '', end: '' })
   const [data, setData] = useState(null)
   const [turns, setTurns] = useState([])
   const [selId, setSelId] = useState(null)
@@ -185,7 +186,11 @@ export default function BusinessIDE() {
     try { localStorage.setItem(`ide_meta_${clientId}`, JSON.stringify(next)) } catch { /* quota */ }
   }, [clientId])
 
-  const range = useMemo(() => rangeDays(rangeN), [rangeN])
+  const range = useMemo(() => resolveRange(rangeKey, customRange.start, customRange.end), [rangeKey, customRange])
+  const rangeN = range.days      // day count — server lookback + drill sub-notes
+  const rangeLabel = range.label // human label — user-facing "This Month", etc.
+  // Numeric-day → preset-key helper for the /range command and the agent tool.
+  const daysToKey = (n) => ({ 7: '7d', 14: '14d', 30: '30d', 90: '90d' })[n]
   // Cost-per-label override: edited inline, saved to client settings, applied
   // to the P&L immediately (no reload) by injecting into computeMission.
   const [labelOverride, setLabelOverride] = useState(null)
@@ -234,11 +239,11 @@ export default function BusinessIDE() {
     let alive = true
     bootedRef.current = false
     setTurns([]); setSelId(null); setSrvFindings(null)
-    push({ kind: 'sys', text: `loading ${rangeN}d of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
+    push({ kind: 'sys', text: `loading ${rangeLabel} of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
     fetchMissionData(clientId, range.start, range.end)
       .then(d => { if (alive) setData(d) })
       .catch(e => push({ kind: 'sys', text: 'load failed: ' + e.message }))
-    fetch(`/api/mission/state?client_id=${clientId}&refresh=1&days=${rangeN}`, { cache: 'no-store' })
+    fetch(`/api/mission/state?client_id=${clientId}&refresh=1&days=${Math.min(90, rangeN)}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(s => {
         if (!alive) return
@@ -259,7 +264,7 @@ export default function BusinessIDE() {
     if (!m || !data || srvFindings === null || bootedRef.current) return
     bootedRef.current = true
     const findings = srvFindings.map(rowToFinding)
-    setTurns([{ id: tid(), kind: 'sys', text: `session start · ${data.clientName} · ${rangeN}d — ${m.orders} orders, ${m.campaigns.length} campaigns, ${m.hasCogs ? 'BOM margins live (' + (m.margin * 100).toFixed(1) + '%)' : 'no BOM data'} · levers: ${leversMode} · findings + decisions now persist in the database (cron watcher runs daily).` }])
+    setTurns([{ id: tid(), kind: 'sys', text: `session start · ${data.clientName} · ${rangeLabel} — ${m.orders} orders, ${m.campaigns.length} campaigns, ${m.hasCogs ? 'BOM margins live (' + (m.margin * 100).toFixed(1) + '%)' : 'no BOM data'} · levers: ${leversMode} · findings + decisions now persist in the database (cron watcher runs daily).` }])
     let firstId = null
     for (const f of findings) {
       const id = tid()
@@ -269,7 +274,7 @@ export default function BusinessIDE() {
     setSelId(firstId)
     setTurns(t => [...t, { id: tid(), kind: 'sys', text: (findings.length ? `${findings.length} in PROBLEMS · y approves the selected card · j/k moves.` : 'no problems — every live campaign clears breakeven.') + ' press ? for the manual · ctrl+\` toggles this panel.' }])
     inputRef.current?.focus()
-  }, [m, data, srvFindings, rangeN, leversMode])
+  }, [m, data, srvFindings, rangeN, rangeLabel, leversMode])
 
   /* ── decisions ── */
   const findingTurns = turns.filter(t => t.kind === 'finding')
@@ -387,8 +392,9 @@ export default function BusinessIDE() {
     if (lower === '/clear') { histRef.current = []; bootedRef.current = false; setData(d => ({ ...d })); return }
     if (lower === '/manual') { openTab('manual'); push({ kind: 'sys', text: 'opened the Manual tab.' }); return }
     if (lower.startsWith('/range')) {
-      const n = Number(lower.split(/\s+/)[1])
-      if ([7, 30, 90].includes(n)) setRangeN(n); else push({ kind: 'sys', text: 'usage: /range 7 | 30 | 90' })
+      const arg = lower.split(/\s+/)[1] || ''
+      const key = daysToKey(Number(arg)) || (RANGE_PRESETS.some(p => p[0] === arg) ? arg : null)
+      if (key) setRangeKey(key); else push({ kind: 'sys', text: `usage: /range <days: 7|14|30|90> or <preset: ${RANGE_PRESETS.map(p => p[0]).join(' | ')}>` })
       return
     }
     if (lower === '/help') { push({ kind: 'sys', text: PALETTE_CMDS.map(([c, d]) => `${c} — ${d}`).join('\n') }); return }
@@ -396,7 +402,7 @@ export default function BusinessIDE() {
     if (lower === '/policies') { openTab('policies'); push({ kind: 'sys', text: `opened the Policies tab — ${policies.length} standing rules.` }); return }
     if (lower === '/campaigns') {
       const rows = m.campaigns.filter(c => c.spend > 0)
-      push({ kind: 'agent', text: `True ROAS per campaign (breakeven 1.00x on real BOM margin) · ${rangeN}d:`,
+      push({ kind: 'agent', text: `True ROAS per campaign (breakeven 1.00x on real BOM margin) · ${rangeLabel}:`,
         bars: rows.map(c => ({ label: `${c.campaign_name}${c.stale ? ' (stale)' : ''}`, value: c.trueRoas ?? 0, color: c.trueRoas == null ? '#5a6377' : c.trueRoas >= 1.5 ? '#3fd68f' : c.trueRoas >= 1 ? '#e8b45a' : '#f4747f', text: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—' })) })
       return
     }
@@ -473,9 +479,10 @@ export default function BusinessIDE() {
         if (a.name === 'open_tab' && VIEW_TITLES[a.input?.view]) {
           openTab(a.input.view)
           push({ kind: 'sys', text: `agent action · opened the ${VIEW_TITLES[a.input.view]} tab` })
-        } else if (a.name === 'set_range' && [7, 30, 90].includes(a.input?.days)) {
-          push({ kind: 'sys', text: `agent action · switching range to ${a.input.days}d` })
-          setRangeN(a.input.days)
+        } else if (a.name === 'set_range' && (daysToKey(a.input?.days) || RANGE_PRESETS.some(p => p[0] === a.input?.preset))) {
+          const key = a.input?.preset && RANGE_PRESETS.some(p => p[0] === a.input.preset) ? a.input.preset : daysToKey(a.input.days)
+          push({ kind: 'sys', text: `agent action · switching range to ${(RANGE_PRESETS.find(p => p[0] === key) || [])[1] || key}` })
+          setRangeKey(key)
         } else if (a.name === 'reopen_decision') {
           const match = (a.input?.match || '').toLowerCase()
           const pool = ledger.filter(r => r.status !== 'reverted')
@@ -550,7 +557,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeN, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc, metaDoc, saveMetaDoc])
+  }, [busy, m, data, range, rangeLabel, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc, metaDoc, saveMetaDoc])
 
   const pinView = useCallback((spec, question) => {
     const id = 'p' + Date.now().toString(36)
@@ -641,7 +648,7 @@ export default function BusinessIDE() {
 
           <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
-              <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+              <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                 campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
@@ -655,7 +662,7 @@ export default function BusinessIDE() {
                   </select>
                   <button className="tt-btn" onClick={() => setSplitTab(null)}>✕</button>
                 </div>
-                <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} ledger={ledger} policies={policies} pins={pins}
+                <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                   campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
@@ -714,9 +721,18 @@ export default function BusinessIDE() {
           <div className="statusbar">
             <div className="seg"><span className="pulse" /><b>{data?.clientName?.toLowerCase() || clientId}</b></div>
             <div className="seg sel-range">
-              <select value={rangeN} onChange={e => setRangeN(Number(e.target.value))}>
-                <option value={7}>7d</option><option value={30}>30d</option><option value={90}>90d</option>
+              <select value={rangeKey} onChange={e => setRangeKey(e.target.value)} title="date window">
+                {RANGE_PRESETS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
               </select>
+              {rangeKey === 'custom' && (
+                <span className="custom-range">
+                  <input type="date" value={customRange.start} max={customRange.end || undefined}
+                    onChange={e => setCustomRange(r => ({ ...r, start: e.target.value }))} />
+                  <span className="dim">→</span>
+                  <input type="date" value={customRange.end} min={customRange.start || undefined}
+                    onChange={e => setCustomRange(r => ({ ...r, end: e.target.value }))} />
+                </span>
+              )}
             </div>
             {m && <>
               <div className="seg"><span className="dim">net</span><b className={m.netProfit >= 0 ? 'good' : 'bad'}>{money(m.netProfit)}</b></div>
@@ -1042,14 +1058,14 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'pnl_history') return <PnlHistoryView />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} rangeN={rangeN} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -1196,12 +1212,12 @@ function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowK
 
 /* ══════════ Views (tab contents) ══════════ */
 
-function OverviewView({ m, rangeN, canEditLabel, onSaveLabel }) {
+function OverviewView({ m, rangeLabel, canEditLabel, onSaveLabel }) {
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
-      <p className="v-note" style={{ marginTop: 0 }}>Last {rangeN}d. Click any line to trace it to its source table — orders drill down to line items → SKU → BOM → the raw material cost.</p>
-      <PnlTable p={m.pnl} sources={m.sources} campaigns={m.campaigns} rangeN={rangeN} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. Click any line to trace it to its source table — orders drill down to line items → SKU → BOM → the raw material cost.</p>
+      <PnlTable p={m.pnl} sources={m.sources} campaigns={m.campaigns} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
     </div>
   )
 }
@@ -1221,7 +1237,7 @@ function LabelEditor({ value, onSave }) {
   )
 }
 
-function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) {
+function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel }) {
   const [open, setOpen] = useState(null) // label of the drilled line
   if (!p) return <p className="v-dim">no P&amp;L for this range.</p>
   const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
@@ -1305,8 +1321,8 @@ function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) 
             {on && drill && (
               <div className="pnl-drill">
                 {drill.kind === 'orders'
-                  ? <PnlOrdersDrill orders={sources?.orders || []} measure={drill.measure} costPerLabel={sources?.costPerLabel} rangeN={rangeN} />
-                  : <PnlCampaignsDrill campaigns={campaigns || []} platform={drill.platform} rangeN={rangeN} />}
+                  ? <PnlOrdersDrill orders={sources?.orders || []} measure={drill.measure} costPerLabel={sources?.costPerLabel} rangeLabel={rangeLabel} />
+                  : <PnlCampaignsDrill campaigns={campaigns || []} platform={drill.platform} rangeLabel={rangeLabel} />}
               </div>
             )}
           </Fragment>
@@ -1352,7 +1368,7 @@ function OrderCogsCascade({ lines }) {
 }
 
 // Orders behind a P&L line — source: client_orders, for the selected range.
-function PnlOrdersDrill({ orders, measure, costPerLabel, rangeN }) {
+function PnlOrdersDrill({ orders, measure, costPerLabel, rangeLabel }) {
   const [open, setOpen] = useState(null)
   const $2 = (n) => '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   // measure → per-order value + inclusion filter + a label for the header total.
@@ -1370,7 +1386,7 @@ function PnlOrdersDrill({ orders, measure, costPerLabel, rangeN }) {
   }[measure] || { val: o => o.net, keep: () => true, label: 'net', money: true }
   const rows = orders.filter(M.keep).map(o => ({ o, v: M.val(o) })).sort((a, b) => b.v - a.v)
   const total = rows.reduce((s, r) => s + r.v, 0)
-  const srcNote = `source: client_orders · ${rows.length} order${rows.length === 1 ? '' : 's'} · last ${rangeN}d`
+  const srcNote = `source: client_orders · ${rows.length} order${rows.length === 1 ? '' : 's'} · ${rangeLabel}`
   return (
     <div className="src">
       <div className="src-h">{srcNote} · {M.count ? `${rows.length} @ ` : 'total '}{$2(total)}{measure === 'aov' && rows.length ? ` · avg ${$2(total / rows.length)}` : ''}</div>
@@ -1396,14 +1412,14 @@ function PnlOrdersDrill({ orders, measure, costPerLabel, rangeN }) {
 }
 
 // Campaigns behind a spend line — source: the platform's campaign table.
-function PnlCampaignsDrill({ campaigns, platform, rangeN }) {
+function PnlCampaignsDrill({ campaigns, platform, rangeLabel }) {
   const $ = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
   const rows = campaigns.filter(c => c.platform === platform).sort((a, b) => (b.spend || 0) - (a.spend || 0))
   const table = platform === 'Meta' ? 'client_meta_campaigns' : 'client_yt_campaigns'
   const total = rows.reduce((s, c) => s + (Number(c.spend) || 0), 0)
   return (
     <div className="src">
-      <div className="src-h">source: {table} · {rows.length} campaign{rows.length === 1 ? '' : 's'} · last {rangeN}d · total {$(total)}</div>
+      <div className="src-h">source: {table} · {rows.length} campaign{rows.length === 1 ? '' : 's'} · {rangeLabel} · total {$(total)}</div>
       <div className="src-scroll">
         {rows.length === 0 ? <div className="v-dim">no {platform} campaigns in range.</div> : rows.map((c, i) => (
           <div key={i} className="src-crow">
@@ -2128,6 +2144,9 @@ const CSS = `
 .ide .seg.last{border-right:none;gap:6px;}
 .ide .seg.probs{cursor:pointer;}
 .ide .sel-range select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:11px;border-radius:5px;padding:1px 5px;outline:none;cursor:pointer;}
+.ide .custom-range{display:inline-flex;align-items:center;gap:4px;margin-left:5px;}
+.ide .custom-range input{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:10.5px;border-radius:5px;padding:1px 4px;outline:none;color-scheme:dark;}
+.ide .custom-range input:focus{border-color:var(--blue);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
 @keyframes idepu{50%{opacity:.3;}}
 .ide .spacer{flex:1;}
