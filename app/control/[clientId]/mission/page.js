@@ -56,8 +56,11 @@ const TREE = [
     { id: 'policies', icon: '🛡', label: 'Policies' },
     { id: 'memory', icon: '🧠', label: 'Memory' },
   ]},
+  { section: 'CONFIG', items: [
+    { id: 'settings', icon: '⚙️', label: 'Settings' },
+  ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory' }
+const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -892,6 +895,83 @@ function PnlHistoryView() {
   )
 }
 
+/* ══════════ Settings — per-client ops config (Slack digest, cost/label) ══════════ */
+function SettingsView({ canEdit, clientName }) {
+  const { clientId } = useParams()
+  const [settings, setSettings] = useState(null)
+  const [webhook, setWebhook] = useState('')
+  const [enabled, setEnabled] = useState(false)
+  const [state, setState] = useState({ saving: false, testing: false, msg: null })
+
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/client-settings?client_id=${clientId}`, { cache: 'no-store' })
+      .then(r => r.json()).then(({ settings }) => {
+        if (!alive) return
+        setSettings(settings || {})
+        setWebhook(settings?.slack_pnl_webhook || '')
+        setEnabled(!!settings?.daily_pnl_slack)
+      }).catch(() => { if (alive) setSettings({}) })
+    return () => { alive = false }
+  }, [clientId])
+
+  const save = async () => {
+    setState(s => ({ ...s, saving: true, msg: null }))
+    const patch = { daily_pnl_slack: enabled }
+    if (webhook !== '••••••') patch.slack_pnl_webhook = webhook.trim()
+    const res = await fetch('/api/client-settings', {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, settings: patch }),
+    })
+    const j = await res.json().catch(() => ({}))
+    setState({ saving: false, testing: false, msg: res.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: j.error || 'Save failed.' } })
+  }
+
+  const sendTest = async () => {
+    setState(s => ({ ...s, testing: true, msg: null }))
+    const res = await fetch('/api/mission/pnl-digest', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId }),
+    })
+    const j = await res.json().catch(() => ({}))
+    setState({ saving: false, testing: false, msg: res.ok
+      ? { ok: true, text: `Sent to Slack — yesterday’s P&L (${j.result?.date || ''}).` }
+      : { ok: false, text: j.error || 'Send failed — check the webhook URL.' } })
+  }
+
+  if (settings === null) return <p className="loading v-pad">loading settings…</p>
+  if (!canEdit) return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
+      <p className="v-note">Settings are managed by agency admins.</p>
+    </div>
+  )
+  const savedWebhook = settings.slack_pnl_webhook
+  return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
+      <div className="set-card">
+        <div className="set-h">Daily P&amp;L → Slack digest</div>
+        <p className="v-note" style={{ marginTop: 0 }}>Post {clientName}’s locked Daily P&amp;L to a Slack channel every morning at 7:00 AM Phoenix (yesterday’s completed day). Create an <b>Incoming Webhook</b> in Slack for the target channel, then paste its URL below.</p>
+        <label className="set-row">
+          <span className="set-l">Slack webhook URL</span>
+          <input className="set-in" type="text" placeholder="https://hooks.slack.com/services/…"
+            value={webhook} onChange={e => setWebhook(e.target.value)} onFocus={e => { if (e.target.value === '••••••') setWebhook('') }} />
+        </label>
+        <label className="set-row toggle">
+          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
+          <span className="set-l">Send the digest every morning</span>
+        </label>
+        <div className="set-actions">
+          <button className="set-btn primary" onClick={save} disabled={state.saving}>{state.saving ? 'saving…' : 'Save'}</button>
+          <button className="set-btn" onClick={sendTest} disabled={state.testing || !savedWebhook} title={savedWebhook ? 'post yesterday’s P&L now' : 'save a webhook first'}>{state.testing ? 'sending…' : 'Send test now'}</button>
+          {state.msg && <span className={`set-msg ${state.msg.ok ? 'good' : 'bad'}`}>{state.msg.text}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ══════════ Memory — the agent's durable, client-visible knowledge ══════════ */
 function MemoryView({ memories, clientName, onReask }) {
   const KIND = { preference: '❤', context: '🗓', external: '🌐', decision: '⚖', insight: '💡' }
@@ -1064,6 +1144,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'pnl_history') return <PnlHistoryView />
+  if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
@@ -2147,6 +2228,20 @@ const CSS = `
 .ide .custom-range{display:inline-flex;align-items:center;gap:4px;margin-left:5px;}
 .ide .custom-range input{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:10.5px;border-radius:5px;padding:1px 4px;outline:none;color-scheme:dark;}
 .ide .custom-range input:focus{border-color:var(--blue);}
+/* settings */
+.ide .set-card{max-width:620px;border:1px solid var(--line);border-radius:9px;padding:14px 16px;margin-top:6px;background:var(--panel);}
+.ide .set-h{font-size:13px;font-weight:800;color:var(--txt);margin-bottom:4px;}
+.ide .set-row{display:flex;flex-direction:column;gap:4px;margin-top:12px;}
+.ide .set-row.toggle{flex-direction:row;align-items:center;gap:8px;cursor:pointer;}
+.ide .set-l{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);}
+.ide .set-in{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:6px 9px;outline:none;}
+.ide .set-in:focus{border-color:var(--blue);}
+.ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
+.ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;}
+.ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
+.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
+.ide .set-btn:disabled{opacity:.5;cursor:default;}
+.ide .set-msg{font-size:11.5px;} .ide .set-msg.good{color:var(--green);} .ide .set-msg.bad{color:var(--red);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
 @keyframes idepu{50%{opacity:.3;}}
 .ide .spacer{flex:1;}
