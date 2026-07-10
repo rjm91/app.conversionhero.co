@@ -24,7 +24,10 @@ export async function GET(request) {
   const a = await auth(request, clientId)
   if (a.error) return NextResponse.json({ error: a.error }, { status: a.status })
   const { data } = await admin().from('client').select('settings').eq('client_id', clientId).single()
-  return NextResponse.json({ settings: data?.settings || {} })
+  const settings = { ...(data?.settings || {}) }
+  // The Slack webhook can post to the client's channel — only admins see it.
+  if (!a.isAdmin && settings.slack_pnl_webhook) settings.slack_pnl_webhook = '••••••'
+  return NextResponse.json({ settings })
 }
 
 export async function PATCH(request) {
@@ -37,6 +40,14 @@ export async function PATCH(request) {
   const patch = {}
   if (settings?.cost_per_label != null) patch.cost_per_label = Math.max(0, Number(settings.cost_per_label) || 0)
   if (typeof settings?.timezone === 'string') patch.timezone = settings.timezone
+  if (typeof settings?.daily_pnl_slack === 'boolean') patch.daily_pnl_slack = settings.daily_pnl_slack
+  if (typeof settings?.slack_pnl_webhook === 'string') {
+    const url = settings.slack_pnl_webhook.trim()
+    // Ignore the redaction placeholder (a non-admin round-trip) and only accept
+    // a real Slack Incoming Webhook — never store arbitrary URLs.
+    if (url === '' || /^https:\/\/hooks\.slack\.com\//.test(url)) patch.slack_pnl_webhook = url
+    else if (url !== '••••••') return NextResponse.json({ error: 'Webhook must be a https://hooks.slack.com/… URL' }, { status: 400 })
+  }
   if (!Object.keys(patch).length) return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
 
   const db = admin()
