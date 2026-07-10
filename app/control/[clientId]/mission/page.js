@@ -1244,8 +1244,8 @@ function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) 
     ['Meta Spend', $(p.metaSpend), pc(p.metaPctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Meta' }],
     ['Google Spend', $(p.googleSpend), pc(p.googlePctOfNet) + ' of net', 'warn', null, { kind: 'campaigns', platform: 'Google' }],
     ['Blended ROAS', x(p.blendedRoas), '', 'good'],
-    ['Blended CPA', $(p.blendedCpa), '', ''],
-    ['New CPA', p.newClassified ? $(p.nCpa) : '—', '', ''],
+    ['Blended CAC', $(p.blendedCpa), '', ''],
+    ['New CAC', p.newClassified ? $(p.nCpa) : '—', '', ''],
     ['sep'],
     ['Users (sessions)', gaGap ? '— needs GA4' : p.users.toLocaleString(), '', gaGap ? 'dim' : ''],
     ['Cost / Visit', gaGap ? '—' : $2(p.cpVisit), '', gaGap ? 'dim' : ''],
@@ -1259,6 +1259,30 @@ function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) 
     ['Gross Profit', $2(p.grossProfit), pc(p.grossProfitPct), 'good'],
     ['Profit Margin', pc(p.profitMargin), '', p.profitMargin >= 0 ? 'good' : 'bad'],
   ]
+  // Plain-language definition for each line — shown via the ⓘ info icon.
+  const DESC = {
+    'Gross Sales': 'Merchandise sales before discounts and refunds (order subtotal + discounts). Excludes tax and shipping.',
+    'Discounts': 'Total discounts applied across orders in range.',
+    'Refunds': 'Money refunded to customers in range.',
+    'Net Sales': 'Gross sales minus discounts and refunds — the real top line the rest of the P&L is measured against.',
+    'Total Orders': 'Orders with positive net sales in the range.',
+    'New Orders': "Orders from first-time customers — a customer whose first-ever order (matched by email, across all history) falls in this range. Counts new customers, not repeat buyers.",
+    'True AOV': 'Average order value after discounts & refunds — Net Sales ÷ Total Orders.',
+    'Meta Spend': 'Meta (Facebook / Instagram) ad spend in range, from client_meta_campaigns.',
+    'Google Spend': 'Google Ads spend in range, from client_yt_campaigns.',
+    'Blended ROAS': 'Return on ad spend, blended across all channels — Net Sales ÷ total ad spend. 3x = $3 of net sales per $1 spent.',
+    'Blended CAC': 'Blended customer-acquisition cost — total ad spend ÷ Total Orders. Cost per order across new AND returning buyers.',
+    'New CAC': 'New-customer acquisition cost — total ad spend ÷ New Customers. What it costs to acquire one first-time buyer.',
+    'Users (sessions)': 'Website sessions in range. Needs a GA4 connection.',
+    'Cost / Visit': 'Ad spend ÷ website sessions. Needs GA4.',
+    'Conversion Rate': 'Orders ÷ website sessions — how many visits become orders. Needs GA4.',
+    'COGS': 'Cost of goods sold — the real material cost of what shipped, computed from each order’s SKUs → BOM → client_materials.',
+    'Contribution Margin': 'Net Sales − COGS − ad spend. What’s left to cover shipping, overhead, and profit.',
+    'Orders Shipped': 'Orders marked fulfilled in range.',
+    'Shipping Costs': 'Orders shipped × cost per label (the average pick/pack/label cost you set).',
+    'Gross Profit': 'Contribution Margin − shipping costs. The bottom line of this P&L.',
+    'Profit Margin': 'Gross Profit ÷ Net Sales — profit as a share of net revenue.',
+  }
   return (
     <div className="pnl">
       {rows.map((r, i) => {
@@ -1270,7 +1294,9 @@ function PnlTable({ p, sources, campaigns, rangeN, canEditLabel, onSaveLabel }) 
             <div className={`pnl-row ${drill ? 'drillable' : ''} ${on ? 'on' : ''}`} onClick={drill ? () => setOpen(on ? null : r[0]) : undefined}>
               <span className="pnl-l">
                 {drill && <span className="pnl-caret">{on ? '▾' : '▸'}</span>}
-                {r[0]}{r[4] === 'shipping' && (
+                {r[0]}
+                {DESC[r[0]] && <span className="pnl-info" title={DESC[r[0]]} onClick={e => e.stopPropagation()}>ⓘ</span>}
+                {r[4] === 'shipping' && (
                   <span className="pnl-sub" onClick={e => e.stopPropagation()}> @ {canEditLabel ? <LabelEditor value={p.avgCostPerLabel} onSave={onSaveLabel} /> : `$${p.avgCostPerLabel}/label`}</span>
                 )}
               </span>
@@ -1920,6 +1946,8 @@ const CSS = `
 .ide .pnl-pct{color:var(--faint);font-size:10.5px;min-width:90px;text-align:right;}
 .ide .pnl-sep{height:1px;background:var(--line);margin:3px 0;}
 .ide .pnl-sub{color:var(--faint);font-size:10.5px;}
+.ide .pnl-info{color:var(--faint);font-size:10px;margin-left:5px;cursor:help;opacity:.55;vertical-align:middle;}
+.ide .pnl-info:hover{opacity:1;color:var(--blue);}
 .ide .pnl-edit{background:none;border:none;color:var(--faint);cursor:pointer;font:inherit;font-size:10px;padding:0 3px;}
 .ide .pnl-edit:hover{color:var(--blue);}
 .ide .pnl-editin{color:var(--txt);font-size:11px;}
