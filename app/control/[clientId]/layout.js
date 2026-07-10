@@ -397,7 +397,7 @@ export default function ClientLayout({ children }) {
   // is replaced by a slim IDE titlebar (client switcher · view-as · user menu)
   // and the IDE's fixed overlay starts right below it (--mt-top). The old nav
   // destinations live inside the IDE's explorer (APPS section) and ⌘P.
-  if (activeKey === 'mission') {
+  if (activeKey === 'mission' || activeKey === 'mission-b') {
     return (
       <div className="flex flex-col h-screen bg-[#0b0e14]" style={{ '--mt-top': '36px' }}>
         <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#0b0e14] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
@@ -437,7 +437,7 @@ export default function ClientLayout({ children }) {
               </div>
             )}
           </div>
-          <span className="text-[#5a6377] text-[11px] ml-1">mission</span>
+          <span className="text-[#5a6377] text-[11px] ml-1">{activeKey === 'mission-b' ? 'mission-b · data' : 'mission'}</span>
           <div className="ml-auto flex items-center gap-2">
             {realAgencyAdmin && (
               <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
