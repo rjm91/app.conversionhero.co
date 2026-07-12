@@ -209,6 +209,10 @@ export default function AgencyMission() {
             <div className="ex-h">SHORTCUTS</div>
             <button className="ex-item" onClick={() => ask('draft a new agreement')}><span className="ex-ic">✍️</span>New agreement</button>
           </div>
+          <div className="ex-sec">
+            <div className="ex-h">AGENCY</div>
+            <a className="ex-item" href="/control"><span className="ex-ic">📊</span>Control Center<span className="ex-out">↗</span></a>
+          </div>
         </aside>}
 
         {/* Main */}
@@ -392,6 +396,8 @@ const CSS = `
 .aide .ex-item:hover{background:rgba(255,255,255,.03);color:var(--txt);}
 .aide .ex-item.on{background:rgba(110,168,254,.1);color:var(--txt);}
 .aide .ex-ic{width:16px;text-align:center;}
+.aide .ex-item{text-decoration:none;}
+.aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
 .aide .ex-count{margin-left:auto;background:rgba(242,180,92,.18);color:var(--amber);font-size:10px;font-weight:800;border-radius:99px;padding:0 6px;}
 .aide .main{flex:1;display:flex;flex-direction:column;min-width:0;}
 .aide .tabbar{display:flex;align-items:stretch;background:var(--panel);border-bottom:1px solid var(--line);height:34px;flex-shrink:0;overflow-x:auto;}
