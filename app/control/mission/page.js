@@ -38,6 +38,7 @@ export default function AgencyMission() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [sideOpen, setSideOpen] = useState(true)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
 
@@ -191,7 +192,7 @@ export default function AgencyMission() {
       <style>{CSS}</style>
       <div className="aide-body">
         {/* Explorer */}
-        <aside className="ex">
+        {sideOpen && <aside className="ex">
           <div className="ex-top"><span className="ex-brand">ConversionHero</span><span className="ex-badge">AGENCY</span></div>
           {TREE.map(g => (
             <div key={g.section} className="ex-sec">
@@ -208,16 +209,19 @@ export default function AgencyMission() {
             <div className="ex-h">SHORTCUTS</div>
             <button className="ex-item" onClick={() => ask('draft a new agreement')}><span className="ex-ic">✍️</span>New agreement</button>
           </div>
-        </aside>
+        </aside>}
 
         {/* Main */}
         <div className="main">
-          <div className="tabs">
+          <div className="tabbar">
+            <button className="burger" onClick={() => setSideOpen(o => !o)} title="Toggle explorer">☰</button>
             {tabs.map(id => (
               <div key={id} className={`tab ${activeTab === id ? 'on' : ''}`} onClick={() => setActiveTab(id)}>
-                {tabTitle(id)}<span className="tab-x" onClick={(e) => { e.stopPropagation(); closeTab(id) }}>×</span>
+                {tabTitle(id)}
+                {(tabs.length > 1 || id.startsWith('agreement:')) && <span className="tab-x" onClick={(e) => { e.stopPropagation(); closeTab(id) }}>×</span>}
               </div>
             ))}
+            <div className="tab-spacer" />
           </div>
           <div className="view">
             {err && <p className="a-err">{err}</p>}
@@ -236,35 +240,52 @@ export default function AgencyMission() {
           {/* Terminal panel */}
           {panelOpen && (
             <div className="panel">
-              <div className="panel-head"><span className="panel-tab on">TERMINAL</span><span className="panel-collapse" onClick={() => setPanelOpen(false)}>▾</span></div>
-              <div className="term" ref={scrollRef}>
+              <div className="panel-tabs">
+                <span className="on">TERMINAL</span>
+                <span className="panel-x" onClick={() => setPanelOpen(false)} title="hide">▾</span>
+              </div>
+              <div className="stream" ref={scrollRef}>
                 {turns.map(t => (
                   <div key={t.id} className={`t-turn ${t.kind}`}>
-                    {t.kind === 'user' && <span className="t-p">›</span>}
+                    {t.kind === 'user' && <span className="t-p">❯</span>}
                     {t.kind === 'agent'
                       ? (t.pending ? <span className="t-dim">thinking…</span> : t.error ? <span className="t-err">error: {t.error}</span> : <span className="t-agent">{t.text}</span>)
                       : <span className={t.kind === 'sys' ? 't-sys' : 't-user'}>{t.text}</span>}
                   </div>
                 ))}
               </div>
-              <div className="term-in">
-                <span className="t-prompt">›</span>
-                <input ref={inputRef} value={input} placeholder="ask about the fleet · or “draft a Growth agreement for Acme Co, monthly”"
-                  onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ask() }} disabled={busy} />
+              <div className="prompt-wrap">
+                <div className="prompt">
+                  <span className="ps">❯</span>
+                  <input ref={inputRef} value={input} disabled={busy}
+                    placeholder={busy ? 'thinking…' : 'ask about the fleet · or “draft a Growth agreement for Acme Co, monthly”'}
+                    onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ask() }}
+                    autoComplete="off" spellCheck="false" />
+                </div>
+                <div className="prompt-hint">
+                  <span className="ph-mode warn">▶▶ agency ops</span>
+                  <span className="dim"> (drafts only — sending stays your click)</span>
+                  <span className="dim"> · agent </span><span className="ph-agent">conversionhero</span>
+                  <span className="dim"> · ⌘K commands · ? manual</span>
+                </div>
               </div>
             </div>
           )}
 
           {/* Status bar */}
-          <div className="status">
+          <div className="statusbar">
             <div className="seg"><span className="pulse" /><b>agency</b></div>
             {fleet && <>
               <div className="seg"><span className="dim">clients</span><b>{fleet.clients.length}</b></div>
               <div className="seg"><span className="dim">problems</span><b className={fleet.findings.length ? 'warn' : 'good'}>{fleet.findings.length}</b></div>
               <div className="seg"><span className="dim">open agreements</span><b className={openAgreements ? 'warn' : 'good'}>{openAgreements}</b></div>
             </>}
-            <div className="spacer" />
-            {!panelOpen && <button className="st-btn" onClick={() => setPanelOpen(true)}>terminal ▴</button>}
+            <div className="tab-spacer" />
+            {!panelOpen && <div className="seg"><button className="st-btn" onClick={() => setPanelOpen(true)}>terminal ▴</button></div>}
+            <div className="seg last">
+              <span className="kbd">⌘K</span><span className="kbd">ctrl+`</span>
+              <button className="helpbtn" onClick={() => ask('what can this agency terminal do?')}>?</button>
+            </div>
           </div>
         </div>
       </div>
@@ -373,10 +394,13 @@ const CSS = `
 .aide .ex-ic{width:16px;text-align:center;}
 .aide .ex-count{margin-left:auto;background:rgba(242,180,92,.18);color:var(--amber);font-size:10px;font-weight:800;border-radius:99px;padding:0 6px;}
 .aide .main{flex:1;display:flex;flex-direction:column;min-width:0;}
-.aide .tabs{display:flex;align-items:stretch;height:34px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;}
-.aide .tab{display:flex;align-items:center;gap:8px;padding:0 14px;border-right:1px solid var(--line);color:var(--faint);font-size:12px;cursor:pointer;white-space:nowrap;}
-.aide .tab.on{background:var(--bg);color:var(--txt);}
+.aide .tabbar{display:flex;align-items:stretch;background:var(--panel);border-bottom:1px solid var(--line);height:34px;flex-shrink:0;overflow-x:auto;}
+.aide .burger{background:none;border:none;color:var(--faint);font:inherit;padding:0 12px;cursor:pointer;border-right:1px solid var(--line);}
+.aide .burger:hover{color:var(--txt);}
+.aide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
+.aide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
 .aide .tab-x{color:var(--faint);font-size:14px;}.aide .tab-x:hover{color:var(--red);}
+.aide .tab-spacer{flex:1;}
 .aide .view{flex:1;overflow-y:auto;min-height:0;position:relative;}
 .aide .ag-frame{width:100%;height:100%;border:none;background:var(--bg);}
 .aide .v-pad{padding:20px 24px;}
@@ -412,25 +436,34 @@ const CSS = `
 .aide .a-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;}
 .aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
 .aide .a-btn:hover{border-color:var(--dim);}
-.aide .panel{height:38%;min-height:180px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--panel);}
-.aide .panel-head{display:flex;align-items:center;height:28px;padding:0 12px;border-bottom:1px solid var(--line);}
-.aide .panel-tab{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);}.aide .panel-tab.on{color:var(--txt);}
-.aide .panel-collapse{margin-left:auto;color:var(--faint);cursor:pointer;font-size:11px;}
-.aide .term{flex:1;overflow-y:auto;padding:10px 14px;line-height:1.55;}
+.aide .panel{height:38%;min-height:150px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;}
+.aide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
+.aide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
+.aide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
+.aide .panel-x{margin-left:auto;}
+.aide .stream{flex:1;overflow-y:auto;padding:12px 16px;line-height:1.55;}
 .aide .t-turn{margin-bottom:7px;white-space:pre-wrap;word-break:break-word;}
-.aide .t-p{color:var(--blue);margin-right:6px;}
+.aide .t-p{color:var(--green);font-weight:800;margin-right:7px;}
 .aide .t-user{color:var(--txt);}
 .aide .t-agent{color:var(--dim);}
 .aide .t-sys{color:var(--faint);font-size:12px;}
 .aide .t-dim{color:var(--faint);}.aide .t-err{color:var(--red);}
-.aide .term-in{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--line);}
-.aide .t-prompt{color:var(--blue);}
-.aide .term-in input{flex:1;background:none;border:none;color:var(--txt);font:inherit;font-size:13px;outline:none;}
-.aide .status{display:flex;align-items:center;gap:14px;height:26px;padding:0 14px;background:var(--panel2);border-top:1px solid var(--line);font-size:11px;}
-.aide .seg{display:flex;align-items:center;gap:5px;}
+.aide .prompt-wrap{margin:2px 12px 4px;flex-shrink:0;}
+.aide .prompt{display:flex;gap:9px;align-items:center;border-top:1px solid rgba(255,255,255,.26);border-bottom:1px solid rgba(255,255,255,.26);background:var(--bg);padding:9px 4px;}
+.aide .ps{color:var(--green);font-weight:800;}
+.aide .prompt input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;font-size:13px;caret-color:var(--txt);}
+.aide .prompt-hint{padding:5px 4px 6px;font-size:11.5px;letter-spacing:.01em;user-select:none;color:var(--faint);}
+.aide .ph-mode{font-weight:700;}.aide .ph-mode.warn{color:var(--amber);}
+.aide .ph-agent{color:var(--blue);font-weight:700;}
+.aide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 4px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
+.aide .statusbar .seg{padding:0 10px;border-right:1px solid var(--line);display:flex;gap:6px;align-items:center;height:100%;}
+.aide .statusbar .seg.last{border-right:none;gap:6px;}
 .aide .seg b{font-variant-numeric:tabular-nums;}
-.aide .pulse{width:7px;height:7px;border-radius:99px;background:var(--green);box-shadow:0 0 6px var(--green);}
-.aide .spacer{flex:1;}
+.aide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:aidepu 2s infinite;}
+@keyframes aidepu{0%,100%{opacity:1;}50%{opacity:.4;}}
 .aide .st-btn{background:none;border:1px solid var(--line);border-radius:5px;color:var(--faint);font:inherit;font-size:10.5px;padding:2px 9px;cursor:pointer;}
 .aide .st-btn:hover{color:var(--txt);}
+.aide .kbd{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--panel2);}
+.aide .helpbtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font:inherit;font-size:11px;font-weight:800;cursor:pointer;}
+.aide .helpbtn:hover{color:var(--txt);}
 `
