@@ -256,6 +256,26 @@ export default function AdminLayout({ children }) {
     return <>{children}</>
   }
 
+  // Agency Mission Control = the fullscreen IDE. Same chrome as the per-client
+  // mission (a thin 36px header, then the IDE fills the rest), agency-scoped.
+  if (activeKey === 'mission') {
+    return (
+      <div className="flex flex-col h-screen bg-[#0b0e14]" style={{ '--mt-top': '36px' }}>
+        <header className="h-9 flex items-center gap-2 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#0b0e14] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
+          <Link href="/control" className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition group">
+            <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">CH</span>
+            <span className="text-[#dbe1ee] font-bold text-[12px]">ConversionHero</span>
+          </Link>
+          <span className="text-[#5a6377] text-[11px] ml-1">agency · mission</span>
+          <div className="ml-auto flex items-center">
+            <AdminUserMenu profile={profile} />
+          </div>
+        </header>
+        <main className="flex-1 min-h-0">{children}</main>
+      </div>
+    )
+  }
+
   function pinGroup(groupId) {
     setPinnedGroups(prev => new Set([...prev, groupId]))
     setOpenDropdown(null)
