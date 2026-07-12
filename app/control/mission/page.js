@@ -6,7 +6,6 @@
 // terminal agent can DRAFT an agreement and open the builder for review — it
 // never sends; sending stays the human's explicit click.
 
-import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
@@ -30,7 +29,6 @@ const PACKAGES = [
 const DRAFT_KEYS = ['legalName', 'address', 'packageId', 'billing', 'customPrice', 'customName', 'customScope', 'term', 'termCustom', 'setupFee', 'adOn', 'adPct', 'notes', 'revOn', 'revPct', 'revStart']
 
 export default function AgencyMission() {
-  const router = useRouter()
   const [fleet, setFleet] = useState(null)
   const [leads, setLeads] = useState(null)
   const [err, setErr] = useState(null)
@@ -70,6 +68,9 @@ export default function AgencyMission() {
   const openTab = useCallback((id) => {
     setTabs(t => t.includes(id) ? t : [...t, id]); setActiveTab(id)
   }, [])
+  // Open the Agreement Builder as a closeable in-IDE tab (embedded above the
+  // terminal) instead of navigating away — keeps you on /control/mission.
+  const openAgreementTab = useCallback((leadId) => { if (leadId) openTab(`agreement:${leadId}`) }, [openTab])
   const closeTab = (id) => setTabs(t => {
     const next = t.filter(x => x !== id)
     if (activeTab === id) setActiveTab(next[next.length - 1] || 'fleet')
@@ -133,16 +134,16 @@ export default function AgencyMission() {
     if (a.name === 'open_agreement' && a.input?.lead_id) {
       const l = (leads || []).find(x => x.id === a.input.lead_id)
       if (!l) return `couldn't find that prospect in the pipeline`
-      router.push(`/control/agreement/${a.input.lead_id}`); return `opening the agreement builder for ${l.company || l.email || 'that prospect'}`
+      openAgreementTab(a.input.lead_id); return `opening the agreement builder for ${l.company || l.email || 'that prospect'}`
     }
     if (a.name === 'draft_agreement') {
       const leadId = await doDraftAgreement(a.input || {})
       const pkg = PACKAGES.find(p => p.id === (a.input?.packageId || 'growth'))
-      router.push(`/control/agreement/${leadId}`)
-      return `drafted a ${pkg?.name || 'Growth'} agreement for ${a.input?.company || a.input?.contact || 'the prospect'} — opening the builder. Review and hit Send when ready (nothing sends until you do).`
+      openAgreementTab(leadId)
+      return `drafted a ${pkg?.name || 'Growth'} agreement for ${a.input?.company || a.input?.contact || 'the prospect'} — opened it in a tab above. Review and hit Send when ready (nothing sends until you do).`
     }
     return null
-  }, [openTab, leads, router, doDraftAgreement])
+  }, [openTab, leads, openAgreementTab, doDraftAgreement])
 
   const ask = useCallback(async (q) => {
     const question = (q ?? input).trim()
@@ -177,7 +178,13 @@ export default function AgencyMission() {
     } finally { setBusy(false); inputRef.current?.focus() }
   }, [input, busy, push, patch, fleet, leads, turns, runAction])
 
-  const tabTitle = (id) => VIEW_TITLES[id] || id
+  const tabTitle = (id) => {
+    if (id.startsWith('agreement:')) {
+      const l = (leads || []).find(x => x.id === id.slice('agreement:'.length))
+      return `📄 ${l?.company || l?.email || 'Agreement'}`
+    }
+    return VIEW_TITLES[id] || id
+  }
 
   return (
     <div className="aide">
@@ -215,8 +222,15 @@ export default function AgencyMission() {
           <div className="view">
             {err && <p className="a-err">{err}</p>}
             {activeTab === 'fleet' && <FleetView fleet={fleet} />}
-            {activeTab === 'leads' && <LeadsView leads={leads} onOpen={(id) => router.push(`/control/agreement/${id}`)} />}
-            {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={(id) => router.push(`/control/agreement/${id}`)} onNew={() => ask('draft a new agreement')} />}
+            {activeTab === 'leads' && <LeadsView leads={leads} onOpen={openAgreementTab} />}
+            {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={openAgreementTab} onNew={() => ask('draft a new agreement')} />}
+            {/* Agreement builders stay mounted (form state survives tab switches);
+                only the active one is shown. */}
+            {tabs.filter(id => id.startsWith('agreement:')).map(id => (
+              <iframe key={id} className="ag-frame" title="Agreement Builder"
+                style={{ display: activeTab === id ? 'block' : 'none' }}
+                src={`/control/agreement/${id.slice('agreement:'.length)}`} />
+            ))}
           </div>
 
           {/* Terminal panel */}
@@ -363,7 +377,8 @@ const CSS = `
 .aide .tab{display:flex;align-items:center;gap:8px;padding:0 14px;border-right:1px solid var(--line);color:var(--faint);font-size:12px;cursor:pointer;white-space:nowrap;}
 .aide .tab.on{background:var(--bg);color:var(--txt);}
 .aide .tab-x{color:var(--faint);font-size:14px;}.aide .tab-x:hover{color:var(--red);}
-.aide .view{flex:1;overflow-y:auto;min-height:0;}
+.aide .view{flex:1;overflow-y:auto;min-height:0;position:relative;}
+.aide .ag-frame{width:100%;height:100%;border:none;background:var(--bg);}
 .aide .v-pad{padding:20px 24px;}
 .aide .v-h{font-size:15px;font-weight:800;margin:0 0 4px;}
 .aide .v-h-row{display:flex;align-items:center;justify-content:space-between;max-width:1000px;}
