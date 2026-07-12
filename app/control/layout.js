@@ -366,7 +366,22 @@ export default function AdminLayout({ children }) {
           )}
         </div>
 
-        {/* Dashboard — standalone, always in topnav */}
+        {/* Mission — the agency front door (fullscreen IDE). Default landing. */}
+        <Link
+          href="/control/mission"
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
+            activeKey === 'mission'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Mission
+        </Link>
+
+        {/* Control Center — the classic agency dashboard, now secondary */}
         <Link
           href="/control"
           className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition ${
@@ -378,7 +393,7 @@ export default function AdminLayout({ children }) {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
           </svg>
-          Dashboard
+          Control Center
         </Link>
 
         {/* Group buttons — hidden when pinned */}

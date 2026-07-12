@@ -220,7 +220,7 @@ export default function LoginPage() {
     localStorage.setItem('ca_user', JSON.stringify({ id: user.id, email: user.email, role, clientId }))
 
     if (isAgencyAdmin(role)) {
-      router.push('/control')
+      router.push('/control/mission')
     } else if (clientId) {
       router.push(`/control/${clientId}/dashboard`)
     } else {
@@ -255,7 +255,7 @@ export default function LoginPage() {
           ) : isForgot ? (
             <>
               <h1 className="text-xl font-semibold text-gray-900 mb-1">Reset your password</h1>
-              <p className="text-gray-400 text-sm mb-7">Enter your email and we'll send you a reset link</p>
+              <p className="text-gray-400 text-sm mb-7">Enter your email and we&apos;ll send you a reset link</p>
               <ForgotPasswordForm onBack={() => setIsForgot(false)} />
             </>
           ) : (
