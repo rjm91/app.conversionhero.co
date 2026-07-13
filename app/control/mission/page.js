@@ -303,7 +303,7 @@ export default function AgencyMission() {
                 <div className="prompt">
                   <span className="ps">❯</span>
                   <input ref={inputRef} value={input} disabled={busy}
-                    placeholder={busy ? 'thinking…' : 'ask about the fleet · or “draft a Growth agreement for Acme Co, monthly”'}
+                    placeholder={busy ? 'thinking…' : ''}
                     onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ask() }}
                     autoComplete="off" spellCheck="false" />
                 </div>
