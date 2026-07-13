@@ -42,6 +42,7 @@ export default function AgencyMission() {
   const [sideOpen, setSideOpen] = useState(true)
   const [sideW, setSideW] = useState(230)   // explorer width (drag its right edge)
   const [panelH, setPanelH] = useState(300) // terminal height (drag its top edge)
+  const [dragging, setDragging] = useState(false) // true mid-drag → overlay so embedded frames don't swallow the drag
   const dragRef = useRef(null)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
@@ -68,7 +69,7 @@ export default function AgencyMission() {
         setPanelH(h); localStorage.setItem('agide_panelH', String(h))
       }
     }
-    const up = () => { if (!dragRef.current) return; dragRef.current = null; document.body.style.cursor = ''; document.body.style.userSelect = '' }
+    const up = () => { if (!dragRef.current) return; dragRef.current = null; setDragging(false); document.body.style.cursor = ''; document.body.style.userSelect = '' }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
@@ -76,6 +77,7 @@ export default function AgencyMission() {
   const startDrag = (type) => (e) => {
     e.preventDefault()
     dragRef.current = { type }
+    setDragging(true)
     document.body.style.cursor = type === 'panel' ? 'row-resize' : 'col-resize'
     document.body.style.userSelect = 'none'
   }
@@ -228,6 +230,7 @@ export default function AgencyMission() {
   return (
     <div className="aide">
       <style>{CSS}</style>
+      {dragging && <div className="drag-overlay" />}
       <div className="aide-body">
         {/* Explorer */}
         {sideOpen && <aside className="ex" style={{ width: sideW }}>
@@ -868,6 +871,8 @@ const CSS = `
 .aide .resize-h:hover,.aide .resize-h:active{background:rgba(110,168,254,.45);}
 .aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
 .aide .resize-v:hover,.aide .resize-v:active{background:rgba(110,168,254,.45);}
+/* Covers embedded frames during a drag so they don't swallow mouse events. */
+.aide .drag-overlay{position:fixed;inset:0;z-index:9999;}
 .aide .ex-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);}
 .aide .ex-brand{font-weight:800;font-size:12.5px;}
 .aide .ex-badge{font-size:8.5px;font-weight:800;letter-spacing:.06em;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;}
