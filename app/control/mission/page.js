@@ -40,8 +40,45 @@ export default function AgencyMission() {
   const [busy, setBusy] = useState(false)
   const [panelOpen, setPanelOpen] = useState(true)
   const [sideOpen, setSideOpen] = useState(true)
+  const [sideW, setSideW] = useState(230)   // explorer width (drag its right edge)
+  const [panelH, setPanelH] = useState(300) // terminal height (drag its top edge)
+  const dragRef = useRef(null)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
+
+  // Restore saved panel/explorer sizes.
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem('agide_sideW')); if (w >= 160 && w <= 480) setSideW(w)
+      const h = Number(localStorage.getItem('agide_panelH')); if (h >= 120 && h <= window.innerHeight - 220) setPanelH(h)
+      else setPanelH(Math.round(window.innerHeight * 0.36))
+    } catch { /* defaults */ }
+  }, [])
+  // Drag-to-resize: explorer width (col-resize) + terminal height (row-resize).
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      if (d.type === 'side') {
+        const w = Math.min(480, Math.max(160, e.clientX))
+        setSideW(w); localStorage.setItem('agide_sideW', String(w))
+      } else {
+        const h = Math.min(window.innerHeight - 220, Math.max(120, window.innerHeight - e.clientY - 30))
+        setPanelH(h); localStorage.setItem('agide_panelH', String(h))
+      }
+    }
+    const up = () => { if (!dragRef.current) return; dragRef.current = null; document.body.style.cursor = ''; document.body.style.userSelect = '' }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [])
+  const startDrag = (type) => (e) => {
+    e.preventDefault()
+    dragRef.current = { type }
+    document.body.style.cursor = type === 'panel' ? 'row-resize' : 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
 
   const push = useCallback((t) => setTurns(x => [...x, { id: tid(), ...t }]), [])
   const patch = useCallback((id, u) => setTurns(x => x.map(t => t.id === id ? { ...t, ...u } : t)), [])
@@ -193,7 +230,7 @@ export default function AgencyMission() {
       <style>{CSS}</style>
       <div className="aide-body">
         {/* Explorer */}
-        {sideOpen && <aside className="ex">
+        {sideOpen && <aside className="ex" style={{ width: sideW }}>
           <div className="ex-top"><span className="ex-brand">ConversionHero</span><span className="ex-badge">AGENCY</span></div>
           {TREE.map(g => (
             <div key={g.section} className="ex-sec">
@@ -215,6 +252,7 @@ export default function AgencyMission() {
             <a className="ex-item" href="/control"><span className="ex-ic">📊</span>Control Center<span className="ex-out">↗</span></a>
           </div>
         </aside>}
+        {sideOpen && <div className="resize-h" onMouseDown={startDrag('side')} title="drag to resize" />}
 
         {/* Main */}
         <div className="main">
@@ -245,7 +283,8 @@ export default function AgencyMission() {
 
           {/* Terminal panel */}
           {panelOpen && (
-            <div className="panel">
+            <div className="panel" style={{ height: panelH }}>
+              <div className="resize-v" onMouseDown={startDrag('panel')} title="drag to resize" />
               <div className="panel-tabs">
                 <span className="on">TERMINAL</span>
                 <span className="panel-x" onClick={() => setPanelOpen(false)} title="hide">▾</span>
@@ -825,6 +864,10 @@ const CSS = `
   position:fixed;inset:var(--mt-top,36px) 0 0 0;background:var(--bg);color:var(--txt);font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
 .aide-body{flex:1;display:flex;min-height:0;}
 .aide .ex{width:230px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
+.aide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
+.aide .resize-h:hover,.aide .resize-h:active{background:rgba(110,168,254,.45);}
+.aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
+.aide .resize-v:hover,.aide .resize-v:active{background:rgba(110,168,254,.45);}
 .aide .ex-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);}
 .aide .ex-brand{font-weight:800;font-size:12.5px;}
 .aide .ex-badge{font-size:8.5px;font-weight:800;letter-spacing:.06em;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;}
@@ -880,7 +923,7 @@ const CSS = `
 .aide .a-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;}
 .aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
 .aide .a-btn:hover{border-color:var(--dim);}
-.aide .panel{height:38%;min-height:150px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;}
+.aide .panel{min-height:120px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;position:relative;}
 .aide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
 .aide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
 .aide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
