@@ -43,6 +43,47 @@ export async function POST(request) {
     const { leadId, subject, message, terms, cc, customer, lines, agreement } = await request.json()
     if (!leadId) return NextResponse.json({ error: 'Missing leadId' }, { status: 400 })
     if (!customer?.email) return NextResponse.json({ error: 'Customer email is required to send.' }, { status: 400 })
+
+    const paymentOptions = Array.isArray(agreement?.paymentOptions) ? agreement.paymentOptions : []
+
+    // ── Multi-option flow ──────────────────────────────────────────────
+    // When the agreement carries payment options, we DON'T create any invoice
+    // now. Each option gets its own Pay button routed through the click-time
+    // pay router; the invoice is created only for the option the client clicks.
+    if (paymentOptions.length > 0) {
+      const bad = paymentOptions.find(o => !o?.id || !o?.label || !(Number(o?.amount) > 0))
+      if (bad) return NextResponse.json({ error: 'Every payment option needs a label and an amount above $0.' }, { status: 400 })
+
+      const origin = new URL(request.url).origin
+      const emailOptions = paymentOptions.map(o => ({
+        label: o.label,
+        amount: Number(o.amount),
+        note: o.note || '',
+        payUrl: `${origin}/api/agreements/pay/${leadId}?opt=${encodeURIComponent(o.id)}`,
+      }))
+      const termsText = terms || defaultTermsText({ customer, agreement })
+      await sendEmail({
+        to: customer.email,
+        cc,
+        subject: subject || 'Your ConversionHero agreement & invoice',
+        html: buildAgreementEmailHtml({ message, termsText, options: emailOptions }),
+      })
+
+      const supabase = db()
+      const { data: lead } = await supabase.from('agency_leads').select('meta').eq('id', leadId).single()
+      const meta = {
+        ...(lead?.meta || {}),
+        agreement: {
+          ...(agreement || {}),
+          paymentOptions,
+          sent_at: new Date().toISOString(),
+        },
+      }
+      await supabase.from('agency_leads').update({ sale_status: 'Agreement Sent', meta }).eq('id', leadId)
+      return NextResponse.json({ ok: true, options: paymentOptions.length })
+    }
+
+    // ── Single-invoice flow (unchanged) ────────────────────────────────
     if (!Array.isArray(lines) || lines.length === 0) return NextResponse.json({ error: 'No line items to invoice.' }, { status: 400 })
 
     // 1. Find or create the QuickBooks customer
