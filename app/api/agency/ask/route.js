@@ -103,6 +103,20 @@ export async function POST(request) {
   const actions = []
   const texts = []
   let response = null
+  const runTools = (content) => {
+    const toolUses = content.filter(b => b.type === 'tool_use')
+    if (!toolUses.length) return false
+    const results = []
+    for (const tu of toolUses) {
+      // All agency tools are UI-executed by the page (create/patch lead,
+      // navigate). Hand them off; the page validates + runs them.
+      actions.push({ name: tu.name, input: tu.input })
+      results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'handed to the dashboard to execute.' })
+    }
+    messages.push({ role: 'assistant', content })
+    messages.push({ role: 'user', content: results })
+    return true
+  }
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const finalTurn = round === MAX_TOOL_ROUNDS - 1
@@ -112,21 +126,29 @@ export async function POST(request) {
         ...(finalTurn ? { tool_choice: { type: 'none' } } : {}), messages,
       })
       texts.push(...response.content.filter(b => b.type === 'text').map(b => b.text))
-      const toolUses = response.content.filter(b => b.type === 'tool_use')
-      if (!toolUses.length) break
-      const results = []
-      for (const tu of toolUses) {
-        // All agency tools are UI-executed by the page (create/patch lead,
-        // navigate). Hand them off; the page validates + runs them.
-        actions.push({ name: tu.name, input: tu.input })
-        results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'handed to the dashboard to execute.' })
-      }
-      messages.push({ role: 'assistant', content: response.content })
-      messages.push({ role: 'user', content: results })
+      if (!runTools(response.content)) break
     }
+
+    // STRUCTURAL HONESTY GUARD: if the reply asserts it changed the agreement
+    // but no draft_agreement tool actually ran, force a correction — the model
+    // must either apply the change for real or retract the claim. Prevents the
+    // "Done, I updated the scope" lie when nothing was saved.
+    let answer = texts.join('\n\n').trim()
+    const claimedChange = /\b(updated|changed|revised|rewrote|swapped|adjusted|reworded|simplified|cleaned up|dropped (it|this|that) in|added .*(to|into) (the|your)|i'?ve (updated|changed|added|revised|set)|now (leads|reads|includes)|done[.,!])\b/i.test(answer)
+      && /\b(scope|agreement|draft|package|term|contract|deliverable)\b/i.test(answer)
+    if (claimedChange && !actions.some(a => a.name === 'draft_agreement')) {
+      messages.push({ role: 'assistant', content: answer })
+      messages.push({ role: 'user', content: 'STOP. Your reply says you changed the agreement, but you did NOT call draft_agreement, so nothing was saved — the draft is unchanged. Do ONE of these now: (a) call draft_agreement with the lead_id from the context and the exact field(s) you described (e.g. customScope), so the change is actually applied; or (b) if you cannot or should not apply it, rewrite your reply to state clearly that you have NOT made the change and ask whether to apply it. Do not claim any change you did not make.' })
+      const fix = await client.messages.create({
+        model: MODEL, max_tokens: 6000, thinking: { type: 'adaptive' }, system, tools: TOOLS, messages,
+      })
+      const fixText = fix.content.filter(b => b.type === 'text').map(b => b.text).join('\n\n').trim()
+      const applied = runTools(fix.content)
+      answer = fixText || (applied ? 'Applied the change.' : answer)
+    }
+
+    return NextResponse.json({ answer: answer || 'Done.', actions })
   } catch (e) {
     return NextResponse.json({ error: e.message || 'agent error' }, { status: 500 })
   }
-
-  return NextResponse.json({ answer: texts.join('\n\n').trim() || 'Done.', actions })
 }
