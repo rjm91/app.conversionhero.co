@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { buildAgreementEmailHtml, defaultTermsText } from '../../../../lib/agreement-email.js'
 import AgentPanel from '../../../../components/AgentPanel'
 
@@ -207,6 +207,34 @@ export default function AgreementBuilderPage() {
   const termsVal   = emailTerms   !== null ? emailTerms   : defaultTermsText({ customer, agreement: agreementData })
   const ccVal      = emailCc      !== null ? emailCc      : senderEmail
   const ccList     = ccVal.split(',').map(s => s.trim()).filter(Boolean)
+
+  // ── Terms editor: doc-like formatting on the plain-text terms box ──
+  // Bullets / indent / headings are plain-text markers (email-safe): "- " is a
+  // bullet, leading spaces indent, "# " is a heading. The toolbar just inserts
+  // those markers on the selected line(s); the renderer turns them into layout.
+  const termsRef = useRef(null)
+  // Apply a per-line transform to the currently-selected line(s), then restore
+  // the selection so you can click a button repeatedly.
+  const applyToLines = (fn) => {
+    const ta = termsRef.current
+    if (!ta) return
+    const val = ta.value
+    const s = ta.selectionStart, e = ta.selectionEnd
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1
+    let lineEnd = val.indexOf('\n', e); if (lineEnd === -1) lineEnd = val.length
+    const block = val.slice(lineStart, lineEnd).split('\n').map(fn).join('\n')
+    const next = val.slice(0, lineStart) + block + val.slice(lineEnd)
+    setEmailTerms(next)
+    requestAnimationFrame(() => { ta.focus(); ta.selectionStart = lineStart; ta.selectionEnd = lineStart + block.length })
+  }
+  const splitWs = (l) => { const m = l.match(/^(\s*)([\s\S]*)$/); return [m[1] || '', m[2] || ''] }
+  const fmtIndent = (l) => '  ' + l
+  const fmtOutdent = (l) => l.replace(/^(\t| {1,2})/, '')
+  const fmtBullet = (l) => { const [ws, r] = splitWs(l); return ws + (r.startsWith('- ') ? r.slice(2) : '- ' + r) }
+  const fmtHeading = (l) => { const [ws, r] = splitWs(l); return ws + (r.startsWith('# ') ? r.slice(2) : '# ' + r.replace(/^-\s+/, '')) }
+  const onTermsKeyDown = (ev) => {
+    if (ev.key === 'Tab') { ev.preventDefault(); applyToLines(ev.shiftKey ? fmtOutdent : fmtIndent) }
+  }
 
   function lineItems() {
     const items = []
@@ -416,7 +444,7 @@ export default function AgreementBuilderPage() {
                     <input value={form.customName} onChange={e => set('customName', e.target.value)} placeholder="e.g. Enterprise" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Scope / what's included</label>
+                    <label className="text-xs text-gray-500 block mb-1">Scope / what&apos;s included</label>
                     <textarea rows={2} value={form.customScope} onChange={e => set('customScope', e.target.value)} placeholder="e.g. 21 short-form videos/mo + ad management — or '90-day brand setup engagement'" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
@@ -520,7 +548,7 @@ export default function AgreementBuilderPage() {
                     <ResetLink show={emailCc !== null} onClick={() => setEmailCc(null)} />
                   </div>
                   <input value={ccVal} onChange={e => setEmailCc(e.target.value)} placeholder="you@conversionhero.co, finance@client.com" className={inputCls} />
-                  <p className="text-[11px] text-gray-500 mt-1">You're CC'd by default. Separate multiple emails with commas (e.g. the client's partner or finance person).</p>
+                  <p className="text-[11px] text-gray-500 mt-1">You&apos;re CC&apos;d by default. Separate multiple emails with commas (e.g. the client&apos;s partner or finance person).</p>
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
@@ -541,8 +569,19 @@ export default function AgreementBuilderPage() {
                     <label className="text-xs text-gray-500">Agreement terms</label>
                     <ResetLink show={emailTerms !== null} onClick={() => setEmailTerms(null)} />
                   </div>
-                  <textarea rows={16} value={termsVal} onChange={e => setEmailTerms(e.target.value)} className={`${inputCls} leading-relaxed font-mono text-[12px]`} />
-                  <p className="text-[11px] text-gray-500 mt-1">Edit freely. Lines like “3. Fees” become section headings; lines starting with “- ” become bullets. Invoice amounts &amp; the Pay button are filled automatically.</p>
+                  <div className="flex items-center gap-1 mb-1">
+                    {[
+                      { label: 'H', title: 'Heading', fn: fmtHeading },
+                      { label: '• List', title: 'Bullet', fn: fmtBullet },
+                      { label: '←', title: 'Outdent (Shift+Tab)', fn: fmtOutdent },
+                      { label: '→', title: 'Indent (Tab)', fn: fmtIndent },
+                    ].map(b => (
+                      <button key={b.title} type="button" title={b.title} onMouseDown={e => e.preventDefault()} onClick={() => applyToLines(b.fn)}
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-gray-300 bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] hover:text-white transition">{b.label}</button>
+                    ))}
+                  </div>
+                  <textarea ref={termsRef} rows={16} value={termsVal} onChange={e => setEmailTerms(e.target.value)} onKeyDown={onTermsKeyDown} className={`${inputCls} leading-relaxed font-mono text-[12px]`} />
+                  <p className="text-[11px] text-gray-500 mt-1">Doc-style formatting: select a line and click a button, or type the markers directly — “# Heading” or “3. Fees” = section heading, “- ” = bullet, Tab / Shift+Tab = indent / outdent. Invoice amounts &amp; the Pay button are filled automatically.</p>
                 </div>
               </div>
             </Section>
