@@ -28,6 +28,8 @@ const PACKAGES = [
 ]
 // meta.agreement keys the builder reads on load (see agreement/[leadId]/page.js).
 const DRAFT_KEYS = ['legalName', 'address', 'packageId', 'billing', 'customPrice', 'customName', 'customScope', 'term', 'termCustom', 'setupFee', 'adOn', 'adPct', 'notes', 'revOn', 'revPct', 'revStart']
+// Human-readable field labels for the terminal's honest change report.
+const FIELD_LABEL = { customScope: 'scope', legalName: 'legal name', address: 'address', packageId: 'package', billing: 'billing', customPrice: 'price', customName: 'package name', term: 'term', termCustom: 'term', setupFee: 'setup fee', adOn: 'ad add-on', adPct: 'ad %', notes: 'notes', revOn: 'revenue share', revPct: 'revenue %', revStart: 'revenue-share start' }
 
 export default function AgencyMission() {
   const [fleet, setFleet] = useState(null)
@@ -43,6 +45,7 @@ export default function AgencyMission() {
   const [sideW, setSideW] = useState(230)   // explorer width (drag its right edge)
   const [panelH, setPanelH] = useState(300) // terminal height (drag its top edge)
   const [dragging, setDragging] = useState(false) // true mid-drag → overlay so embedded frames don't swallow the drag
+  const [reloadKeys, setReloadKeys] = useState({}) // leadId → nonce; bump to remount an open agreement iframe with fresh data
   const dragRef = useRef(null)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
@@ -133,11 +136,13 @@ export default function AgencyMission() {
     return null
   }, [leads])
 
-  // Execute an agreement draft: find/create the lead, save the draft into
-  // meta.agreement, then navigate to the builder for review + send.
+  // Execute an agreement draft: find/create the lead, MERGE the given fields
+  // into meta.agreement (never wiping fields the tool didn't set), then return
+  // what actually changed so the terminal can report it honestly.
   const doDraftAgreement = useCallback(async (inp) => {
     const [first, ...rest] = (inp.contact || inp.company || '').trim().split(/\s+/)
     let lead = findLead(inp)
+    const created = !lead
     // Create a new lead if this prospect isn't in the pipeline yet.
     if (!lead) {
       const res = await fetch('/api/agency-leads', {
@@ -151,23 +156,33 @@ export default function AgencyMission() {
       if (!res.ok) throw new Error(j.error || 'could not create the lead')
       lead = j.lead
     }
-    // Build the meta.agreement draft from the tool's fields (only known keys).
+    // Only the fields the tool explicitly set. Defaults (growth/monthly) apply
+    // ONLY on a brand-new agreement — never override an existing package/billing
+    // the human already chose (that was silently clobbering custom packages).
+    const prev = lead.meta?.agreement || {}
     const draft = {}
     for (const k of DRAFT_KEYS) if (inp[k] != null) draft[k] = inp[k]
-    if (!draft.packageId) draft.packageId = 'growth'
-    if (!draft.billing) draft.billing = 'monthly'
+    const isNewAgreement = !prev.packageId && !prev.customName
+    if (isNewAgreement) { if (!draft.packageId) draft.packageId = 'growth'; if (!draft.billing) draft.billing = 'monthly' }
+    const changed = Object.keys(draft).filter(k => JSON.stringify(draft[k]) !== JSON.stringify(prev[k]))
+    // When the scope changes, drop any saved terms override so the contract's
+    // Services section regenerates from the new scope (terms derive from fields).
+    const regen = draft.customScope != null ? { emailTerms: null } : {}
     const patchRes = await fetch(`/api/agency-leads/${lead.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         company: inp.company ?? lead.company, email: inp.email ?? lead.email, phone: inp.phone ?? lead.phone,
         ...(first ? { first_name: first, last_name: rest.join(' ') || null } : {}),
         sale_status: 'Agreement Drafted',
-        meta: { ...(lead.meta || {}), agreement: { ...(lead.meta?.agreement || {}), ...draft } },
+        meta: { ...(lead.meta || {}), agreement: { ...prev, ...draft, ...regen } },
       }),
     })
     if (!patchRes.ok) { const j = await patchRes.json().catch(() => ({})); throw new Error(j.error || 'could not save the draft') }
     loadLeads()
-    return lead.id
+    // Live-refresh: if this lead's builder tab is already open, remount its
+    // iframe so the just-saved draft shows immediately (frames don't re-fetch).
+    setReloadKeys(m => ({ ...m, [lead.id]: (m[lead.id] || 0) + 1 }))
+    return { leadId: lead.id, created, changed, agreement: { ...prev, ...draft } }
   }, [findLead, loadLeads])
 
   const runAction = useCallback(async (a) => {
@@ -178,10 +193,18 @@ export default function AgencyMission() {
       openAgreementTab(a.input.lead_id); return `opening the agreement builder for ${l.company || l.email || 'that prospect'}`
     }
     if (a.name === 'draft_agreement') {
-      const leadId = await doDraftAgreement(a.input || {})
-      const pkg = PACKAGES.find(p => p.id === (a.input?.packageId || 'growth'))
-      openAgreementTab(leadId)
-      return `drafted a ${pkg?.name || 'Growth'} agreement for ${a.input?.company || a.input?.contact || 'the prospect'} — opened it in a tab above. Review and hit Send when ready (nothing sends until you do).`
+      const r = await doDraftAgreement(a.input || {})
+      openAgreementTab(r.leadId)
+      const who = a.input?.company || a.input?.contact || 'the prospect'
+      if (r.created) {
+        const pkg = PACKAGES.find(p => p.id === (r.agreement.packageId || 'growth'))
+        return `drafted a ${pkg?.name || 'Growth'} agreement for ${who} — opened it in a tab above. Review and hit Send when ready (nothing sends until you do).`
+      }
+      // Update to an existing agreement — report exactly which fields changed.
+      const fields = r.changed.map(k => FIELD_LABEL[k] || k)
+      const uniq = [...new Set(fields)]
+      if (!uniq.length) return `no fields changed on ${who}'s agreement — it already matched. Opened the builder above.`
+      return `updated ${uniq.join(', ')} on ${who}'s agreement — refreshed the builder above. Review and hit Send when ready (nothing sends until you do).`
     }
     return null
   }, [openTab, leads, openAgreementTab, doDraftAgreement])
@@ -277,11 +300,15 @@ export default function AgencyMission() {
             {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={openAgreementTab} onNew={() => ask('draft a new agreement')} />}
             {/* Agreement builders stay mounted (form state survives tab switches);
                 only the active one is shown. */}
-            {tabs.filter(id => id.startsWith('agreement:')).map(id => (
-              <iframe key={id} className="ag-frame" title="Agreement Builder"
-                style={{ display: activeTab === id ? 'block' : 'none' }}
-                src={`/control/agreement/${id.slice('agreement:'.length)}`} />
-            ))}
+            {tabs.filter(id => id.startsWith('agreement:')).map(id => {
+              const leadId = id.slice('agreement:'.length)
+              // key includes the reload nonce → an agent edit remounts it fresh.
+              return (
+                <iframe key={`${id}#${reloadKeys[leadId] || 0}`} className="ag-frame" title="Agreement Builder"
+                  style={{ display: activeTab === id ? 'block' : 'none' }}
+                  src={`/control/agreement/${leadId}`} />
+              )
+            })}
           </div>
 
           {/* Terminal panel */}
