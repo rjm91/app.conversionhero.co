@@ -82,6 +82,13 @@ export default function AgreementBuilderPage() {
   const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
   const [revStartManual, setRevStartManual] = useState(false)
 
+  // Autosave: dirty edits persist automatically ~2.5s after you stop typing.
+  const [autosave, setAutosave] = useState(true)
+  const [lastSaved, setLastSaved] = useState(null) // ISO string of last successful save
+  const [dirty, setDirty] = useState(false)
+  const baselineRef = useRef(null) // JSON snapshot of the last-saved state
+  const saveRef = useRef(null)     // latest saveDraft (avoids stale-closure in the timer)
+
   function flash(msg, ms = 2800) { setToast(msg); setTimeout(() => setToast(null), ms) }
 
   // Load the lead + any existing agreement draft
@@ -96,7 +103,7 @@ export default function AgreementBuilderPage() {
         if (!l) { setNotFound(true); setLoading(false); return }
         setLead(l)
         const ag = l.meta?.agreement || {}
-        setForm({
+        const loadedForm = {
           company: l.company || '',
           legalName: ag.legalName ?? '',
           address: ag.address ?? '',
@@ -117,12 +124,16 @@ export default function AgreementBuilderPage() {
           revOn: ag.revOn ?? false,
           revPct: ag.revPct ?? '',
           revStart: ag.revStart ?? '',
-        })
+        }
+        setForm(loadedForm)
         if (ag.revStart) setRevStartManual(true)
         setEmailSubject(ag.emailSubject ?? null)
         setEmailMessage(ag.emailMessage ?? null)
         setEmailTerms(ag.emailTerms ?? null)
         setEmailCc(ag.emailCc ?? null)
+        if (ag.updated_at) setLastSaved(ag.updated_at)
+        // Snapshot the loaded state so autosave only fires on real edits.
+        baselineRef.current = JSON.stringify({ form: loadedForm, emailSubject: ag.emailSubject ?? null, emailMessage: ag.emailMessage ?? null, emailTerms: ag.emailTerms ?? null, emailCc: ag.emailCc ?? null })
         if (l.sale_status === 'Agreement Sent') setStatusLabel('Agreement Sent')
         else if (l.sale_status === 'Agreement Viewed') setStatusLabel('Agreement Viewed')
         else if (l.sale_status === 'Agreement Drafted' || ag.packageId) setStatusLabel('Agreement Drafted')
@@ -261,11 +272,12 @@ export default function AgreementBuilderPage() {
     }
   }
 
-  async function saveDraft() {
+  async function saveDraft(opts = {}) {
     if (!lead) return
     setSaving(true)
     try {
       const [first_name, ...rest] = (form.contact || '').trim().split(/\s+/)
+      const meta = agreementMeta('Agreement Drafted')
       const res = await fetch(`/api/agency-leads/${lead.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -276,20 +288,37 @@ export default function AgreementBuilderPage() {
           email: form.email,
           phone: form.phone,
           sale_status: 'Agreement Drafted',
-          meta: { ...(lead.meta || {}), agreement: agreementMeta('Agreement Drafted') },
+          meta: { ...(lead.meta || {}), agreement: meta },
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Save failed')
       setLead(json.lead)
       setStatusLabel('Agreement Drafted')
-      flash('Draft saved')
+      // Mark clean at exactly what we saved, and stamp the time.
+      baselineRef.current = JSON.stringify({ form, emailSubject, emailMessage, emailTerms, emailCc })
+      setLastSaved(meta.updated_at); setDirty(false)
+      if (!opts.auto) flash('Draft saved')
     } catch (err) {
-      flash(err.message, 3500)
+      if (!opts.auto) flash(err.message, 3500)
     } finally {
       setSaving(false)
     }
   }
+  saveRef.current = saveDraft
+
+  // Autosave: when the draft differs from the last-saved snapshot, persist it
+  // ~2.5s after the last edit. Skips until the initial load has set a baseline.
+  useEffect(() => {
+    if (!lead || baselineRef.current == null) return
+    const snap = JSON.stringify({ form, emailSubject, emailMessage, emailTerms, emailCc })
+    if (snap === baselineRef.current) { setDirty(false); return }
+    setDirty(true)
+    if (!autosave) return
+    const t = setTimeout(() => { saveRef.current?.({ auto: true }) }, 2500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, emailSubject, emailMessage, emailTerms, emailCc, lead, autosave])
 
   async function doSend() {
     if (!lead) return
@@ -358,7 +387,7 @@ export default function AgreementBuilderPage() {
 
   return (
     <div className="min-h-screen text-gray-200" style={{ background: 'linear-gradient(135deg, #0a0e1a 0%, #0f1117 50%, #0a0e1a 100%)' }}>
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 pt-8 pb-24">
         <button onClick={() => router.push('/control')} className="text-xs text-gray-400 hover:text-blue-400 transition mb-4">← Back to Control Center</button>
 
         <div className="flex items-start justify-between mb-1">
@@ -645,7 +674,7 @@ export default function AgreementBuilderPage() {
                 <button onClick={doSend} disabled={saving || sending} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
                   {sending ? 'Sending…' : 'Send Invoice →'}
                 </button>
-                <button onClick={saveDraft} disabled={saving || sending} className="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition disabled:opacity-50">
+                <button onClick={() => saveDraft()} disabled={saving || sending} className="w-full py-2.5 rounded-xl border border-white/15 text-sm font-semibold text-gray-300 hover:bg-white/5 transition disabled:opacity-50">
                   {saving ? 'Saving…' : 'Save Draft'}
                 </button>
               </div>
@@ -654,8 +683,31 @@ export default function AgreementBuilderPage() {
         </div>
       </div>
 
+      {/* Sticky save bar — always in view. Shows autosave state + last-saved time. */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0b0e14]/95 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-6 py-2.5 flex items-center gap-3">
+          <span className={`text-xs font-medium ${saving ? 'text-blue-300' : dirty ? 'text-amber-400' : lastSaved ? 'text-emerald-400' : 'text-gray-500'}`}>
+            {saving ? 'Saving…'
+              : dirty ? (autosave ? 'Unsaved changes · autosaving…' : 'Unsaved changes')
+              : lastSaved ? `Saved ${new Date(lastSaved).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+              : 'Not saved yet'}
+          </span>
+          <label className="ml-1 flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer select-none">
+            <input type="checkbox" checked={autosave} onChange={e => setAutosave(e.target.checked)} className="accent-blue-500" />
+            Auto-save
+          </label>
+          <div className="flex-1" />
+          <button onClick={() => saveDraft()} disabled={saving || sending} className="px-4 py-1.5 rounded-lg border border-white/15 text-xs font-semibold text-gray-200 hover:bg-white/5 transition disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save Draft'}
+          </button>
+          <button onClick={doSend} disabled={saving || sending} className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white transition disabled:opacity-50">
+            {sending ? 'Sending…' : 'Send Invoice →'}
+          </button>
+        </div>
+      </div>
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-lg bg-[#171B33] border border-white/10 text-sm text-white shadow-2xl z-50">
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-lg bg-[#171B33] border border-white/10 text-sm text-white shadow-2xl z-50">
           {toast}
         </div>
       )}
