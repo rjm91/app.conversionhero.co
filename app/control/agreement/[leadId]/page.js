@@ -23,7 +23,18 @@ const emptyForm = {
   term: '4 months', termCustom: '',
   setupFee: '', adOn: false, adPct: '', notes: '',
   revOn: false, revPct: '', revStart: '',
+  paymentOptions: [],
 }
+
+// Parse a commitment term string into a number of months (default 3).
+function termToMonths(term) {
+  const t = String(term || '').toLowerCase()
+  if (/month\s*-?\s*to\s*-?\s*month/.test(t)) return 1
+  const m = t.match(/(\d+)\s*month/); if (m) return Number(m[1])
+  const d = t.match(/(\d+)\s*day/); if (d) return Math.max(1, Math.round(Number(d[1]) / 30))
+  return 3
+}
+function slug() { return 'opt_' + Math.random().toString(36).slice(2, 8) }
 
 const TERM_OPTIONS = ['Month-to-month', '30 days', '60 days', '90 days', '4 months', '6 months', '12 months', 'Custom…']
 function fmtShortDate(d) {
@@ -78,7 +89,7 @@ export default function AgreementBuilderPage() {
     } catch {}
   }, [])
 
-  const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, email: true })
+  const [open, setOpen] = useState({ client: true, package: true, fees: true, special: false, payment: false, email: true })
   const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }))
   const [revStartManual, setRevStartManual] = useState(false)
 
@@ -124,6 +135,7 @@ export default function AgreementBuilderPage() {
           revOn: ag.revOn ?? false,
           revPct: ag.revPct ?? '',
           revStart: ag.revStart ?? '',
+          paymentOptions: Array.isArray(ag.paymentOptions) ? ag.paymentOptions : [],
         }
         setForm(loadedForm)
         if (ag.revStart) setRevStartManual(true)
@@ -170,6 +182,23 @@ export default function AgreementBuilderPage() {
     adOn: form.adOn, adPct: form.adPct,
     revOn: form.revOn, revPct: form.revPct, revStart: form.revStart,
     term: termVal,
+  }
+
+  // ── Payment options (choice of how to pay) ──
+  const paymentOptions = form.paymentOptions || []
+  const termMonths = termToMonths(termVal)
+  function setOptions(next) { setForm(f => ({ ...f, paymentOptions: typeof next === 'function' ? next(f.paymentOptions || []) : next })) }
+  function updateOption(id, patch) { setOptions(opts => opts.map(o => (o.id === id ? { ...o, ...patch } : o))) }
+  function removeOption(id) { setOptions(opts => opts.filter(o => o.id !== id)) }
+  function addFreeformOption() { setOptions(opts => [...opts, { id: slug(), label: '', amount: 0, note: '' }]) }
+  function seedUpfrontDiscount() {
+    if (paymentOptions.length > 0) return
+    const first = Math.round(setup + monthly)
+    const full = Math.round(monthly * termMonths)
+    setOptions([
+      { id: 'monthly', label: 'Pay monthly', amount: first, note: `${money(monthly)}/mo, billed monthly${setup ? ` (first payment includes ${money(setup)} setup)` : ''}` },
+      { id: 'upfront', label: 'Pay upfront', amount: full, note: 'One-time payment for the full term' },
+    ])
   }
 
   // Auto-suggest the revenue-share start date from the commitment term
@@ -266,6 +295,7 @@ export default function AgreementBuilderPage() {
       term: form.term, termCustom: form.termCustom,
       revOn: form.revOn, revPct: form.revPct, revStart: form.revStart,
       setupFee: form.setupFee, adOn: form.adOn, adPct: form.adPct, notes: form.notes,
+      paymentOptions: form.paymentOptions ?? [],
       monthly: Math.round(monthly),
       emailSubject, emailMessage, emailTerms, emailCc,
       status, updated_at: new Date().toISOString(),
@@ -383,6 +413,9 @@ export default function AgreementBuilderPage() {
     lines: lineItems(),
     total: setup + monthly,
     termsText: termsVal,
+    options: paymentOptions.length > 0
+      ? paymentOptions.map(o => ({ label: o.label, amount: Number(o.amount), note: o.note, payUrl: '#preview' }))
+      : undefined,
   })
 
   return (
@@ -568,6 +601,53 @@ export default function AgreementBuilderPage() {
               <textarea rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. 30-day cancellation, performance guarantee…" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
             </Section>
 
+            {/* Payment options (optional) */}
+            <Section title="Payment Options" open={open.payment} onToggle={() => toggle('payment')}>
+              {paymentOptions.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Optional. Offer the client a <span className="text-white font-medium">choice of how to pay</span> — the email shows one Pay button per option, and only the option they click ever becomes a QuickBooks invoice. Leave this empty to send a single invoice exactly as usual.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={seedUpfrontDiscount} className="px-3 py-2 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-xs font-semibold text-white transition">
+                      + Add upfront-discount option
+                    </button>
+                    <button type="button" onClick={addFreeformOption} className="px-3 py-2 rounded-lg border border-white/15 text-xs font-semibold text-gray-300 hover:bg-white/5 transition">
+                      + Add option
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Upfront-discount seeds two options from this deal: pay monthly ({money(setup + monthly)} now) vs. pay upfront for the full {termMonths}-month term ({money(monthly * termMonths)}) — both editable.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {paymentOptions.map((o) => {
+                    const full = Math.round(monthly * termMonths)
+                    const savings = o.id === 'upfront' && Number(o.amount) > 0 && Number(o.amount) < full ? full - Number(o.amount) : 0
+                    return (
+                      <div key={o.id} className="p-3 rounded-lg bg-gray-900/40 border border-white/10 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input value={o.label} onChange={e => updateOption(o.id, { label: e.target.value })} placeholder="Label (e.g. Pay upfront)" className="flex-1 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500" />
+                          <button type="button" onClick={() => removeOption(o.id)} title="Remove option" className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-400/40 transition">✕</button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">$</span>
+                          <input type="number" value={o.amount} onChange={e => updateOption(o.id, { amount: Number(e.target.value) || 0 })} className="w-36 px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-sm text-white text-right focus:outline-none focus:border-blue-500" />
+                          <span className="text-[11px] text-gray-500">charged now if the client picks this</span>
+                        </div>
+                        {savings > 0 && <p className="text-[11px] text-green-400">Saves {money(savings)} vs paying monthly for the full term ({money(full)}).</p>}
+                        <input value={o.note || ''} onChange={e => updateOption(o.id, { note: e.target.value })} placeholder="Optional one-line note under the label" className="w-full px-3 py-2 rounded-lg bg-gray-900/60 border border-white/10 text-xs text-white focus:outline-none focus:border-blue-500" />
+                      </div>
+                    )
+                  })}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button type="button" onClick={addFreeformOption} className="px-3 py-2 rounded-lg border border-white/15 text-xs font-semibold text-gray-300 hover:bg-white/5 transition">+ Add option</button>
+                    <button type="button" onClick={() => setOptions([])} className="px-3 py-2 rounded-lg border border-white/10 text-xs font-semibold text-gray-500 hover:text-gray-300 hover:bg-white/5 transition">Clear all (send single invoice)</button>
+                  </div>
+                  <p className="text-[11px] text-gray-500">No invoice is created until the client clicks a Pay button — then only that option is invoiced.</p>
+                </div>
+              )}
+            </Section>
+
             {/* Email (editable) */}
             <Section title="Email" open={open.email} onToggle={() => toggle('email')}>
               <div className="space-y-3">
@@ -662,13 +742,28 @@ export default function AgreementBuilderPage() {
                 {form.revOn && <div className="flex justify-between"><span className="text-gray-500">Rev share</span><span className="text-gray-300">{Number(form.revPct || 0)}% from {fmtShortDate(form.revStart)}</span></div>}
               </div>
 
-              <div className="mt-5 p-3 rounded-xl bg-blue-950/30 border border-blue-500/15">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-xs text-blue-300 uppercase tracking-wide font-semibold">First payment due</span>
-                  <span className="text-xl font-extrabold text-white">{basePrice ? money(setup + monthly) : '—'}</span>
+              {paymentOptions.length > 0 ? (
+                <div className="mt-5 p-3 rounded-xl bg-blue-950/30 border border-blue-500/15">
+                  <span className="text-xs text-blue-300 uppercase tracking-wide font-semibold">Payment options</span>
+                  <div className="mt-2 space-y-1.5">
+                    {paymentOptions.map(o => (
+                      <div key={o.id} className="flex justify-between items-baseline gap-3">
+                        <span className="text-gray-300 text-sm">{o.label || 'Untitled option'}</span>
+                        <span className="text-white font-bold">{money(o.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-2">Client picks one — only that option is invoiced.</p>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">Setup fee + first month</p>
-              </div>
+              ) : (
+                <div className="mt-5 p-3 rounded-xl bg-blue-950/30 border border-blue-500/15">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xs text-blue-300 uppercase tracking-wide font-semibold">First payment due</span>
+                    <span className="text-xl font-extrabold text-white">{basePrice ? money(setup + monthly) : '—'}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">Setup fee + first month</p>
+                </div>
+              )}
 
               <div className="mt-5 space-y-2">
                 <button onClick={doSend} disabled={saving || sending} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition disabled:opacity-50">
