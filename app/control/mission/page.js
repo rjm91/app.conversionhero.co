@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTerminalHistory, relTime } from '../../../lib/terminal-history'
+import { defaultTermsText } from '../../../lib/agreement-email'
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
 const tid = () => Math.random().toString(36).slice(2)
@@ -29,9 +30,9 @@ const PACKAGES = [
   { id: 'custom', name: 'Custom', price: null },
 ]
 // meta.agreement keys the builder reads on load (see agreement/[leadId]/page.js).
-const DRAFT_KEYS = ['legalName', 'address', 'packageId', 'billing', 'customPrice', 'customName', 'customScope', 'term', 'termCustom', 'setupFee', 'adOn', 'adPct', 'notes', 'revOn', 'revPct', 'revStart']
+const DRAFT_KEYS = ['legalName', 'address', 'packageId', 'billing', 'customPrice', 'customName', 'customScope', 'term', 'termCustom', 'setupFee', 'adOn', 'adPct', 'notes', 'revOn', 'revPct', 'revStart', 'paymentOptions', 'emailSubject', 'emailMessage', 'emailCc', 'emailTerms']
 // Human-readable field labels for the terminal's honest change report.
-const FIELD_LABEL = { customScope: 'scope', legalName: 'legal name', address: 'address', packageId: 'package', billing: 'billing', customPrice: 'price', customName: 'package name', term: 'term', termCustom: 'term', setupFee: 'setup fee', adOn: 'ad add-on', adPct: 'ad %', notes: 'notes', revOn: 'revenue share', revPct: 'revenue %', revStart: 'revenue-share start' }
+const FIELD_LABEL = { customScope: 'scope', legalName: 'legal name', address: 'address', packageId: 'package', billing: 'billing', customPrice: 'price', customName: 'package name', term: 'term', termCustom: 'term', setupFee: 'setup fee', adOn: 'ad add-on', adPct: 'ad %', notes: 'notes', revOn: 'revenue share', revPct: 'revenue %', revStart: 'revenue-share start', paymentOptions: 'payment options', emailSubject: 'email subject', emailMessage: 'email message', emailCc: 'email cc', emailTerms: 'agreement terms text' }
 
 export default function AgencyMission() {
   const [fleet, setFleet] = useState(null)
@@ -212,12 +213,20 @@ export default function AgencyMission() {
     const prev = lead.meta?.agreement || {}
     const draft = {}
     for (const k of DRAFT_KEYS) if (inp[k] != null) draft[k] = inp[k]
+    // Payment options must satisfy the send route's shape (id/label/amount>0);
+    // mint ids the model didn't provide and coerce amounts.
+    if (Array.isArray(draft.paymentOptions)) {
+      draft.paymentOptions = draft.paymentOptions
+        .filter(o => o && (o.label || o.amount))
+        .map(o => ({ id: o.id || tid(), label: o.label || '', amount: Number(o.amount) || 0, note: o.note || '' }))
+    }
     const isNewAgreement = !prev.packageId && !prev.customName
     if (isNewAgreement) { if (!draft.packageId) draft.packageId = 'growth'; if (!draft.billing) draft.billing = 'monthly' }
     const changed = Object.keys(draft).filter(k => JSON.stringify(draft[k]) !== JSON.stringify(prev[k]))
     // When the scope changes, drop any saved terms override so the contract's
-    // Services section regenerates from the new scope (terms derive from fields).
-    const regen = draft.customScope != null ? { emailTerms: null } : {}
+    // Services section regenerates from the new scope (terms derive from fields)
+    // — unless this same call explicitly set the terms text.
+    const regen = draft.customScope != null && draft.emailTerms === undefined ? { emailTerms: null } : {}
     const patchRes = await fetch(`/api/agency-leads/${lead.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -274,10 +283,46 @@ export default function AgencyMission() {
     push({ id: agentId, kind: 'agent', text: '', pending: true })
     setBusy(true)
     try {
+      // What the user is looking at RIGHT NOW, so "this draft / this client"
+      // never needs a clarifying question. For an agreement tab, re-fetch the
+      // pipeline first — the builder iframe auto-saves directly to the API, so
+      // the parent's copy of the draft fields can be stale.
+      const agLeadId = activeTab.startsWith('agreement:') ? activeTab.slice('agreement:'.length) : null
+      let liveLeads = leads || []
+      if (agLeadId) {
+        try {
+          const fresh = await fetch('/api/agency-leads', { cache: 'no-store' }).then(r => r.json())
+          if (Array.isArray(fresh.leads)) { liveLeads = fresh.leads; setLeads(fresh.leads) }
+        } catch { /* stale beats nothing */ }
+      }
+      const agLead = agLeadId ? liveLeads.find(x => x.id === agLeadId) : null
+      const tabLabel = (id) => id.startsWith('agreement:')
+        ? `agreement builder: ${liveLeads.find(x => x.id === id.slice('agreement:'.length))?.company || 'unknown prospect'}`
+        : VIEW_TITLES[id] || id
       const context = {
+        workspace: {
+          active_tab: tabLabel(activeTab),
+          open_tabs: tabs.map(tabLabel),
+          viewing_agreement: agLead ? (() => {
+            const ag = agLead.meta?.agreement || null
+            const contact = [agLead.first_name, agLead.last_name].filter(Boolean).join(' ') || null
+            return {
+              lead_id: agLead.id, company: agLead.company, contact,
+              email: agLead.email, status: agLead.sale_status || agLead.lead_status,
+              draft: ag,
+              // The contract text as the client would see it right now — the
+              // hand-edited override, or the document generated from the fields.
+              effective_terms: ag ? (ag.emailTerms ?? defaultTermsText({
+                customer: { company: agLead.company, contact },
+                agreement: { ...ag, custom: ag.packageId === 'custom', scope: ag.customScope },
+              })) : null,
+              terms_are_generated: !!ag && ag.emailTerms == null,
+            }
+          })() : null,
+        },
         clients: (fleet?.clients || []).map(c => ({ id: c.client_id, name: c.client_name, open_problems: c.open_problems, rev_30d: c.metrics?.revenue })),
         open_problems: fleet?.findings?.length || 0,
-        pipeline: (leads || []).slice(0, 40).map(l => ({ lead_id: l.id, company: l.company, name: [l.first_name, l.last_name].filter(Boolean).join(' '), email: l.email, status: l.sale_status || l.lead_status, has_agreement: !!l.meta?.agreement })),
+        pipeline: liveLeads.slice(0, 40).map(l => ({ lead_id: l.id, company: l.company, name: [l.first_name, l.last_name].filter(Boolean).join(' '), email: l.email, status: l.sale_status || l.lead_status, has_agreement: !!l.meta?.agreement })),
       }
       const hist = turns.filter(t => t.kind === 'user' || (t.kind === 'agent' && !t.pending)).slice(-8)
       const history = []
@@ -306,7 +351,7 @@ export default function AgencyMission() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [input, busy, push, patch, fleet, leads, turns, runAction, saveTurn])
+  }, [input, busy, push, patch, fleet, leads, turns, runAction, saveTurn, activeTab, tabs])
 
   const tabTitle = (id) => {
     if (id.startsWith('agreement:')) {
