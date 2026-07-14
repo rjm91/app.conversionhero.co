@@ -64,6 +64,11 @@ const TOOLS = [
     description: 'Open an existing prospect\'s Agreement Builder (to review or continue a draft). Use when the user names a prospect already in the pipeline and wants to open their agreement without changing it.',
     input_schema: { type: 'object', properties: { lead_id: { type: 'string' } }, required: ['lead_id'] },
   },
+  {
+    name: 'rename_session',
+    description: 'Rename the CURRENT terminal conversation (the chat the user is in) — this only re-titles the chat thread in the History list, nothing else. Use when the user asks to rename/title/call this chat something. Provide a short title (a few words).',
+    input_schema: { type: 'object', properties: { title: { type: 'string', description: 'The new short title for this conversation.' } }, required: ['title'] },
+  },
 ]
 
 export async function POST(request) {
@@ -87,6 +92,7 @@ export async function POST(request) {
     `THE CONTRACT TEXT IS GENERATED, NOT AUTHORED BY YOU: the legal/terms prose in the builder is produced from the structured fields. You cannot directly rewrite that prose, and there is no tool to do so. If the user asks you to reword the raw contract/terms text itself, edit the underlying structured field (usually customScope) instead, and tell them the terms will regenerate from it — or, if it doesn't map to a field, say plainly that they can edit that text directly in the builder. Never imply you rewrote contract language that you cannot touch.`,
     `HONESTY — this is critical: only claim what a tool ACTUALLY did. After a tool runs, the dashboard returns a result; describe exactly that (which fields changed, or that nothing changed). Never say "done, I dropped it in" or "I updated the scope" unless the tool call carried that field and it actually changed. If you are handing the user text to paste rather than applying it, say exactly that. Overclaiming a change you did not make is worse than doing nothing.`,
     `PACKAGES (for reference; the builder owns exact pricing): ${PACKAGES.filter(p => p.price).map(p => `${p.name} $${p.price}/mo (${p.videos} videos)`).join(', ')}, plus Custom.`,
+    `RENAMING THIS CHAT: if the user asks to rename/title this conversation, call rename_session with a short title. It only re-titles the thread in the History list. Confirm the new title in one short sentence.`,
     `TOOLS run in front of the user instantly and only move things inside the IDE or save a draft. Approving/sending is always the human's move — never claim you sent an agreement or emailed anyone. Use a tool when the request is an action; answer in text when it's a question. After a tool call, a single short sentence stating exactly what changed is enough.`,
   ].join(' ')
 

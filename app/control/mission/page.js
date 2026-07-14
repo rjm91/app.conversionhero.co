@@ -54,7 +54,8 @@ export default function AgencyMission() {
   const hydratedRef = useRef(false)
 
   // Durable per-user terminal history (fail-safe — no-ops if the table is missing).
-  const { ready: histReady, sessions: histSessions, messages: histMessages, sessionId: histSessionId, saveTurn, newSession: newHistSession, loadSession: loadHistSession } = useTerminalHistory('agency')
+  const { ready: histReady, sessions: histSessions, messages: histMessages, sessionId: histSessionId, saveTurn, newSession: newHistSession, loadSession: loadHistSession, renameSession: renameHistSession } = useTerminalHistory('agency')
+  const [editId, setEditId] = useState(null) // session id being renamed in the History menu
 
   // Restore saved panel/explorer sizes.
   useEffect(() => {
@@ -218,6 +219,11 @@ export default function AgencyMission() {
 
   const runAction = useCallback(async (a) => {
     if (a.name === 'open_view' && VIEW_TITLES[a.input?.view]) { openTab(a.input.view); return `opened the ${VIEW_TITLES[a.input.view]} view` }
+    if (a.name === 'rename_session') {
+      const title = (a.input?.title || '').trim()
+      if (!title || !histSessionId) return `couldn't rename — no active conversation yet`
+      renameHistSession(histSessionId, title); return `renamed this conversation to “${title.slice(0, 60)}”`
+    }
     if (a.name === 'open_agreement' && a.input?.lead_id) {
       const l = (leads || []).find(x => x.id === a.input.lead_id)
       if (!l) return `couldn't find that prospect in the pipeline`
@@ -238,7 +244,7 @@ export default function AgencyMission() {
       return `updated ${uniq.join(', ')} on ${who}'s agreement — refreshed the builder above. Review and hit Send when ready (nothing sends until you do).`
     }
     return null
-  }, [openTab, leads, openAgreementTab, doDraftAgreement])
+  }, [openTab, leads, openAgreementTab, doDraftAgreement, histSessionId, renameHistSession])
 
   const ask = useCallback(async (q) => {
     const question = (q ?? input).trim()
@@ -366,10 +372,19 @@ export default function AgencyMission() {
                     <div className="th-menu">
                       {histSessions.length === 0 && <div className="th-empty">no past conversations</div>}
                       {histSessions.map(s => (
-                        <button key={s.id} className={`th-item ${s.id === histSessionId ? 'on' : ''}`} onClick={() => openSession(s.id)}>
-                          <span className="th-ti">{s.title}</span>
-                          <span className="th-when">{relTime(s.updated_at)}</span>
-                        </button>
+                        <div key={s.id} className={`th-row ${s.id === histSessionId ? 'on' : ''}`}>
+                          {editId === s.id ? (
+                            <input className="th-edit" autoFocus defaultValue={s.title === 'New conversation' ? '' : s.title}
+                              onKeyDown={e => { if (e.key === 'Enter') { renameHistSession(s.id, e.currentTarget.value); setEditId(null) } else if (e.key === 'Escape') setEditId(null) }}
+                              onBlur={e => { renameHistSession(s.id, e.currentTarget.value); setEditId(null) }} />
+                          ) : (
+                            <button className="th-item" onClick={() => openSession(s.id)}>
+                              <span className="th-ti">{s.title}</span>
+                              <span className="th-when">{relTime(s.updated_at)}</span>
+                            </button>
+                          )}
+                          <button className="th-ren" title="Rename" onClick={e => { e.stopPropagation(); setEditId(s.id) }}>✎</button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1022,9 +1037,15 @@ const CSS = `
 .aide .th-hist{position:relative;}
 .aide .th-menu{position:absolute;top:26px;left:0;z-index:60;min-width:240px;max-height:320px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.55);padding:4px;}
 .aide .th-empty{color:var(--faint);font-size:11px;font-weight:400;letter-spacing:0;padding:8px 10px;}
-.aide .th-item{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;font-weight:400;letter-spacing:0;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer;}
-.aide .th-item:hover{background:rgba(255,255,255,.04);color:var(--txt);}
-.aide .th-item.on{background:rgba(110,168,254,.12);color:var(--txt);}
+.aide .th-row{display:flex;align-items:center;gap:2px;border-radius:6px;}
+.aide .th-row.on{background:rgba(110,168,254,.12);}
+.aide .th-row:hover{background:rgba(255,255,255,.04);}
+.aide .th-item{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;font-weight:400;letter-spacing:0;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer;}
+.aide .th-row:hover .th-item,.aide .th-row.on .th-item{color:var(--txt);}
+.aide .th-ren{flex-shrink:0;background:none;border:none;color:var(--faint);font:inherit;font-size:11px;cursor:pointer;padding:4px 8px;border-radius:5px;opacity:0;}
+.aide .th-row:hover .th-ren{opacity:1;}
+.aide .th-ren:hover{color:var(--blue);background:rgba(255,255,255,.06);}
+.aide .th-edit{flex:1;min-width:0;background:var(--bg);border:1px solid var(--blue);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 8px;margin:1px 0;outline:none;}
 .aide .th-ti{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .aide .th-when{color:var(--faint);font-size:10px;white-space:nowrap;flex-shrink:0;}
 .aide .stream{flex:1;overflow-y:auto;padding:12px 16px;line-height:1.55;}
