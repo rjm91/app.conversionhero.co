@@ -196,7 +196,7 @@ export default function AgreementBuilderPage() {
     const first = Math.round(setup + monthly)
     const full = Math.round(monthly * termMonths)
     setOptions([
-      { id: 'monthly', label: 'Pay monthly', amount: first, note: `${money(monthly)}/mo for the full term (${termVal})${setup ? ` — first payment includes ${money(setup)} setup` : ''}` },
+      { id: 'monthly', label: 'Pay monthly', amount: first, note: `${money(monthly)}/mo, billed monthly (${termVal})${setup ? ` — first payment includes ${money(setup)} setup` : ''}` },
       { id: 'upfront', label: 'Pay upfront', amount: full, note: `One-time payment for the full term (${termVal})` },
     ])
   }

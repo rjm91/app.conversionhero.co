@@ -21,6 +21,7 @@ const TREE = [
   ] },
 ]
 const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', leads: 'Leads / Pipeline', agreements: 'Agreements' }
+const TREE_ICONS = Object.fromEntries(TREE.flatMap(g => g.items.map(i => [i.id, i.icon])))
 
 const PACKAGES = [
   { id: 'pilot', name: 'Pilot', price: 1000 }, { id: 'starter', name: 'Starter', price: 1550 },
@@ -48,6 +49,8 @@ export default function AgencyMission() {
   const [dragging, setDragging] = useState(false) // true mid-drag → overlay so embedded frames don't swallow the drag
   const [reloadKeys, setReloadKeys] = useState({}) // leadId → nonce; bump to remount an open agreement iframe with fresh data
   const [histOpen, setHistOpen] = useState(false)  // session-history dropdown
+  const [recent, setRecent] = useState([])         // [{id, at}] most-recent-first — tabs you've worked in
+  const recentSkipRef = useRef(true)               // skip recording the default tab on mount
   const dragRef = useRef(null)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
@@ -65,6 +68,21 @@ export default function AgencyMission() {
       else setPanelH(Math.round(window.innerHeight * 0.36))
     } catch { /* defaults */ }
   }, [])
+  // Restore latest activity (tabs you've worked in), then record each tab switch.
+  useEffect(() => {
+    try {
+      const r = JSON.parse(localStorage.getItem('agide_recent') || '[]')
+      if (Array.isArray(r)) setRecent(r.filter(x => x && typeof x.id === 'string'))
+    } catch { /* fresh */ }
+  }, [])
+  useEffect(() => {
+    if (recentSkipRef.current) { recentSkipRef.current = false; return }
+    setRecent(r => {
+      const next = [{ id: activeTab, at: Date.now() }, ...r.filter(x => x.id !== activeTab)].slice(0, 8)
+      try { localStorage.setItem('agide_recent', JSON.stringify(next)) } catch { /* quota */ }
+      return next
+    })
+  }, [activeTab])
   // Drag-to-resize: explorer width (col-resize) + terminal height (row-resize).
   useEffect(() => {
     const move = (e) => {
@@ -317,10 +335,22 @@ export default function AgencyMission() {
               ))}
             </div>
           ))}
-          <div className="ex-sec">
-            <div className="ex-h">SHORTCUTS</div>
-            <button className="ex-item" onClick={() => ask('draft a new agreement')}><span className="ex-ic">✍️</span>New agreement</button>
-          </div>
+          {recent.filter(r => r.id !== activeTab).length > 0 && <div className="ex-sec">
+            <div className="ex-h">LATEST ACTIVITY</div>
+            {recent.filter(r => r.id !== activeTab).slice(0, 5).map(r => {
+              const isAg = r.id.startsWith('agreement:')
+              const label = isAg
+                ? ((leads || []).find(x => x.id === r.id.slice('agreement:'.length))?.company || 'Agreement')
+                : VIEW_TITLES[r.id] || r.id
+              return (
+                <button key={r.id} className="ex-item" onClick={() => openTab(r.id)}>
+                  <span className="ex-ic">{isAg ? '📄' : TREE_ICONS[r.id] || '▸'}</span>
+                  <span className="ex-ti">{label}</span>
+                  <span className="ex-when">{relTime(r.at)}</span>
+                </button>
+              )
+            })}
+          </div>}
           <div className="ex-sec">
             <div className="ex-h">AGENCY</div>
             <a className="ex-item" href="/control"><span className="ex-ic">📊</span>Control Center<span className="ex-out">↗</span></a>
@@ -983,6 +1013,8 @@ const CSS = `
 .aide .ex-ic{width:16px;text-align:center;}
 .aide .ex-item{text-decoration:none;}
 .aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
+.aide .ex-ti{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .ex-when{margin-left:auto;color:var(--faint);font-size:10px;flex-shrink:0;}
 .aide .ex-count{margin-left:auto;background:rgba(242,180,92,.18);color:var(--amber);font-size:10px;font-weight:800;border-radius:99px;padding:0 6px;}
 .aide .main{flex:1;display:flex;flex-direction:column;min-width:0;}
 .aide .tabbar{display:flex;align-items:stretch;background:var(--panel);border-bottom:1px solid var(--line);height:34px;flex-shrink:0;overflow-x:auto;}
