@@ -981,10 +981,10 @@ const CSS = `
 .aide .ag-frame{width:100%;height:100%;border:none;background:var(--bg);}
 .aide .v-pad{padding:20px 24px;}
 .aide .v-h{font-size:15px;font-weight:800;margin:0 0 4px;}
-.aide .v-h-row{display:flex;align-items:center;justify-content:space-between;max-width:1000px;}
+.aide .v-h-row{display:flex;align-items:center;justify-content:space-between;}
 .aide .v-note{color:var(--dim);font-size:12px;margin:0 0 14px;max-width:760px;}
 .aide .a-dim{color:var(--faint);}.aide .a-err{color:var(--red);padding:12px 24px;}
-.aide .f-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;max-width:1100px;}
+.aide .f-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
 .aide .f-card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:inherit;transition:border-color .15s;}
 .aide .f-card:hover{border-color:var(--blue);}
 .aide .f-card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -996,7 +996,7 @@ const CSS = `
 .aide .f-nums b{font-size:13px;font-variant-numeric:tabular-nums;}
 .aide .f-nomet{color:var(--faint);font-size:11px;}
 .aide .good{color:var(--green);}.aide .bad{color:var(--red);}.aide .warn{color:var(--amber);}.aide .strong{color:var(--txt);font-weight:600;}.aide .dim{color:var(--dim);}
-.aide .tbl{border:1px solid var(--line);border-radius:9px;overflow:hidden;max-width:1000px;}
+.aide .tbl{border:1px solid var(--line);border-radius:9px;overflow:hidden;}
 .aide .tr{display:grid;grid-template-columns:1.4fr 1.1fr 1.6fr .9fr .6fr;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer;}
 .aide .tbl .tr:first-child{border-top:none;}
 .aide .tbl.two .tr{grid-template-columns:1.6fr 1.2fr 1fr .6fr;}
