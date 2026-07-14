@@ -233,9 +233,17 @@ export default function AgencyMission() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'agent error')
       patch(agentId, { pending: false, text: json.answer || 'Done.' })
-      for (const a of (json.actions || [])) {
+      const acts = json.actions || []
+      for (const a of acts) {
         try { const note = await runAction(a); if (note) push({ kind: 'sys', text: `agent action · ${note}` }) }
         catch (e) { push({ kind: 'sys', text: `agent action failed · ${e.message}` }) }
+      }
+      // Client-side safety net: if the reply asserts an agreement change but no
+      // draft ran, flag it so a false "done" never stands unqualified.
+      const claim = /\b(updated|changed|revised|rewrote|reworded|simplified|cleaned up|dropped (it|this|that) in|now (leads|reads|includes)|i'?ve (updated|changed|added|revised))\b/i.test(json.answer || '')
+        && /\b(scope|agreement|draft|package|term|contract)\b/i.test(json.answer || '')
+      if (claim && !acts.some(a => a.name === 'draft_agreement')) {
+        push({ kind: 'sys', text: '⚠ nothing was applied to the draft — the reply described a change without making it. Ask again to apply it, or edit directly in the builder.' })
       }
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
