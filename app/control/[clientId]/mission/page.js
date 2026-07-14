@@ -12,6 +12,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { fetchMissionData, computeMission, askContext, resolveRange, RANGE_PRESETS, rowToFinding } from '../../../../lib/mission/data'
 import { MANUAL } from '../../../../lib/mission/manual'
 import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
+import { useTerminalHistory, relTime } from '../../../../lib/terminal-history'
 import { supabase } from '../../../../lib/supabase'
 import { deriveChannel } from '../../../../lib/channels'
 
@@ -159,6 +160,15 @@ export default function BusinessIDE() {
   const [viewer, setViewer] = useState(null) // { role, queries } — who the asker is here
   const [memories, setMemories] = useState([]) // agent's durable memory for this client
 
+  // Durable per-user terminal chat history (fail-safe — no-ops if the table is
+  // missing). Persists the CONVERSATION turns (you/agent); findings + decisions
+  // are already server-backed and re-boot themselves.
+  const [histOpen, setHistOpen] = useState(false)   // session-history dropdown
+  const [bootNonce, setBootNonce] = useState(0)      // bumped each boot → triggers conversation hydration
+  const convHydratedRef = useRef(false)
+  const { ready: histReady, sessions: histSessions, messages: histMessages, sessionId: histSessionId, saveTurn, newSession: newHistSession, loadSession: loadHistSession } = useTerminalHistory(clientId)
+  const msgToTurn = (msg) => ({ id: tid(), kind: msg.role === 'user' ? 'you' : msg.role === 'agent' ? 'agent' : 'sys', text: msg.content || '' })
+
   // Pinned views — any agent-rendered chart/table saved as a "file" in the
   // explorer. Local to this browser (specs are snapshots; re-ask re-runs).
   const [pins, setPins] = useState([])
@@ -241,6 +251,7 @@ export default function BusinessIDE() {
   useEffect(() => {
     let alive = true
     bootedRef.current = false
+    convHydratedRef.current = false
     setTurns([]); setSelId(null); setSrvFindings(null)
     push({ kind: 'sys', text: `loading ${rangeLabel} of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
     fetchMissionData(clientId, range.start, range.end)
@@ -276,8 +287,38 @@ export default function BusinessIDE() {
     }
     setSelId(firstId)
     setTurns(t => [...t, { id: tid(), kind: 'sys', text: (findings.length ? `${findings.length} in PROBLEMS · y approves the selected card · j/k moves.` : 'no problems — every live campaign clears breakeven.') + ' press ? for the manual · ctrl+\` toggles this panel.' }])
+    setBootNonce(n => n + 1)   // signal the conversation-hydration effect to replay saved chat
     inputRef.current?.focus()
   }, [m, data, srvFindings, rangeN, rangeLabel, leversMode])
+
+  // Auto-resume: after the findings boot, append this user's saved conversation
+  // turns so the chat survives a refresh. Fail-safe — empty when the table/hook
+  // is unavailable. Guarded so it appends once per boot; a "＋ New" / loadSession
+  // sets convHydratedRef so it won't clobber a deliberately-chosen session.
+  useEffect(() => {
+    if (!bootNonce || !histReady || convHydratedRef.current) return
+    convHydratedRef.current = true
+    if (histMessages.length) setTurns(t => [...t, ...histMessages.map(msgToTurn)])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bootNonce, histReady, histMessages])
+
+  // "＋ New" — fresh conversation; keep the findings (they're the workspace queue).
+  const startNewSession = useCallback(() => {
+    newHistSession()
+    convHydratedRef.current = true   // don't replay old history into the new session
+    setTurns(t => [...t.filter(x => x.kind === 'finding'), { id: tid(), kind: 'sys', text: 'new conversation — findings + decisions still persist server-side. ask away.' }])
+    setHistOpen(false)
+    inputRef.current?.focus()
+  }, [newHistSession])
+
+  // Load a past conversation — keep findings, swap in the chosen transcript.
+  const openSession = useCallback(async (id) => {
+    setHistOpen(false)
+    convHydratedRef.current = true
+    const msgs = await loadHistSession(id)
+    setTurns(t => [...t.filter(x => x.kind === 'finding'), ...msgs.map(msgToTurn)])
+    inputRef.current?.focus()
+  }, [loadHistSession])
 
   /* ── decisions ── */
   const findingTurns = turns.filter(t => t.kind === 'finding')
@@ -456,6 +497,7 @@ export default function BusinessIDE() {
     }
 
     // free text → Claude, grounded + aware of the active tab, ledger, and queue
+    saveTurn({ role: 'user', content: q })
     setBusy(true)
     const agentId = tid()
     setTurns(t => [...t, { id: agentId, kind: 'agent', pending: true, text: '' }])
@@ -476,6 +518,7 @@ export default function BusinessIDE() {
       if (!res.ok) throw new Error(json.error || 'ask failed')
       histRef.current = [...histRef.current, { q, a: json.answer || '[took a UI action]' }].slice(-6)
       patch(agentId, { pending: false, text: json.answer })
+      if (json.answer) saveTurn({ role: 'agent', content: json.answer, actions: (json.actions || []).length ? { actions: json.actions } : undefined })
 
       // Execute the agent's UI-only actions, narrating each as a sys turn.
       for (const a of (json.actions || [])) {
@@ -560,7 +603,7 @@ export default function BusinessIDE() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [busy, m, data, range, rangeLabel, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc, metaDoc, saveMetaDoc])
+  }, [busy, m, data, range, rangeLabel, ledger, policies, openTurns, turns, activeTab, push, patch, openTab, undoDecision, decide, clientId, campaignDoc, saveCampaignDoc, metaDoc, saveMetaDoc, saveTurn])
 
   const pinView = useCallback((spec, question) => {
     const id = 'p' + Date.now().toString(36)
@@ -680,6 +723,23 @@ export default function BusinessIDE() {
               <div className="panel-tabs">
                 <span className={panelTab === 'terminal' ? 'on' : ''} onClick={() => { setPanelTab('terminal'); inputRef.current?.focus() }}>TERMINAL</span>
                 <span className={panelTab === 'problems' ? 'on' : ''} onClick={() => setPanelTab('problems')}>PROBLEMS{problems.length ? ` (${problems.length})` : ''}</span>
+                {panelTab === 'terminal' && <>
+                  <button className="th-btn" onClick={startNewSession} title="Start a new conversation">＋ New</button>
+                  <div className="th-hist">
+                    <button className="th-btn" onClick={() => setHistOpen(o => !o)} title="Past conversations">History{histSessions.length ? ` (${histSessions.length})` : ''} ▾</button>
+                    {histOpen && (
+                      <div className="th-menu">
+                        {histSessions.length === 0 && <div className="th-empty">no past conversations</div>}
+                        {histSessions.map(s => (
+                          <button key={s.id} className={`th-item ${s.id === histSessionId ? 'on' : ''}`} onClick={() => openSession(s.id)}>
+                            <span className="th-ti">{s.title}</span>
+                            <span className="th-when">{relTime(s.updated_at)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>}
                 <span className="panel-x" onClick={() => setPanelOpen(false)} title="ctrl+`">▾</span>
               </div>
 
@@ -2198,6 +2258,16 @@ const CSS = `
 .ide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
 .ide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
 .ide .panel-x{margin-left:auto;}
+.ide .th-btn{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);font:inherit;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 8px;margin-left:4px;cursor:pointer;line-height:18px;}
+.ide .th-btn:hover{color:var(--txt);border-color:var(--dim);}
+.ide .th-hist{position:relative;}
+.ide .th-menu{position:absolute;top:26px;left:0;z-index:60;min-width:240px;max-height:320px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.55);padding:4px;}
+.ide .th-empty{color:var(--faint);font-size:11px;font-weight:400;letter-spacing:0;padding:8px 10px;}
+.ide .th-item{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;font-weight:400;letter-spacing:0;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer;line-height:1.3;}
+.ide .th-item:hover{background:rgba(255,255,255,.04);color:var(--txt);}
+.ide .th-item.on{background:rgba(110,168,254,.12);color:var(--txt);}
+.ide .th-ti{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .th-when{color:var(--faint);font-size:10px;white-space:nowrap;flex-shrink:0;}
 .ide .stream{flex:1;overflow-y:auto;padding:12px 16px;}
 .ide .turn{margin-bottom:11px;animation:ideup .15s ease;}
 @keyframes ideup{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}

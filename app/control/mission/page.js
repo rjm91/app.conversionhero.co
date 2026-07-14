@@ -7,6 +7,7 @@
 // never sends; sending stays the human's explicit click.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTerminalHistory, relTime } from '../../../lib/terminal-history'
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
 const tid = () => Math.random().toString(36).slice(2)
@@ -46,9 +47,14 @@ export default function AgencyMission() {
   const [panelH, setPanelH] = useState(300) // terminal height (drag its top edge)
   const [dragging, setDragging] = useState(false) // true mid-drag → overlay so embedded frames don't swallow the drag
   const [reloadKeys, setReloadKeys] = useState({}) // leadId → nonce; bump to remount an open agreement iframe with fresh data
+  const [histOpen, setHistOpen] = useState(false)  // session-history dropdown
   const dragRef = useRef(null)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
+  const hydratedRef = useRef(false)
+
+  // Durable per-user terminal history (fail-safe — no-ops if the table is missing).
+  const { ready: histReady, sessions: histSessions, messages: histMessages, sessionId: histSessionId, saveTurn, newSession: newHistSession, loadSession: loadHistSession } = useTerminalHistory('agency')
 
   // Restore saved panel/explorer sizes.
   useEffect(() => {
@@ -100,12 +106,37 @@ export default function AgencyMission() {
     loadLeads()
   }, [loadLeads])
 
+  // Welcome line + saved-turn → local-turn mapping (role user→'user', agent→
+  // 'agent', system→'sys').
+  const welcomeLine = useCallback(() => `agency session · ${fleet?.clients.length || 0} clients · ${fleet?.findings.length || 0} open problems across the fleet. Ask me to draft an agreement ("draft a Growth agreement for Acme Co, monthly") and I'll open the builder for your review — I never send, that stays your click.`, [fleet])
+  const msgToTurn = (msg) => ({ id: tid(), kind: msg.role === 'user' ? 'user' : msg.role === 'agent' ? 'agent' : 'sys', text: msg.content || '' })
+
+  // Hydrate the terminal once fleet + saved history are both ready. Replay the
+  // saved conversation if there is one; otherwise seed the welcome line.
   useEffect(() => {
-    if (!fleet || turns.length) return
-    push({ kind: 'sys', text: `agency session · ${fleet.clients.length} clients · ${fleet.findings.length} open problems across the fleet. Ask me to draft an agreement ("draft a Growth agreement for Acme Co, monthly") and I'll open the builder for your review — I never send, that stays your click.` })
+    if (!fleet || !histReady || hydratedRef.current) return
+    hydratedRef.current = true
+    if (histMessages.length) setTurns(histMessages.map(msgToTurn))
+    else push({ kind: 'sys', text: welcomeLine() })
     inputRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fleet])
+  }, [fleet, histReady, histMessages])
+
+  // "＋ New" — mint a fresh session, clear the terminal, reseed the welcome line.
+  const startNewSession = useCallback(() => {
+    newHistSession()
+    setTurns([{ id: tid(), kind: 'sys', text: welcomeLine() }])
+    setHistOpen(false)
+    inputRef.current?.focus()
+  }, [newHistSession, welcomeLine])
+
+  // Load a past conversation into the terminal.
+  const openSession = useCallback(async (id) => {
+    setHistOpen(false)
+    const msgs = await loadHistSession(id)
+    setTurns(msgs.length ? msgs.map(msgToTurn) : [{ id: tid(), kind: 'sys', text: welcomeLine() }])
+    inputRef.current?.focus()
+  }, [loadHistSession, welcomeLine])
 
   useEffect(() => { scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight) }, [turns])
 
@@ -214,6 +245,7 @@ export default function AgencyMission() {
     if (!question || busy) return
     setInput('')
     push({ kind: 'user', text: question })
+    saveTurn({ role: 'user', content: question })
     const agentId = tid()
     push({ id: agentId, kind: 'agent', text: '', pending: true })
     setBusy(true)
@@ -232,10 +264,12 @@ export default function AgencyMission() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'agent error')
-      patch(agentId, { pending: false, text: json.answer || 'Done.' })
+      const answer = json.answer || 'Done.'
+      patch(agentId, { pending: false, text: answer })
+      saveTurn({ role: 'agent', content: answer })
       const acts = json.actions || []
       for (const a of acts) {
-        try { const note = await runAction(a); if (note) push({ kind: 'sys', text: `agent action · ${note}` }) }
+        try { const note = await runAction(a); if (note) { push({ kind: 'sys', text: `agent action · ${note}` }); saveTurn({ role: 'system', content: `agent action · ${note}`, actions: a }) } }
         catch (e) { push({ kind: 'sys', text: `agent action failed · ${e.message}` }) }
       }
       // Client-side safety net: if the reply asserts an agreement change but no
@@ -248,7 +282,7 @@ export default function AgencyMission() {
     } catch (e) {
       patch(agentId, { pending: false, text: '', error: e.message })
     } finally { setBusy(false); inputRef.current?.focus() }
-  }, [input, busy, push, patch, fleet, leads, turns, runAction])
+  }, [input, busy, push, patch, fleet, leads, turns, runAction, saveTurn])
 
   const tabTitle = (id) => {
     if (id.startsWith('agreement:')) {
@@ -325,6 +359,21 @@ export default function AgencyMission() {
               <div className="resize-v" onMouseDown={startDrag('panel')} title="drag to resize" />
               <div className="panel-tabs">
                 <span className="on">TERMINAL</span>
+                <button className="th-btn" onClick={startNewSession} title="Start a new conversation">＋ New</button>
+                <div className="th-hist">
+                  <button className="th-btn" onClick={() => setHistOpen(o => !o)} title="Past conversations">History{histSessions.length ? ` (${histSessions.length})` : ''} ▾</button>
+                  {histOpen && (
+                    <div className="th-menu">
+                      {histSessions.length === 0 && <div className="th-empty">no past conversations</div>}
+                      {histSessions.map(s => (
+                        <button key={s.id} className={`th-item ${s.id === histSessionId ? 'on' : ''}`} onClick={() => openSession(s.id)}>
+                          <span className="th-ti">{s.title}</span>
+                          <span className="th-when">{relTime(s.updated_at)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <span className="panel-x" onClick={() => setPanelOpen(false)} title="hide">▾</span>
               </div>
               <div className="stream" ref={scrollRef}>
@@ -968,6 +1017,16 @@ const CSS = `
 .aide .panel-tabs span{padding:0 10px;color:var(--faint);cursor:pointer;line-height:30px;}
 .aide .panel-tabs span.on{color:var(--txt);box-shadow:inset 0 -2px 0 var(--blue);}
 .aide .panel-x{margin-left:auto;}
+.aide .th-btn{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);font:inherit;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 8px;margin-left:4px;cursor:pointer;line-height:18px;}
+.aide .th-btn:hover{color:var(--txt);border-color:var(--dim);}
+.aide .th-hist{position:relative;}
+.aide .th-menu{position:absolute;top:26px;left:0;z-index:60;min-width:240px;max-height:320px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.55);padding:4px;}
+.aide .th-empty{color:var(--faint);font-size:11px;font-weight:400;letter-spacing:0;padding:8px 10px;}
+.aide .th-item{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;font-weight:400;letter-spacing:0;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer;}
+.aide .th-item:hover{background:rgba(255,255,255,.04);color:var(--txt);}
+.aide .th-item.on{background:rgba(110,168,254,.12);color:var(--txt);}
+.aide .th-ti{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .th-when{color:var(--faint);font-size:10px;white-space:nowrap;flex-shrink:0;}
 .aide .stream{flex:1;overflow-y:auto;padding:12px 16px;line-height:1.55;}
 .aide .t-turn{margin-bottom:7px;white-space:pre-wrap;word-break:break-word;}
 .aide .t-p{color:var(--green);font-weight:800;margin-right:7px;}
