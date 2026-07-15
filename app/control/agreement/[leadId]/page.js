@@ -242,7 +242,7 @@ export default function AgreementBuilderPage() {
     return `Hi ${(form.contact || '').split(' ')[0] || 'there'},\n\nThanks for the time today. Here's the agreement we put together — ${pkg?.name || 'your package'} at ${money(monthly)}/mo${setup ? ` plus a one-time ${money(setup)} setup fee` : ''}. Click below to review and get started.\n\n— ConversionHero`
   }
 
-  const subjectVal = emailSubject !== null ? emailSubject : 'Your ConversionHero agreement & invoice'
+  const subjectVal = emailSubject !== null ? emailSubject : `ConversionHero agreement & invoice${(form.company || form.contact) ? ` - ${form.company || form.contact}` : ''}`
   const messageVal = emailMessage !== null ? emailMessage : defaultMessageText()
   const termsVal   = emailTerms   !== null ? emailTerms   : defaultTermsText({ customer, agreement: agreementData })
   const ccVal      = emailCc      !== null ? emailCc      : senderEmail

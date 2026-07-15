@@ -45,6 +45,7 @@ export async function POST(request) {
     if (!customer?.email) return NextResponse.json({ error: 'Customer email is required to send.' }, { status: 400 })
 
     const paymentOptions = Array.isArray(agreement?.paymentOptions) ? agreement.paymentOptions : []
+    const defaultSubject = `ConversionHero agreement & invoice${(customer.company || customer.contact) ? ` - ${customer.company || customer.contact}` : ''}`
 
     // ── Multi-option flow ──────────────────────────────────────────────
     // When the agreement carries payment options, we DON'T create any invoice
@@ -65,7 +66,7 @@ export async function POST(request) {
       await sendEmail({
         to: customer.email,
         cc,
-        subject: subject || 'Your ConversionHero agreement & invoice',
+        subject: subject || defaultSubject,
         html: buildAgreementEmailHtml({ message, termsText, options: emailOptions }),
       })
 
@@ -109,7 +110,7 @@ export async function POST(request) {
     await sendEmail({
       to: customer.email,
       cc,
-      subject: subject || 'Your ConversionHero agreement & invoice',
+      subject: subject || defaultSubject,
       html: buildAgreementEmailHtml({ message, link: buttonLink, lines, total, termsText }),
     })
 
