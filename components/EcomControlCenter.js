@@ -1732,7 +1732,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       return (
                         <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
+                            <div title={c.campaign_name} className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
                             <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -1832,7 +1832,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       return (
                         <tr key={c.campaign_id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
+                            <div title={c.campaign_name} className="font-medium text-gray-800 dark:text-white truncate max-w-[260px]">{c.campaign_name}</div>
                             <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">ID: {c.campaign_id}</div>
                           </td>
                           <td className="px-4 py-3 text-center">
