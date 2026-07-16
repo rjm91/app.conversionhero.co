@@ -1388,7 +1388,6 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
   const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
   const gaGap = p.users == null // Users/CPVisit/CVR need GA4
   const pc1 = (n) => n == null ? '' : (n * 100).toFixed(1) + '%'
-  const pc0 = (n) => n == null ? '—' : Math.round(n * 100) + '%'
   // Jason reads the P&L as RATIOS AGAINST GROSS SALES. Every cost/margin line
   // shows "% of gross"; the two ad platforms show their share "of spend" (they
   // sum to 100%). Each % carries an ⓘ naming its denominator, so if the basis
@@ -1429,16 +1428,6 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
     ['Gross Profit', $2(p.grossProfit), G(p.grossProfit), 'good'],
     ['Profit Margin', pc1(ofG(p.grossProfit)), 'of gross', p.grossProfit >= 0 ? 'good' : 'bad'],
   ]
-  // The ratio strip up top — the percentages Jason scans first, all vs gross
-  // (except the spend split, which is share-of-spend). ⓘ names each denominator.
-  const ratios = [
-    { l: 'Profit Margin', v: pc1(ofG(p.grossProfit)), cls: 'good', d: 'Gross Profit ÷ Gross Sales.' },
-    { l: 'Ad Spend / Gross', v: pc1(ofG(totalSpend)), cls: 'warn', d: 'Total ad spend (Meta + Google) ÷ Gross Sales.' },
-    { l: 'Spend Split', v: `M ${pc0(share(p.metaSpend))} · G ${pc0(share(p.googleSpend))}`, cls: 'split', d: 'Each platform’s share of total ad spend (Meta + Google = 100%).' },
-    { l: 'COGS / Gross', v: pc1(ofG(p.cogs)), cls: 'bad', d: 'COGS ÷ Gross Sales.' },
-    { l: 'Shipping / Gross', v: pc1(ofG(p.shippingCosts)), cls: 'warn', d: 'Shipping costs ÷ Gross Sales.' },
-    { l: 'Discount / Gross', v: pc1(ofG(p.discounts)), cls: 'warn', d: 'Discounts ÷ Gross Sales.' },
-  ]
   // Plain-language definition for each line — shown via the ⓘ info icon.
   const DESC = {
     'Gross Sales': 'Merchandise sales before discounts and refunds (order subtotal + discounts). Excludes tax and shipping. This is the base every "% of gross" is measured against.',
@@ -1466,14 +1455,6 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
   }
   return (
     <>
-    <div className="pnl-ratios">
-      {ratios.map((r, i) => (
-        <div key={i} className="ratio">
-          <div className="ratio-l">{r.l}<span className="pnl-info" title={r.d}>ⓘ</span></div>
-          <div className={`ratio-v ${r.cls}`}>{r.v}</div>
-        </div>
-      ))}
-    </div>
     <div className="pnl">
       {rows.map((r, i) => {
         if (r[0] === 'sep') return <div key={i} className="pnl-sep" />
@@ -2127,7 +2108,7 @@ const CSS = `
 .ide .cb-creative{font-size:11px;color:var(--purple);margin-top:5px;font-style:italic;}
 
 /* daily P&L */
-.ide .pnl{max-width:680px;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
+.ide .pnl{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
 .ide .pnl-row{display:flex;align-items:baseline;gap:10px;padding:5px 13px;font-size:12.5px;}
 .ide .pnl-row:nth-child(odd){background:rgba(255,255,255,.015);}
 .ide .pnl-l{color:var(--dim);flex:1;}
@@ -2136,12 +2117,6 @@ const CSS = `
 .ide .pnl-v.good{color:var(--green);} .ide .pnl-v.warn{color:var(--amber);} .ide .pnl-v.bad{color:var(--red);} .ide .pnl-v.dim{color:var(--faint);font-weight:500;}
 .ide .pnl-pct{color:var(--dim);font-size:11px;font-weight:600;min-width:104px;text-align:right;font-variant-numeric:tabular-nums;}
 /* ratio strip — the percentages Jason scans first */
-.ide .pnl-ratios{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:680px;margin:2px 0 12px;}
-.ide .ratio{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;}
-.ide .ratio-l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;}
-.ide .ratio-v{font-size:19px;font-weight:800;margin-top:3px;color:var(--txt);font-variant-numeric:tabular-nums;}
-.ide .ratio-v.good{color:var(--green);} .ide .ratio-v.warn{color:var(--amber);} .ide .ratio-v.bad{color:var(--red);}
-.ide .ratio-v.split{font-size:15px;letter-spacing:-.01em;}
 .ide .pnl-sep{height:1px;background:var(--line);margin:3px 0;}
 .ide .pnl-sub{color:var(--faint);font-size:10.5px;}
 .ide .pnl-info{color:var(--faint);font-size:10px;margin-left:5px;cursor:help;opacity:.55;vertical-align:middle;}
