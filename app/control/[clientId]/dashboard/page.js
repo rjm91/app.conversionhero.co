@@ -101,7 +101,7 @@ export default function DashboardPage() {
         .lte('created_at', end + 'T23:59:59-12:00'),
 
       // Metrics: ad spend in date range
-      supabase.from('client_yt_campaigns')
+      supabase.from('client_google_campaigns')
         .select('cost')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)
@@ -136,7 +136,7 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false }),
 
       // Panel: campaign summary
-      supabase.from('client_yt_campaigns')
+      supabase.from('client_google_campaigns')
         .select('campaign_id, campaign_name, status, cost, conversions')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)

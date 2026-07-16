@@ -160,7 +160,7 @@ export default function PaidAdsPage() {
 
     const [{ data, error: err }] = await Promise.all([
       supabase
-        .from('client_yt_campaigns')
+        .from('client_google_campaigns')
         .select('*')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)
@@ -215,7 +215,7 @@ export default function PaidAdsPage() {
   const fetchAdGroups = useCallback(async (campaignId, start, end) => {
     setLoading(true)
     const { data, error: err } = await supabase
-      .from('client_yt_ad_groups')
+      .from('client_google_ad_groups')
       .select('*')
       .eq('client_id', clientId)
       .eq('campaign_id', campaignId)
@@ -256,7 +256,7 @@ export default function PaidAdsPage() {
   const fetchAds = useCallback(async (adGroupId, start, end) => {
     setLoading(true)
     const { data, error: err } = await supabase
-      .from('client_yt_ads')
+      .from('client_google_ads')
       .select('*')
       .eq('client_id', clientId)
       .eq('ad_group_id', adGroupId)

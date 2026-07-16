@@ -27,7 +27,7 @@ export async function GET(request) {
   if (start) paymentsQuery = paymentsQuery.gte('date_created', start)
   if (end) paymentsQuery = paymentsQuery.lte('date_created', end + 'T23:59:59')
 
-  let campaignsQuery = supabase.from('client_yt_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date')
+  let campaignsQuery = supabase.from('client_google_campaigns').select('client_id, campaign_id, campaign_name, status, cost, date')
   if (start) campaignsQuery = campaignsQuery.gte('date', start)
   if (end) campaignsQuery = campaignsQuery.lte('date', end)
 

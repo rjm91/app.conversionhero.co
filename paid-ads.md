@@ -32,7 +32,7 @@ One Google **manager (MCC) account** is connected once via OAuth; a single refre
 | `app/api/google-ads/auth/route.js` | Initiates OAuth re-auth flow |
 | `app/api/google-ads/callback/route.js` | Exchanges code → refresh token, persists it |
 | `app/api/google-ads/status/route.js` | Token status |
-| `app/api/sync-youtube-ads/route.js` | Pulls campaigns/ad groups/ads per `customer_id`, stores in `client_yt_campaigns` (keyed by `client_id`). Runs daily via Vercel cron (`vercel.json`). |
+| `app/api/sync-youtube-ads/route.js` | Pulls campaigns/ad groups/ads per `customer_id`, stores in `client_google_campaigns` (keyed by `client_id`). Runs daily via Vercel cron (`vercel.json`). |
 | `app/control/[clientId]/paid-ads/page.js` | The UI — accordion, chart, filters, sorting, drill-down, CH attribution columns |
 
 **Env vars:** `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_MANAGER_ID`, `GOOGLE_ADS_REFRESH_TOKEN` (DB token in `google_ads_tokens` takes precedence).

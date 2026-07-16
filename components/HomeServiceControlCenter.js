@@ -196,8 +196,8 @@ export default function HomeServiceControlCenter({ clientId, clientName }) {
     const [leadRes, campRes, adRes, funnelRes] = await Promise.all([
       supabase.from('client_lead').select('lead_id, first_name, last_name, email, phone, lead_status, utm_campaign, utm_source, created_at, ch_notes')
         .eq('client_id', clientId).gte('created_at', dayStartISO).lte('created_at', dayEndISO).order('created_at', { ascending: false }),
-      supabase.from('client_yt_campaigns').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
-      supabase.from('client_yt_ads').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
+      supabase.from('client_google_campaigns').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
+      supabase.from('client_google_ads').select('*').eq('client_id', clientId).gte('date', appliedStart).lte('date', appliedEnd),
       supabase.from('client_funnels').select('*').eq('client_id', clientId),
     ])
     setLeads(leadRes.data || [])
