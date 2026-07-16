@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-07 04:32:42 UTC",
+  "generatedAt": "2026-07-16 22:54:22 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -675,6 +675,91 @@
       ]
     },
     {
+      "name": "agent_memories",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "embedding",
+          "type": "public.vector(1024)",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "superseded_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "agent_memories.id"
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "profiles.id"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "blaztr_daily",
       "columns": [
         {
@@ -1054,6 +1139,14 @@
           "default": null,
           "pk": false,
           "fk": "agency.id"
+        },
+        {
+          "name": "settings",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
         }
       ]
     },
@@ -1512,6 +1605,99 @@
       ]
     },
     {
+      "name": "client_daily_pnl",
+      "columns": [
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "net_sales",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "gross_profit",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "total_orders",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "total_spend",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cogs",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "metrics",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "source_refs",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost_per_label",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "computed_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_domains",
       "columns": [
         {
@@ -1804,6 +1990,296 @@
       ]
     },
     {
+      "name": "client_google_ad_groups",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "customer_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_group_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_group_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "clicks",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cpc",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost_per_conversion",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_start",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_end",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_google_ads",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "customer_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_group_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ad_type",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "clicks",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cpc",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost_per_conversion",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_start",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_end",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "youtube_video_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_google_ads_account",
       "columns": [
         {
@@ -1873,6 +2349,163 @@
         {
           "name": "created_at",
           "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_google_campaigns",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "customer_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "campaign_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "budget",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "clicks",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cpc",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cost_per_conversion",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_start",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date_range_end",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "channel_type",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "impressions",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "conversions_value",
+          "type": "numeric",
           "nullable": true,
           "default": null,
           "pk": false,
@@ -3160,453 +3793,6 @@
         {
           "name": "updated_at",
           "type": "timestamp with time zone",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        }
-      ]
-    },
-    {
-      "name": "client_yt_ad_groups",
-      "columns": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "nullable": false,
-          "default": null,
-          "pk": true,
-          "fk": null
-        },
-        {
-          "name": "client_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": "client.client_id"
-        },
-        {
-          "name": "customer_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "campaign_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_group_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_group_name",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "status",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "clicks",
-          "type": "integer",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cpc",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "conversions",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost_per_conversion",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_start",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_end",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "synced_at",
-          "type": "timestamp with time zone",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        }
-      ]
-    },
-    {
-      "name": "client_yt_ads",
-      "columns": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "nullable": false,
-          "default": null,
-          "pk": true,
-          "fk": null
-        },
-        {
-          "name": "client_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": "client.client_id"
-        },
-        {
-          "name": "customer_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "campaign_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_group_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_id",
-          "type": "text",
-          "nullable": false,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_name",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "ad_type",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "status",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "clicks",
-          "type": "integer",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cpc",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "conversions",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost_per_conversion",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_start",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_end",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "synced_at",
-          "type": "timestamp with time zone",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "youtube_video_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        }
-      ]
-    },
-    {
-      "name": "client_yt_campaigns",
-      "columns": [
-        {
-          "name": "id",
-          "type": "bigint",
-          "nullable": false,
-          "default": null,
-          "pk": true,
-          "fk": null
-        },
-        {
-          "name": "client_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": "client.client_id"
-        },
-        {
-          "name": "customer_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "campaign_id",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "campaign_name",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "status",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "budget",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "clicks",
-          "type": "bigint",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cpc",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "conversions",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "cost_per_conversion",
-          "type": "numeric",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_start",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date_range_end",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "synced_at",
-          "type": "timestamp with time zone",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "channel_type",
-          "type": "text",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "date",
-          "type": "date",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "impressions",
-          "type": "bigint",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "conversions_value",
-          "type": "numeric",
           "nullable": true,
           "default": null,
           "pk": false,
@@ -4943,6 +5129,83 @@
         {
           "name": "updated_at",
           "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "terminal_chat",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "surface",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "actions",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "title",
+          "type": "text",
           "nullable": true,
           "default": null,
           "pk": false,
