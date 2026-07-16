@@ -162,9 +162,9 @@ async function main() {
   const END = daysAgo(0)
 
   // Delete existing demo ad data
-  await supabase.from('client_yt_campaigns').delete().eq('client_id', CLIENT_ID)
-  await supabase.from('client_yt_ad_groups').delete().eq('client_id', CLIENT_ID)
-  await supabase.from('client_yt_ads').delete().eq('client_id', CLIENT_ID)
+  await supabase.from('client_google_campaigns').delete().eq('client_id', CLIENT_ID)
+  await supabase.from('client_google_ad_groups').delete().eq('client_id', CLIENT_ID)
+  await supabase.from('client_google_ads').delete().eq('client_id', CLIENT_ID)
 
   const campaigns = [
     { id: '90001', name: `${CLIENT_ID} | HVAC Repair | Nashville (25-54) | Video Ads | Launched 2026-03-15`, status: 'ENABLED', budget: 50, type: 'VIDEO', avgDaily: 42 },
@@ -288,19 +288,19 @@ async function main() {
 
   // Insert in batches (Supabase has row limits)
   for (let i = 0; i < campaignRows.length; i += 500) {
-    const { error } = await supabase.from('client_yt_campaigns').insert(campaignRows.slice(i, i + 500))
+    const { error } = await supabase.from('client_google_campaigns').insert(campaignRows.slice(i, i + 500))
     if (error) { console.error('Campaign insert error:', error); break }
   }
   console.log(`✓ ${campaignRows.length} campaign daily rows created (${campaigns.length} campaigns)`)
 
   for (let i = 0; i < adGroupRows.length; i += 500) {
-    const { error } = await supabase.from('client_yt_ad_groups').insert(adGroupRows.slice(i, i + 500))
+    const { error } = await supabase.from('client_google_ad_groups').insert(adGroupRows.slice(i, i + 500))
     if (error) { console.error('Ad group insert error:', error); break }
   }
   console.log(`✓ ${adGroupRows.length} ad group daily rows created`)
 
   for (let i = 0; i < adRows.length; i += 500) {
-    const { error } = await supabase.from('client_yt_ads').insert(adRows.slice(i, i + 500))
+    const { error } = await supabase.from('client_google_ads').insert(adRows.slice(i, i + 500))
     if (error) { console.error('Ad insert error:', error); break }
   }
   console.log(`✓ ${adRows.length} ad daily rows created`)

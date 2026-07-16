@@ -1438,7 +1438,7 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
     'New Orders': "Orders from first-time customers — a customer whose first-ever order (matched by email, across all history) falls in this range. The % is new ÷ total orders.",
     'True AOV': 'Average order value after discounts & refunds — Net Sales ÷ Total Orders.',
     'Meta Spend': 'Meta (Facebook / Instagram) ad spend, from client_meta_campaigns. The % is Meta’s share of total ad spend (Meta + Google).',
-    'Google Spend': 'Google Ads spend, from client_yt_campaigns. The % is Google’s share of total ad spend (Meta + Google).',
+    'Google Spend': 'Google Ads spend, from client_google_campaigns. The % is Google’s share of total ad spend (Meta + Google).',
     'Ad Spend (total)': 'Meta + Google spend combined. Shown as % of Gross Sales.',
     'Blended ROAS': 'Return on ad spend, blended across all channels — Net Sales ÷ total ad spend. 3x = $3 of net sales per $1 spent.',
     'Blended CAC': 'Blended customer-acquisition cost — total ad spend ÷ Total Orders. Cost per order across new AND returning buyers.',
@@ -1571,7 +1571,7 @@ function PnlOrdersDrill({ orders, measure, costPerLabel, rangeLabel }) {
 function PnlCampaignsDrill({ campaigns, platform, rangeLabel }) {
   const $ = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
   const rows = campaigns.filter(c => c.platform === platform).sort((a, b) => (b.spend || 0) - (a.spend || 0))
-  const table = platform === 'Meta' ? 'client_meta_campaigns' : 'client_yt_campaigns'
+  const table = platform === 'Meta' ? 'client_meta_campaigns' : 'client_google_campaigns'
   const total = rows.reduce((s, c) => s + (Number(c.spend) || 0), 0)
   return (
     <div className="src">

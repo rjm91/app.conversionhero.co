@@ -53,8 +53,8 @@ function localDay(d = new Date()) {
      at 11:50pm local counts toward that local day. (This replaced an old
      `+ 'T23:59:59-12:00'` fudge that approximated the boundary.)
 
-   - **Date-only columns** (`client_yt_campaigns.date`, `client_meta_campaigns.date`,
-     `client_tiktok_campaigns.date`, `client_yt_ads.date` — ad platform daily rows).
+   - **Date-only columns** (`client_google_campaigns.date`, `client_meta_campaigns.date`,
+     `client_tiktok_campaigns.date`, `client_google_ads.date` — ad platform daily rows).
      These have no time component and are filtered with the plain local date
      strings: `.gte('date', start).lte('date', end)`. **See the caveat below.**
 

@@ -275,7 +275,7 @@ export default function ProjectionCenter({ clientId, clientName }) {
         .lte('created_at', dayEndISO)
         .order('created_at', { ascending: false })
         .range(from, to)).then(rows => ({ data: rows })).catch(() => ({ data: [] })),
-      supabase.from('client_yt_campaigns')
+      supabase.from('client_google_campaigns')
         .select('date, cost')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)

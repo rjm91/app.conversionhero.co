@@ -216,7 +216,7 @@ async function fetchAdVideos(accessToken, customerId) {
 async function saveCampaigns(clientId, customerId, campaigns, allCampaigns, startDate, endDate) {
   // Delete existing daily rows for this client + date range
   await supabase
-    .from('client_yt_campaigns')
+    .from('client_google_campaigns')
     .delete()
     .eq('client_id', clientId)
     .gte('date', startDate)
@@ -224,7 +224,7 @@ async function saveCampaigns(clientId, customerId, campaigns, allCampaigns, star
 
   // Also clean up any old range-based rows for backward compat
   await supabase
-    .from('client_yt_campaigns')
+    .from('client_google_campaigns')
     .delete()
     .eq('client_id', clientId)
     .eq('date_range_start', startDate)
@@ -280,13 +280,13 @@ async function saveCampaigns(clientId, customerId, campaigns, allCampaigns, star
   }
 
   if (rows.length === 0) return
-  const { error } = await supabase.from('client_yt_campaigns').insert(rows)
+  const { error } = await supabase.from('client_google_campaigns').insert(rows)
   if (error) throw new Error('[Step 3 - Supabase] Insert error: ' + JSON.stringify(error))
 }
 
 // Step 3b: Save daily ad group rows to Supabase (including zero-activity)
 async function saveAdGroups(clientId, customerId, adGroups, allAdGroups, startDate, endDate) {
-  await supabase.from('client_yt_ad_groups').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
+  await supabase.from('client_google_ad_groups').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
 
   const rows = adGroups.map(row => ({
     client_id:           clientId,
@@ -331,13 +331,13 @@ async function saveAdGroups(clientId, customerId, adGroups, allAdGroups, startDa
   }
 
   if (rows.length === 0) return
-  const { error } = await supabase.from('client_yt_ad_groups').insert(rows)
+  const { error } = await supabase.from('client_google_ad_groups').insert(rows)
   if (error) throw new Error('[Step 3b - Supabase] Ad groups insert error: ' + JSON.stringify(error))
 }
 
 // Step 3c: Save daily ad rows to Supabase (including zero-activity)
 async function saveAds(clientId, customerId, ads, allAds, startDate, endDate, videoMap = {}) {
-  await supabase.from('client_yt_ads').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
+  await supabase.from('client_google_ads').delete().eq('client_id', clientId).gte('date', startDate).lte('date', endDate)
 
   const rows = ads.map(row => ({
     client_id:           clientId,
@@ -388,7 +388,7 @@ async function saveAds(clientId, customerId, ads, allAds, startDate, endDate, vi
   }
 
   if (rows.length === 0) return
-  const { error } = await supabase.from('client_yt_ads').insert(rows)
+  const { error } = await supabase.from('client_google_ads').insert(rows)
   if (error) throw new Error('[Step 3c - Supabase] Ads insert error: ' + JSON.stringify(error))
 }
 

@@ -129,7 +129,7 @@ async function fetchClientData(clientId, start, end) {
 
   // Campaigns
   let campsQ = supabase
-    .from('client_yt_campaigns')
+    .from('client_google_campaigns')
     .select('campaign_id, cost, date')
     .eq('client_id', clientId)
   if (start) campsQ = campsQ.gte('date', start)

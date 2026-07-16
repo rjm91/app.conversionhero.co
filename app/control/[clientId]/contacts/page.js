@@ -427,7 +427,7 @@ export default function ContactsPage() {
       }
       // Daily Google Ads spend over the same range
       let spendQ = supabase
-        .from('client_yt_campaigns')
+        .from('client_google_campaigns')
         .select('date, cost')
         .eq('client_id', clientId)
       if (start) spendQ = spendQ.gte('date', start.toISOString().slice(0, 10))

@@ -791,7 +791,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
         .lte('created_at', dayEndISO)
         .order('created_at', { ascending: false })
         .range(from, to)).catch(() => []),
-      supabase.from('client_yt_campaigns')
+      supabase.from('client_google_campaigns')
         .select('*')
         .eq('client_id', clientId)
         .ilike('campaign_name', `%${clientId}%`)

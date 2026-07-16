@@ -216,7 +216,7 @@ All triggered by a single instruction from the user, or run fully autonomously o
 | `client` | Client accounts; `agency_id` ties each to its owning agency. |
 | `profiles` | User accounts linked to auth.users; `role`, `agency_id`, and (legacy) `client_id`. Memberships are the source of truth for access. |
 | `client_google_ads_account` | Google Ads account credentials per client |
-| `client_yt_campaigns` | Synced YouTube campaign performance data |
+| `client_google_campaigns` | Synced YouTube campaign performance data |
 | `client_video_scripts` | Scripts written for/by each client |
 | `client_lead` | Per-client **leads/contacts only** (funnel form fills, quote requests, manual contacts) — Shopify order rows were split out to `client_orders` and deleted (2026-07-06); `sale_amount` = sold-job revenue for lead-driven industries |
 | `client_orders` | Ecom order transactions — **client business revenue** for ecom. `order_id` platform-prefixed (`shopify_<id>` today), full UTM/gclid/wbraid attribution + `shopify_data` jsonb; written by the Shopify sync + webhook via `orderNodeToOrderRow` (`lib/shopify.js`). Carries customer geo/contact (zip/city/state/address/phone, shipping-first with billing fallback; country in `shopify_data`); the Shopify grant includes `read_all_orders`, so history extends to the store's first order (2026-01-20) |
