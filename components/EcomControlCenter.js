@@ -105,6 +105,7 @@ const RANGE_OPTIONS = [
   ['last_7',    'Last 7 Days'],
   ['last_14',   'Last 14 Days'],
   ['last_30',   'Last 30 Days'],
+  ['last_60',   'Last 60 Days'],
   ['last_90',   'Last 90 Days'],
   ['this_month', 'This Month'],
   ['last_month', 'Last Month'],
@@ -123,6 +124,7 @@ function rangeFor(preset) {
     case 'last_7':    return { start: daysAgo(7),  end }
     case 'last_14':   return { start: daysAgo(14), end }
     case 'last_30':   return { start: daysAgo(30), end }
+    case 'last_60':   return { start: daysAgo(60), end }
     case 'last_90':   return { start: daysAgo(90), end }
     case 'this_month': return { start: localDay(new Date(today.getFullYear(), today.getMonth(), 1)), end }
     case 'last_month': {
