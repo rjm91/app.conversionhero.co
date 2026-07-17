@@ -38,16 +38,34 @@ function parseCsv(text) {
   return rows
 }
 
+// BOM lives as ROWS in client_sku_bom (one per SKU × component). Assemble the
+// per-SKU bom object here so every consumer (COGS engine, dashboards, mission)
+// keeps its existing shape. Paginated: 77 SKUs × 16 components > the 1,000-row
+// PostgREST cap.
+async function fetchBomBySku(db, clientId) {
+  const bySku = {}
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.from('client_sku_bom')
+      .select('parent_sku, component, qty, value').eq('client_id', clientId)
+      .order('id').range(from, from + 999)
+    if (error) throw new Error(error.message)
+    for (const r of (data || [])) (bySku[r.parent_sku] = bySku[r.parent_sku] || {})[r.component] = r.value ?? Number(r.qty)
+    if (!data || data.length < 1000) break
+  }
+  return bySku
+}
+
 export async function GET(request) {
   const clientId = request.nextUrl.searchParams.get('client_id')
   const g = await gate(clientId)
   if (g.error) return NextResponse.json({ error: g.error }, { status: g.status })
   const db = admin()
-  const [{ data: materials }, { data: skus }] = await Promise.all([
+  const [{ data: materials }, { data: skus }, bomBySku] = await Promise.all([
     db.from('client_materials').select('name, cost, unit, notes').eq('client_id', clientId).order('name'),
-    db.from('client_skus').select('parent_sku, size, bom').eq('client_id', clientId).order('parent_sku'),
+    db.from('client_skus').select('parent_sku, size').eq('client_id', clientId).order('parent_sku'),
+    fetchBomBySku(db, clientId),
   ])
-  return NextResponse.json({ materials: materials || [], skus: skus || [] })
+  return NextResponse.json({ materials: materials || [], skus: (skus || []).map(s => ({ ...s, bom: bomBySku[s.parent_sku] || {} })) })
 }
 
 // Upload a sheet (CSV) → replace that table for the client.
@@ -76,24 +94,35 @@ export async function POST(request) {
     } else {
       // Headers are canonicalized to the snake_case BOM keys (canonKey), so it
       // doesn't matter how the spreadsheet spells them — "FiberTape",
-      // "fiber tape", and "fiber_tape" all land as fiber_tape. Numeric cells
-      // become numbers; everything is trimmed.
+      // "fiber tape", and "fiber_tape" all land as fiber_tape. The BOM is
+      // stored as ROWS in client_sku_bom (numeric cells → qty, text → value).
       const skip = new Set(['parent_sku', 'sku_size', 'size'])
-      const sizeIdx = H.findIndex(h => ['sku_size', 'size'].includes(String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')))
-      const recs = rows.slice(1).filter(r => r[0]).map(r => {
-        const bom = {}
+      const normH = (h) => String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
+      const sizeIdx = H.findIndex(h => ['sku_size', 'size'].includes(normH(h)))
+      const skuRecs = []
+      const bomRecs = []
+      for (const r of rows.slice(1)) {
+        if (!r[0]) continue
+        const parent = String(r[0]).trim()
+        skuRecs.push({ client_id: clientId, parent_sku: parent, size: (sizeIdx >= 0 ? r[sizeIdx] : null) || null })
         H.forEach((h, i) => {
-          const key = canonKey(h)
-          if (skip.has(String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'))) return
+          if (skip.has(normH(h))) return
           const val = String(r[i] ?? '').trim()
-          bom[key] = val !== '' && !isNaN(Number(val)) ? Number(val) : val
+          if (val === '') return
+          const isNum = !isNaN(Number(val))
+          bomRecs.push({ client_id: clientId, parent_sku: parent, component: canonKey(h), qty: isNum ? Number(val) : null, value: isNum ? null : val })
         })
-        return { client_id: clientId, parent_sku: String(r[0]).trim(), size: (sizeIdx >= 0 ? r[sizeIdx] : null) || null, bom }
-      })
+      }
+      await db.from('client_sku_bom').delete().eq('client_id', clientId)
       await db.from('client_skus').delete().eq('client_id', clientId)
-      const { error } = await db.from('client_skus').insert(recs)
+      const { error } = await db.from('client_skus').insert(skuRecs)
       if (error) throw error
-      return NextResponse.json({ ok: true, count: recs.length })
+      // Insert in chunks — a big sheet can exceed one request comfortably.
+      for (let i = 0; i < bomRecs.length; i += 500) {
+        const { error: be } = await db.from('client_sku_bom').insert(bomRecs.slice(i, i + 500))
+        if (be) throw be
+      }
+      return NextResponse.json({ ok: true, count: skuRecs.length, bom_rows: bomRecs.length })
     }
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
