@@ -1603,6 +1603,8 @@ function PlansSection() {
 
   function openStay(plan) { setForm(stayFormFromPlan(plan)); setError(null); setSaved(false); setDrawerOpen(true) }
   function openNew(type = 'stay') { setForm({ ...STAY_EMPTY_FORM, type }); setError(null); setSaved(false); setDrawerOpen(true) }
+  // Calendar range pick (quarter/year view) → new stay with dates prefilled
+  function openNewRange(startStr, endStr) { setForm({ ...STAY_EMPTY_FORM, type: 'stay', start_date: startStr, end_date: endStr }); setError(null); setSaved(false); setDrawerOpen(true) }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function payloadFrom(f) {
@@ -1739,7 +1741,7 @@ function PlansSection() {
             <div className="text-sm text-gray-500">No stays yet. Click New Stay to plan one.</div>
           ) : (
             <>
-              <PlanCalendar stays={plans} today={new Date()} onSelect={openStay} onRangeChange={setRange} />
+              <PlanCalendar stays={plans} today={new Date()} onSelect={openStay} onRangeChange={setRange} onRangePick={openNewRange} />
               <div className="mt-3 text-right">
                 <button onClick={() => router.push('/control/plans')} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Open full planner →</button>
               </div>

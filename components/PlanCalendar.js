@@ -59,12 +59,15 @@ function chipLabel(s) {
 }
 
 /* ─── Main ─── */
-export default function PlanCalendar({ stays = [], today = new Date(), onSelect, onRangeChange }) {
+export default function PlanCalendar({ stays = [], today = new Date(), onSelect, onRangeChange, onRangePick }) {
   const [zoomIdx, setZoomIdx] = useState(1)        // default Week
   const [cursor, setCursor] = useState(() => midnight(today))   // month/quarter/year nav
   const [viewDate, setViewDate] = useState(() => midnight(today)) // label while scrolling day/week
+  const [rangeAnchor, setRangeAnchor] = useState(null) // first click of a quarter/year range pick
+  const [hoverDay, setHoverDay] = useState(null)       // live end of the range preview
   const level = LEVELS[zoomIdx]
   const isScroll = level.key === 'day' || level.key === 'week'
+  const isMini = level.key === 'quarter' || level.key === 'year'
   const timeApi = useRef(null)
 
   // Report the active period so the KPI strip can total over what's in view
@@ -82,6 +85,27 @@ export default function PlanCalendar({ stays = [], today = new Date(), onSelect,
   }
   function goToday() { if (isScroll) timeApi.current?.scrollToNow(); else setCursor(midnight(today)) }
   function zoomToDay(d) { setCursor(midnight(d)); setViewDate(midnight(d)); setZoomIdx(0) }
+
+  function clearRange() { setRangeAnchor(null); setHoverDay(null) }
+  // Mini-month click: first click anchors a range, second completes it; same day twice zooms in
+  function pickDay(d) {
+    if (!onRangePick) { zoomToDay(d); return }
+    const day = midnight(d)
+    if (!rangeAnchor) { setRangeAnchor(day); setHoverDay(day); return }
+    if (sameDay(rangeAnchor, day)) { clearRange(); zoomToDay(day); return }
+    const [a, b] = rangeAnchor <= day ? [rangeAnchor, day] : [day, rangeAnchor]
+    clearRange()
+    onRangePick(ymd(a), ymd(b))
+  }
+
+  // Esc cancels an in-progress range pick; leaving quarter/year drops it
+  useEffect(() => {
+    if (!rangeAnchor) return
+    function onKey(e) { if (e.key === 'Escape') clearRange() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [rangeAnchor])
+  useEffect(() => { if (!isMini) clearRange() }, [isMini])
 
   function label() {
     if (isScroll) return `${MOF[viewDate.getMonth()]} ${viewDate.getFullYear()}`
@@ -116,18 +140,21 @@ export default function PlanCalendar({ stays = [], today = new Date(), onSelect,
         {level.key === 'month' && <MonthGrid stays={stays} year={cursor.getFullYear()} month={cursor.getMonth()} today={today} onSelect={onSelect} />}
         {level.key === 'quarter' && (
           <div className="grid grid-cols-3 gap-3 p-3">
-            {[0, 1, 2].map(k => { const m = Math.floor(cursor.getMonth() / 3) * 3 + k; return <MiniMonth key={k} stays={stays} year={cursor.getFullYear()} month={m} today={today} onPickDay={zoomToDay} /> })}
+            {[0, 1, 2].map(k => { const m = Math.floor(cursor.getMonth() / 3) * 3 + k; return <MiniMonth key={k} stays={stays} year={cursor.getFullYear()} month={m} today={today} onPickDay={pickDay} onHoverDay={rangeAnchor ? setHoverDay : null} rangeAnchor={rangeAnchor} hoverDay={hoverDay} /> })}
           </div>
         )}
         {level.key === 'year' && (
           <div className="grid grid-cols-4 gap-3 p-3">
-            {Array.from({ length: 12 }, (_, m) => <MiniMonth key={m} stays={stays} year={cursor.getFullYear()} month={m} today={today} onPickDay={zoomToDay} />)}
+            {Array.from({ length: 12 }, (_, m) => <MiniMonth key={m} stays={stays} year={cursor.getFullYear()} month={m} today={today} onPickDay={pickDay} onHoverDay={rangeAnchor ? setHoverDay : null} rangeAnchor={rangeAnchor} hoverDay={hoverDay} />)}
           </div>
         )}
       </div>
 
       <p className="mt-2 text-[11px] text-gray-500 text-right">
-        {isScroll ? '↔ drag or scroll to move through time · click an item for details' : 'Click a day to zoom in · click an item for details'}
+        {isScroll ? '↔ drag or scroll to move through time · click an item for details'
+          : !isMini || !onRangePick ? 'Click a day to zoom in · click an item for details'
+          : rangeAnchor ? <span className="text-blue-400">Click an end date to plan a stay · same day again zooms in · Esc cancels</span>
+          : 'Click a day to start a range · same day twice to zoom in · click an item for details'}
       </p>
     </div>
   )
@@ -402,10 +429,13 @@ function MonthGrid({ stays, year, month, today, onSelect }) {
   )
 }
 
-/* ─── Mini month for Quarter / Year (dots, click a day to zoom in) ─── */
-function MiniMonth({ stays, year, month, today, onPickDay }) {
+/* ─── Mini month for Quarter / Year (dots, range pick, click a day to zoom in) ─── */
+function MiniMonth({ stays, year, month, today, onPickDay, onHoverDay, rangeAnchor, hoverDay }) {
   const gridStart = startOfWeek(new Date(year, month, 1))
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
+  // Live range preview: anchor → hovered day, either direction
+  const lo = rangeAnchor && hoverDay ? (rangeAnchor <= hoverDay ? rangeAnchor : hoverDay) : rangeAnchor
+  const hi = rangeAnchor && hoverDay ? (rangeAnchor <= hoverDay ? hoverDay : rangeAnchor) : rangeAnchor
   return (
     <div className="bg-[#0f1326] border border-white/5 rounded-lg p-2">
       <div className="text-center text-xs font-bold text-gray-300 mb-1">{MOF[month]}</div>
@@ -415,10 +445,15 @@ function MiniMonth({ stays, year, month, today, onPickDay }) {
           const inMonth = day.getMonth() === month
           const isToday = sameDay(day, today)
           const dot = stays.find(s => coversDay(s, day))
+          const inRange = inMonth && lo && day >= lo && day <= hi
+          const isEdge = inRange && (sameDay(day, lo) || sameDay(day, hi))
           return (
-            <button key={i} onClick={() => onPickDay(day)}
-              className={`relative h-6 rounded grid place-items-center text-[9px] hover:bg-white/10 ${inMonth ? 'text-gray-300' : 'text-gray-700'}`}>
-              <span className={isToday ? 'bg-blue-600 text-white w-4 h-4 rounded-full grid place-items-center' : ''}>{day.getDate()}</span>
+            <button key={i} onClick={() => onPickDay(day)} onMouseEnter={onHoverDay ? () => onHoverDay(day) : undefined}
+              className={`relative h-6 grid place-items-center text-[9px] ${
+                isEdge ? 'rounded bg-blue-600 text-white font-bold'
+                : inRange ? 'rounded-none bg-blue-600/25 text-blue-100'
+                : `rounded hover:bg-white/10 ${inMonth ? 'text-gray-300' : 'text-gray-700'}`}`}>
+              <span className={isToday && !inRange ? 'bg-blue-600 text-white w-4 h-4 rounded-full grid place-items-center' : ''}>{day.getDate()}</span>
               {dot && <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: dot.color }} />}
             </button>
           )
