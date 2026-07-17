@@ -1355,12 +1355,125 @@ function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowK
 
 /* ══════════ Views (tab contents) ══════════ */
 
-function OverviewView({ m, rangeLabel, canEditLabel, onSaveLabel }) {
+function OverviewView({ m, rangeLabel }) {
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
-      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. Click any line to trace it to its source table — orders drill down to line items → SKU → BOM → the raw material cost.</p>
-      <PnlTable p={m.pnl} sources={m.sources} campaigns={m.campaigns} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. One row per day (client business timezone), newest first — revenue, channel splits (order channel = Meta/Google), blended efficiency, BOM COGS, contribution margin. Website columns light up when GA4 is connected.</p>
+      <DailyPnlTable m={m} />
+    </div>
+  )
+}
+
+// Row-per-day P&L table (mirrors the Client_daily_pnl_NEW sheet). Channel
+// revenue = orders whose derived channel is Meta/Google (paid-only ROAS
+// convention); CM = net − BOM COGS − spend. Days bucket in the client's
+// business timezone so a day means the same thing here and on Jason's sheet.
+function DailyPnlTable({ m }) {
+  const orders = m.sources?.orders || []
+  const tz = m.sources?.tz || undefined
+  const newClassified = !!m.pnl?.newClassified
+  const dayOf = (iso) => {
+    try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) }
+    catch { return String(iso).slice(0, 10) }
+  }
+  const mk = () => ({ gross: 0, net: 0, orders: 0, newOrders: 0, cogs: 0,
+    meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } })
+  const byDay = {}
+  const R = (d) => (byDay[d] = byDay[d] || { day: d, ...mk() })
+  for (const o of orders) {
+    const r = R(dayOf(o.date))
+    r.gross += o.gross; r.net += o.net; r.cogs += o.cogs
+    if (o.net > 0) { r.orders += 1; if (o.isNew) r.newOrders += 1 }
+    const c = o.channel === 'Meta' ? r.meta : o.channel === 'Google' ? r.google : null
+    if (c) { c.net += o.net; c.cogs += o.cogs; if (o.net > 0) c.orders += 1 }
+  }
+  for (const d of (m.daily || [])) {
+    if (!(d.spendMeta || d.spendGoogle)) continue
+    const r = R(d.date)
+    r.meta.spend += d.spendMeta || 0
+    r.google.spend += d.spendGoogle || 0
+  }
+  const list = Object.values(byDay).sort((a, b) => b.day.localeCompare(a.day))
+  if (!list.length) return <p className="a-dim">no orders or spend in this range.</p>
+
+  // Totals row = same math over the whole range.
+  const tot = { day: 'Totals', ...mk() }
+  for (const r of list) {
+    tot.gross += r.gross; tot.net += r.net; tot.orders += r.orders; tot.newOrders += r.newOrders; tot.cogs += r.cogs
+    for (const k of ['meta', 'google']) { tot[k].net += r[k].net; tot[k].cogs += r[k].cogs; tot[k].orders += r[k].orders; tot[k].spend += r[k].spend }
+  }
+
+  const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
+  const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
+  const pc = (n) => n == null ? '—' : (n * 100).toFixed(1) + '%'
+  const div = (a, b) => (b > 0 ? a / b : null)
+  const cmCls = (n) => n > 0 ? 'good' : n < 0 ? 'bad' : ''
+  const roasCls = (n) => n == null ? '' : n >= 1 ? 'good' : 'bad'
+
+  const cells = (r, isTot) => {
+    const spend = r.meta.spend + r.google.spend
+    const paidNet = r.meta.net + r.google.net
+    const metaCM = (r.meta.net || r.meta.spend) ? r.meta.net - r.meta.cogs - r.meta.spend : null
+    const googleCM = (r.google.net || r.google.spend) ? r.google.net - r.google.cogs - r.google.spend : null
+    const cm = r.net - r.cogs - spend
+    const fmtDay = isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
+    return (
+      <>
+        <td>{fmtDay}</td>
+        <td className="strong">{$(r.gross)}</td>
+        <td>{r.orders}</td>
+        <td>{newClassified ? r.newOrders : '—'}</td>
+        <td>{newClassified ? pc(div(r.newOrders, r.orders)) : '—'}</td>
+        <td className="warn">{r.meta.spend ? $(r.meta.spend) : '—'}</td>
+        <td className={roasCls(div(r.meta.net, r.meta.spend))}>{x(div(r.meta.net, r.meta.spend))}</td>
+        <td>{$(div(r.meta.net, r.meta.orders))}</td>
+        <td>{pc(div(r.meta.net, paidNet))}</td>
+        <td className={cmCls(metaCM)}>{metaCM == null ? '—' : $(metaCM)}</td>
+        <td className="warn">{r.google.spend ? $(r.google.spend) : '—'}</td>
+        <td className={roasCls(div(r.google.net, r.google.spend))}>{x(div(r.google.net, r.google.spend))}</td>
+        <td>{pc(div(r.google.net, paidNet))}</td>
+        <td className={cmCls(googleCM)}>{googleCM == null ? '—' : $(googleCM)}</td>
+        <td className={roasCls(div(r.net, spend))}>{x(div(r.net, spend))}</td>
+        <td>{$(div(r.net, r.orders))}</td>
+        <td>{$(div(spend, r.orders))}</td>
+        <td className="bad">{$(r.cogs)}</td>
+        <td className={cmCls(cm)}>{$(cm)}</td>
+        <td className="dim">—</td>
+        <td className="dim">—</td>
+        <td className="dim">—</td>
+      </>
+    )
+  }
+
+  return (
+    <div className="dpnl">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th colSpan={4}>Revenue &amp; Orders</th>
+            <th colSpan={5}>Meta</th>
+            <th colSpan={4}>Google</th>
+            <th colSpan={3}>Blended</th>
+            <th colSpan={2}>Margin</th>
+            <th colSpan={3}>Website (GA4)</th>
+          </tr>
+          <tr>
+            <th>Day</th>
+            <th>Gross Rev</th><th>Orders &gt;$0</th><th>New</th><th>New %</th>
+            <th>Spend</th><th>ROAS</th><th>AOV</th><th>% of Paid</th><th>CM</th>
+            <th>Spend</th><th>ROAS</th><th>% of Paid</th><th>CM</th>
+            <th>ROAS</th><th>AOV</th><th>CPA</th>
+            <th>COGS</th><th>CM</th>
+            <th>Users</th><th>$ / Visit</th><th>Conv %</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="tot">{cells(tot, true)}</tr>
+          {list.map(r => <tr key={r.day}>{cells(r, false)}</tr>)}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -2108,6 +2221,20 @@ const CSS = `
 .ide .cb-creative{font-size:11px;color:var(--purple);margin-top:5px;font-style:italic;}
 
 /* daily P&L */
+.ide .dpnl{border:1px solid var(--line);border-radius:9px;overflow:auto;margin-top:4px;max-height:calc(100vh - 320px);}
+.ide .dpnl table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11.5px;font-variant-numeric:tabular-nums;}
+.ide .dpnl th{position:sticky;top:0;background:var(--panel2);color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:6px 11px;text-align:right;white-space:nowrap;z-index:2;border-bottom:1px solid var(--line);}
+.ide .dpnl thead tr:first-child th{text-align:center;color:var(--dim);border-left:1px solid var(--line);top:0;}
+.ide .dpnl thead tr:first-child th:first-child{border-left:none;}
+.ide .dpnl thead tr:last-child th{top:23px;}
+.ide .dpnl td{padding:5.5px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line);color:var(--txt);}
+.ide .dpnl tbody tr:last-child td{border-bottom:none;}
+.ide .dpnl th:first-child,.ide .dpnl td:first-child{position:sticky;left:0;background:var(--panel);text-align:left;z-index:1;}
+.ide .dpnl thead th:first-child{z-index:3;background:var(--panel2);}
+.ide .dpnl tr.tot td{font-weight:700;background:rgba(110,168,254,.06);}
+.ide .dpnl tr.tot td:first-child{background:var(--panel2);}
+.ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
+.ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
 .ide .pnl{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
 .ide .pnl-row{display:flex;align-items:baseline;gap:10px;padding:5px 13px;font-size:12.5px;}
 .ide .pnl-row:nth-child(odd){background:rgba(255,255,255,.015);}
