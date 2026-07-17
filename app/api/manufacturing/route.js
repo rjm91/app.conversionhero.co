@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '../../../lib/supabase-server'
 import { userCanAccessClient } from '../../../lib/access'
+import { canonKey } from '../../../lib/cogs'
 
 function admin() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -73,11 +74,21 @@ export async function POST(request) {
       if (error) throw error
       return NextResponse.json({ ok: true, count: recs.length })
     } else {
-      const sizeIdx = H.indexOf('SKU SIZE')
+      // Headers are canonicalized to the snake_case BOM keys (canonKey), so it
+      // doesn't matter how the spreadsheet spells them — "FiberTape",
+      // "fiber tape", and "fiber_tape" all land as fiber_tape. Numeric cells
+      // become numbers; everything is trimmed.
+      const skip = new Set(['parent_sku', 'sku_size', 'size'])
+      const sizeIdx = H.findIndex(h => ['sku_size', 'size'].includes(String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')))
       const recs = rows.slice(1).filter(r => r[0]).map(r => {
         const bom = {}
-        H.forEach((h, i) => { if (h !== 'parent_sku' && h !== 'SKU SIZE') bom[h] = r[i] })
-        return { client_id: clientId, parent_sku: r[0], size: (sizeIdx >= 0 ? r[sizeIdx] : null) || null, bom }
+        H.forEach((h, i) => {
+          const key = canonKey(h)
+          if (skip.has(String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'))) return
+          const val = String(r[i] ?? '').trim()
+          bom[key] = val !== '' && !isNaN(Number(val)) ? Number(val) : val
+        })
+        return { client_id: clientId, parent_sku: String(r[0]).trim(), size: (sizeIdx >= 0 ? r[sizeIdx] : null) || null, bom }
       })
       await db.from('client_skus').delete().eq('client_id', clientId)
       const { error } = await db.from('client_skus').insert(recs)
