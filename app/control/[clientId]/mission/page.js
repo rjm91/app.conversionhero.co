@@ -36,6 +36,7 @@ const PALETTE_CMDS = [
 const TREE = [
   { section: 'WORKSPACE', items: [
     { id: 'overview', icon: '📊', label: 'Overview' },
+    { id: 'overview2', icon: '📑', label: 'Overview 2' },
   ]},
   { section: 'CAMPAIGNS', items: [
     { id: 'google', icon: '🔍', label: 'Google Ads' },
@@ -61,7 +62,7 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'Overview', overview2: 'Overview 2', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -1209,6 +1210,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
+  if (id === 'overview2') return <Overview2View m={m} rangeLabel={rangeLabel} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -1365,11 +1367,21 @@ function OverviewView({ m, rangeLabel }) {
   )
 }
 
-// Row-per-day P&L table (mirrors the Client_daily_pnl_NEW sheet). Channel
+// Row-per-day P&L rows (mirror the Client_daily_pnl_NEW sheet). Channel
 // revenue = orders whose derived channel is Meta/Google (paid-only ROAS
 // convention); CM = net − BOM COGS − spend. Days bucket in the client's
 // business timezone so a day means the same thing here and on Jason's sheet.
-function DailyPnlTable({ m }) {
+// Shared by the Overview table and the Overview 2 stacked tables.
+const DP = {
+  $: (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString(),
+  x: (n) => n == null ? '—' : n.toFixed(2) + 'x',
+  pc: (n) => n == null ? '—' : (n * 100).toFixed(1) + '%',
+  div: (a, b) => (b > 0 ? a / b : null),
+  cmCls: (n) => n > 0 ? 'good' : n < 0 ? 'bad' : '',
+  roasCls: (n) => n == null ? '' : n >= 1 ? 'good' : 'bad',
+  day: (r, isTot) => isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
+}
+function buildDailyRows(m) {
   const orders = m.sources?.orders || []
   const tz = m.sources?.tz || undefined
   const newClassified = !!m.pnl?.newClassified
@@ -1395,21 +1407,19 @@ function DailyPnlTable({ m }) {
     r.google.spend += d.spendGoogle || 0
   }
   const list = Object.values(byDay).sort((a, b) => b.day.localeCompare(a.day))
-  if (!list.length) return <p className="a-dim">no orders or spend in this range.</p>
-
   // Totals row = same math over the whole range.
   const tot = { day: 'Totals', ...mk() }
   for (const r of list) {
     tot.gross += r.gross; tot.net += r.net; tot.orders += r.orders; tot.newOrders += r.newOrders; tot.cogs += r.cogs
     for (const k of ['meta', 'google']) { tot[k].net += r[k].net; tot[k].cogs += r[k].cogs; tot[k].orders += r[k].orders; tot[k].spend += r[k].spend }
   }
+  return { list, tot, newClassified }
+}
 
-  const $ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString()
-  const x = (n) => n == null ? '—' : n.toFixed(2) + 'x'
-  const pc = (n) => n == null ? '—' : (n * 100).toFixed(1) + '%'
-  const div = (a, b) => (b > 0 ? a / b : null)
-  const cmCls = (n) => n > 0 ? 'good' : n < 0 ? 'bad' : ''
-  const roasCls = (n) => n == null ? '' : n >= 1 ? 'good' : 'bad'
+function DailyPnlTable({ m }) {
+  const { list, tot, newClassified } = buildDailyRows(m)
+  if (!list.length) return <p className="a-dim">no orders or spend in this range.</p>
+  const { $, x, pc, div, cmCls, roasCls } = DP
 
   const cells = (r, isTot) => {
     const spend = r.meta.spend + r.google.spend
@@ -1474,6 +1484,82 @@ function DailyPnlTable({ m }) {
           {list.map(r => <tr key={r.day}>{cells(r, false)}</tr>)}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// Overview 2 — the same day rows, but each group (Revenue & Orders / Meta /
+// Google / Blended / Margin) gets its OWN table, stacked vertically, instead
+// of sitting side by side in one wide table.
+function Overview2View({ m, rangeLabel }) {
+  const { list, tot, newClassified } = buildDailyRows(m)
+  const { $, x, pc, div, cmCls, roasCls } = DP
+  if (!list.length) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
+
+  const Table = ({ title, heads, cell }) => (
+    <div className="dp2-sec">
+      <h5 className="dp2-h">{title}</h5>
+      <div className="dpnl dp2">
+        <table>
+          <thead><tr><th>Day</th>{heads.map(h => <th key={h}>{h}</th>)}</tr></thead>
+          <tbody>
+            <tr className="tot"><td>{DP.day(tot, true)}</td>{cell(tot)}</tr>
+            {list.map(r => <tr key={r.day}><td>{DP.day(r, false)}</td>{cell(r)}</tr>)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+  const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - c.spend : null
+
+  return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L — stacked</h4>
+      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. Same rows and math as the Overview, split into one table per group.</p>
+      <Table title="Revenue & Orders" heads={['Gross Rev', 'Orders >$0', 'New', 'New %']} cell={(r) => (
+        <>
+          <td className="strong">{$(r.gross)}</td>
+          <td>{r.orders}</td>
+          <td>{newClassified ? r.newOrders : '—'}</td>
+          <td>{newClassified ? pc(div(r.newOrders, r.orders)) : '—'}</td>
+        </>
+      )} />
+      <Table title="Meta" heads={['Spend', 'ROAS', 'AOV', '% of Paid Ad Rev', 'CM']} cell={(r) => (
+        <>
+          <td className="warn">{r.meta.spend ? $(r.meta.spend) : '—'}</td>
+          <td className={roasCls(div(r.meta.net, r.meta.spend))}>{x(div(r.meta.net, r.meta.spend))}</td>
+          <td>{$(div(r.meta.net, r.meta.orders))}</td>
+          <td>{pc(div(r.meta.net, r.meta.net + r.google.net))}</td>
+          <td className={cmCls(chCM(r.meta))}>{chCM(r.meta) == null ? '—' : $(chCM(r.meta))}</td>
+        </>
+      )} />
+      <Table title="Google" heads={['Spend', 'ROAS', '% of Paid Ad Rev', 'CM']} cell={(r) => (
+        <>
+          <td className="warn">{r.google.spend ? $(r.google.spend) : '—'}</td>
+          <td className={roasCls(div(r.google.net, r.google.spend))}>{x(div(r.google.net, r.google.spend))}</td>
+          <td>{pc(div(r.google.net, r.meta.net + r.google.net))}</td>
+          <td className={cmCls(chCM(r.google))}>{chCM(r.google) == null ? '—' : $(chCM(r.google))}</td>
+        </>
+      )} />
+      <Table title="Blended" heads={['ROAS', 'AOV', 'CPA']} cell={(r) => {
+        const spend = r.meta.spend + r.google.spend
+        return (
+          <>
+            <td className={roasCls(div(r.net, spend))}>{x(div(r.net, spend))}</td>
+            <td>{$(div(r.net, r.orders))}</td>
+            <td>{$(div(spend, r.orders))}</td>
+          </>
+        )
+      }} />
+      <Table title="Margin" heads={['COGS', 'CM']} cell={(r) => {
+        const cm = r.net - r.cogs - (r.meta.spend + r.google.spend)
+        return (
+          <>
+            <td className="bad">{$(r.cogs)}</td>
+            <td className={cmCls(cm)}>{$(cm)}</td>
+          </>
+        )
+      }} />
     </div>
   )
 }
@@ -2235,6 +2321,11 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
+.ide .dp2-sec{margin-bottom:22px;}
+.ide .dp2-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);margin:0 0 6px;}
+.ide .dpnl.dp2{max-height:420px;display:inline-block;min-width:0;max-width:100%;}
+.ide .dpnl.dp2 table{min-width:0;}
+.ide .dpnl.dp2 thead tr:last-child th{top:0;}
 .ide .pnl{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:4px;}
 .ide .pnl-row{display:flex;align-items:baseline;gap:10px;padding:5px 13px;font-size:12.5px;}
 .ide .pnl-row:nth-child(odd){background:rgba(255,255,255,.015);}
