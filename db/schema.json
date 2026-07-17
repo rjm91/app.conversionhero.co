@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 22:54:22 UTC",
+  "generatedAt": "2026-07-17 22:00:02 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -3607,6 +3607,67 @@
       ]
     },
     {
+      "name": "client_sku_bom",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "parent_sku",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "component",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "qty",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "value",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_skus",
       "columns": [
         {
@@ -3637,14 +3698,6 @@
           "name": "size",
           "type": "text",
           "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
-          "name": "bom",
-          "type": "jsonb",
-          "nullable": false,
           "default": null,
           "pk": false,
           "fk": null
@@ -4684,6 +4737,14 @@
           "name": "cost",
           "type": "numeric",
           "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "image_url",
+          "type": "text",
+          "nullable": true,
           "default": null,
           "pk": false,
           "fk": null
