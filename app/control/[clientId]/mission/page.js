@@ -2223,10 +2223,10 @@ const CSS = `
 /* daily P&L */
 .ide .dpnl{border:1px solid var(--line);border-radius:9px;overflow:auto;margin-top:4px;max-height:calc(100vh - 320px);}
 .ide .dpnl table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11.5px;font-variant-numeric:tabular-nums;}
-.ide .dpnl th{position:sticky;top:0;background:var(--panel2);color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:6px 11px;text-align:right;white-space:nowrap;z-index:2;border-bottom:1px solid var(--line);}
-.ide .dpnl thead tr:first-child th{text-align:center;color:var(--dim);border-left:1px solid var(--line);top:0;}
+.ide .dpnl th{position:sticky;top:0;background:var(--panel2);color:var(--txt);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;line-height:1;padding:8px 11px;text-align:right;white-space:nowrap;z-index:2;border-bottom:1px solid var(--line);}
+.ide .dpnl thead tr:first-child th{text-align:center;color:var(--blue);font-size:10px;border-left:1px solid var(--line);top:0;}
 .ide .dpnl thead tr:first-child th:first-child{border-left:none;}
-.ide .dpnl thead tr:last-child th{top:23px;}
+.ide .dpnl thead tr:last-child th{top:26px;}
 .ide .dpnl td{padding:5.5px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line);color:var(--txt);}
 .ide .dpnl tbody tr:last-child td{border-bottom:none;}
 .ide .dpnl th:first-child,.ide .dpnl td:first-child{position:sticky;left:0;background:var(--panel);text-align:left;z-index:1;}
