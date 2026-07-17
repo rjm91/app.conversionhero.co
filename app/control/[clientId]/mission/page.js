@@ -1462,8 +1462,8 @@ function DailyPnlTable({ m }) {
           <tr>
             <th>Day</th>
             <th>Gross Rev</th><th>Orders &gt;$0</th><th>New</th><th>New %</th>
-            <th>Spend</th><th>ROAS</th><th>AOV</th><th>% of Paid</th><th>CM</th>
-            <th>Spend</th><th>ROAS</th><th>% of Paid</th><th>CM</th>
+            <th>Spend</th><th>ROAS</th><th>AOV</th><th>% of Paid Ad Rev</th><th>CM</th>
+            <th>Spend</th><th>ROAS</th><th>% of Paid Ad Rev</th><th>CM</th>
             <th>ROAS</th><th>AOV</th><th>CPA</th>
             <th>COGS</th><th>CM</th>
             <th>Users</th><th>$ / Visit</th><th>Conv %</th>
