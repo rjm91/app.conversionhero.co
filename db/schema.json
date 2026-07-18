@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-18 01:35:58 UTC",
+  "generatedAt": "2026-07-18 01:54:03 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -3440,14 +3440,6 @@
           "fk": null
         },
         {
-          "name": "shopify_data",
-          "type": "jsonb",
-          "nullable": true,
-          "default": null,
-          "pk": false,
-          "fk": null
-        },
-        {
           "name": "order_name",
           "type": "text",
           "nullable": true,
@@ -3594,6 +3586,14 @@
         {
           "name": "last_utm_content",
           "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "net_revenue",
+          "type": "numeric",
           "nullable": true,
           "default": null,
           "pk": false,
