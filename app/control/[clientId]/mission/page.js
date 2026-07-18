@@ -1368,7 +1368,7 @@ const DP = {
   pc: (n) => n == null ? '—' : (n * 100).toFixed(1) + '%',
   div: (a, b) => (b > 0 ? a / b : null),
   cmCls: (n) => n > 0 ? 'good' : n < 0 ? 'bad' : '',
-  roasCls: (n) => n == null ? '' : n >= 1 ? 'good' : 'bad',
+  roasCls: (n) => n == null ? '' : n < 1 ? 'bad' : n <= 1.2 ? 'warn' : 'good',
   day: (r, isTot) => isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
 }
 function buildDailyRows(m) {
@@ -1467,6 +1467,12 @@ function OverviewView({ m, rangeLabel }) {
         </div>
       </div>
 
+      <div className="ov-key">
+        <span><i className="kd g" />positive / healthy · ROAS above 1.20x</span>
+        <span><i className="kd y" />breakeven zone · ROAS 1.00–1.20x</span>
+        <span><i className="kd r" />negative / below breakeven · ROAS under 1.00x</span>
+      </div>
+
       <div className="ov-grid">
         <div>
           <div className="ov-sec">
@@ -1474,7 +1480,7 @@ function OverviewView({ m, rangeLabel }) {
             <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
             <Line k="Discounts" v={'−' + $(r.discounts)} cls="warn" dk={{ kinds: ['orders'], line: 'discounts', explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
             <Line k="Refunds" v={'−' + $(r.refunds)} cls="bad" dk={{ kinds: ['orders'], line: 'refunds', explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
-            <Line k="Net Revenue" v={$(r.net)} cls="good" dk={{ kinds: ['orders'], line: 'net', explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
+            <Line k="Net Revenue" v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
@@ -2490,7 +2496,13 @@ const CSS = `
 .ide .ov-k{color:var(--dim);}
 .ide .ov-dots{flex:1;border-bottom:1px dotted var(--line);margin:0 8px 3px;}
 .ide .ov-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);}
+.ide .ov-v.good{color:var(--green);}
+.ide .ov-v.bad{color:var(--red);}
+.ide .ov-v.warn{color:var(--amber);}
 .ide .ov-v.lgreen{color:#8fe0bb;}
+.ide .ov-key{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:var(--dim);margin:2px 0 16px;}
+.ide .ov-key .kd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:baseline;}
+.ide .ov-key .kd.g{background:var(--green);}.ide .ov-key .kd.y{background:var(--amber);}.ide .ov-key .kd.r{background:var(--red);}
 .ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;}
 .ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
 .ide .ov-explain{font-size:12px;color:var(--dim);background:rgba(110,168,254,.06);border:1px solid rgba(110,168,254,.18);border-radius:7px;padding:8px 12px;margin-bottom:12px;max-width:1100px;line-height:1.55;}
