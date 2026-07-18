@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-18 01:54:03 UTC",
+  "generatedAt": "2026-07-18 04:05:29 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -1877,6 +1877,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
         }
       ]
     },
@@ -2965,6 +2973,14 @@
           "default": null,
           "pk": false,
           "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
         }
       ]
     },
