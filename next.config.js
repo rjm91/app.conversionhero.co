@@ -1,5 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    // OAuth discovery for the remote MCP server (Chorus etc.). RFC 9728 allows
+    // the resource path appended after the well-known segment — hence :path*.
+    return [
+      { source: '/.well-known/oauth-protected-resource', destination: '/api/oauth/prm' },
+      { source: '/.well-known/oauth-protected-resource/:path*', destination: '/api/oauth/prm' },
+      { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/asm' },
+      { source: '/.well-known/oauth-authorization-server/:path*', destination: '/api/oauth/asm' },
+      { source: '/.well-known/openid-configuration', destination: '/api/oauth/asm' },
+    ]
+  },
   async redirects() {
     return [
       {
