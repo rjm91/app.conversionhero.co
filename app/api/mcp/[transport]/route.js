@@ -13,6 +13,7 @@
 
 import { createMcpHandler } from 'mcp-handler'
 import { z } from 'zod'
+import { verify as verifyToken, originOf } from '../../../../lib/mcp-oauth'
 import { createClient } from '@supabase/supabase-js'
 import { getAgentDb, runAgentQuery, agentSchemaPrompt } from '../../../../lib/mission/agent-db'
 
@@ -105,13 +106,22 @@ const handler = createMcpHandler((server) => {
   )
 }, {}, { basePath: '/api/mcp' })
 
-// Shared-key gate: ?key=… or Authorization: Bearer …
+// Auth gate: an OAuth access token (issued via /api/oauth/*, HMAC-verified)
+// or the raw shared key (?key= / Bearer). 401s advertise the discovery URL so
+// MCP clients (Chorus) can run the OAuth flow.
 const withKey = (h) => async (req, ctx) => {
   const expected = process.env.CHORUS_MCP_KEY
   if (!expected) return new Response('MCP disabled (no CHORUS_MCP_KEY set)', { status: 503 })
   const url = new URL(req.url)
   const got = url.searchParams.get('key') || (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  if (got !== expected) return new Response('Unauthorized', { status: 401 })
+  const tok = verifyToken(got)
+  const ok = got === expected || (tok && tok.t === 'access')
+  if (!ok) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': `Bearer resource_metadata="${originOf(req)}/.well-known/oauth-protected-resource"` },
+    })
+  }
   return h(req, ctx)
 }
 
