@@ -2522,7 +2522,7 @@ const CSS = `
 .ide .ov-nav button:not(:disabled):hover{border-color:var(--blue);}
 .ide .ov-day{font-weight:800;font-size:13px;padding:0 4px;font-variant-numeric:tabular-nums;}
 .ide .ov-today{font-size:11px;}
-.ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 48px;max-width:980px;}
+.ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 64px;}
 .ide .ov-sec{margin-bottom:20px;}
 .ide .ov-h{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--blue);border-bottom:1px solid var(--line);padding-bottom:4px;margin:0 0 6px;}
 .ide .ov-h2{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--dim);margin:12px 0 3px;}
@@ -2535,7 +2535,7 @@ const CSS = `
 .ide .ov-dots{flex:1;border-bottom:1px dotted var(--line);margin:0 8px 3px;}
 .ide .ov-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);}
 .ide .ov-v.lgreen{color:#8fe0bb;}
-.ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;max-width:980px;}
+.ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;}
 .ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .dp2-sec{margin-bottom:22px;}
