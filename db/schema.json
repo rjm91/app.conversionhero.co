@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-17 22:00:02 UTC",
+  "generatedAt": "2026-07-18 01:35:58 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -3192,6 +3192,67 @@
       ]
     },
     {
+      "name": "client_order_items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "order_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": "client_orders.order_id"
+        },
+        {
+          "name": "sku",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "qty",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "ordered_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
       "name": "client_orders",
       "columns": [
         {
@@ -3381,6 +3442,158 @@
         {
           "name": "shopify_data",
           "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "order_name",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "shopify_channel",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "financial_status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "fulfillment_status",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "delivery_method",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "country",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "item_count",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "subtotal",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "discounts",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "refunds",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "tax",
+          "type": "numeric",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_utm_source",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_utm_medium",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_utm_campaign",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "first_utm_content",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_utm_source",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_utm_medium",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_utm_campaign",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "last_utm_content",
+          "type": "text",
           "nullable": true,
           "default": null,
           "pk": false,
