@@ -36,7 +36,6 @@ const PALETTE_CMDS = [
 const TREE = [
   { section: 'WORKSPACE', items: [
     { id: 'overview', icon: '📊', label: 'Overview' },
-    { id: 'overview2', icon: '📑', label: 'Overview 2' },
     { id: 'schema', icon: '🗄', label: 'Schema' },
   ]},
   { section: 'CAMPAIGNS', items: [
@@ -63,29 +62,11 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', overview2: 'Overview 2', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
-
-// APPS — the rest of the control center, reachable without leaving the IDE
-// chrome. These navigate to the classic pages (the old nav is gone on /mission).
-const APPS = [
-  { key: 'dashboard', icon: '🏠', label: 'Dashboard' },
-  { key: 'command-hub', icon: '🕹', label: 'Command Hub', only: 'ch069' },
-  { key: 'projection', icon: '📽', label: 'Projection', only: 'ch069' },
-  { key: 'paid-ads', icon: '📣', label: 'Paid Ads' },
-  { key: 'funnels', icon: '🧲', label: 'Funnels' },
-  { key: 'videos', icon: '🎬', label: 'Videos' },
-  { key: 'contacts', icon: '👥', label: 'Customers' },
-  { key: 'calendar', icon: '📅', label: 'Calendar' },
-  { key: 'manufacturing', icon: '🏭', label: 'Manufacturing' },
-  { key: 'company', icon: '🏢', label: 'Company' },
-  { key: 'automations', icon: '⚡', label: 'Automations' },
-  { key: 'billing', icon: '💳', label: 'Billing' },
-]
+const VIEW_TITLES = { overview: 'Overview', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 
 export default function BusinessIDE() {
   const { clientId } = useParams()
   const router = useRouter()
-  const apps = useMemo(() => APPS.filter(a => !a.only || a.only === clientId), [clientId])
   const [rangeKey, setRangeKey] = useState('30d')
   const [customRange, setCustomRange] = useState({ start: '', end: '' })
   const [data, setData] = useState(null)
@@ -663,13 +644,6 @@ export default function BusinessIDE() {
                 </div>
               ))}
             </>}
-            <div className="exp-sec">APPS</div>
-            {apps.map(a => (
-              <div key={a.key} className="exp-item" onClick={() => router.push(`/control/${clientId}/${a.key}`)}>
-                <span className="exp-ic">{a.icon}</span>{a.label}
-                <span className="exp-n">↗</span>
-              </div>
-            ))}
             <div className="exp-sec">PANEL</div>
             <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
               <span className="exp-ic">⚠️</span>Problems
@@ -830,7 +804,6 @@ export default function BusinessIDE() {
           ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
           ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
           ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
-          ...apps.map(a => ({ key: 'a' + a.key, label: a.icon + ' ' + a.label, sub: 'app ↗', run: () => router.push(`/control/${clientId}/${a.key}`) })),
         ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
         return (
           <div className="palette" onClick={e => { if (e.target.classList.contains('palette')) setQpOpen(false) }}>
@@ -1215,7 +1188,6 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
-  if (id === 'overview2') return <Overview2View m={m} rangeLabel={rangeLabel} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
@@ -1650,82 +1622,6 @@ function SourceDrill({ day, drill, m }) {
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// Overview 2 — the same day rows, but each group (Revenue & Orders / Meta /
-// Google / Blended / Margin) gets its OWN table, stacked vertically, instead
-// of sitting side by side in one wide table.
-function Overview2View({ m, rangeLabel }) {
-  const { list, tot, newClassified } = buildDailyRows(m)
-  const { $, x, pc, div, cmCls, roasCls } = DP
-  if (!list.length) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
-
-  const Table = ({ title, heads, cell }) => (
-    <div className="dp2-sec">
-      <h5 className="dp2-h">{title}</h5>
-      <div className="dpnl dp2">
-        <table>
-          <thead><tr><th>Day</th>{heads.map(h => <th key={h}>{h}</th>)}</tr></thead>
-          <tbody>
-            <tr className="tot"><td>{DP.day(tot, true)}</td>{cell(tot)}</tr>
-            {list.map(r => <tr key={r.day}><td>{DP.day(r, false)}</td>{cell(r)}</tr>)}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-  const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - c.spend : null
-
-  return (
-    <div className="v-pad">
-      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&L — stacked</h4>
-      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. Same rows and math as the Overview, split into one table per group.</p>
-      <Table title="Revenue & Orders" heads={['Gross Rev', 'Orders >$0', 'New', 'New %']} cell={(r) => (
-        <>
-          <td className="strong">{$(r.gross)}</td>
-          <td>{r.orders}</td>
-          <td>{newClassified ? r.newOrders : '—'}</td>
-          <td>{newClassified ? pc(div(r.newOrders, r.orders)) : '—'}</td>
-        </>
-      )} />
-      <Table title="Meta" heads={['Spend', 'ROAS', 'AOV', '% of Paid Ad Rev', 'CM']} cell={(r) => (
-        <>
-          <td className="warn">{r.meta.spend ? $(r.meta.spend) : '—'}</td>
-          <td className={roasCls(div(r.meta.net, r.meta.spend))}>{x(div(r.meta.net, r.meta.spend))}</td>
-          <td>{$(div(r.meta.net, r.meta.orders))}</td>
-          <td>{pc(div(r.meta.net, r.meta.net + r.google.net))}</td>
-          <td className={cmCls(chCM(r.meta))}>{chCM(r.meta) == null ? '—' : $(chCM(r.meta))}</td>
-        </>
-      )} />
-      <Table title="Google" heads={['Spend', 'ROAS', '% of Paid Ad Rev', 'CM']} cell={(r) => (
-        <>
-          <td className="warn">{r.google.spend ? $(r.google.spend) : '—'}</td>
-          <td className={roasCls(div(r.google.net, r.google.spend))}>{x(div(r.google.net, r.google.spend))}</td>
-          <td>{pc(div(r.google.net, r.meta.net + r.google.net))}</td>
-          <td className={cmCls(chCM(r.google))}>{chCM(r.google) == null ? '—' : $(chCM(r.google))}</td>
-        </>
-      )} />
-      <Table title="Blended" heads={['ROAS', 'AOV', 'CPA']} cell={(r) => {
-        const spend = r.meta.spend + r.google.spend
-        return (
-          <>
-            <td className={roasCls(div(r.net, spend))}>{x(div(r.net, spend))}</td>
-            <td>{$(div(r.net, r.orders))}</td>
-            <td>{$(div(spend, r.orders))}</td>
-          </>
-        )
-      }} />
-      <Table title="Margin" heads={['COGS', 'CM']} cell={(r) => {
-        const cm = r.net - r.cogs - (r.meta.spend + r.google.spend)
-        return (
-          <>
-            <td className="bad">{$(r.cogs)}</td>
-            <td className={cmCls(cm)}>{$(cm)}</td>
-          </>
-        )
-      }} />
     </div>
   )
 }
