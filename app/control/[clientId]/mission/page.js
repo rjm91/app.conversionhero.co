@@ -1386,7 +1386,7 @@ function OverviewView({ m, rangeLabel }) {
   const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - (c.spend || 0) : null
   const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
-  const toggle = (dk) => setDrill(d => (d && d.kind === dk.kind && d.channel === dk.channel && d.line === dk.line) ? null : dk)
+  const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
   const Line = ({ k, v, cls, dk }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle(dk) : undefined} disabled={!dk} type="button">
@@ -1415,28 +1415,28 @@ function OverviewView({ m, rangeLabel }) {
         <div>
           <div className="ov-sec">
             <H>REVENUE</H>
-            <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kind: 'orders', line: 'gross' }} />
-            <Line k="Discounts" v={'−' + $(r.discounts)} cls="warn" dk={{ kind: 'orders', line: 'discounts' }} />
-            <Line k="Refunds" v={'−' + $(r.refunds)} cls="bad" dk={{ kind: 'orders', line: 'refunds' }} />
-            <Line k="Net Revenue" v={$(r.net)} cls="good" dk={{ kind: 'orders', line: 'net' }} />
+            <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
+            <Line k="Discounts" v={'−' + $(r.discounts)} cls="warn" dk={{ kinds: ['orders'], line: 'discounts', explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
+            <Line k="Refunds" v={'−' + $(r.refunds)} cls="bad" dk={{ kinds: ['orders'], line: 'refunds', explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
+            <Line k="Net Revenue" v={$(r.net)} cls="good" dk={{ kinds: ['orders'], line: 'net', explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
-            <Line k="Orders > $0" v={r.orders} dk={{ kind: 'orders', line: 'count' }} />
-            <Line k="New Orders" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kind: 'orders', line: 'new' }} />
+            <Line k="Orders > $0" v={r.orders} dk={{ kinds: ['orders'], line: 'count', explain: `Orders > $0 = count of the day's orders with positive net revenue = ${r.orders}.` }} />
+            <Line k="New Orders" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New Orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
           </div>
           <div className="ov-sec">
             <H>ORGANIC</H>
             {organic.length === 0 && <p className="a-dim" style={{ margin: '4px 0' }}>no organic revenue this day.</p>}
             {organic.map(([ch, c]) => (
-              <Line key={ch} k={ch} v={$(c.net)} dk={{ kind: 'orders', line: 'org:' + ch, channel: ch }} />
+              <Line key={ch} k={ch} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
             ))}
           </div>
           <div className="ov-sec">
             <H>MARGIN</H>
-            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kind: 'items', line: 'cogs' }} />
-            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kind: 'pnl', line: 'cm' }} />
-            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kind: 'pnl', line: 'np' }} />
+            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kinds: ['items'], line: 'cogs', explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
+            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kinds: ['orders', 'items', 'pnl_day', 'pnl_channels'], line: 'cm', explain: `Contribution Margin = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend = ${$(cm)}.` }} />
+            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
@@ -1444,23 +1444,23 @@ function OverviewView({ m, rangeLabel }) {
           <div className="ov-sec">
             <H>PAID ADS</H>
             <H2>BLENDED</H2>
-            <Line k="Spend" v={$(spend)} cls="warn" dk={{ kind: 'campaigns', line: 'bl-spend' }} />
-            <Line k="ROAS" v={x(div(r.net, spend))} cls={roasCls(div(r.net, spend))} dk={{ kind: 'campaigns', line: 'bl-roas' }} />
-            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kind: 'orders', line: 'bl-aov' }} />
-            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kind: 'campaigns', line: 'bl-cpa' }} />
-            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kind: 'pnl', line: 'bl-cm' }} />
+            <Line k="Spend" v={$(spend)} cls="warn" dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
+            <Line k="ROAS" v={x(div(r.net, spend))} cls={roasCls(div(r.net, spend))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-roas', explain: `Blended ROAS = ALL net revenue ÷ total ad spend = ${$(r.net)} ÷ ${$(spend)} = ${x(div(r.net, spend))}. Revenue from the orders table below; spend from both campaign tables.` }} />
+            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'bl-aov', explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
+            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cpa', explain: `CPA = total ad spend ÷ orders = ${$(spend)} ÷ ${r.orders} = ${$(div(spend, r.orders))}.` }} />
+            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cm', channel: 'Paid', explain: `Paid CM = ${$(paidNet)} paid-attributed net revenue − ${$(r.meta.cogs + r.google.cogs)} their COGS − ${$(spend)} spend = ${blendedCM == null ? '—' : $(blendedCM)}.` }} />
             <H2>META</H2>
-            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls="warn" dk={{ kind: 'meta_campaigns', line: 'm-spend' }} />
-            <Line k="ROAS" v={x(div(r.meta.net, r.meta.spend))} cls={roasCls(div(r.meta.net, r.meta.spend))} dk={{ kind: 'meta_campaigns', line: 'm-roas' }} />
-            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kind: 'orders', line: 'm-aov', channel: 'Meta' }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kind: 'orders', line: 'm-pct', channel: 'Meta' }} />
-            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kind: 'orders', line: 'm-cm', channel: 'Meta' }} />
+            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls="warn" dk={{ kinds: ['meta_campaigns'], line: 'm-spend', explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
+            <Line k="ROAS" v={x(div(r.meta.net, r.meta.spend))} cls={roasCls(div(r.meta.net, r.meta.spend))} dk={{ kinds: ['meta_campaigns', 'orders'], line: 'm-roas', channel: 'Meta', explain: `Meta ROAS = net revenue of Meta-attributed orders ÷ Meta spend = ${$(r.meta.net)} ÷ ${$(r.meta.spend)} = ${x(div(r.meta.net, r.meta.spend))}. Spend from the campaigns table; revenue from the Meta-attributed orders below.` }} />
+            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kinds: ['orders'], line: 'm-aov', channel: 'Meta', explain: `Meta AOV = Meta net revenue ÷ Meta orders = ${$(r.meta.net)} ÷ ${r.meta.orders} = ${$(div(r.meta.net, r.meta.orders))}.` }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'm-pct', channel: 'Meta', explain: `% of Paid Ad Rev = Meta net revenue ÷ (Meta + Google net revenue) = ${$(r.meta.net)} ÷ ${$(paidNet)} = ${pc(div(r.meta.net, paidNet))}.` }} />
+            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kinds: ['orders', 'items', 'meta_campaigns'], line: 'm-cm', channel: 'Meta', explain: `Meta CM = ${$(r.meta.net)} net revenue − ${$(r.meta.cogs)} BOM COGS − ${$(r.meta.spend)} spend = ${$(r.meta.net - r.meta.cogs - r.meta.spend)}.` }} />
             <H2>GOOGLE</H2>
-            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls="warn" dk={{ kind: 'google_campaigns', line: 'g-spend' }} />
-            <Line k="ROAS" v={x(div(r.google.net, r.google.spend))} cls={roasCls(div(r.google.net, r.google.spend))} dk={{ kind: 'google_campaigns', line: 'g-roas' }} />
-            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kind: 'orders', line: 'g-aov', channel: 'Google' }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kind: 'orders', line: 'g-pct', channel: 'Google' }} />
-            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kind: 'orders', line: 'g-cm', channel: 'Google' }} />
+            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls="warn" dk={{ kinds: ['google_campaigns'], line: 'g-spend', explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
+            <Line k="ROAS" v={x(div(r.google.net, r.google.spend))} cls={roasCls(div(r.google.net, r.google.spend))} dk={{ kinds: ['google_campaigns', 'orders'], line: 'g-roas', channel: 'Google', explain: `Google ROAS = net revenue of Google-attributed orders ÷ Google spend = ${$(r.google.net)} ÷ ${$(r.google.spend)} = ${x(div(r.google.net, r.google.spend))}. Spend from the campaigns table; revenue from the Google-attributed orders below.` }} />
+            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kinds: ['orders'], line: 'g-aov', channel: 'Google', explain: `Google AOV = Google net revenue ÷ Google orders = ${$(r.google.net)} ÷ ${r.google.orders} = ${$(div(r.google.net, r.google.orders))}.` }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'g-pct', channel: 'Google', explain: `% of Paid Ad Rev = Google net revenue ÷ (Meta + Google net revenue) = ${$(r.google.net)} ÷ ${$(paidNet)} = ${pc(div(r.google.net, paidNet))}.` }} />
+            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kinds: ['orders', 'items', 'google_campaigns'], line: 'g-cm', channel: 'Google', explain: `Google CM = ${$(r.google.net)} net revenue − ${$(r.google.cogs)} BOM COGS − ${$(r.google.spend)} spend = ${$(r.google.net - r.google.cogs - r.google.spend)}.` }} />
           </div>
         </div>
       </div>
@@ -1470,214 +1470,113 @@ function OverviewView({ m, rangeLabel }) {
   )
 }
 
-// Direct mirror of the Supabase rows behind a clicked line — a live, RLS-gated
-// query against the actual table, filtered to the selected business day.
+// Direct mirror of the Supabase rows behind a clicked line — live, RLS-gated
+// queries against the actual tables, filtered to the selected business day.
+// A line can open SEVERAL tables (every table in its formula), each with a
+// TOTALS row pinned on top, plus a plain-English formula explanation.
 function SourceDrill({ day, drill, m }) {
   const { clientId } = useParams()
-  const [state, setState] = useState({ loading: true })
+  const [state, setState] = useState({ loading: true, sets: [] })
   const dayOrders = useMemo(() => {
     const tz = m.sources?.tz || undefined
     const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) } catch { return String(iso).slice(0, 10) } }
-    return (m.sources?.orders || []).filter(o => dayOf(o.date) === day && (!drill.channel || o.channel === drill.channel))
+    const chMatch = (o) => !drill.channel ? true : drill.channel === 'Paid' ? (o.channel === 'Meta' || o.channel === 'Google') : o.channel === drill.channel
+    return (m.sources?.orders || []).filter(o => dayOf(o.date) === day && chMatch(o))
   }, [m, day, drill.channel])
 
   useEffect(() => {
     let alive = true
     const ids = dayOrders.map(o => o.id).slice(0, 400)
-    const run = async () => {
-      try {
-        if (drill.kind === 'orders') {
-          const { data, error } = await supabase.from('client_orders')
-            .select('order_name, order_id, created_at, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
-            .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
-          if (error) throw error
-          if (alive) setState({ loading: false, table: 'client_orders', rows: data || [] })
-        } else if (drill.kind === 'items') {
-          const { data, error } = await supabase.from('client_order_items')
-            .select('order_id, sku, title, qty, ordered_at')
-            .eq('client_id', clientId).in('order_id', ids).order('ordered_at', { ascending: true })
-          if (error) throw error
-          if (alive) setState({ loading: false, table: 'client_order_items', rows: data || [] })
-        } else if (drill.kind === 'meta_campaigns' || drill.kind === 'campaigns') {
-          const { data, error } = await supabase.from('client_meta_campaigns')
-            .select('campaign_name, date, spend, impressions, clicks, conversions')
-            .eq('client_id', clientId).eq('date', day).order('spend', { ascending: false })
-          if (error) throw error
-          if (drill.kind === 'meta_campaigns') { if (alive) setState({ loading: false, table: 'client_meta_campaigns', rows: data || [] }); return }
-          const { data: g, error: ge } = await supabase.from('client_google_campaigns')
-            .select('campaign_name, date, cost, impressions, clicks, conversions')
-            .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
-          if (ge) throw ge
-          if (alive) setState({ loading: false, table: 'client_meta_campaigns + client_google_campaigns', rows: [...(data || []), ...(g || [])] })
-        } else if (drill.kind === 'google_campaigns') {
-          const { data, error } = await supabase.from('client_google_campaigns')
-            .select('campaign_name, date, cost, impressions, clicks, conversions')
-            .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
-          if (error) throw error
-          if (alive) setState({ loading: false, table: 'client_google_campaigns', rows: data || [] })
-        } else if (drill.kind === 'pnl') {
-          const [{ data: p, error: pe }, { data: ch, error: ce }] = await Promise.all([
-            supabase.from('client_daily_pnl').select('date, net_sales, gross_profit, total_orders, total_spend, cogs, cost_per_label').eq('client_id', clientId).eq('date', day),
-            supabase.from('client_channel_daily_pnl').select('day, channel, gross_revenue, net_revenue, discounts, refunds, orders, new_orders, cogs, spend').eq('client_id', clientId).eq('day', day).order('net_revenue', { ascending: false }),
-          ])
-          if (pe) throw pe
-          if (ce) throw ce
-          if (alive) setState({ loading: false, table: 'client_daily_pnl + client_channel_daily_pnl', rows: [...(p || []), ...(ch || [])] })
-        }
-      } catch (e) { if (alive) setState({ loading: false, error: e.message || String(e) }) }
+    const chLabel = drill.channel ? `${drill.channel}-attributed ` : ''
+    const fetchKind = async (kind) => {
+      if (kind === 'orders') {
+        const { data, error } = await supabase.from('client_orders')
+          .select('order_name, order_id, created_at, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
+          .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
+        if (error) throw error
+        return { table: 'client_orders', note: `${chLabel}orders`, rows: data || [] }
+      }
+      if (kind === 'items') {
+        const { data, error } = await supabase.from('client_order_items')
+          .select('order_id, sku, title, qty, ordered_at')
+          .eq('client_id', clientId).in('order_id', ids).order('ordered_at', { ascending: true })
+        if (error) throw error
+        return { table: 'client_order_items', note: `${chLabel}line items`, rows: data || [] }
+      }
+      if (kind === 'meta_campaigns') {
+        const { data, error } = await supabase.from('client_meta_campaigns')
+          .select('campaign_name, date, spend, impressions, clicks, conversions')
+          .eq('client_id', clientId).eq('date', day).order('spend', { ascending: false })
+        if (error) throw error
+        return { table: 'client_meta_campaigns', note: 'Meta campaign day rows', rows: data || [] }
+      }
+      if (kind === 'google_campaigns') {
+        const { data, error } = await supabase.from('client_google_campaigns')
+          .select('campaign_name, date, cost, impressions, clicks, conversions')
+          .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
+        if (error) throw error
+        return { table: 'client_google_campaigns', note: 'Google campaign day rows', rows: data || [] }
+      }
+      if (kind === 'pnl_day') {
+        const { data, error } = await supabase.from('client_daily_pnl')
+          .select('date, net_sales, gross_profit, total_orders, total_spend, cogs, cost_per_label')
+          .eq('client_id', clientId).eq('date', day)
+        if (error) throw error
+        return { table: 'client_daily_pnl', note: 'locked daily record', rows: data || [] }
+      }
+      if (kind === 'pnl_channels') {
+        const { data, error } = await supabase.from('client_channel_daily_pnl')
+          .select('day, channel, gross_revenue, net_revenue, discounts, refunds, orders, new_orders, cogs, spend')
+          .eq('client_id', clientId).eq('day', day).order('net_revenue', { ascending: false })
+        if (error) throw error
+        return { table: 'client_channel_daily_pnl', note: 'per-channel daily record', rows: data || [] }
+      }
+      return null
     }
-    run()
+    setState({ loading: true, sets: [] })
+    Promise.all((drill.kinds || []).map(fetchKind))
+      .then(sets => { if (alive) setState({ loading: false, sets: sets.filter(Boolean) }) })
+      .catch(e => { if (alive) setState({ loading: false, sets: [], error: e.message || String(e) }) })
     return () => { alive = false }
-  }, [drill.kind, drill.channel, day, clientId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drill.line, day, clientId])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rows = state.rows || []
-  const cols = rows.length ? Object.keys(rows[0]) : []
-  const fmt = (v) => v == null ? '—' : typeof v === 'number' ? Number(v).toLocaleString() : String(v)
+  const fmt = (v) => v == null ? '—' : typeof v === 'number' ? Number(v.toFixed(2)).toLocaleString() : String(v)
+  const totalsFor = (rows, cols) => {
+    const t = {}
+    for (const c of cols) {
+      const vals = rows.map(rw => rw[c]).filter(v => typeof v === 'number')
+      t[c] = vals.length ? vals.reduce((a, b) => a + b, 0) : null
+    }
+    return t
+  }
   return (
     <div className="ov-drill">
-      <div className="ov-drill-h">
-        <span className="mono">public.{state.table || '…'}</span>
-        <span className="dim"> · {drill.channel ? `${drill.channel} orders · ` : ''}{day} · {state.loading ? 'querying…' : `${rows.length} rows`} · live Supabase read (RLS)</span>
-      </div>
+      {drill.explain && <div className="ov-explain">ⓘ {drill.explain}</div>}
       {state.error && <p className="a-err" style={{ padding: '8px 0' }}>{state.error}</p>}
-      {!state.loading && !state.error && rows.length === 0 && <p className="a-dim" style={{ padding: '8px 0' }}>no rows for this day.</p>}
-      {rows.length > 0 && (
-        <div className="dpnl dp2" style={{ maxHeight: 300 }}>
-          <table>
-            <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
-            <tbody>
-              {rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Row-per-day P&L rows (mirror the Client_daily_pnl_NEW sheet). Channel
-// revenue = orders whose derived channel is Meta/Google (paid-only ROAS
-// convention); CM = net − BOM COGS − spend. Days bucket in the client's
-// business timezone so a day means the same thing here and on Jason's sheet.
-// Shared by the Overview table and the Overview 2 stacked tables.
-const DP = {
-  $: (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString(),
-  x: (n) => n == null ? '—' : n.toFixed(2) + 'x',
-  pc: (n) => n == null ? '—' : (n * 100).toFixed(1) + '%',
-  div: (a, b) => (b > 0 ? a / b : null),
-  cmCls: (n) => n > 0 ? 'good' : n < 0 ? 'bad' : '',
-  roasCls: (n) => n == null ? '' : n >= 1 ? 'good' : 'bad',
-  day: (r, isTot) => isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
-}
-function buildDailyRows(m) {
-  const orders = m.sources?.orders || []
-  const tz = m.sources?.tz || undefined
-  const newClassified = !!m.pnl?.newClassified
-  const dayOf = (iso) => {
-    try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) }
-    catch { return String(iso).slice(0, 10) }
-  }
-  const mk = () => ({ gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
-    meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } })
-  const byDay = {}
-  const R = (d) => (byDay[d] = byDay[d] || { day: d, ...mk() })
-  for (const o of orders) {
-    const r = R(dayOf(o.date))
-    r.gross += o.gross; r.net += o.net; r.cogs += o.cogs
-    r.discounts += o.discounts || 0; r.refunds += o.refunds || 0
-    if (o.shipped) r.shipped += 1
-    if (o.net > 0) { r.orders += 1; if (o.isNew) r.newOrders += 1 }
-    const chName = o.channel || 'Other'
-    const cc = (r.channels[chName] = r.channels[chName] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
-    cc.net += o.net; cc.gross += o.gross; cc.cogs += o.cogs
-    if (o.net > 0) { cc.orders += 1; if (o.isNew) cc.newOrders += 1 }
-    const c = o.channel === 'Meta' ? r.meta : o.channel === 'Google' ? r.google : null
-    if (c) { c.net += o.net; c.cogs += o.cogs; if (o.net > 0) c.orders += 1 }
-  }
-  for (const d of (m.daily || [])) {
-    if (!(d.spendMeta || d.spendGoogle)) continue
-    const r = R(d.date)
-    r.meta.spend += d.spendMeta || 0
-    r.google.spend += d.spendGoogle || 0
-  }
-  const list = Object.values(byDay).sort((a, b) => b.day.localeCompare(a.day))
-  // Totals row = same math over the whole range.
-  const tot = { day: 'Totals', ...mk() }
-  for (const r of list) {
-    tot.gross += r.gross; tot.net += r.net; tot.orders += r.orders; tot.newOrders += r.newOrders; tot.cogs += r.cogs
-    for (const k of ['meta', 'google']) { tot[k].net += r[k].net; tot[k].cogs += r[k].cogs; tot[k].orders += r[k].orders; tot[k].spend += r[k].spend }
-  }
-  return { list, tot, newClassified }
-}
-
-function DailyPnlTable({ m }) {
-  const { list, tot, newClassified } = buildDailyRows(m)
-  if (!list.length) return <p className="a-dim">no orders or spend in this range.</p>
-  const { $, x, pc, div, cmCls, roasCls } = DP
-
-  const cells = (r, isTot) => {
-    const spend = r.meta.spend + r.google.spend
-    const paidNet = r.meta.net + r.google.net
-    const metaCM = (r.meta.net || r.meta.spend) ? r.meta.net - r.meta.cogs - r.meta.spend : null
-    const googleCM = (r.google.net || r.google.spend) ? r.google.net - r.google.cogs - r.google.spend : null
-    const cm = r.net - r.cogs - spend
-    const fmtDay = isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
-    return (
-      <>
-        <td>{fmtDay}</td>
-        <td className="strong">{$(r.gross)}</td>
-        <td>{r.orders}</td>
-        <td>{newClassified ? r.newOrders : '—'}</td>
-        <td>{newClassified ? pc(div(r.newOrders, r.orders)) : '—'}</td>
-        <td className="warn">{r.meta.spend ? $(r.meta.spend) : '—'}</td>
-        <td className={roasCls(div(r.meta.net, r.meta.spend))}>{x(div(r.meta.net, r.meta.spend))}</td>
-        <td>{$(div(r.meta.net, r.meta.orders))}</td>
-        <td>{pc(div(r.meta.net, paidNet))}</td>
-        <td className={cmCls(metaCM)}>{metaCM == null ? '—' : $(metaCM)}</td>
-        <td className="warn">{r.google.spend ? $(r.google.spend) : '—'}</td>
-        <td className={roasCls(div(r.google.net, r.google.spend))}>{x(div(r.google.net, r.google.spend))}</td>
-        <td>{pc(div(r.google.net, paidNet))}</td>
-        <td className={cmCls(googleCM)}>{googleCM == null ? '—' : $(googleCM)}</td>
-        <td className={roasCls(div(r.net, spend))}>{x(div(r.net, spend))}</td>
-        <td>{$(div(r.net, r.orders))}</td>
-        <td>{$(div(spend, r.orders))}</td>
-        <td className="bad">{$(r.cogs)}</td>
-        <td className={cmCls(cm)}>{$(cm)}</td>
-        <td className="dim">—</td>
-        <td className="dim">—</td>
-        <td className="dim">—</td>
-      </>
-    )
-  }
-
-  return (
-    <div className="dpnl">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th colSpan={4}>Revenue &amp; Orders</th>
-            <th colSpan={5}>Meta</th>
-            <th colSpan={4}>Google</th>
-            <th colSpan={3}>Blended</th>
-            <th colSpan={2}>Margin</th>
-            <th colSpan={3}>Website (GA4)</th>
-          </tr>
-          <tr>
-            <th>Day</th>
-            <th>Gross Rev</th><th>Orders &gt;$0</th><th>New</th><th>New %</th>
-            <th>Spend</th><th>ROAS</th><th>AOV</th><th>% of Paid Ad Rev</th><th>CM</th>
-            <th>Spend</th><th>ROAS</th><th>% of Paid Ad Rev</th><th>CM</th>
-            <th>ROAS</th><th>AOV</th><th>CPA</th>
-            <th>COGS</th><th>CM</th>
-            <th>Users</th><th>$ / Visit</th><th>Conv %</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="tot">{cells(tot, true)}</tr>
-          {list.map(r => <tr key={r.day}>{cells(r, false)}</tr>)}
-        </tbody>
-      </table>
+      {state.loading && <p className="a-dim" style={{ padding: '8px 0' }}>querying source tables…</p>}
+      {state.sets.map((set, si) => {
+        const cols = set.rows.length ? Object.keys(set.rows[0]) : []
+        const tot = totalsFor(set.rows, cols)
+        return (
+          <div key={si} className="ov-set">
+            <div className="ov-drill-h">
+              <span className="mono">public.{set.table}</span>
+              <span className="dim"> · {set.note} · {day} · {set.rows.length} rows · live Supabase read (RLS)</span>
+            </div>
+            {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
+              <div className="dpnl dp2" style={{ maxHeight: 280 }}>
+                <table>
+                  <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
+                  <tbody>
+                    <tr className="tot">{cols.map((c, i) => <td key={c} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>
+                    {set.rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1708,7 +1607,7 @@ function Overview2View({ m, rangeLabel }) {
 
   return (
     <div className="v-pad">
-      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L — stacked</h4>
+      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&L — stacked</h4>
       <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. Same rows and math as the Overview, split into one table per group.</p>
       <Table title="Revenue & Orders" heads={['Gross Rev', 'Orders >$0', 'New', 'New %']} cell={(r) => (
         <>
@@ -2538,6 +2437,8 @@ const CSS = `
 .ide .ov-v.lgreen{color:#8fe0bb;}
 .ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;}
 .ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
+.ide .ov-explain{font-size:12px;color:var(--dim);background:rgba(110,168,254,.06);border:1px solid rgba(110,168,254,.18);border-radius:7px;padding:8px 12px;margin-bottom:12px;max-width:1100px;line-height:1.55;}
+.ide .ov-set{margin-bottom:16px;}
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .dp2-sec{margin-bottom:22px;}
 .ide .dp2-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);margin:0 0 6px;}
