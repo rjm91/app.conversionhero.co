@@ -681,6 +681,19 @@ function SchemaView() {
   const vpRef = useRef(null)
   const drag = useRef(null)
   const didFit = useRef(false)
+  // Deep-link support: /control/mission?focus=<table>&day=YYYY-MM-DD&client_id=chXXX
+  // (the client-mission drill headers link here). linkFilter scopes the row
+  // browser; pendingFocus centers the table once layout exists.
+  const [linkFilter, setLinkFilter] = useState(null)
+  const pendingFocusRef = useRef(null)
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const day = sp.get('day'), cid = sp.get('client_id'), focus0 = sp.get('focus')
+      if (day || cid) setLinkFilter({ day: day || null, client_id: cid || null })
+      if (focus0) pendingFocusRef.current = focus0
+    } catch { /* no params */ }
+  }, [])
 
   /* ── load the parsed schema + live row counts ── */
   useEffect(() => {
@@ -736,6 +749,12 @@ function SchemaView() {
     setView(svFitView(pos, model.tables, meta.heights, r.width, r.height))
     didFit.current = true
   }, [pos, model, meta])
+  useEffect(() => {
+    if (!didFit.current || !meta || !pendingFocusRef.current) return
+    const t = pendingFocusRef.current
+    if (meta.byName[t]) { pendingFocusRef.current = null; focusTable(t, true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta, pos])
 
   const related = useMemo(() => {
     if (!model) return null
@@ -771,7 +790,7 @@ function SchemaView() {
   /* ── fetch a page of live rows for the focused table ── */
   const fetchRows = useCallback((table, offset, append) => {
     setRowState(s => ({ ...s, [table]: { ...(s[table] || {}), loading: true, error: null, offset } }))
-    fetch(`/api/agency/table-data?table=${encodeURIComponent(table)}&limit=25&offset=${offset}`, { cache: 'no-store' })
+    fetch(`/api/agency/table-data?table=${encodeURIComponent(table)}&limit=25&offset=${offset}${linkFilter?.day ? `&day=${linkFilter.day}` : ''}${linkFilter?.client_id ? `&client_id=${encodeURIComponent(linkFilter.client_id)}` : ''}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => setRowState(s => {
         if (d.error) return { ...s, [table]: { ...(s[table] || {}), loading: false, error: d.error } }
@@ -780,7 +799,7 @@ function SchemaView() {
         return { ...s, [table]: { loading: false, error: null, offset, columns: d.columns || [], rows, total: d.total ?? rows.length } }
       }))
       .catch(e => setRowState(s => ({ ...s, [table]: { ...(s[table] || {}), loading: false, error: String(e) } })))
-  }, [])
+  }, [linkFilter])
 
   // When focus lands on a table we haven't loaded, pull its first page.
   useEffect(() => {
@@ -996,6 +1015,12 @@ function SchemaView() {
             <div className="sv-dt-sec">LIVE ROWS
               {focusRows?.total != null && <span className="sv-dt-cnt">{svNum(focusRows.total)}</span>}
             </div>
+            {linkFilter && (
+              <div className="sv-filter">
+                filtered: {linkFilter.day ? `day = ${linkFilter.day}` : ''}{linkFilter.day && linkFilter.client_id ? ' · ' : ''}{linkFilter.client_id ? `client = ${linkFilter.client_id}` : ''}
+                <button onClick={() => { setLinkFilter(null); setRowState({}) }}>✕ clear</button>
+              </div>
+            )}
             <div className="sv-rows">
               {(!focusRows || (focusRows.loading && !focusRows.rows)) && <div className="sv-rows-msg">loading rows…</div>}
               {focusRows?.error && <div className="sv-rows-msg err">error: {focusRows.error}</div>}
@@ -1060,6 +1085,9 @@ const CSS = `
 .aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
 .aide .ex-ti{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .aide .ex-when{margin-left:auto;color:var(--faint);font-size:10px;flex-shrink:0;}
+.aide .sv-filter{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--amber);background:rgba(242,180,92,.08);border:1px solid rgba(242,180,92,.25);border-radius:6px;padding:4px 8px;margin:6px 0;}
+.aide .sv-filter button{background:none;border:none;color:var(--dim);font:inherit;font-size:10px;cursor:pointer;margin-left:auto;}
+.aide .sv-filter button:hover{color:var(--txt);}
 .aide .ex-count{margin-left:auto;background:rgba(242,180,92,.18);color:var(--amber);font-size:10px;font-weight:800;border-radius:99px;padding:0 6px;}
 .aide .main{flex:1;display:flex;flex-direction:column;min-width:0;}
 .aide .tabbar{display:flex;align-items:stretch;background:var(--panel);border-bottom:1px solid var(--line);height:34px;flex-shrink:0;overflow-x:auto;}

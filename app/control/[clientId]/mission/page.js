@@ -1622,7 +1622,8 @@ function SourceDrill({ day, drill, m }) {
         return (
           <div key={si} className="ov-set">
             <div className="ov-drill-h">
-              <span className="mono">public.{set.table}</span>
+              <a className="mono ov-tlink" href={`/control/mission?focus=${set.table}&day=${day}&client_id=${clientId}`} target="_blank" rel="noreferrer"
+                title="Open this table in the Schema browser, filtered to this day">public.{set.table} ↗</a>
               <span className="dim"> · {set.note} · {day} · {set.rows.length} rows · live Supabase read (RLS)</span>
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
@@ -2508,6 +2509,8 @@ const CSS = `
 .ide .ov-explain{font-size:12px;color:var(--dim);background:rgba(110,168,254,.06);border:1px solid rgba(110,168,254,.18);border-radius:7px;padding:8px 12px;margin-bottom:12px;max-width:1100px;line-height:1.55;}
 .ide .ov-set{margin-bottom:16px;}
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
+.ide .ov-tlink{text-decoration:none;}
+.ide .ov-tlink:hover{color:var(--blue);text-decoration:underline;}
 .ide .dp2-sec{margin-bottom:22px;}
 .ide .dp2-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);margin:0 0 6px;}
 .ide .dpnl.dp2{max-height:420px;display:inline-block;min-width:0;max-width:100%;}
