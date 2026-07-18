@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { sign, verify } from '../../../../lib/mcp-oauth'
 export const dynamic = 'force-dynamic'
 
-const page = (params, err) => `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">
+const page = (params, err) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Authorize data access</title>
 <body style="margin:0;background:#0b0e14;color:#dbe1ee;font-family:ui-monospace,Menlo,monospace;display:grid;place-items:center;min-height:100vh;">
 <form method="POST" style="background:#12161f;border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:28px 30px;width:340px;">
@@ -41,7 +41,7 @@ export async function POST(request) {
   if (!client || client.t !== 'client' || !client.redirect_uris.includes(p.redirect_uri)) {
     return new Response('invalid client_id or redirect_uri', { status: 400 })
   }
-  if ((form.get('key') || '') !== process.env.CHORUS_MCP_KEY) {
+  if (String(form.get('key') || '').trim() !== String(process.env.CHORUS_MCP_KEY || '').trim()) {
     return new Response(page(p, 'Wrong key — try again.'), { status: 401, headers: { 'content-type': 'text/html' } })
   }
   const code = sign({ t: 'code', redirect_uri: p.redirect_uri, code_challenge: p.code_challenge, exp: Date.now() + 5 * 60 * 1000 })
