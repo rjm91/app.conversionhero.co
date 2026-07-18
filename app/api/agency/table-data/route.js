@@ -101,8 +101,38 @@ export async function GET(request) {
   const orderCol = meta.columns.includes('created_at') ? 'created_at' : (meta.pk || null)
   const orderDesc = orderCol === 'created_at'
 
+  // ── optional deep-link filters (client-mission drill headers link here) ──
+  //   &client_id=ch069 — tenant filter (only if the table has client_id)
+  //   &day=YYYY-MM-DD  — business-day filter: date-like columns match eq;
+  //                      timestamp columns use the client business-tz window.
+  const fClient = url.searchParams.get('client_id')
+  const fDay = url.searchParams.get('day')
+  const applied = {}
+  let dayRange = null, dayEqCol = null
+  if (fDay && /^\d{4}-\d{2}-\d{2}$/.test(fDay)) {
+    const eqCol = ['day', 'date'].find(c => meta.columns.includes(c))
+    const tsCol = ['ordered_at', 'created_at'].find(c => meta.columns.includes(c))
+    if (eqCol) { dayEqCol = eqCol; applied.day = fDay }
+    else if (tsCol) {
+      let tz = 'America/Phoenix'
+      if (fClient) {
+        try { const { data: c } = await db.from('client').select('settings').eq('client_id', fClient).single(); tz = c?.settings?.timezone || tz } catch { /* default */ }
+      }
+      const probe = new Date(fDay + 'T00:00:00Z')
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(probe).map(x => [x.type, x.value]))
+      const offMs = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour % 24, parts.minute, parts.second) - probe.getTime()
+      const startMs = probe.getTime() - offMs
+      dayRange = { col: tsCol, start: new Date(startMs).toISOString(), end: new Date(startMs + 86400000).toISOString() }
+      applied.day = fDay
+    }
+  }
+  if (fClient && meta.columns.includes('client_id')) applied.client_id = fClient
+
   try {
     let q = db.from(table).select('*', { count: 'exact' })
+    if (applied.client_id) q = q.eq('client_id', fClient)
+    if (dayEqCol) q = q.eq(dayEqCol, fDay)
+    if (dayRange) q = q.gte(dayRange.col, dayRange.start).lt(dayRange.col, dayRange.end)
     if (orderCol) q = q.order(orderCol, { ascending: !orderDesc })
     q = q.range(offset, offset + limit - 1)
     const { data, count, error } = await q
@@ -112,6 +142,7 @@ export async function GET(request) {
       columns: meta.columns,
       rows: redact(data || []),
       total: count ?? 0,
+      applied,
     })
   } catch (e) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
