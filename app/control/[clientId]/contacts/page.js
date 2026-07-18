@@ -469,7 +469,7 @@ export default function ContactsPage() {
       l.email?.toLowerCase().includes(q) ||
       l.phone?.includes(q) ||
       l.city?.toLowerCase().includes(q) ||
-      l.shopify_data?.order_name?.toLowerCase().includes(q)
+      l.order_name?.toLowerCase().includes(q)
     )
   })
 
@@ -691,7 +691,7 @@ export default function ContactsPage() {
                   </td>
                   {isEcom ? (
                     <>
-                      <td className="px-4 py-3.5 text-sm font-bold text-gray-900 dark:text-white">{lead.shopify_data?.order_name || '—'}</td>
+                      <td className="px-4 py-3.5 text-sm font-bold text-gray-900 dark:text-white">{lead.order_name || '—'}</td>
                       <td className="px-4 py-3.5 text-sm text-gray-400 dark:text-gray-500">
                         {lead.created_at ? new Date(lead.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}
                       </td>
@@ -705,12 +705,12 @@ export default function ContactsPage() {
                           <span className="text-sm font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.channel || '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.shopify_channel || '—'}</td>
                       <td className="px-4 py-3.5 text-right text-sm font-semibold text-gray-900 dark:text-white">{fmtMoney(lead.sale_amount)}</td>
-                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.shopify_data?.financial_status} /></td>
-                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.shopify_data?.fulfillment_status} /></td>
-                      <td className="px-4 py-3.5 text-center text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.item_count ?? '—'}</td>
-                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.shopify_data?.delivery_method || '—'}</td>
+                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.financial_status} /></td>
+                      <td className="px-4 py-3.5 text-center"><ShopifyPill status={lead.fulfillment_status} /></td>
+                      <td className="px-4 py-3.5 text-center text-sm text-gray-500 dark:text-gray-400">{lead.item_count ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.delivery_method || '—'}</td>
                     </>
                   ) : (
                     <>

@@ -890,7 +890,7 @@ function PnlHistoryView() {
     setSrc(s => ({ ...s, [row.date]: { loading: true } }))
     // Trace: the order IDs stored on the day → the actual client_orders rows.
     const { data } = await supabase.from('client_orders')
-      .select('order_id, created_at, sale_amount, email, shopify_data->>order_name, shopify_data->>fulfillment_status')
+      .select('order_id, created_at, sale_amount, email, order_name, fulfillment_status')
       .eq('client_id', clientId).in('order_id', ids.slice(0, 200)).order('created_at', { ascending: true })
     setSrc(s => ({ ...s, [row.date]: { loading: false, orders: data || [] } }))
   }
@@ -1831,7 +1831,7 @@ function CampaignView({ m, platform }) {
 const fmtDateShort = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const oc = (v) => ({ v: v || <span className="dimc">—</span>, s: String(v || '') })
 const ORDER_FIELDS = [
-  { key: 'order',        label: 'Order',        def: true, cell: o => ({ v: o.shopify_data?.order_name || o.lead_id, cls: 'tname', s: String(o.shopify_data?.order_name || o.lead_id) }) },
+  { key: 'order',        label: 'Order',        def: true, cell: o => ({ v: o.order_name || o.lead_id, cls: 'tname', s: String(o.order_name || o.lead_id) }) },
   { key: 'date',         label: 'Date',         def: true, cell: o => ({ v: fmtDateShort(o.created_at), s: o.created_at }) },
   { key: 'channel',      label: 'Channel',      def: true, cell: o => oc(deriveChannel(o)) },
   { key: 'amount',       label: 'Amount',       def: true, num: true, cell: o => ({ v: money(o.sale_amount), cls: 'num strong', s: Number(o.sale_amount) || 0 }) },
@@ -1888,7 +1888,7 @@ function OrdersView({ data, filter = '', setFilter }) {
   // a date ("Jul 5" or ISO) — plus customer/email/campaign when present.
   const matched = q ? all.filter(o => {
     const hay = [
-      o.shopify_data?.order_name || o.lead_id, deriveChannel(o), fmtDateShort(o.created_at),
+      o.order_name || o.lead_id, deriveChannel(o), fmtDateShort(o.created_at),
       String(o.created_at).slice(0, 10), o.first_name, o.last_name, o.email, o.utm_campaign, o.utm_source,
     ].filter(Boolean).join(' ').toLowerCase()
     return hay.includes(q)
