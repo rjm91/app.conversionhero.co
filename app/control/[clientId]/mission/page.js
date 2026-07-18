@@ -1357,6 +1357,62 @@ function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowK
 
 /* ══════════ Views (tab contents) ══════════ */
 
+// Row-per-day P&L rows (mirror the Client_daily_pnl_NEW sheet). Channel
+// revenue = orders whose derived channel is Meta/Google (paid-only ROAS
+// convention); CM = net − BOM COGS − spend. Days bucket in the client's
+// business timezone so a day means the same thing here and on Jason's sheet.
+// Shared by the Overview day view and the Overview 2 stacked tables.
+const DP = {
+  $: (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString(),
+  x: (n) => n == null ? '—' : n.toFixed(2) + 'x',
+  pc: (n) => n == null ? '—' : (n * 100).toFixed(1) + '%',
+  div: (a, b) => (b > 0 ? a / b : null),
+  cmCls: (n) => n > 0 ? 'good' : n < 0 ? 'bad' : '',
+  roasCls: (n) => n == null ? '' : n >= 1 ? 'good' : 'bad',
+  day: (r, isTot) => isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
+}
+function buildDailyRows(m) {
+  const orders = m.sources?.orders || []
+  const tz = m.sources?.tz || undefined
+  const newClassified = !!m.pnl?.newClassified
+  const dayOf = (iso) => {
+    try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) }
+    catch { return String(iso).slice(0, 10) }
+  }
+  const mk = () => ({ gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
+    meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } })
+  const byDay = {}
+  const R = (d) => (byDay[d] = byDay[d] || { day: d, ...mk() })
+  for (const o of orders) {
+    const r = R(dayOf(o.date))
+    r.gross += o.gross; r.net += o.net; r.cogs += o.cogs
+    r.discounts += o.discounts || 0; r.refunds += o.refunds || 0
+    if (o.shipped) r.shipped += 1
+    if (o.net > 0) { r.orders += 1; if (o.isNew) r.newOrders += 1 }
+    const chName = o.channel || 'Other'
+    const cc = (r.channels[chName] = r.channels[chName] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
+    cc.net += o.net; cc.gross += o.gross; cc.cogs += o.cogs
+    if (o.net > 0) { cc.orders += 1; if (o.isNew) cc.newOrders += 1 }
+    const c = o.channel === 'Meta' ? r.meta : o.channel === 'Google' ? r.google : null
+    if (c) { c.net += o.net; c.cogs += o.cogs; if (o.net > 0) c.orders += 1 }
+  }
+  for (const d of (m.daily || [])) {
+    if (!(d.spendMeta || d.spendGoogle)) continue
+    const r = R(d.date)
+    r.meta.spend += d.spendMeta || 0
+    r.google.spend += d.spendGoogle || 0
+  }
+  const list = Object.values(byDay).sort((a, b) => b.day.localeCompare(a.day))
+  // Totals row = same math over the whole range.
+  const tot = { day: 'Totals', ...mk() }
+  for (const r of list) {
+    tot.gross += r.gross; tot.net += r.net; tot.orders += r.orders; tot.newOrders += r.newOrders; tot.cogs += r.cogs
+    tot.discounts += r.discounts; tot.refunds += r.refunds; tot.shipped += r.shipped
+    for (const k of ['meta', 'google']) { tot[k].net += r[k].net; tot[k].cogs += r[k].cogs; tot[k].orders += r[k].orders; tot[k].spend += r[k].spend }
+  }
+  return { list, tot, newClassified }
+}
+
 // Overview — one business day at a time, laid out like Ryan's note: REVENUE /
 // ORDERS / PAID ADS (Blended · Meta · Google) / ORGANIC / MARGIN. Every line
 // drills to the actual Supabase rows behind it (direct mirror, RLS-gated).
