@@ -35,19 +35,18 @@ function platformOf(str) {
   return null
 }
 export function deriveChannel(o) {
-  const sd = o.shopify_data || {}
   // RULE: if Google or Facebook appears ANYWHERE in the journey (first OR last
   // visit, or the merged top-level UTM), attribute the order to that platform —
   // even if the last click was email/Klaviyo. Prefer last-touch platform, then
   // first-touch, then the merged top-level UTM (for rows synced before we kept
   // both visits).
-  const lastP   = platformOf([sd.last_utm?.source,  sd.last_utm?.medium,  sd.last_utm?.campaign].join(' '))
-  const firstP  = platformOf([sd.first_utm?.source, sd.first_utm?.medium, sd.first_utm?.campaign].join(' '))
+  const lastP   = platformOf([o.last_utm_source,  o.last_utm_medium,  o.last_utm_campaign].join(' '))
+  const firstP  = platformOf([o.first_utm_source, o.first_utm_medium, o.first_utm_campaign].join(' '))
   const mergedP = platformOf([o.utm_source, o.utm_medium, o.utm_campaign, o.utm_content].join(' '))
   const platform = lastP || firstP || mergedP
   if (platform) return platform
   // No platform anywhere → next strongest signal across every source we have.
-  const blob = [o.utm_source, o.utm_medium, sd.first_utm?.source, sd.first_utm?.medium, sd.last_utm?.source, sd.last_utm?.medium]
+  const blob = [o.utm_source, o.utm_medium, o.first_utm_source, o.first_utm_medium, o.last_utm_source, o.last_utm_medium]
     .filter(Boolean).join(' ').toLowerCase()
   // Email/SMS flows: ShieldTech (and most ecom clients) run these through
   // Klaviyo, so the bucket carries the tool's name in the dashboard.
@@ -55,7 +54,7 @@ export function deriveChannel(o) {
   if (/shop_app|shopapp|\bshop\b/.test(blob)) return 'Shop'
   if (o.utm_source) return o.utm_source.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   // Last resort: the Shopify sales channel.
-  const ch = sd.channel
+  const ch = o.shopify_channel
   if (ch && CHANNEL_BY_SOURCENAME[ch]) return CHANNEL_BY_SOURCENAME[ch]
   if (ch === 'Online Store') return 'Direct'
   return ch || 'Other'
@@ -361,7 +360,7 @@ function TrendChart({ dates, a, b, compare, primaryColor, orders, onApplyDay, on
                       <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
                         {dayOrders.map(o => (
                           <tr key={o.lead_id} className="text-gray-600 dark:text-gray-300">
-                            <td className="py-1 font-medium text-gray-800 dark:text-white">{o.shopify_data?.order_name || '—'}</td>
+                            <td className="py-1 font-medium text-gray-800 dark:text-white">{o.order_name || '—'}</td>
                             <td className="py-1 text-gray-400 capitalize">{deriveChannel(o)}</td>
                             <td className="py-1 text-right font-semibold text-gray-800 dark:text-white">{fmt$2(o.sale_amount)}</td>
                           </tr>
@@ -455,8 +454,8 @@ function OrderModal({ order, orders = [], cogs, onNavigate, onClose }) {
   const idx = orders.findIndex(o => o.lead_id === order.lead_id)
   const hasPrev = idx > 0
   const hasNext = idx >= 0 && idx < orders.length - 1
-  const sd = order.shopify_data || {}
-  const lines = Array.isArray(sd.line_items) ? sd.line_items : []
+  const sd = order
+  const lines = Array.isArray(order.client_order_items) ? order.client_order_items : []
   const money = n => '$' + (Number(n) || 0).toFixed(2)
   const date = order.created_at ? new Date(order.created_at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
   const Field = ({ label, children }) => (
@@ -519,7 +518,7 @@ function OrderModal({ order, orders = [], cogs, onNavigate, onClose }) {
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Channel">{sd.channel || deriveChannel(order)}</Field>
+            <Field label="Channel">{sd.shopify_channel || deriveChannel(order)}</Field>
             <Field label="Campaign"><span className="font-mono text-xs">{order.utm_campaign || '— unattributed'}</span></Field>
             <Field label="Source / Medium">{(order.utm_source || '—')} / {(order.utm_medium || '—')}</Field>
             <Field label="Delivery">{sd.delivery_method || '—'}</Field>
@@ -787,7 +786,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
       // silently truncated wide ranges (All-Time showed the newest 1,000
       // orders only) once history grew past that.
       fetchAllRows((from, to) => supabase.from('client_orders')
-        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at, first_name, last_name, email')
+        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, created_at, first_name, last_name, email, order_name, shopify_channel, financial_status, fulfillment_status, item_count, delivery_method, country, subtotal, discounts, refunds, tax, first_utm_source, first_utm_medium, first_utm_campaign, first_utm_content, last_utm_source, last_utm_medium, last_utm_campaign, last_utm_content, client_order_items(sku, qty, title)')
         .eq('client_id', clientId)
         .gte('created_at', dayStartISO)
         .lte('created_at', dayEndISO)
@@ -895,7 +894,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const cogsByOrder = useMemo(() => {
     const map = {}
     if (!hasCogs) return map
-    for (const o of orders) map[o.lead_id] = orderCogs(o.shopify_data?.line_items || [], skuIndex, costBook)
+    for (const o of orders) map[o.lead_id] = orderCogs(o.client_order_items || [], skuIndex, costBook)
     return map
   }, [orders, skuIndex, costBook, hasCogs])
 
@@ -1171,9 +1170,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
       const rev = Number(o.sale_amount) || 0
       const oc = cogsByOrder[o.lead_id]?.cogs || 0
       revenue += rev; totalCogs += oc; count++
-      const sd = o.shopify_data || {}
-      const medium = (o.utm_medium || sd.last_utm?.medium || 'email').toLowerCase()
-      const camp = (o.utm_campaign || sd.last_utm?.campaign || '').trim() || '— unattributed'
+      const medium = (o.utm_medium || o.last_utm_medium || 'email').toLowerCase()
+      const camp = (o.utm_campaign || o.last_utm_campaign || '').trim() || '— unattributed'
       if (!byCamp[camp]) byCamp[camp] = { camp, medium, orders: 0, revenue: 0, cogs: 0, list: [] }
       byCamp[camp].orders++; byCamp[camp].revenue += rev; byCamp[camp].cogs += oc; byCamp[camp].list.push(o)
     }
@@ -1363,7 +1361,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   ]
 
   // ── Metric drill-downs: click a metric → see its source rows ──
-  const orderRows = (list) => list.map(o => [o.shopify_data?.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(o.sale_amount)])
+  const orderRows = (list) => list.map(o => [o.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(o.sale_amount)])
   const drillOrders = (title, value, formula, list) => setDrill({
     title, value, formula,
     columns: ['Order', 'Date', 'Channel', 'Amount'],
@@ -1570,7 +1568,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                         {focus.list.map(o => (
                           <tr key={o.lead_id} onClick={() => setOrderModal(o)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                            <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{o.shopify_data?.order_name || o.lead_id}</td>
+                            <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{o.order_name || o.lead_id}</td>
                             <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}</td>
                             {cogs.hasCogs && <td className="px-4 py-2 text-right text-amber-500 dark:text-amber-400">{fmt$2(cogsByOrder[o.lead_id]?.cogs || 0)}</td>}
                             <td className="px-4 py-2 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
@@ -2032,15 +2030,15 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       const margin = oc ? (Number(o.sale_amount) || 0) - oc.cogs : null
                       return (
                       <tr key={o.lead_id} onClick={() => setOrderModal(o)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{o.shopify_data?.order_name || '—'}</td>
+                        <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{o.order_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{o.first_name} {o.last_name}</td>
                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{deriveChannel(o)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
                         <td className="px-4 py-3 text-right tabular-nums text-gray-500 dark:text-gray-400">{oc ? fmt$2(oc.cogs) : '—'}</td>
                         <td className="px-4 py-3 text-right tabular-nums font-medium text-[#1a9e6e] dark:text-[#34CC93]">{margin != null ? fmt$2(margin) : '—'}</td>
-                        <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.financial_status} /></td>
-                        <td className="px-4 py-3 text-center"><Pill status={o.shopify_data?.fulfillment_status} /></td>
+                        <td className="px-4 py-3 text-center"><Pill status={o.financial_status} /></td>
+                        <td className="px-4 py-3 text-center"><Pill status={o.fulfillment_status} /></td>
                       </tr>
                     )})}
                   </tbody>

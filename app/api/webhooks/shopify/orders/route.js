@@ -7,6 +7,7 @@ import {
   getShopifyConnectionByShop,
   fetchShopifyOrder,
   orderNodeToOrderRow,
+  orderNodeToItems,
 } from '../../../../../lib/shopify'
 
 // Receives Shopify orders/create + orders/updated webhooks for real-time
@@ -46,9 +47,18 @@ export async function POST(request) {
     const node = await fetchShopifyOrder(conn, orderGid)
     if (!node) return new Response('Order not found', { status: 200 })
 
+    const db = admin()
     const row = orderNodeToOrderRow(conn.client_id, node)
-    const { error } = await admin().from('client_orders').upsert(row, { onConflict: 'order_id' })
+    const { error } = await db.from('client_orders').upsert(row, { onConflict: 'order_id' })
     if (error) throw new Error(error.message)
+    // Replace this order's line items (orders/updated can change them).
+    const items = orderNodeToItems(conn.client_id, node)
+    const { error: de } = await db.from('client_order_items').delete().eq('order_id', row.order_id)
+    if (de) throw new Error(de.message)
+    if (items.length) {
+      const { error: ie } = await db.from('client_order_items').insert(items)
+      if (ie) throw new Error(ie.message)
+    }
 
     return new Response('ok', { status: 200 })
   } catch (err) {

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
-import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL, ORDER_GQL_FIELDS, orderNodeToOrderRow } from '../../../lib/shopify'
+import { getShopifyConnection, getAllShopifyConnections, shopifyGraphQL, ORDER_GQL_FIELDS, orderNodeToOrderRow, orderNodeToItems } from '../../../lib/shopify'
 
 // Pulls Shopify orders and writes them into client_orders so they appear on
 // the Customers page and auto-route to the right campaign via the existing
@@ -36,6 +36,7 @@ async function syncOne(conn, start, end) {
   const db = admin()
   const q = `created_at:>=${start} created_at:<=${end}`
   const rows = []
+  const items = []
   let cursor = null
 
   do {
@@ -43,6 +44,7 @@ async function syncOne(conn, start, end) {
     const orders = data.orders
     for (const { node } of orders.edges) {
       rows.push(orderNodeToOrderRow(conn.client_id, node))
+      items.push(...orderNodeToItems(conn.client_id, node))
     }
     cursor = orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null
   } while (cursor)
@@ -50,6 +52,17 @@ async function syncOne(conn, start, end) {
   if (rows.length) {
     const { error } = await db.from('client_orders').upsert(rows, { onConflict: 'order_id' })
     if (error) throw new Error(error.message)
+    // Replace line items for the synced orders (webhooks/syncs can re-deliver
+    // an order after edits — items must reflect the latest state).
+    const ids = rows.map(r => r.order_id)
+    for (let i = 0; i < ids.length; i += 200) {
+      const { error: de } = await db.from('client_order_items').delete().in('order_id', ids.slice(i, i + 200))
+      if (de) throw new Error(de.message)
+    }
+    for (let i = 0; i < items.length; i += 500) {
+      const { error: ie } = await db.from('client_order_items').insert(items.slice(i, i + 500))
+      if (ie) throw new Error(ie.message)
+    }
   }
   return rows.length
 }

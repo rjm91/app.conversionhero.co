@@ -269,7 +269,7 @@ export default function ProjectionCenter({ clientId, clientName }) {
     Promise.all([
       // Paginated — PostgREST's 1,000-row cap silently truncates busy ranges.
       fetchAllRows((from, to) => supabase.from('client_orders')
-        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, shopify_data, created_at')
+        .select('lead_id:order_id, sale_amount, utm_campaign, utm_source, utm_medium, utm_content, created_at, shopify_channel, subtotal, discounts, refunds, first_utm_source, first_utm_medium, first_utm_campaign, last_utm_source, last_utm_medium, last_utm_campaign, client_order_items(sku, qty, title)')
         .eq('client_id', clientId)
         .gte('created_at', dayStartISO)
         .lte('created_at', dayEndISO)
@@ -335,7 +335,7 @@ export default function ProjectionCenter({ clientId, clientName }) {
       revenue[i] += rev
       orderCount[i] += 1
       if (isPaidOrder(o)) paidRevenue[i] += rev
-      if (hasCogs) cogsDaily[i] += orderCogs(o.shopify_data?.line_items || [], skuIndex, costBook).cogs
+      if (hasCogs) cogsDaily[i] += orderCogs(o.client_order_items || [], skuIndex, costBook).cogs
     }
     for (const r of googleDaily) { const i = idx[String(r.date).slice(0, 10)]; if (i != null) gSpend[i] += Number(r.cost) || 0 }
     for (const r of metaDaily)   { const i = idx[String(r.date).slice(0, 10)]; if (i != null) mSpend[i] += Number(r.spend) || 0 }
