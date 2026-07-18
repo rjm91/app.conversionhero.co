@@ -13,7 +13,7 @@ const page = (params, err) => `<!doctype html><meta charset="utf-8"><meta name="
   <div style="color:#8a93a8;font-size:12px;line-height:1.6;margin-bottom:16px;">An external agent is requesting READ-ONLY access to ShieldTech's P&amp;L data. Enter the access key to approve.</div>
   ${err ? `<div style="color:#ff6b6b;font-size:12px;margin-bottom:10px;">${err}</div>` : ''}
   ${Object.entries(params).map(([k, v]) => `<input type="hidden" name="${k}" value="${String(v).replace(/"/g, '&quot;')}">`).join('')}
-  <input name="key" type="password" placeholder="access key" autofocus style="width:100%;box-sizing:border-box;background:#0b0e14;border:1px solid rgba(255,255,255,.15);border-radius:7px;color:#dbe1ee;font:inherit;padding:9px 11px;margin-bottom:12px;">
+  <input name="key" type="password" placeholder="access key" autofocus autocomplete="new-password" data-1p-ignore data-lpignore="true" style="width:100%;box-sizing:border-box;background:#0b0e14;border:1px solid rgba(255,255,255,.15);border-radius:7px;color:#dbe1ee;font:inherit;padding:9px 11px;margin-bottom:12px;">
   <button style="width:100%;background:#6ea8fe;border:none;border-radius:7px;color:#0b1220;font:inherit;font-weight:800;padding:9px;cursor:pointer;">Approve</button>
 </form></body>`
 
@@ -24,10 +24,20 @@ const pick = (sp) => ({
 })
 
 export async function GET(request) {
-  const p = pick(new URL(request.url).searchParams)
+  const sp = new URL(request.url).searchParams
+  const p = pick(sp)
   const client = verify(p.client_id)
   if (!client || client.t !== 'client' || !client.redirect_uris.includes(p.redirect_uri)) {
     return new Response('invalid client_id or redirect_uri', { status: 400 })
+  }
+  // Bypass for autofill/clipboard hell: append &key=… to this URL and the
+  // approval happens without the form (same secret, same gate).
+  if ((sp.get('key') || '').trim() === String(process.env.CHORUS_MCP_KEY || '').trim()) {
+    const code = sign({ t: 'code', redirect_uri: p.redirect_uri, code_challenge: p.code_challenge, exp: Date.now() + 5 * 60 * 1000 })
+    const to = new URL(p.redirect_uri)
+    to.searchParams.set('code', code)
+    if (p.state) to.searchParams.set('state', p.state)
+    return NextResponse.redirect(to.toString(), 302)
   }
   return new Response(page(p), { headers: { 'content-type': 'text/html' } })
 }
