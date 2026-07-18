@@ -37,6 +37,7 @@ const TREE = [
   { section: 'WORKSPACE', items: [
     { id: 'overview', icon: '📊', label: 'Overview' },
     { id: 'overview2', icon: '📑', label: 'Overview 2' },
+    { id: 'schema', icon: '🗄', label: 'Schema' },
   ]},
   { section: 'CAMPAIGNS', items: [
     { id: 'google', icon: '🔍', label: 'Google Ads' },
@@ -62,7 +63,7 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', overview2: 'Overview 2', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'Overview', overview2: 'Overview 2', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 
 // APPS — the rest of the control center, reachable without leaving the IDE
 // chrome. These navigate to the classic pages (the old nav is gone on /mission).
@@ -95,6 +96,10 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
+  // Deep link (?focus=<table>&day=…) → open the client Schema browser tab.
+  useEffect(() => {
+    try { if (new URLSearchParams(window.location.search).get('focus')) { setTabs(t => t.includes('schema') ? t : [...t, 'schema']); setActiveTab('schema') } } catch { /* ignore */ }
+  }, [])
   const [splitTab, setSplitTab] = useState(null)   // second editor pane (or null)
   const [splitPct, setSplitPct] = useState(45)     // right pane width %
   const [qpOpen, setQpOpen] = useState(false)      // ⌘P quick-open
@@ -1211,6 +1216,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} />
   if (id === 'overview2') return <Overview2View m={m} rangeLabel={rangeLabel} />
+  if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -1622,8 +1628,8 @@ function SourceDrill({ day, drill, m }) {
         return (
           <div key={si} className="ov-set">
             <div className="ov-drill-h">
-              <a className="mono ov-tlink" href={`/control/mission?focus=${set.table}&day=${day}&client_id=${clientId}`} target="_blank" rel="noreferrer"
-                title="Open this table in the Schema browser, filtered to this day">public.{set.table} ↗</a>
+              <a className="mono ov-tlink" href={`/control/${clientId}/mission?focus=${set.table}&day=${day}`} target="_blank" rel="noreferrer"
+                title="Open this table in your Schema browser, filtered to this day">public.{set.table} ↗</a>
               <span className="dim"> · {set.note} · {day} · {set.rows.length} rows · live Supabase read (RLS)</span>
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
@@ -1716,6 +1722,158 @@ function Overview2View({ m, rangeLabel }) {
           </>
         )
       }} />
+    </div>
+  )
+}
+
+// Client-scoped Schema browser — the ecom tables THIS client may see. Rows are
+// read with the signed-in user's own supabase session, so RLS tenant policies
+// enforce the boundary; a client login can never see another tenant's rows.
+// Deep-linked from the Overview drills (?focus=<table>&day=YYYY-MM-DD).
+function ClientSchemaView({ tz }) {
+  const { clientId } = useParams()
+  const [model, setModel] = useState(null)
+  const [err, setErr] = useState(null)
+  const [counts, setCounts] = useState({})
+  const [table, setTable] = useState(null)
+  const [dayFilter, setDayFilter] = useState(null)
+  const [rows, setRows] = useState({ loading: false, list: [], total: null })
+  const [q, setQ] = useState('')
+
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.get('focus')) setTable(sp.get('focus'))
+      if (sp.get('day')) setDayFilter(sp.get('day'))
+    } catch { /* no params */ }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/mission/schema?client_id=${clientId}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => { if (!alive) return; if (d.error) setErr(d.error); else { setModel(d); if (!table && d.tables?.length) setTable(d.tables[0].name) } })
+      .catch(e => alive && setErr(String(e)))
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  // Row counts per table — the user's OWN session (RLS-scoped).
+  useEffect(() => {
+    if (!model) return
+    let alive = true
+    ;(async () => {
+      const out = {}
+      for (const t of model.tables) {
+        try {
+          const { count } = await supabase.from(t.name).select('*', { count: 'exact', head: true }).eq('client_id', clientId)
+          out[t.name] = count ?? 0
+        } catch { out[t.name] = null }
+        if (!alive) return
+      }
+      if (alive) setCounts(out)
+    })()
+    return () => { alive = false }
+  }, [model, clientId])
+
+  // Rows for the selected table (+ optional business-day filter).
+  useEffect(() => {
+    if (!table || !model) return
+    const meta = model.tables.find(t => t.name === table)
+    if (!meta) return
+    let alive = true
+    setRows({ loading: true, list: [], total: null })
+    ;(async () => {
+      try {
+        let qy = supabase.from(table).select('*', { count: 'exact' }).eq('client_id', clientId)
+        if (dayFilter) {
+          const cols = meta.columns.map(c => c.name)
+          const eqCol = ['day', 'date'].find(c => cols.includes(c))
+          const tsCol = ['ordered_at', 'created_at'].find(c => cols.includes(c))
+          if (eqCol) qy = qy.eq(eqCol, dayFilter)
+          else if (tsCol) {
+            const probe = new Date(dayFilter + 'T00:00:00Z')
+            const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'America/Phoenix', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(probe).map(x => [x.type, x.value]))
+            const offMs = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour % 24, parts.minute, parts.second) - probe.getTime()
+            const startMs = probe.getTime() - offMs
+            qy = qy.gte(tsCol, new Date(startMs).toISOString()).lt(tsCol, new Date(startMs + 86400000).toISOString())
+          }
+        }
+        const orderCol = ['created_at', 'ordered_at', 'day', 'date'].find(c => meta.columns.some(x => x.name === c))
+        if (orderCol) qy = qy.order(orderCol, { ascending: false })
+        const { data, count, error } = await qy.limit(100)
+        if (error) throw error
+        if (alive) setRows({ loading: false, list: data || [], total: count ?? 0 })
+      } catch (e) { if (alive) setRows({ loading: false, list: [], total: null, error: e.message || String(e) }) }
+    })()
+    return () => { alive = false }
+  }, [table, dayFilter, model, clientId, tz])
+
+  if (err) return <div className="v-pad"><p className="a-err">{err}</p></div>
+  if (!model) return <div className="v-pad"><p className="a-dim">reading the schema…</p></div>
+  const meta = model.tables.find(t => t.name === table)
+  const rels = meta ? model.edges.filter(e => e.from === table || e.to === table) : []
+  const shown = model.tables.filter(t => !q || t.name.includes(q.toLowerCase()))
+  const cols = rows.list.length ? Object.keys(rows.list[0]) : []
+  const fmt = (v) => v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : typeof v === 'number' ? Number(Number(v).toFixed(2)).toLocaleString() : String(v)
+
+  return (
+    <div className="cs-root">
+      <aside className="cs-rail">
+        <div className="cs-rail-h">YOUR DATA · {model.tables.length} tables</div>
+        <input className="cs-q" placeholder="filter tables…" value={q} onChange={e => setQ(e.target.value)} />
+        {shown.map(t => (
+          <button key={t.name} className={`cs-t ${t.name === table ? 'on' : ''}`} onClick={() => setTable(t.name)}>
+            <span className="cs-tn">{t.name}</span>
+            <span className="cs-tc">{counts[t.name] == null ? '…' : counts[t.name].toLocaleString()}</span>
+          </button>
+        ))}
+        <p className="cs-note">Row counts and rows are read with YOUR login — row-level security scopes everything to {clientId}.</p>
+      </aside>
+      <div className="cs-main">
+        {meta && (
+          <>
+            <div className="cs-head">
+              <span className="cs-path">public.{meta.name}</span>
+              <span className="dim"> · {meta.columns.length} columns · {rows.total == null ? '…' : `${rows.total.toLocaleString()} rows`}</span>
+            </div>
+            <div className="cs-cols">
+              {meta.columns.map(c => (
+                <span key={c.name} className={`cs-col ${c.key.includes('PK') ? 'pk' : ''} ${c.key.includes('FK') ? 'fk' : ''}`}
+                  title={`${c.type}${c.nullable ? ' · nullable' : ''}${c.ref ? ` · FK → ${c.ref.table}.${c.ref.col}` : ''}`}>
+                  {c.name}{c.ref && <i onClick={() => setTable(c.ref.table)}> → {c.ref.table}</i>}
+                </span>
+              ))}
+            </div>
+            {rels.length > 0 && (
+              <div className="cs-rels">
+                {rels.map((e, i) => (
+                  <button key={i} className="cs-rel" onClick={() => setTable(e.from === table ? e.to : e.from)}>
+                    {e.from === table ? `→ ${e.to} (via ${e.col})` : `← ${e.from} (via ${e.col})`}
+                  </button>
+                ))}
+              </div>
+            )}
+            {dayFilter && (
+              <div className="cs-filter">filtered: day = {dayFilter}<button onClick={() => setDayFilter(null)}>✕ clear</button></div>
+            )}
+            {rows.error && <p className="a-err">{rows.error}</p>}
+            {rows.loading && <p className="a-dim">querying with your session…</p>}
+            {!rows.loading && rows.list.length === 0 && !rows.error && <p className="a-dim">no rows{dayFilter ? ' for this day' : ''}.</p>}
+            {rows.list.length > 0 && (
+              <div className="dpnl dp2" style={{ maxHeight: 'calc(100vh - 420px)' }}>
+                <table>
+                  <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
+                  <tbody>
+                    {rows.list.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -2511,6 +2669,30 @@ const CSS = `
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .ov-tlink{text-decoration:none;}
 .ide .ov-tlink:hover{color:var(--blue);text-decoration:underline;}
+.ide .cs-root{display:flex;height:100%;min-height:0;}
+.ide .cs-rail{width:250px;flex-shrink:0;border-right:1px solid var(--line);overflow-y:auto;padding:14px 10px;}
+.ide .cs-rail-h{font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:0 4px 8px;}
+.ide .cs-q{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 8px;margin-bottom:8px;outline:none;}
+.ide .cs-t{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;padding:4.5px 6px;cursor:pointer;text-align:left;border-radius:5px;}
+.ide .cs-t:hover{background:rgba(255,255,255,.03);color:var(--txt);}
+.ide .cs-t.on{background:rgba(110,168,254,.1);color:var(--txt);}
+.ide .cs-tn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .cs-tc{color:var(--faint);font-size:10.5px;font-variant-numeric:tabular-nums;}
+.ide .cs-note{color:var(--faint);font-size:10.5px;padding:10px 4px;line-height:1.5;}
+.ide .cs-main{flex:1;overflow-y:auto;padding:18px 24px;min-width:0;}
+.ide .cs-head{margin-bottom:10px;}
+.ide .cs-path{font-weight:800;font-size:14px;}
+.ide .cs-cols{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.ide .cs-col{font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:2px 7px;color:var(--dim);}
+.ide .cs-col.pk{border-color:rgba(63,214,143,.4);color:var(--green);}
+.ide .cs-col.fk{border-color:rgba(110,168,254,.4);}
+.ide .cs-col i{font-style:normal;color:var(--blue);cursor:pointer;}
+.ide .cs-rels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.ide .cs-rel{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:10.5px;padding:3px 9px;cursor:pointer;}
+.ide .cs-rel:hover{color:var(--txt);border-color:var(--blue);}
+.ide .cs-filter{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--amber);background:rgba(242,180,92,.08);border:1px solid rgba(242,180,92,.25);border-radius:6px;padding:4px 10px;margin-bottom:10px;}
+.ide .cs-filter button{background:none;border:none;color:var(--dim);font:inherit;font-size:10px;cursor:pointer;}
+.ide .cs-filter button:hover{color:var(--txt);}
 .ide .dp2-sec{margin-bottom:22px;}
 .ide .dp2-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);margin:0 0 6px;}
 .ide .dpnl.dp2{max-height:420px;display:inline-block;min-width:0;max-width:100%;}
