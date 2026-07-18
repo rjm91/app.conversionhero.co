@@ -1357,12 +1357,200 @@ function ResizableTable({ id, columns, rows, note, onRowClick, expandedKey, rowK
 
 /* ══════════ Views (tab contents) ══════════ */
 
+// Overview — one business day at a time, laid out like Ryan's note: REVENUE /
+// ORDERS / PAID ADS (Blended · Meta · Google) / ORGANIC / MARGIN. Every line
+// drills to the actual Supabase rows behind it (direct mirror, RLS-gated).
 function OverviewView({ m, rangeLabel }) {
+  const { $, x, pc, div, cmCls, roasCls } = DP
+  const { list } = buildDailyRows(m)
+  const newClassified = !!m.pnl?.newClassified
+  const costPerLabel = m.sources?.costPerLabel ?? 25
+  const tz = m.sources?.tz || undefined
+  const days = useMemo(() => list.map(r => r.day), [list])
+  const [day, setDay] = useState(null)
+  const activeDay = day && days.includes(day) ? day : days[0] || null
+  const [drill, setDrill] = useState(null) // { kind, label, channel? }
+  useEffect(() => { setDrill(null) }, [activeDay])
+  if (!activeDay) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
+  const r = list.find(z => z.day === activeDay)
+  const idx = days.indexOf(activeDay)
+
+  const spend = r.meta.spend + r.google.spend
+  const paidNet = r.meta.net + r.google.net
+  const blendedCM = (paidNet || spend) ? paidNet - (r.meta.cogs + r.google.cogs) - spend : null
+  const cm = r.net - r.cogs - spend
+  const shipCost = r.shipped * costPerLabel
+  const organic = Object.entries(r.channels)
+    .filter(([ch]) => ch !== 'Meta' && ch !== 'Google')
+    .sort((a, b) => b[1].net - a[1].net)
+  const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - (c.spend || 0) : null
+  const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  const toggle = (dk) => setDrill(d => (d && d.kind === dk.kind && d.channel === dk.channel && d.line === dk.line) ? null : dk)
+  const Line = ({ k, v, cls, dk }) => (
+    <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
+      onClick={dk ? () => toggle(dk) : undefined} disabled={!dk} type="button">
+      <span className="ov-k">{k}</span><span className="ov-dots" /><span className={`ov-v ${cls || ''}`}>{v}</span>
+    </button>
+  )
+  const H = ({ children }) => <div className="ov-h">{children}</div>
+  const H2 = ({ children }) => <div className="ov-h2">{children}</div>
+
   return (
     <div className="v-pad">
-      <h4 className="v-h" style={{ marginTop: 0 }}>Daily P&amp;L</h4>
-      <p className="v-note" style={{ marginTop: 0 }}>{rangeLabel}. One row per day (client business timezone), newest first — revenue, channel splits (order channel = Meta/Google), blended efficiency, BOM COGS, contribution margin. Website columns light up when GA4 is connected.</p>
-      <DailyPnlTable m={m} />
+      <div className="ov-top">
+        <div>
+          <h4 className="v-h" style={{ margin: 0 }}>Daily P&amp;L</h4>
+          <p className="v-note" style={{ margin: '2px 0 0' }}>{fmtDay} · client business day{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}</p>
+        </div>
+        <div className="ov-nav">
+          <button onClick={() => setDay(days[Math.min(idx + 1, days.length - 1)])} disabled={idx >= days.length - 1} title="older">‹</button>
+          <span className="ov-day">{activeDay}</span>
+          <button onClick={() => setDay(days[Math.max(idx - 1, 0)])} disabled={idx <= 0} title="newer">›</button>
+          <button className="ov-today" onClick={() => setDay(days[0])} disabled={idx === 0}>latest ↦</button>
+        </div>
+      </div>
+
+      <div className="ov-grid">
+        <div>
+          <div className="ov-sec">
+            <H>REVENUE</H>
+            <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kind: 'orders', line: 'gross' }} />
+            <Line k="Discounts" v={'−' + $(r.discounts)} cls="warn" dk={{ kind: 'orders', line: 'discounts' }} />
+            <Line k="Refunds" v={'−' + $(r.refunds)} cls="bad" dk={{ kind: 'orders', line: 'refunds' }} />
+            <Line k="Net Revenue" v={$(r.net)} cls="good" dk={{ kind: 'orders', line: 'net' }} />
+          </div>
+          <div className="ov-sec">
+            <H>ORDERS</H>
+            <Line k="Orders > $0" v={r.orders} dk={{ kind: 'orders', line: 'count' }} />
+            <Line k="New Orders" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kind: 'orders', line: 'new' }} />
+          </div>
+          <div className="ov-sec">
+            <H>ORGANIC</H>
+            {organic.length === 0 && <p className="a-dim" style={{ margin: '4px 0' }}>no organic revenue this day.</p>}
+            {organic.map(([ch, c]) => (
+              <Line key={ch} k={ch} v={$(c.net)} dk={{ kind: 'orders', line: 'org:' + ch, channel: ch }} />
+            ))}
+          </div>
+          <div className="ov-sec">
+            <H>MARGIN</H>
+            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kind: 'items', line: 'cogs' }} />
+            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kind: 'pnl', line: 'cm' }} />
+            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kind: 'pnl', line: 'np' }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="ov-sec">
+            <H>PAID ADS</H>
+            <H2>BLENDED</H2>
+            <Line k="Spend" v={$(spend)} cls="warn" dk={{ kind: 'campaigns', line: 'bl-spend' }} />
+            <Line k="ROAS" v={x(div(r.net, spend))} cls={roasCls(div(r.net, spend))} dk={{ kind: 'campaigns', line: 'bl-roas' }} />
+            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kind: 'orders', line: 'bl-aov' }} />
+            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kind: 'campaigns', line: 'bl-cpa' }} />
+            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kind: 'pnl', line: 'bl-cm' }} />
+            <H2>META</H2>
+            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls="warn" dk={{ kind: 'meta_campaigns', line: 'm-spend' }} />
+            <Line k="ROAS" v={x(div(r.meta.net, r.meta.spend))} cls={roasCls(div(r.meta.net, r.meta.spend))} dk={{ kind: 'meta_campaigns', line: 'm-roas' }} />
+            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kind: 'orders', line: 'm-aov', channel: 'Meta' }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kind: 'orders', line: 'm-pct', channel: 'Meta' }} />
+            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kind: 'orders', line: 'm-cm', channel: 'Meta' }} />
+            <H2>GOOGLE</H2>
+            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls="warn" dk={{ kind: 'google_campaigns', line: 'g-spend' }} />
+            <Line k="ROAS" v={x(div(r.google.net, r.google.spend))} cls={roasCls(div(r.google.net, r.google.spend))} dk={{ kind: 'google_campaigns', line: 'g-roas' }} />
+            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kind: 'orders', line: 'g-aov', channel: 'Google' }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kind: 'orders', line: 'g-pct', channel: 'Google' }} />
+            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kind: 'orders', line: 'g-cm', channel: 'Google' }} />
+          </div>
+        </div>
+      </div>
+
+      {drill && <SourceDrill day={activeDay} drill={drill} m={m} />}
+    </div>
+  )
+}
+
+// Direct mirror of the Supabase rows behind a clicked line — a live, RLS-gated
+// query against the actual table, filtered to the selected business day.
+function SourceDrill({ day, drill, m }) {
+  const { clientId } = useParams()
+  const [state, setState] = useState({ loading: true })
+  const dayOrders = useMemo(() => {
+    const tz = m.sources?.tz || undefined
+    const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) } catch { return String(iso).slice(0, 10) } }
+    return (m.sources?.orders || []).filter(o => dayOf(o.date) === day && (!drill.channel || o.channel === drill.channel))
+  }, [m, day, drill.channel])
+
+  useEffect(() => {
+    let alive = true
+    const ids = dayOrders.map(o => o.id).slice(0, 400)
+    const run = async () => {
+      try {
+        if (drill.kind === 'orders') {
+          const { data, error } = await supabase.from('client_orders')
+            .select('order_name, order_id, created_at, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
+            .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
+          if (error) throw error
+          if (alive) setState({ loading: false, table: 'client_orders', rows: data || [] })
+        } else if (drill.kind === 'items') {
+          const { data, error } = await supabase.from('client_order_items')
+            .select('order_id, sku, title, qty, ordered_at')
+            .eq('client_id', clientId).in('order_id', ids).order('ordered_at', { ascending: true })
+          if (error) throw error
+          if (alive) setState({ loading: false, table: 'client_order_items', rows: data || [] })
+        } else if (drill.kind === 'meta_campaigns' || drill.kind === 'campaigns') {
+          const { data, error } = await supabase.from('client_meta_campaigns')
+            .select('campaign_name, date, spend, impressions, clicks, conversions')
+            .eq('client_id', clientId).eq('date', day).order('spend', { ascending: false })
+          if (error) throw error
+          if (drill.kind === 'meta_campaigns') { if (alive) setState({ loading: false, table: 'client_meta_campaigns', rows: data || [] }); return }
+          const { data: g, error: ge } = await supabase.from('client_google_campaigns')
+            .select('campaign_name, date, cost, impressions, clicks, conversions')
+            .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
+          if (ge) throw ge
+          if (alive) setState({ loading: false, table: 'client_meta_campaigns + client_google_campaigns', rows: [...(data || []), ...(g || [])] })
+        } else if (drill.kind === 'google_campaigns') {
+          const { data, error } = await supabase.from('client_google_campaigns')
+            .select('campaign_name, date, cost, impressions, clicks, conversions')
+            .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
+          if (error) throw error
+          if (alive) setState({ loading: false, table: 'client_google_campaigns', rows: data || [] })
+        } else if (drill.kind === 'pnl') {
+          const [{ data: p, error: pe }, { data: ch, error: ce }] = await Promise.all([
+            supabase.from('client_daily_pnl').select('date, net_sales, gross_profit, total_orders, total_spend, cogs, cost_per_label').eq('client_id', clientId).eq('date', day),
+            supabase.from('client_channel_daily_pnl').select('day, channel, gross_revenue, net_revenue, discounts, refunds, orders, new_orders, cogs, spend').eq('client_id', clientId).eq('day', day).order('net_revenue', { ascending: false }),
+          ])
+          if (pe) throw pe
+          if (ce) throw ce
+          if (alive) setState({ loading: false, table: 'client_daily_pnl + client_channel_daily_pnl', rows: [...(p || []), ...(ch || [])] })
+        }
+      } catch (e) { if (alive) setState({ loading: false, error: e.message || String(e) }) }
+    }
+    run()
+    return () => { alive = false }
+  }, [drill.kind, drill.channel, day, clientId])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rows = state.rows || []
+  const cols = rows.length ? Object.keys(rows[0]) : []
+  const fmt = (v) => v == null ? '—' : typeof v === 'number' ? Number(v).toLocaleString() : String(v)
+  return (
+    <div className="ov-drill">
+      <div className="ov-drill-h">
+        <span className="mono">public.{state.table || '…'}</span>
+        <span className="dim"> · {drill.channel ? `${drill.channel} orders · ` : ''}{day} · {state.loading ? 'querying…' : `${rows.length} rows`} · live Supabase read (RLS)</span>
+      </div>
+      {state.error && <p className="a-err" style={{ padding: '8px 0' }}>{state.error}</p>}
+      {!state.loading && !state.error && rows.length === 0 && <p className="a-dim" style={{ padding: '8px 0' }}>no rows for this day.</p>}
+      {rows.length > 0 && (
+        <div className="dpnl dp2" style={{ maxHeight: 300 }}>
+          <table>
+            <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -1389,14 +1577,20 @@ function buildDailyRows(m) {
     try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) }
     catch { return String(iso).slice(0, 10) }
   }
-  const mk = () => ({ gross: 0, net: 0, orders: 0, newOrders: 0, cogs: 0,
+  const mk = () => ({ gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
     meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } })
   const byDay = {}
   const R = (d) => (byDay[d] = byDay[d] || { day: d, ...mk() })
   for (const o of orders) {
     const r = R(dayOf(o.date))
     r.gross += o.gross; r.net += o.net; r.cogs += o.cogs
+    r.discounts += o.discounts || 0; r.refunds += o.refunds || 0
+    if (o.shipped) r.shipped += 1
     if (o.net > 0) { r.orders += 1; if (o.isNew) r.newOrders += 1 }
+    const chName = o.channel || 'Other'
+    const cc = (r.channels[chName] = r.channels[chName] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
+    cc.net += o.net; cc.gross += o.gross; cc.cogs += o.cogs
+    if (o.net > 0) { cc.orders += 1; if (o.isNew) cc.newOrders += 1 }
     const c = o.channel === 'Meta' ? r.meta : o.channel === 'Google' ? r.google : null
     if (c) { c.net += o.net; c.cogs += o.cogs; if (o.net > 0) c.orders += 1 }
   }
@@ -2321,6 +2515,29 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
+.ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.ide .ov-nav{display:flex;align-items:center;gap:6px;}
+.ide .ov-nav button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:13px;padding:3px 10px;cursor:pointer;}
+.ide .ov-nav button:disabled{opacity:.35;cursor:default;}
+.ide .ov-nav button:not(:disabled):hover{border-color:var(--blue);}
+.ide .ov-day{font-weight:800;font-size:13px;padding:0 4px;font-variant-numeric:tabular-nums;}
+.ide .ov-today{font-size:11px;}
+.ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 48px;max-width:980px;}
+.ide .ov-sec{margin-bottom:20px;}
+.ide .ov-h{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--blue);border-bottom:1px solid var(--line);padding-bottom:4px;margin:0 0 6px;}
+.ide .ov-h2{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--dim);margin:12px 0 3px;}
+.ide .ov-line{display:flex;align-items:baseline;width:100%;background:none;border:none;padding:2.5px 2px;font:inherit;font-size:12.5px;color:inherit;text-align:left;border-radius:4px;}
+.ide .ov-line.on{cursor:pointer;}
+.ide .ov-line.on:hover{background:rgba(110,168,254,.07);}
+.ide .ov-line.open{background:rgba(110,168,254,.12);}
+.ide .ov-line:disabled{cursor:default;}
+.ide .ov-k{color:var(--dim);}
+.ide .ov-dots{flex:1;border-bottom:1px dotted var(--line);margin:0 8px 3px;}
+.ide .ov-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);}
+.ide .ov-v.lgreen{color:#8fe0bb;}
+.ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;max-width:980px;}
+.ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
+.ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .dp2-sec{margin-bottom:22px;}
 .ide .dp2-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);margin:0 0 6px;}
 .ide .dpnl.dp2{max-height:420px;display:inline-block;min-width:0;max-width:100%;}
