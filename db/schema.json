@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-18 04:05:29 UTC",
+  "generatedAt": "2026-07-18 04:14:42 UTC",
   "method": "postgrest:openapi",
   "tables": [
     {
@@ -1527,6 +1527,107 @@
         },
         {
           "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        }
+      ]
+    },
+    {
+      "name": "client_channel_daily_pnl",
+      "columns": [
+        {
+          "name": "client_id",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": "client.client_id"
+        },
+        {
+          "name": "day",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "channel",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "pk": true,
+          "fk": null
+        },
+        {
+          "name": "gross_revenue",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "net_revenue",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "discounts",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "refunds",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "orders",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "new_orders",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "cogs",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "spend",
+          "type": "numeric",
+          "nullable": false,
+          "default": null,
+          "pk": false,
+          "fk": null
+        },
+        {
+          "name": "computed_at",
           "type": "timestamp with time zone",
           "nullable": false,
           "default": null,
