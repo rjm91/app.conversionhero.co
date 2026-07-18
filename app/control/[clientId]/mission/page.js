@@ -1397,7 +1397,7 @@ function OverviewView({ m, rangeLabel }) {
   const H2 = ({ children }) => <div className="ov-h2">{children}</div>
 
   return (
-    <div className="v-pad">
+    <div className="v-pad ov-pad">
       <div className="ov-top">
         <div>
           <h4 className="v-h" style={{ margin: 0 }}>Daily P&amp;L</h4>
@@ -2515,6 +2515,7 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
+.ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;}
 .ide .ov-nav button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:13px;padding:3px 10px;cursor:pointer;}
