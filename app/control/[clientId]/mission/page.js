@@ -2627,8 +2627,8 @@ const CSS = `
 .ide .ov-i .ov-pop::after{content:'';position:absolute;left:0;right:0;top:100%;height:22px;}
 .ide .ov-thr-edit{display:block;margin-top:7px;padding:0;background:none;border:none;color:var(--blue);font-size:10.5px;cursor:pointer;text-align:left;}
 .ide .ov-thr-edit:hover{text-decoration:underline;}
-.ide .ov-thr-form{display:block;}
-.ide .ov-thr-form > span{display:flex;align-items:center;gap:4px;padding:2px 0;line-height:1.45;}
+.ide .ov-pop > span.ov-thr-form{display:block;padding:0;}
+.ide .ov-thr-form > span{display:flex;align-items:center;gap:4px;padding:2px 0;line-height:1.45;white-space:nowrap;}
 .ide .ov-thr-form input{width:52px;background:var(--bg);border:1px solid var(--line);border-radius:5px;color:var(--txt);font:inherit;font-size:11px;padding:2px 5px;}
 .ide .ov-thr-form input:focus{outline:none;border-color:var(--blue);}
 .ide .ov-thr-note{color:var(--faint);}
