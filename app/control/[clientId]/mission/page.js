@@ -1404,18 +1404,62 @@ function buildDailyRows(m) {
 // Overview — one business day at a time, laid out like Ryan's note: REVENUE /
 // ORDERS / PAID ADS (Blended · Meta · Google) / ORGANIC / MARGIN. Every line
 // drills to the actual Supabase rows behind it (direct mirror, RLS-gated).
+// ROAS color-key popover — hover previews, clicking the ⓘ pins it open (so the
+// mouse can reach "edit thresholds"), clicking anywhere else unpins. Own
+// component so each ROAS line's ⓘ pins independently.
+function RoasKey({ thr, canEdit, onSave }) {
+  const [pinned, setPinned] = useState(false)
+  const [draft, setDraft] = useState(null) // { red, green } as strings while editing
+  const valid = draft && Number(draft.red) > 0 && Number(draft.green) > Number(draft.red)
+  const commit = () => {
+    if (!valid) return
+    onSave && onSave({ red: Math.round(Number(draft.red) * 100) / 100, green: Math.round(Number(draft.green) * 100) / 100 })
+    setDraft(null); setPinned(false)
+  }
+  useEffect(() => {
+    if (!pinned) return
+    const close = () => { setPinned(false); setDraft(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [pinned])
+  const fx = (n) => Number(n).toFixed(2) + 'x'
+  return (
+    <span className="ov-i" onClick={e => e.stopPropagation()}>
+      <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
+      <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
+        <b>ROAS color key</b>
+        {draft ? (
+          <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
+            <span><i className="kd r" />red below <input autoFocus type="number" step="0.05" min="0.05" value={draft.red}
+              onChange={e => setDraft(d => ({ ...d, red: e.target.value }))} />x</span>
+            <span><i className="kd g" />green above <input type="number" step="0.05" min="0.05" value={draft.green}
+              onChange={e => setDraft(d => ({ ...d, green: e.target.value }))} />x</span>
+            <span className="ov-thr-note"><i className="kd y" />yellow = in between</span>
+            <span className="ov-thr-btns">
+              <button type="button" disabled={!valid} onClick={commit}>save</button>
+              <button type="button" onClick={() => setDraft(null)}>cancel</button>
+            </span>
+          </span>
+        ) : (
+          <>
+            <span><i className="kd r" />under {fx(thr.red)} — losing money on ad spend</span>
+            <span><i className="kd y" />{fx(thr.red)} – {fx(thr.green)} — breakeven zone</span>
+            <span><i className="kd g" />above {fx(thr.green)} — healthy</span>
+            {canEdit && (
+              <button type="button" className="ov-thr-edit" onClick={() => setDraft({ red: String(thr.red), green: String(thr.green) })}>✎ edit thresholds</button>
+            )}
+          </>
+        )}
+      </span>
+    </span>
+  )
+}
+
 function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const { $, x, pc, div, cmCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
   const rc = (n) => roasCls(n, thr)
-  const [roasEdit, setRoasEdit] = useState(null) // { red, green } as strings while editing
-  const roasDraftValid = roasEdit && Number(roasEdit.red) > 0 && Number(roasEdit.green) > Number(roasEdit.red)
-  const commitRoas = () => {
-    if (!roasDraftValid) return
-    onSaveRoas && onSaveRoas({ red: Math.round(Number(roasEdit.red) * 100) / 100, green: Math.round(Number(roasEdit.green) * 100) / 100 })
-    setRoasEdit(null)
-  }
   const { list } = buildDailyRows(m)
   const newClassified = !!m.pnl?.newClassified
   const costPerLabel = m.sources?.costPerLabel ?? 25
@@ -1441,36 +1485,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
-  const fx = (n) => Number(n).toFixed(2) + 'x'
-  const roasKey = (
-    <span className="ov-i" onClick={e => e.stopPropagation()}>ⓘ
-      <span className={`ov-pop ${roasEdit ? 'pin' : ''}`}>
-        <b>ROAS color key</b>
-        {roasEdit ? (
-          <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commitRoas(); if (e.key === 'Escape') setRoasEdit(null) }}>
-            <span><i className="kd r" />red below <input autoFocus type="number" step="0.05" min="0.05" value={roasEdit.red}
-              onChange={e => setRoasEdit(d => ({ ...d, red: e.target.value }))} />x</span>
-            <span><i className="kd g" />green above <input type="number" step="0.05" min="0.05" value={roasEdit.green}
-              onChange={e => setRoasEdit(d => ({ ...d, green: e.target.value }))} />x</span>
-            <span className="ov-thr-note"><i className="kd y" />yellow = in between</span>
-            <span className="ov-thr-btns">
-              <button type="button" disabled={!roasDraftValid} onClick={commitRoas}>save</button>
-              <button type="button" onClick={() => setRoasEdit(null)}>cancel</button>
-            </span>
-          </span>
-        ) : (
-          <>
-            <span><i className="kd r" />under {fx(thr.red)} — losing money on ad spend</span>
-            <span><i className="kd y" />{fx(thr.red)} – {fx(thr.green)} — breakeven zone</span>
-            <span><i className="kd g" />above {fx(thr.green)} — healthy</span>
-            {canEditRoas && (
-              <button type="button" className="ov-thr-edit" onClick={() => setRoasEdit({ red: String(thr.red), green: String(thr.green) })}>✎ edit thresholds</button>
-            )}
-          </>
-        )}
-      </span>
-    </span>
-  )
+  const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle(dk) : undefined} disabled={!dk} type="button">
@@ -2607,6 +2622,9 @@ const CSS = `
 .ide .ov-i:hover .ov-pop{display:block;}
 .ide .ov-pop b{display:block;color:var(--txt);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
 .ide .ov-i .ov-pop.pin{display:block;}
+.ide .ov-i-g{cursor:pointer;}
+/* invisible strip under the popover so the mouse can cross the gap to reach it */
+.ide .ov-i .ov-pop::after{content:'';position:absolute;left:0;right:0;top:100%;height:22px;}
 .ide .ov-thr-edit{display:block;margin-top:7px;padding:0;background:none;border:none;color:var(--blue);font-size:10.5px;cursor:pointer;text-align:left;}
 .ide .ov-thr-edit:hover{text-decoration:underline;}
 .ide .ov-thr-form{display:block;}
