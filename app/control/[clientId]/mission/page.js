@@ -1543,19 +1543,19 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
           <div className="ov-sec">
             <H>PAID ADS</H>
             <H2>BLENDED</H2>
-            <Line k="Spend" v={$(spend)} cls={spend > 0 ? 'warn' : ''} dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
+            <Line k="Spend" v={$(spend)} cls={spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
             <Line k="ROAS" info={roasKey} v={x(div(r.net, spend))} cls={rc(div(r.net, spend))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-roas', explain: `Blended ROAS = ALL net revenue ÷ total ad spend = ${$(r.net)} ÷ ${$(spend)} = ${x(div(r.net, spend))}. Revenue from the orders table below; spend from both campaign tables.` }} />
             <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'bl-aov', explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
             <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cpa', explain: `CPA = total ad spend ÷ orders = ${$(spend)} ÷ ${r.orders} = ${$(div(spend, r.orders))}.` }} />
             <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cm', channel: 'Paid', explain: `Paid CM = ${$(paidNet)} paid-attributed net revenue − ${$(r.meta.cogs + r.google.cogs)} their COGS − ${$(spend)} spend = ${blendedCM == null ? '—' : $(blendedCM)}.` }} />
             <H2>META</H2>
-            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls={r.meta.spend > 0 ? 'warn' : ''} dk={{ kinds: ['meta_campaigns'], line: 'm-spend', explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
+            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls={r.meta.spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns'], line: 'm-spend', explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
             <Line k="ROAS" info={roasKey} v={x(div(r.meta.net, r.meta.spend))} cls={rc(div(r.meta.net, r.meta.spend))} dk={{ kinds: ['meta_campaigns', 'orders'], line: 'm-roas', channel: 'Meta', explain: `Meta ROAS = net revenue of Meta-attributed orders ÷ Meta spend = ${$(r.meta.net)} ÷ ${$(r.meta.spend)} = ${x(div(r.meta.net, r.meta.spend))}. Spend from the campaigns table; revenue from the Meta-attributed orders below.` }} />
             <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kinds: ['orders'], line: 'm-aov', channel: 'Meta', explain: `Meta AOV = Meta net revenue ÷ Meta orders = ${$(r.meta.net)} ÷ ${r.meta.orders} = ${$(div(r.meta.net, r.meta.orders))}.` }} />
             <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'm-pct', channel: 'Meta', explain: `% of Paid Ad Rev = Meta net revenue ÷ (Meta + Google net revenue) = ${$(r.meta.net)} ÷ ${$(paidNet)} = ${pc(div(r.meta.net, paidNet))}.` }} />
             <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kinds: ['orders', 'items', 'meta_campaigns'], line: 'm-cm', channel: 'Meta', explain: `Meta CM = ${$(r.meta.net)} net revenue − ${$(r.meta.cogs)} BOM COGS − ${$(r.meta.spend)} spend = ${$(r.meta.net - r.meta.cogs - r.meta.spend)}.` }} />
             <H2>GOOGLE</H2>
-            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls={r.google.spend > 0 ? 'warn' : ''} dk={{ kinds: ['google_campaigns'], line: 'g-spend', explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
+            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls={r.google.spend > 0 ? 'spend' : ''} dk={{ kinds: ['google_campaigns'], line: 'g-spend', explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
             <Line k="ROAS" info={roasKey} v={x(div(r.google.net, r.google.spend))} cls={rc(div(r.google.net, r.google.spend))} dk={{ kinds: ['google_campaigns', 'orders'], line: 'g-roas', channel: 'Google', explain: `Google ROAS = net revenue of Google-attributed orders ÷ Google spend = ${$(r.google.net)} ÷ ${$(r.google.spend)} = ${x(div(r.google.net, r.google.spend))}. Spend from the campaigns table; revenue from the Google-attributed orders below.` }} />
             <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kinds: ['orders'], line: 'g-aov', channel: 'Google', explain: `Google AOV = Google net revenue ÷ Google orders = ${$(r.google.net)} ÷ ${r.google.orders} = ${$(div(r.google.net, r.google.orders))}.` }} />
             <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'g-pct', channel: 'Google', explain: `% of Paid Ad Rev = Google net revenue ÷ (Meta + Google net revenue) = ${$(r.google.net)} ÷ ${$(paidNet)} = ${pc(div(r.google.net, paidNet))}.` }} />
@@ -2481,7 +2481,7 @@ function Markdown({ text }) {
 
 /* ══════════ IDE CSS ══════════ */
 const CSS = `
-.ide{--bg:#0b0e14;--panel:#11151f;--panel2:#161b28;--line:rgba(255,255,255,.07);--txt:#dbe1ee;--dim:#8a93a8;--faint:#5a6377;--green:#3fd68f;--red:#f4747f;--amber:#e8b45a;--blue:#6ea8fe;--purple:#a78bfa;
+.ide{--bg:#0b0e14;--panel:#11151f;--panel2:#161b28;--line:rgba(255,255,255,.07);--txt:#dbe1ee;--dim:#8a93a8;--faint:#5a6377;--green:#3fd68f;--red:#f4747f;--amber:#e8b45a;--orange:#ee946c;--blue:#6ea8fe;--purple:#a78bfa;
   position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;background:var(--bg);color:var(--txt);font:13px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;}
 .ide-cols{display:flex;height:100%;}
 .ide .dim{color:var(--faint);} .ide .good{color:var(--green);} .ide .warn{color:var(--amber);} .ide .bad,.ide .badc{color:var(--red);}
@@ -2613,6 +2613,7 @@ const CSS = `
 .ide .ov-v.good{color:var(--green);}
 .ide .ov-v.bad{color:var(--red);}
 .ide .ov-v.warn{color:var(--amber);}
+.ide .ov-v.spend{color:var(--orange);} /* ad spend — money out, not a warning */
 .ide .ov-v.lgreen{color:#8fe0bb;}
 .ide .kd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;flex-shrink:0;}
 .ide .kd.g{background:var(--green);}.ide .kd.y{background:var(--amber);}.ide .kd.r{background:var(--red);}
