@@ -1469,6 +1469,13 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const activeDay = day && days.includes(day) ? day : days[0] || null
   const [drill, setDrill] = useState(null) // { kind, label, channel? }
   useEffect(() => { setDrill(null) }, [activeDay])
+  // Esc de-selects the drilled metric (unless typing in a field, e.g. the ROAS editor)
+  useEffect(() => {
+    if (!drill) return
+    const onKey = (e) => { if (e.key === 'Escape' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName)) setDrill(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drill])
   if (!activeDay) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
   const r = list.find(z => z.day === activeDay)
   const idx = days.indexOf(activeDay)
@@ -1485,13 +1492,6 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
-  // Esc de-selects the drilled metric (unless typing in a field, e.g. the ROAS editor)
-  useEffect(() => {
-    if (!drill) return
-    const onKey = (e) => { if (e.key === 'Escape' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName)) setDrill(null) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [drill])
   const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
