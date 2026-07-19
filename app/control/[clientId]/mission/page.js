@@ -194,14 +194,16 @@ export default function BusinessIDE() {
   // Cost-per-label override: edited inline, saved to client settings, applied
   // to the P&L immediately (no reload) by injecting into computeMission.
   const [labelOverride, setLabelOverride] = useState(null)
-  // ROAS color thresholds override — same optimistic pattern as cost-per-label.
+  // ROAS/CAC color thresholds override — same optimistic pattern as cost-per-label.
   const [roasOverride, setRoasOverride] = useState(null) // { red, green }
+  const [cacOverride, setCacOverride] = useState(null)   // { green, red }
   const m = useMemo(() => {
     if (!data) return null
     const costPerLabel = labelOverride != null ? labelOverride : data.pnlConfig?.costPerLabel
     const roas = roasOverride ? { roasRedBelow: roasOverride.red, roasGreenAbove: roasOverride.green } : {}
-    return computeMission({ ...data, pnlConfig: { ...data.pnlConfig, costPerLabel, ...roas } })
-  }, [data, labelOverride, roasOverride])
+    const cac = cacOverride ? { cacGreenBelow: cacOverride.green, cacRedAbove: cacOverride.red } : {}
+    return computeMission({ ...data, pnlConfig: { ...data.pnlConfig, costPerLabel, ...roas, ...cac } })
+  }, [data, labelOverride, roasOverride, cacOverride])
   const isAgencyRole = viewer?.role?.startsWith('agency')
   const canEditRoas = isAgencyRole || viewer?.role === 'client_admin'
   const saveCostPerLabel = useCallback(async (v) => {
@@ -222,6 +224,12 @@ export default function BusinessIDE() {
     setRoasOverride({ red, green }) // optimistic — colors update instantly
     try {
       await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { roas_red_below: red, roas_green_above: green } }) })
+    } catch { /* stays applied locally; next load re-reads */ }
+  }, [clientId])
+  const saveCacThresholds = useCallback(async ({ green, red }) => {
+    setCacOverride({ green, red }) // optimistic — colors update instantly
+    try {
+      await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { cac_green_below: green, cac_red_above: red } }) })
     } catch { /* stays applied locally; next load re-reads */ }
   }, [clientId])
 
@@ -693,7 +701,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -707,7 +715,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -1196,7 +1204,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, rangeStart, onEnsureRange, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1204,7 +1212,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} rangeStart={rangeStart} onEnsureRange={onEnsureRange} />
+  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
@@ -1460,7 +1468,7 @@ function buildPeriods(list, zoom) {
 // ROAS color-key popover — hover previews, clicking the ⓘ pins it open (so the
 // mouse can reach "edit thresholds"), clicking anywhere else unpins. Own
 // component so each ROAS line's ⓘ pins independently.
-function RoasKey({ thr, canEdit, onSave }) {
+function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key' }) {
   const [pinned, setPinned] = useState(false)
   const [draft, setDraft] = useState(null) // { red, green } as strings while editing
   const valid = draft && Number(draft.red) > 0 && Number(draft.green) > Number(draft.red)
@@ -1480,7 +1488,7 @@ function RoasKey({ thr, canEdit, onSave }) {
     <span className="ov-i" onClick={e => e.stopPropagation()}>
       <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
       <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
-        <b>ROAS color key</b>
+        <b>{title}</b>
         {draft ? (
           <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
             <span><i className="kd r" />red below <input autoFocus type="number" step="0.05" min="0.05" value={draft.red}
@@ -1508,7 +1516,63 @@ function RoasKey({ thr, canEdit, onSave }) {
   )
 }
 
-function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEnsureRange }) {
+// CAC color-key popover — same pin/edit mechanics as RoasKey but inverted
+// (lower is better) and in dollars. Uncolored until both cutoffs are set.
+function CacKey({ thr, canEdit, onSave }) {
+  const [pinned, setPinned] = useState(false)
+  const [draft, setDraft] = useState(null) // { green, red } as strings while editing
+  const valid = draft && Number(draft.green) > 0 && Number(draft.red) > Number(draft.green)
+  const commit = () => {
+    if (!valid) return
+    onSave && onSave({ green: Math.round(Number(draft.green) * 100) / 100, red: Math.round(Number(draft.red) * 100) / 100 })
+    setDraft(null); setPinned(false)
+  }
+  useEffect(() => {
+    if (!pinned) return
+    const close = () => { setPinned(false); setDraft(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [pinned])
+  const isSet = thr.green != null && thr.red != null
+  return (
+    <span className="ov-i" onClick={e => e.stopPropagation()}>
+      <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
+      <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
+        <b>CAC color key</b>
+        {draft ? (
+          <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
+            <span><i className="kd g" />green below $<input autoFocus type="number" step="1" min="1" value={draft.green}
+              onChange={e => setDraft(d => ({ ...d, green: e.target.value }))} /></span>
+            <span><i className="kd r" />red above $<input type="number" step="1" min="1" value={draft.red}
+              onChange={e => setDraft(d => ({ ...d, red: e.target.value }))} /></span>
+            <span className="ov-thr-note"><i className="kd y" />yellow = in between</span>
+            <span className="ov-thr-btns">
+              <button type="button" disabled={!valid} onClick={commit}>save</button>
+              <button type="button" onClick={() => setDraft(null)}>cancel</button>
+            </span>
+          </span>
+        ) : (
+          <>
+            {isSet ? (
+              <>
+                <span><i className="kd g" />under ${thr.green} — efficient acquisition</span>
+                <span><i className="kd y" />${thr.green} – ${thr.red} — watch zone</span>
+                <span><i className="kd r" />above ${thr.red} — too expensive</span>
+              </>
+            ) : (
+              <span className="ov-thr-note">no CAC dial set — CAC stays uncolored until you set cutoffs</span>
+            )}
+            {canEdit && (
+              <button type="button" className="ov-thr-edit" onClick={() => setDraft({ green: String(thr.green ?? 100), red: String(thr.red ?? 150) })}>✎ {isSet ? 'edit dial' : 'set dial'}</button>
+            )}
+          </>
+        )}
+      </span>
+    </span>
+  )
+}
+
+function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange }) {
   const { $, x, pc, div, cmCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
@@ -1539,13 +1603,11 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEn
 
   const spend = r.meta.spend + r.google.spend
   const paidNet = r.meta.net + r.google.net
-  const blendedCM = (paidNet || spend) ? paidNet - (r.meta.cogs + r.google.cogs) - spend : null
   const cm = r.net - r.cogs - spend
   const shipCost = r.shipped * costPerLabel
   const organic = Object.entries(r.channels)
     .filter(([ch]) => ch !== 'Meta' && ch !== 'Google')
     .sort((a, b) => b[1].net - a[1].net)
-  const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - (c.spend || 0) : null
   const zoomTitle = zoom === 'day' ? 'Daily' : zoom === 'week' ? 'Weekly' : 'Quarterly'
   const zoomNote = zoom === 'day' ? 'client business day' : `${p.days.length} business day${p.days.length === 1 ? '' : 's'} aggregated`
   // Quarterly needs more history than the default window — widen the load to
@@ -1565,7 +1627,11 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEn
   const partial = !!(expectedStart && rangeStart && expectedStart < rangeStart)
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
-  const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
+  // Dials: True ROAS reuses the roas_* thresholds; CAC is inverted and optional.
+  const troasKey = <RoasKey title="True ROAS color key" thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
+  const cacThr = { green: m.sources?.cacGreenBelow ?? null, red: m.sources?.cacRedAbove ?? null }
+  const cacCls = (n) => (n == null || cacThr.green == null || cacThr.red == null) ? '' : n <= cacThr.green ? 'good' : n < cacThr.red ? 'warn' : 'bad'
+  const cacKey = <CacKey thr={cacThr} canEdit={canEditRoas} onSave={onSaveCac} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle({ ...dk, label: k }) : undefined} disabled={!dk} type="button">
@@ -1574,6 +1640,35 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEn
   )
   const H = ({ children }) => <div className="ov-h">{children}</div>
   const H2 = ({ children }) => <div className="ov-h2">{children}</div>
+
+  // One paid-ads block (Blended / Meta / Google) — identical line set per spec:
+  // Spend, Attributed orders, CAC, AOV, Gross, ROAS, COGS, Net, True ROAS.
+  const chGross = (ch) => r.channels[ch]?.gross || 0
+  const PaidBlock = ({ b }) => {
+    const cac = div(b.spend, b.orders)
+    const netAfter = (b.net || b.spend) ? b.net - b.cogs - b.spend : null
+    const troas = b.spend > 0 ? (b.net - b.cogs) / b.spend : null
+    return (<>
+      <H2>{b.name}</H2>
+      <Line k="Spend" v={b.spend ? $(b.spend) : '—'} cls={b.spend > 0 ? 'spend' : ''} dk={{ kinds: b.kinds, line: `${b.id}-spend`, hi: b.spendHi, explain: `${b.label} Spend = Σ spend across the ${b.label} campaign day rows = ${$(b.spend)}.` }} />
+      <Line k="Attributed orders" v={b.orders} dk={{ kinds: ['orders'], line: `${b.id}-orders`, channel: b.channel, hi: ['shopify_channel'], explain: `${b.label} attributed orders = orders whose derived channel is ${b.chDesc} = ${b.orders}.` }} />
+      <Line k="CAC" info={cacKey} v={$(cac)} cls={cacCls(cac)} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-cac`, channel: b.channel, hi: b.spendHi, explain: `${b.label} CAC = spend ÷ attributed orders = ${$(b.spend)} ÷ ${b.orders} = ${$(cac)}.` }} />
+      <Line k="AOV" v={$(div(b.net, b.orders))} dk={{ kinds: ['orders'], line: `${b.id}-aov`, channel: b.channel, hi: ['net_revenue'], explain: `${b.label} AOV = attributed net revenue ÷ attributed orders = ${$(b.net)} ÷ ${b.orders} = ${$(div(b.net, b.orders))}.` }} />
+      <Line k="Gross" v={$(b.gross)} dk={{ kinds: ['orders'], line: `${b.id}-gross`, channel: b.channel, hi: ['subtotal', 'discounts'], explain: `${b.label} Gross = Σ (subtotal + discounts) of attributed orders = ${$(b.gross)}.` }} />
+      <Line k="ROAS" v={x(div(b.net, b.spend))} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-roas`, channel: b.channel, hi: ['net_revenue', ...b.spendHi], explain: `${b.label} ROAS = attributed net revenue ÷ spend = ${$(b.net)} ÷ ${$(b.spend)} = ${x(div(b.net, b.spend))}.` }} />
+      <Line k="COGS (BOM)" v={$(b.cogs)} cls={b.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: `${b.id}-cogs`, channel: b.channel, hi: ['sku', 'qty'], explain: `${b.label} COGS = Σ (qty × BOM unit cost) across attributed orders' line items = ${$(b.cogs)}.` }} />
+      <Line k="Net" v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
+      <Line k="True ROAS" info={troasKey} v={x(troas)} cls={rc(troas)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-troas`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} True ROAS = (net revenue − COGS) ÷ spend = (${$(b.net)} − ${$(b.cogs)}) ÷ ${$(b.spend)} = ${x(troas)}.` }} />
+    </>)
+  }
+  const paidBlocks = [
+    { id: 'bl', name: 'BLENDED ADS', label: 'Blended', channel: 'Paid', chDesc: 'Meta or Google', kinds: ['meta_campaigns', 'google_campaigns'], spendHi: ['spend', 'cost'],
+      spend, orders: r.meta.orders + r.google.orders, gross: chGross('Meta') + chGross('Google'), net: paidNet, cogs: r.meta.cogs + r.google.cogs },
+    { id: 'm', name: 'META ADS', label: 'Meta', channel: 'Meta', chDesc: 'Meta', kinds: ['meta_campaigns'], spendHi: ['spend'],
+      spend: r.meta.spend, orders: r.meta.orders, gross: chGross('Meta'), net: r.meta.net, cogs: r.meta.cogs },
+    { id: 'g', name: 'GOOGLE ADS', label: 'Google', channel: 'Google', chDesc: 'Google', kinds: ['google_campaigns'], spendHi: ['cost'],
+      spend: r.google.spend, orders: r.google.orders, gross: chGross('Google'), net: r.google.net, cogs: r.google.cogs },
+  ]
 
   return (
     <div className="v-pad ov-pad">
@@ -1609,45 +1704,28 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEn
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
-            <Line k="Orders > $0" v={r.orders} dk={{ kinds: ['orders'], line: 'count', hi: ['net_revenue'], explain: `Orders > $0 = count of the day's orders with positive net revenue = ${r.orders}.` }} />
-            <Line k="New Orders" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New Orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
+            <Line k="Orders" v={r.orders} dk={{ kinds: ['orders'], line: 'count', hi: ['net_revenue'], explain: `Orders = count of the day's orders with positive net revenue = ${r.orders}.` }} />
+            <Line k="New orders (order rate)" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
+            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
           </div>
           <div className="ov-sec">
-            <H>ORGANIC</H>
+            <H>ORGANIC REVENUE</H>
             {organic.length === 0 && <p className="a-dim" style={{ margin: '4px 0' }}>no organic revenue this day.</p>}
             {organic.map(([ch, c]) => (
-              <Line key={ch} k={ch} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, hi: ['net_revenue', 'shopify_channel'], channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
+              <Line key={ch} k={`${ch} net revenue`} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, hi: ['net_revenue', 'shopify_channel'], channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
             ))}
           </div>
           <div className="ov-sec">
             <H>MARGIN</H>
-            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
-            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kinds: ['orders', 'items', 'pnl_day', 'pnl_channels'], line: 'cm', hi: ['net_revenue', 'cogs', 'spend', 'total_spend', 'qty'], explain: `Contribution Margin = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend = ${$(cm)}.` }} />
-            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
+            <Line k="COGS (BOM)" v={$(r.cogs)} cls={r.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
+            <Line k={`Net (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
         <div>
           <div className="ov-sec">
-            <H>PAID ADS</H>
-            <H2>BLENDED</H2>
-            <Line k="Spend" v={$(spend)} cls={spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', hi: ['spend', 'cost'], explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.net, spend))} cls={rc(div(r.net, spend))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-roas', hi: ['net_revenue', 'spend', 'cost'], explain: `Blended ROAS = ALL net revenue ÷ total ad spend = ${$(r.net)} ÷ ${$(spend)} = ${x(div(r.net, spend))}. Revenue from the orders table below; spend from both campaign tables.` }} />
-            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'bl-aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
-            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cpa', hi: ['spend', 'cost'], explain: `CPA = total ad spend ÷ orders = ${$(spend)} ÷ ${r.orders} = ${$(div(spend, r.orders))}.` }} />
-            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cm', hi: ['net_revenue', 'spend', 'cost'], channel: 'Paid', explain: `Paid CM = ${$(paidNet)} paid-attributed net revenue − ${$(r.meta.cogs + r.google.cogs)} their COGS − ${$(spend)} spend = ${blendedCM == null ? '—' : $(blendedCM)}.` }} />
-            <H2>META</H2>
-            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls={r.meta.spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns'], line: 'm-spend', hi: ['spend'], explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.meta.net, r.meta.spend))} cls={rc(div(r.meta.net, r.meta.spend))} dk={{ kinds: ['meta_campaigns', 'orders'], line: 'm-roas', hi: ['net_revenue', 'spend'], channel: 'Meta', explain: `Meta ROAS = net revenue of Meta-attributed orders ÷ Meta spend = ${$(r.meta.net)} ÷ ${$(r.meta.spend)} = ${x(div(r.meta.net, r.meta.spend))}. Spend from the campaigns table; revenue from the Meta-attributed orders below.` }} />
-            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kinds: ['orders'], line: 'm-aov', hi: ['net_revenue'], channel: 'Meta', explain: `Meta AOV = Meta net revenue ÷ Meta orders = ${$(r.meta.net)} ÷ ${r.meta.orders} = ${$(div(r.meta.net, r.meta.orders))}.` }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'm-pct', hi: ['net_revenue'], channel: 'Meta', explain: `% of Paid Ad Rev = Meta net revenue ÷ (Meta + Google net revenue) = ${$(r.meta.net)} ÷ ${$(paidNet)} = ${pc(div(r.meta.net, paidNet))}.` }} />
-            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kinds: ['orders', 'items', 'meta_campaigns'], line: 'm-cm', hi: ['net_revenue', 'spend', 'sku', 'qty'], channel: 'Meta', explain: `Meta CM = ${$(r.meta.net)} net revenue − ${$(r.meta.cogs)} BOM COGS − ${$(r.meta.spend)} spend = ${$(r.meta.net - r.meta.cogs - r.meta.spend)}.` }} />
-            <H2>GOOGLE</H2>
-            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls={r.google.spend > 0 ? 'spend' : ''} dk={{ kinds: ['google_campaigns'], line: 'g-spend', hi: ['cost'], explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.google.net, r.google.spend))} cls={rc(div(r.google.net, r.google.spend))} dk={{ kinds: ['google_campaigns', 'orders'], line: 'g-roas', hi: ['net_revenue', 'cost'], channel: 'Google', explain: `Google ROAS = net revenue of Google-attributed orders ÷ Google spend = ${$(r.google.net)} ÷ ${$(r.google.spend)} = ${x(div(r.google.net, r.google.spend))}. Spend from the campaigns table; revenue from the Google-attributed orders below.` }} />
-            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kinds: ['orders'], line: 'g-aov', hi: ['net_revenue'], channel: 'Google', explain: `Google AOV = Google net revenue ÷ Google orders = ${$(r.google.net)} ÷ ${r.google.orders} = ${$(div(r.google.net, r.google.orders))}.` }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'g-pct', hi: ['net_revenue'], channel: 'Google', explain: `% of Paid Ad Rev = Google net revenue ÷ (Meta + Google net revenue) = ${$(r.google.net)} ÷ ${$(paidNet)} = ${pc(div(r.google.net, paidNet))}.` }} />
-            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kinds: ['orders', 'items', 'google_campaigns'], line: 'g-cm', hi: ['net_revenue', 'cost', 'sku', 'qty'], channel: 'Google', explain: `Google CM = ${$(r.google.net)} net revenue − ${$(r.google.cogs)} BOM COGS − ${$(r.google.spend)} spend = ${$(r.google.net - r.google.cogs - r.google.spend)}.` }} />
+            <H>PAID ADS REVENUE</H>
+            {paidBlocks.map(b => <PaidBlock key={b.id} b={b} />)}
           </div>
         </div>
       </div>
