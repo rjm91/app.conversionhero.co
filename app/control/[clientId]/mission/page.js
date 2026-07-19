@@ -1488,7 +1488,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
-      onClick={dk ? () => toggle(dk) : undefined} disabled={!dk} type="button">
+      onClick={dk ? () => toggle({ ...dk, label: k }) : undefined} disabled={!dk} type="button">
       <span className="ov-k">{k}{info}</span><span className="ov-dots" /><span className={`ov-v ${cls || ''}`}>{v}</span>
     </button>
   )
@@ -1659,17 +1659,20 @@ function SourceDrill({ day, drill, m }) {
         // Columns the clicked metric's math actually reads — highlighted below
         const hi = new Set(drill.hi || [])
         const hcls = (c) => hi.has(c) ? ' hi' : ''
+        const hits = cols.filter(c => hi.has(c))
+        const hiTitle = `Highlighted because “${drill.label || 'the selected metric'}” (selected in the Daily P&L above) is computed from this column.`
         return (
           <div key={si} className="ov-set">
             <div className="ov-drill-h">
               <a className="mono ov-tlink" href={`/control/${clientId}/mission?focus=${set.table}&day=${day}`} target="_blank" rel="noreferrer"
                 title="Open this table in your Schema browser, filtered to this day">public.{set.table} ↗</a>
               <span className="dim"> · {set.note} · {day} · {set.rows.length} rows · live Supabase read (RLS)</span>
+              {hits.length > 0 && <span className="ov-hi-note" title={hiTitle}>⌖ {hits.join(', ')} = source of “{drill.label}”</span>}
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
               <div className="dpnl dp2" style={{ maxHeight: 280 }}>
                 <table>
-                  <thead><tr>{cols.map(c => <th key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
+                  <thead><tr>{cols.map(c => <th key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{c}{hi.has(c) && <span className="hi-ic" title={hiTitle}>⌖</span>}</th>)}</tr></thead>
                   <tbody>
                     <tr className="tot">{cols.map((c, i) => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>
                     {set.rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
@@ -2648,6 +2651,8 @@ const CSS = `
 /* column(s) the clicked P&L metric is computed from */
 .ide .ov-set th.hi{color:var(--blue);background:rgba(110,168,254,.10);}
 .ide .ov-set td.hi{background:rgba(110,168,254,.07);}
+.ide .ov-set th .hi-ic{margin-left:4px;color:var(--blue);cursor:help;}
+.ide .ov-hi-note{margin-left:10px;color:var(--blue);font-size:11px;cursor:help;white-space:nowrap;}
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .ov-tlink{text-decoration:none;}
 .ide .ov-tlink:hover{color:var(--blue);text-decoration:underline;}
