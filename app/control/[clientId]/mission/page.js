@@ -1516,6 +1516,19 @@ function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key' }) {
   )
 }
 
+// Static color-key note (hover only, no editor) — explains a fixed color rule.
+function KeyNote({ title, lines }) {
+  return (
+    <span className="ov-i" onClick={e => e.stopPropagation()}>
+      <span className="ov-i-g">ⓘ</span>
+      <span className="ov-pop">
+        <b>{title}</b>
+        {lines.map((l, i) => <span key={i}>{l.k && <i className={`kd ${l.k}`} />}{l.t}</span>)}
+      </span>
+    </span>
+  )
+}
+
 // CAC color-key popover — same pin/edit mechanics as RoasKey but inverted
 // (lower is better) and in dollars. Uncolored until both cutoffs are set.
 function CacKey({ thr, canEdit, onSave }) {
@@ -1632,6 +1645,8 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
   const cacThr = { green: m.sources?.cacGreenBelow ?? null, red: m.sources?.cacRedAbove ?? null }
   const cacCls = (n) => (n == null || cacThr.green == null || cacThr.red == null) ? '' : n <= cacThr.green ? 'good' : n < cacThr.red ? 'warn' : 'bad'
   const cacKey = <CacKey thr={cacThr} canEdit={canEditRoas} onSave={onSaveCac} />
+  // Sign-based lines color themselves; the note tells the reader the rule.
+  const signNote = <KeyNote title="Color rule" lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle({ ...dk, label: k }) : undefined} disabled={!dk} type="button">
@@ -1657,14 +1672,14 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
       <Line k="AOV" v={$(div(b.net, b.orders))} dk={{ kinds: ['orders'], line: `${b.id}-aov`, channel: b.channel, hi: ['net_revenue'], explain: `${b.label} AOV = attributed net revenue ÷ attributed orders = ${$(b.net)} ÷ ${b.orders} = ${$(div(b.net, b.orders))}.` }} />
       <Line k="Gross" v={$(b.gross)} dk={{ kinds: ['orders'], line: `${b.id}-gross`, channel: b.channel, hi: ['subtotal', 'discounts'], explain: `${b.label} Gross = Σ (subtotal + discounts) of attributed orders = ${$(b.gross)}.` }} />
       {b.id !== 'bl' && (
-        <Line k="% of Paid Ad Rev" v={pc(div(b.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: `${b.id}-pct`, channel: b.channel, hi: ['net_revenue'], explain: `% of Paid Ad Rev = ${b.label} net revenue ÷ (Meta + Google net revenue) = ${$(b.net)} ÷ ${$(paidNet)} = ${pc(div(b.net, paidNet))}.` }} />
+        <Line k="% of Paid Ad Rev" v={pc(div(b.net, paidNet))} dk={{ kinds: ['orders'], line: `${b.id}-pct`, channel: b.channel, hi: ['net_revenue'], explain: `% of Paid Ad Rev = ${b.label} net revenue ÷ (Meta + Google net revenue) = ${$(b.net)} ÷ ${$(paidNet)} = ${pc(div(b.net, paidNet))}.` }} />
       )}
       <Line k="ROAS" v={x(div(b.net, b.spend))} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-roas`, channel: b.channel, hi: ['net_revenue', ...b.spendHi], explain: `${b.label} ROAS = attributed net revenue ÷ spend = ${$(b.net)} ÷ ${$(b.spend)} = ${x(div(b.net, b.spend))}.` }} />
       <Line k="COGS (BOM)" v={$(b.cogs)} cls={b.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: `${b.id}-cogs`, channel: b.channel, hi: ['sku', 'qty'], explain: `${b.label} COGS = Σ (qty × BOM unit cost) across attributed orders' line items = ${$(b.cogs)}.` }} />
       {b.id !== 'bl' && (
-        <Line k="Contribution Margin" v={$(b.net - b.cogs)} cls={cmCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
+        <Line k="Contribution Margin" info={signNote} v={$(b.net - b.cogs)} cls={cmCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
       )}
-      <Line k="Net" v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
+      <Line k="Net" info={signNote} v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
       <Line k="True ROAS" info={troasKey} v={x(troas)} cls={rc(troas)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-troas`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} True ROAS = (net revenue − COGS) ÷ spend = (${$(b.net)} − ${$(b.cogs)}) ÷ ${$(b.spend)} = ${x(troas)}.` }} />
       </div>
     </>)
@@ -1708,7 +1723,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
             <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', hi: ['subtotal', 'discounts'], explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
             <Line k="Discounts" v={r.discounts > 0 ? '−' + $(r.discounts) : $(0)} cls={r.discounts > 0 ? 'warn' : ''} dk={{ kinds: ['orders'], line: 'discounts', hi: ['discounts'], explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
             <Line k="Refunds" v={r.refunds > 0 ? '−' + $(r.refunds) : $(0)} cls={r.refunds > 0 ? 'bad' : ''} dk={{ kinds: ['orders'], line: 'refunds', hi: ['refunds'], explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
-            <Line k="Net Revenue" v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', hi: ['net_revenue'], explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
+            <Line k="Net Revenue" info={signNote} v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', hi: ['net_revenue'], explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
@@ -1726,7 +1741,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
           <div className="ov-sec">
             <H>MARGIN</H>
             <Line k="COGS (BOM)" v={$(r.cogs)} cls={r.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
-            <Line k={`Net (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
+            <Line k={`Net (− ${r.shipped} labels × $${costPerLabel})`} info={signNote} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
