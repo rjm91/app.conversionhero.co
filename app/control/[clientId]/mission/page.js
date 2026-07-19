@@ -211,6 +211,13 @@ export default function BusinessIDE() {
       await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { cost_per_label: val } }) })
     } catch { /* stays applied locally; next load re-reads */ }
   }, [clientId])
+  // P&L zoom-out support: widen the loaded window so a Weekly/Quarterly view
+  // aggregates full periods, not just the slice the current range happens to cover.
+  const ensureRangeCovers = useCallback((startStr) => {
+    if (range.start <= startStr) return
+    setCustomRange({ start: startStr, end: range.end })
+    setRangeKey('custom')
+  }, [range])
   const saveRoasThresholds = useCallback(async ({ red, green }) => {
     setRoasOverride({ red, green }) // optimistic — colors update instantly
     try {
@@ -686,7 +693,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -700,7 +707,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -1189,7 +1196,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, rangeStart, onEnsureRange, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1197,7 +1204,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} />
+  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} rangeStart={rangeStart} onEnsureRange={onEnsureRange} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
@@ -1501,7 +1508,7 @@ function RoasKey({ thr, canEdit, onSave }) {
   )
 }
 
-function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
+function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEnsureRange }) {
   const { $, x, pc, div, cmCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
@@ -1541,6 +1548,21 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - (c.spend || 0) : null
   const zoomTitle = zoom === 'day' ? 'Daily' : zoom === 'week' ? 'Weekly' : 'Quarterly'
   const zoomNote = zoom === 'day' ? 'client business day' : `${p.days.length} business day${p.days.length === 1 ? '' : 's'} aggregated`
+  // Quarterly needs more history than the default window — widen the load to
+  // the start of the PREVIOUS quarter so current + last quarter come in full.
+  const pickZoom = (z) => {
+    setZoom(z)
+    if (z === 'quarter' && onEnsureRange) {
+      const t = new Date()
+      const pq = new Date(t.getFullYear(), Math.floor(t.getMonth() / 3) * 3 - 3, 1)
+      onEnsureRange(`${pq.getFullYear()}-${String(pq.getMonth() + 1).padStart(2, '0')}-01`)
+    }
+  }
+  // A period whose calendar start predates the loaded window is under-counted — say so.
+  const expectedStart = zoom === 'week' ? p.key
+    : zoom === 'quarter' ? `${p.key.split('-Q')[0]}-${String((Number(p.key.split('-Q')[1]) - 1) * 3 + 1).padStart(2, '0')}-01`
+    : null
+  const partial = !!(expectedStart && rangeStart && expectedStart < rangeStart)
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
   const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
@@ -1558,12 +1580,15 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
       <div className="ov-top">
         <div>
           <h4 className="v-h" style={{ margin: 0 }}>{zoomTitle} P&amp;L</h4>
-          <p className="v-note" style={{ margin: '2px 0 0' }}>{p.long} · {zoomNote}{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}</p>
+          <p className="v-note" style={{ margin: '2px 0 0' }}>
+            {p.long} · {zoomNote}{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}
+            {partial && <span className="warn"> · ⚠ partial — data loaded from {rangeStart}; widen the range for the full period</span>}
+          </p>
         </div>
         <div className="ov-nav">
           <div className="ov-zoom">
             {[['day', 'Daily'], ['week', 'Weekly'], ['quarter', 'Quarterly']].map(([z, zl]) => (
-              <button key={z} className={z === zoom ? 'on' : ''} onClick={() => setZoom(z)} type="button">{zl}</button>
+              <button key={z} className={z === zoom ? 'on' : ''} onClick={() => pickZoom(z)} type="button">{zl}</button>
             ))}
           </div>
           <button onClick={() => setSel(keys[Math.min(idx + 1, keys.length - 1)])} disabled={idx >= keys.length - 1} title="older">‹</button>
