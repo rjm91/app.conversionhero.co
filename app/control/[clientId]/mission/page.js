@@ -1667,7 +1667,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
       <H2>{b.name}</H2>
       <div className="ov-blk-lines">
       <Line k="Spend" v={b.spend ? $(b.spend) : '—'} cls={b.spend > 0 ? 'spend' : ''} dk={{ kinds: b.kinds, line: `${b.id}-spend`, hi: b.spendHi, explain: `${b.label} Spend = Σ spend across the ${b.label} campaign day rows = ${$(b.spend)}.` }} />
-      <Line k="Attributed orders" v={b.orders} dk={{ kinds: ['orders'], line: `${b.id}-orders`, channel: b.channel, hi: ['shopify_channel'], explain: `${b.label} attributed orders = orders whose derived channel is ${b.chDesc} = ${b.orders}.` }} />
+      <Line k="Attributed orders" v={b.orders} dk={{ kinds: ['orders'], line: `${b.id}-orders`, channel: b.channel, hi: ['utm_source'], explain: `${b.label} attributed orders = orders whose derived channel is ${b.chDesc} = ${b.orders}.` }} />
       <Line k="CAC" info={cacKey} v={$(cac)} cls={cacCls(cac)} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-cac`, channel: b.channel, hi: b.spendHi, explain: `${b.label} CAC = spend ÷ attributed orders = ${$(b.spend)} ÷ ${b.orders} = ${$(cac)}.` }} />
       <Line k="AOV" v={$(div(b.net, b.orders))} dk={{ kinds: ['orders'], line: `${b.id}-aov`, channel: b.channel, hi: ['net_revenue'], explain: `${b.label} AOV = attributed net revenue ÷ attributed orders = ${$(b.net)} ÷ ${b.orders} = ${$(div(b.net, b.orders))}.` }} />
       <Line k="Gross" v={$(b.gross)} dk={{ kinds: ['orders'], line: `${b.id}-gross`, channel: b.channel, hi: ['subtotal', 'discounts'], explain: `${b.label} Gross = Σ (subtotal + discounts) of attributed orders = ${$(b.gross)}.` }} />
@@ -1735,7 +1735,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
             <H>ORGANIC REVENUE</H>
             {organic.length === 0 && <p className="a-dim" style={{ margin: '4px 0' }}>no organic revenue this day.</p>}
             {organic.map(([ch, c]) => (
-              <Line key={ch} k={`${ch} net revenue`} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, hi: ['net_revenue', 'shopify_channel'], channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
+              <Line key={ch} k={`${ch} net revenue`} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, hi: ['net_revenue', 'utm_source'], channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
             ))}
           </div>
           <div className="ov-sec">
@@ -1783,7 +1783,7 @@ function SourceDrill({ days, drill, m, onClose }) {
     const fetchKind = async (kind) => {
       if (kind === 'orders') {
         const { data, error } = await supabase.from('client_orders')
-          .select('order_name, order_id, created_at, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
+          .select('order_name, order_id, created_at, utm_source, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
           .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
         if (error) throw error
         return { table: 'client_orders', note: `${chLabel}orders`, rows: data || [] }
