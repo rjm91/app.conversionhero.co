@@ -1514,28 +1514,28 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
         <div>
           <div className="ov-sec">
             <H>REVENUE</H>
-            <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
-            <Line k="Discounts" v={r.discounts > 0 ? '−' + $(r.discounts) : $(0)} cls={r.discounts > 0 ? 'warn' : ''} dk={{ kinds: ['orders'], line: 'discounts', explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
-            <Line k="Refunds" v={r.refunds > 0 ? '−' + $(r.refunds) : $(0)} cls={r.refunds > 0 ? 'bad' : ''} dk={{ kinds: ['orders'], line: 'refunds', explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
-            <Line k="Net Revenue" v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
+            <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', hi: ['subtotal', 'discounts'], explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
+            <Line k="Discounts" v={r.discounts > 0 ? '−' + $(r.discounts) : $(0)} cls={r.discounts > 0 ? 'warn' : ''} dk={{ kinds: ['orders'], line: 'discounts', hi: ['discounts'], explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
+            <Line k="Refunds" v={r.refunds > 0 ? '−' + $(r.refunds) : $(0)} cls={r.refunds > 0 ? 'bad' : ''} dk={{ kinds: ['orders'], line: 'refunds', hi: ['refunds'], explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
+            <Line k="Net Revenue" v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', hi: ['net_revenue'], explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
-            <Line k="Orders > $0" v={r.orders} dk={{ kinds: ['orders'], line: 'count', explain: `Orders > $0 = count of the day's orders with positive net revenue = ${r.orders}.` }} />
+            <Line k="Orders > $0" v={r.orders} dk={{ kinds: ['orders'], line: 'count', hi: ['net_revenue'], explain: `Orders > $0 = count of the day's orders with positive net revenue = ${r.orders}.` }} />
             <Line k="New Orders" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New Orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
           </div>
           <div className="ov-sec">
             <H>ORGANIC</H>
             {organic.length === 0 && <p className="a-dim" style={{ margin: '4px 0' }}>no organic revenue this day.</p>}
             {organic.map(([ch, c]) => (
-              <Line key={ch} k={ch} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
+              <Line key={ch} k={ch} v={$(c.net)} dk={{ kinds: ['orders'], line: 'org:' + ch, hi: ['net_revenue', 'shopify_channel'], channel: ch, explain: `${ch} = Σ net revenue of orders whose derived channel is ${ch} (UTM + Shopify channel rules) = ${$(c.net)}.` }} />
             ))}
           </div>
           <div className="ov-sec">
             <H>MARGIN</H>
-            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kinds: ['items'], line: 'cogs', explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
-            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kinds: ['orders', 'items', 'pnl_day', 'pnl_channels'], line: 'cm', explain: `Contribution Margin = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend = ${$(cm)}.` }} />
-            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
+            <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
+            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kinds: ['orders', 'items', 'pnl_day', 'pnl_channels'], line: 'cm', hi: ['net_revenue', 'cogs', 'spend', 'total_spend', 'qty'], explain: `Contribution Margin = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend = ${$(cm)}.` }} />
+            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
@@ -1543,23 +1543,23 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
           <div className="ov-sec">
             <H>PAID ADS</H>
             <H2>BLENDED</H2>
-            <Line k="Spend" v={$(spend)} cls={spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.net, spend))} cls={rc(div(r.net, spend))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-roas', explain: `Blended ROAS = ALL net revenue ÷ total ad spend = ${$(r.net)} ÷ ${$(spend)} = ${x(div(r.net, spend))}. Revenue from the orders table below; spend from both campaign tables.` }} />
-            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'bl-aov', explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
-            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cpa', explain: `CPA = total ad spend ÷ orders = ${$(spend)} ÷ ${r.orders} = ${$(div(spend, r.orders))}.` }} />
-            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cm', channel: 'Paid', explain: `Paid CM = ${$(paidNet)} paid-attributed net revenue − ${$(r.meta.cogs + r.google.cogs)} their COGS − ${$(spend)} spend = ${blendedCM == null ? '—' : $(blendedCM)}.` }} />
+            <Line k="Spend" v={$(spend)} cls={spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns', 'google_campaigns'], line: 'bl-spend', hi: ['spend', 'cost'], explain: `Blended Spend = ${$(r.meta.spend)} Meta + ${$(r.google.spend)} Google = ${$(spend)}.` }} />
+            <Line k="ROAS" info={roasKey} v={x(div(r.net, spend))} cls={rc(div(r.net, spend))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-roas', hi: ['net_revenue', 'spend', 'cost'], explain: `Blended ROAS = ALL net revenue ÷ total ad spend = ${$(r.net)} ÷ ${$(spend)} = ${x(div(r.net, spend))}. Revenue from the orders table below; spend from both campaign tables.` }} />
+            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'bl-aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
+            <Line k="CPA" v={$(div(spend, r.orders))} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cpa', hi: ['spend', 'cost'], explain: `CPA = total ad spend ÷ orders = ${$(spend)} ÷ ${r.orders} = ${$(div(spend, r.orders))}.` }} />
+            <Line k="Contribution Margin" v={blendedCM == null ? '—' : $(blendedCM)} cls={cmCls(blendedCM)} dk={{ kinds: ['orders', 'meta_campaigns', 'google_campaigns'], line: 'bl-cm', hi: ['net_revenue', 'spend', 'cost'], channel: 'Paid', explain: `Paid CM = ${$(paidNet)} paid-attributed net revenue − ${$(r.meta.cogs + r.google.cogs)} their COGS − ${$(spend)} spend = ${blendedCM == null ? '—' : $(blendedCM)}.` }} />
             <H2>META</H2>
-            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls={r.meta.spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns'], line: 'm-spend', explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.meta.net, r.meta.spend))} cls={rc(div(r.meta.net, r.meta.spend))} dk={{ kinds: ['meta_campaigns', 'orders'], line: 'm-roas', channel: 'Meta', explain: `Meta ROAS = net revenue of Meta-attributed orders ÷ Meta spend = ${$(r.meta.net)} ÷ ${$(r.meta.spend)} = ${x(div(r.meta.net, r.meta.spend))}. Spend from the campaigns table; revenue from the Meta-attributed orders below.` }} />
-            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kinds: ['orders'], line: 'm-aov', channel: 'Meta', explain: `Meta AOV = Meta net revenue ÷ Meta orders = ${$(r.meta.net)} ÷ ${r.meta.orders} = ${$(div(r.meta.net, r.meta.orders))}.` }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'm-pct', channel: 'Meta', explain: `% of Paid Ad Rev = Meta net revenue ÷ (Meta + Google net revenue) = ${$(r.meta.net)} ÷ ${$(paidNet)} = ${pc(div(r.meta.net, paidNet))}.` }} />
-            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kinds: ['orders', 'items', 'meta_campaigns'], line: 'm-cm', channel: 'Meta', explain: `Meta CM = ${$(r.meta.net)} net revenue − ${$(r.meta.cogs)} BOM COGS − ${$(r.meta.spend)} spend = ${$(r.meta.net - r.meta.cogs - r.meta.spend)}.` }} />
+            <Line k="Spend" v={r.meta.spend ? $(r.meta.spend) : '—'} cls={r.meta.spend > 0 ? 'spend' : ''} dk={{ kinds: ['meta_campaigns'], line: 'm-spend', hi: ['spend'], explain: `Meta Spend = Σ spend across the day's Meta campaign rows = ${$(r.meta.spend)}.` }} />
+            <Line k="ROAS" info={roasKey} v={x(div(r.meta.net, r.meta.spend))} cls={rc(div(r.meta.net, r.meta.spend))} dk={{ kinds: ['meta_campaigns', 'orders'], line: 'm-roas', hi: ['net_revenue', 'spend'], channel: 'Meta', explain: `Meta ROAS = net revenue of Meta-attributed orders ÷ Meta spend = ${$(r.meta.net)} ÷ ${$(r.meta.spend)} = ${x(div(r.meta.net, r.meta.spend))}. Spend from the campaigns table; revenue from the Meta-attributed orders below.` }} />
+            <Line k="AOV" v={$(div(r.meta.net, r.meta.orders))} dk={{ kinds: ['orders'], line: 'm-aov', hi: ['net_revenue'], channel: 'Meta', explain: `Meta AOV = Meta net revenue ÷ Meta orders = ${$(r.meta.net)} ÷ ${r.meta.orders} = ${$(div(r.meta.net, r.meta.orders))}.` }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.meta.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'm-pct', hi: ['net_revenue'], channel: 'Meta', explain: `% of Paid Ad Rev = Meta net revenue ÷ (Meta + Google net revenue) = ${$(r.meta.net)} ÷ ${$(paidNet)} = ${pc(div(r.meta.net, paidNet))}.` }} />
+            <Line k="Contribution Margin" v={chCM({ ...r.meta, spend: r.meta.spend }) == null ? '—' : $(r.meta.net - r.meta.cogs - r.meta.spend)} cls={cmCls(r.meta.net - r.meta.cogs - r.meta.spend)} dk={{ kinds: ['orders', 'items', 'meta_campaigns'], line: 'm-cm', hi: ['net_revenue', 'spend', 'sku', 'qty'], channel: 'Meta', explain: `Meta CM = ${$(r.meta.net)} net revenue − ${$(r.meta.cogs)} BOM COGS − ${$(r.meta.spend)} spend = ${$(r.meta.net - r.meta.cogs - r.meta.spend)}.` }} />
             <H2>GOOGLE</H2>
-            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls={r.google.spend > 0 ? 'spend' : ''} dk={{ kinds: ['google_campaigns'], line: 'g-spend', explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
-            <Line k="ROAS" info={roasKey} v={x(div(r.google.net, r.google.spend))} cls={rc(div(r.google.net, r.google.spend))} dk={{ kinds: ['google_campaigns', 'orders'], line: 'g-roas', channel: 'Google', explain: `Google ROAS = net revenue of Google-attributed orders ÷ Google spend = ${$(r.google.net)} ÷ ${$(r.google.spend)} = ${x(div(r.google.net, r.google.spend))}. Spend from the campaigns table; revenue from the Google-attributed orders below.` }} />
-            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kinds: ['orders'], line: 'g-aov', channel: 'Google', explain: `Google AOV = Google net revenue ÷ Google orders = ${$(r.google.net)} ÷ ${r.google.orders} = ${$(div(r.google.net, r.google.orders))}.` }} />
-            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'g-pct', channel: 'Google', explain: `% of Paid Ad Rev = Google net revenue ÷ (Meta + Google net revenue) = ${$(r.google.net)} ÷ ${$(paidNet)} = ${pc(div(r.google.net, paidNet))}.` }} />
-            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kinds: ['orders', 'items', 'google_campaigns'], line: 'g-cm', channel: 'Google', explain: `Google CM = ${$(r.google.net)} net revenue − ${$(r.google.cogs)} BOM COGS − ${$(r.google.spend)} spend = ${$(r.google.net - r.google.cogs - r.google.spend)}.` }} />
+            <Line k="Spend" v={r.google.spend ? $(r.google.spend) : '—'} cls={r.google.spend > 0 ? 'spend' : ''} dk={{ kinds: ['google_campaigns'], line: 'g-spend', hi: ['cost'], explain: `Google Spend = Σ cost across the day's Google campaign rows = ${$(r.google.spend)}.` }} />
+            <Line k="ROAS" info={roasKey} v={x(div(r.google.net, r.google.spend))} cls={rc(div(r.google.net, r.google.spend))} dk={{ kinds: ['google_campaigns', 'orders'], line: 'g-roas', hi: ['net_revenue', 'cost'], channel: 'Google', explain: `Google ROAS = net revenue of Google-attributed orders ÷ Google spend = ${$(r.google.net)} ÷ ${$(r.google.spend)} = ${x(div(r.google.net, r.google.spend))}. Spend from the campaigns table; revenue from the Google-attributed orders below.` }} />
+            <Line k="AOV" v={$(div(r.google.net, r.google.orders))} dk={{ kinds: ['orders'], line: 'g-aov', hi: ['net_revenue'], channel: 'Google', explain: `Google AOV = Google net revenue ÷ Google orders = ${$(r.google.net)} ÷ ${r.google.orders} = ${$(div(r.google.net, r.google.orders))}.` }} />
+            <Line k="% of Paid Ad Rev" v={pc(div(r.google.net, paidNet))} cls="lgreen" dk={{ kinds: ['orders'], line: 'g-pct', hi: ['net_revenue'], channel: 'Google', explain: `% of Paid Ad Rev = Google net revenue ÷ (Meta + Google net revenue) = ${$(r.google.net)} ÷ ${$(paidNet)} = ${pc(div(r.google.net, paidNet))}.` }} />
+            <Line k="Contribution Margin" v={$(r.google.net - r.google.cogs - r.google.spend)} cls={cmCls(r.google.net - r.google.cogs - r.google.spend)} dk={{ kinds: ['orders', 'items', 'google_campaigns'], line: 'g-cm', hi: ['net_revenue', 'cost', 'sku', 'qty'], channel: 'Google', explain: `Google CM = ${$(r.google.net)} net revenue − ${$(r.google.cogs)} BOM COGS − ${$(r.google.spend)} spend = ${$(r.google.net - r.google.cogs - r.google.spend)}.` }} />
           </div>
         </div>
       </div>
@@ -1656,6 +1656,9 @@ function SourceDrill({ day, drill, m }) {
       {state.sets.map((set, si) => {
         const cols = set.rows.length ? Object.keys(set.rows[0]) : []
         const tot = totalsFor(set.rows, cols)
+        // Columns the clicked metric's math actually reads — highlighted below
+        const hi = new Set(drill.hi || [])
+        const hcls = (c) => hi.has(c) ? ' hi' : ''
         return (
           <div key={si} className="ov-set">
             <div className="ov-drill-h">
@@ -1666,10 +1669,10 @@ function SourceDrill({ day, drill, m }) {
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
               <div className="dpnl dp2" style={{ maxHeight: 280 }}>
                 <table>
-                  <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
+                  <thead><tr>{cols.map(c => <th key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
                   <tbody>
-                    <tr className="tot">{cols.map((c, i) => <td key={c} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>
-                    {set.rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+                    <tr className="tot">{cols.map((c, i) => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>
+                    {set.rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
                   </tbody>
                 </table>
               </div>
@@ -2642,6 +2645,9 @@ const CSS = `
 .ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
 .ide .ov-explain{font-size:12px;color:var(--dim);background:rgba(110,168,254,.06);border:1px solid rgba(110,168,254,.18);border-radius:7px;padding:8px 12px;margin-bottom:12px;max-width:1100px;line-height:1.55;}
 .ide .ov-set{margin-bottom:16px;}
+/* column(s) the clicked P&L metric is computed from */
+.ide .ov-set th.hi{color:var(--blue);background:rgba(110,168,254,.10);}
+.ide .ov-set td.hi{background:rgba(110,168,254,.07);}
 .ide .ov-drill-h .mono{font-family:inherit;font-weight:800;color:var(--txt);}
 .ide .ov-tlink{text-decoration:none;}
 .ide .ov-tlink:hover{color:var(--blue);text-decoration:underline;}
