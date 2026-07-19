@@ -1622,8 +1622,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, rangeStart, onEn
           <div className="ov-sec">
             <H>MARGIN</H>
             <Line k="COGS (BOM)" v={$(r.cogs)} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
-            <Line k="Contribution Margin" v={$(cm)} cls={cmCls(cm)} dk={{ kinds: ['orders', 'items', 'pnl_day', 'pnl_channels'], line: 'cm', hi: ['net_revenue', 'cogs', 'spend', 'total_spend', 'qty'], explain: `Contribution Margin = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend = ${$(cm)}.` }} />
-            <Line k={`Net Profit (− ${r.shipped} labels × $${costPerLabel})`} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
+            <Line k="Net Profit" v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net Profit = ${$(cm)} contribution margin − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
