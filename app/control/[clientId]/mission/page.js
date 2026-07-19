@@ -1650,6 +1650,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
     const troas = b.spend > 0 ? (b.net - b.cogs) / b.spend : null
     return (<>
       <H2>{b.name}</H2>
+      <div className="ov-blk-lines">
       <Line k="Spend" v={b.spend ? $(b.spend) : '—'} cls={b.spend > 0 ? 'spend' : ''} dk={{ kinds: b.kinds, line: `${b.id}-spend`, hi: b.spendHi, explain: `${b.label} Spend = Σ spend across the ${b.label} campaign day rows = ${$(b.spend)}.` }} />
       <Line k="Attributed orders" v={b.orders} dk={{ kinds: ['orders'], line: `${b.id}-orders`, channel: b.channel, hi: ['shopify_channel'], explain: `${b.label} attributed orders = orders whose derived channel is ${b.chDesc} = ${b.orders}.` }} />
       <Line k="CAC" info={cacKey} v={$(cac)} cls={cacCls(cac)} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-cac`, channel: b.channel, hi: b.spendHi, explain: `${b.label} CAC = spend ÷ attributed orders = ${$(b.spend)} ÷ ${b.orders} = ${$(cac)}.` }} />
@@ -1665,6 +1666,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
       )}
       <Line k="Net" v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
       <Line k="True ROAS" info={troasKey} v={x(troas)} cls={rc(troas)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-troas`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} True ROAS = (net revenue − COGS) ÷ spend = (${$(b.net)} − ${$(b.cogs)}) ÷ ${$(b.spend)} = ${x(troas)}.` }} />
+      </div>
     </>)
   }
   const paidBlocks = [
@@ -2791,7 +2793,9 @@ const CSS = `
 .ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 64px;}
 .ide .ov-sec{margin-bottom:20px;}
 .ide .ov-h{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--blue);border-bottom:1px solid var(--line);padding-bottom:4px;margin:0 0 6px;}
-.ide .ov-h2{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--dim);margin:12px 0 3px;}
+.ide .ov-h2{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--txt);margin:14px 0 3px;}
+/* paid-ads block: indented KPI group under its white channel headline */
+.ide .ov-blk-lines{margin-left:5px;padding-left:12px;border-left:1px solid var(--line);}
 .ide .ov-line{display:flex;align-items:baseline;width:100%;background:none;border:none;padding:2.5px 2px;font:inherit;font-size:12.5px;color:inherit;text-align:left;border-radius:4px;}
 .ide .ov-line.on{cursor:pointer;}
 .ide .ov-line.on:hover{background:rgba(110,168,254,.07);}
