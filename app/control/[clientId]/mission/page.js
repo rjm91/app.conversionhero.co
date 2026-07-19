@@ -1485,6 +1485,13 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
+  // Esc de-selects the drilled metric (unless typing in a field, e.g. the ROAS editor)
+  useEffect(() => {
+    if (!drill) return
+    const onKey = (e) => { if (e.key === 'Escape' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName)) setDrill(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drill])
   const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
@@ -1564,7 +1571,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
         </div>
       </div>
 
-      {drill && <SourceDrill day={activeDay} drill={drill} m={m} />}
+      {drill && <SourceDrill day={activeDay} drill={drill} m={m} onClose={() => setDrill(null)} />}
     </div>
   )
 }
@@ -1573,7 +1580,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
 // queries against the actual tables, filtered to the selected business day.
 // A line can open SEVERAL tables (every table in its formula), each with a
 // TOTALS row pinned on top, plus a plain-English formula explanation.
-function SourceDrill({ day, drill, m }) {
+function SourceDrill({ day, drill, m, onClose }) {
   const { clientId } = useParams()
   const [state, setState] = useState({ loading: true, sets: [] })
   const dayOrders = useMemo(() => {
@@ -1650,6 +1657,10 @@ function SourceDrill({ day, drill, m }) {
   }
   return (
     <div className="ov-drill">
+      <div className="ov-drill-bar">
+        <span className="ov-drill-sel">▾ {drill.label || 'metric'} — source rows</span>
+        <button type="button" className="ov-drill-x" onClick={onClose} title="De-select this metric (or click its line again, or press Esc)">✕ close</button>
+      </div>
       {drill.explain && <div className="ov-explain">ⓘ {drill.explain}</div>}
       {state.error && <p className="a-err" style={{ padding: '8px 0' }}>{state.error}</p>}
       {state.loading && <p className="a-dim" style={{ padding: '8px 0' }}>querying source tables…</p>}
@@ -2647,6 +2658,10 @@ const CSS = `
 .ide .ov-drill{margin-top:6px;border-top:1px solid var(--line);padding-top:10px;}
 .ide .ov-drill-h{font-size:11.5px;margin-bottom:6px;}
 .ide .ov-explain{font-size:12px;color:var(--dim);background:rgba(110,168,254,.06);border:1px solid rgba(110,168,254,.18);border-radius:7px;padding:8px 12px;margin-bottom:12px;max-width:1100px;line-height:1.55;}
+.ide .ov-drill-bar{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin-bottom:6px;}
+.ide .ov-drill-sel{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;}
+.ide .ov-drill-x{background:none;border:1px solid var(--line);border-radius:6px;color:var(--dim);font-size:11px;padding:2px 9px;cursor:pointer;}
+.ide .ov-drill-x:hover{color:var(--txt);border-color:var(--dim);}
 .ide .ov-set{margin-bottom:16px;}
 /* column(s) the clicked P&L metric is computed from */
 .ide .ov-set th.hi{color:var(--blue);background:rgba(110,168,254,.10);}
