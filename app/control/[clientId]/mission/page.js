@@ -35,7 +35,7 @@ const PALETTE_CMDS = [
 // The Explorer tree — every leaf is a view backed by live data
 const TREE = [
   { section: 'WORKSPACE', items: [
-    { id: 'overview', icon: '📊', label: 'Overview' },
+    { id: 'overview', icon: '📊', label: 'PnL' },
     { id: 'schema', icon: '🗄', label: 'Schema' },
   ]},
   { section: 'CAMPAIGNS', items: [
@@ -62,7 +62,7 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'Overview', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'PnL', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 
 export default function BusinessIDE() {
   const { clientId } = useParams()
@@ -1401,6 +1401,52 @@ function buildDailyRows(m) {
   return { list, tot, newClassified }
 }
 
+// Roll the daily P&L rows up into periods for the Daily / Weekly / Quarterly
+// zoom. Every field is additive, so a week/quarter is just its days summed;
+// weeks start Sunday (matching the calendar views), quarters are calendar.
+function buildPeriods(list, zoom) {
+  if (zoom === 'day') {
+    return list.map(r => ({
+      key: r.day, days: [r.day], agg: r, short: r.day,
+      long: new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    }))
+  }
+  const P2 = (n) => String(n).padStart(2, '0')
+  const by = {}
+  for (const r of list) {
+    const d = new Date(r.day + 'T00:00:00')
+    let key, short, long
+    if (zoom === 'week') {
+      const ws = new Date(d); ws.setDate(ws.getDate() - ws.getDay())
+      const we = new Date(ws); we.setDate(we.getDate() + 6)
+      key = `${ws.getFullYear()}-${P2(ws.getMonth() + 1)}-${P2(ws.getDate())}`
+      const f = (x) => x.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      short = `wk of ${f(ws)}`
+      long = `Week of ${f(ws)} – ${f(we)}, ${we.getFullYear()}`
+    } else {
+      const q = Math.floor(d.getMonth() / 3) + 1
+      key = `${d.getFullYear()}-Q${q}`
+      short = `Q${q} ${d.getFullYear()}`
+      long = `Q${q} ${d.getFullYear()} · ${['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'][q - 1]}`
+    }
+    const g = (by[key] = by[key] || {
+      key, short, long, days: [],
+      agg: { gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
+        meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } },
+    })
+    g.days.push(r.day)
+    const a = g.agg
+    a.gross += r.gross; a.net += r.net; a.discounts += r.discounts; a.refunds += r.refunds
+    a.orders += r.orders; a.newOrders += r.newOrders; a.cogs += r.cogs; a.shipped += r.shipped
+    for (const [ch, c] of Object.entries(r.channels)) {
+      const cc = (a.channels[ch] = a.channels[ch] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
+      cc.net += c.net; cc.gross += c.gross; cc.cogs += c.cogs; cc.orders += c.orders; cc.newOrders += c.newOrders
+    }
+    for (const k of ['meta', 'google']) { a[k].net += r[k].net; a[k].cogs += r[k].cogs; a[k].orders += r[k].orders; a[k].spend += r[k].spend }
+  }
+  return Object.values(by).map(g => ({ ...g, days: [...g.days].sort() })).sort((x, y) => y.key.localeCompare(x.key))
+}
+
 // Overview — one business day at a time, laid out like Ryan's note: REVENUE /
 // ORDERS / PAID ADS (Blended · Meta · Google) / ORGANIC / MARGIN. Every line
 // drills to the actual Supabase rows behind it (direct mirror, RLS-gated).
@@ -1464,11 +1510,14 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
   const newClassified = !!m.pnl?.newClassified
   const costPerLabel = m.sources?.costPerLabel ?? 25
   const tz = m.sources?.tz || undefined
-  const days = useMemo(() => list.map(r => r.day), [list])
-  const [day, setDay] = useState(null)
-  const activeDay = day && days.includes(day) ? day : days[0] || null
+  const [zoom, setZoom] = useState('day') // 'day' | 'week' | 'quarter'
+  const periods = useMemo(() => buildPeriods(list, zoom), [list, zoom])
+  const keys = useMemo(() => periods.map(p => p.key), [periods])
+  const [sel, setSel] = useState(null)
+  const activeKey = sel && keys.includes(sel) ? sel : keys[0] || null
   const [drill, setDrill] = useState(null) // { kind, label, channel? }
-  useEffect(() => { setDrill(null) }, [activeDay])
+  useEffect(() => { setDrill(null) }, [activeKey])
+  useEffect(() => { setSel(null) }, [zoom])
   // Esc de-selects the drilled metric (unless typing in a field, e.g. the ROAS editor)
   useEffect(() => {
     if (!drill) return
@@ -1476,9 +1525,10 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [drill])
-  if (!activeDay) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
-  const r = list.find(z => z.day === activeDay)
-  const idx = days.indexOf(activeDay)
+  if (!activeKey) return <div className="v-pad"><p className="a-dim">no orders or spend in this range.</p></div>
+  const p = periods.find(z => z.key === activeKey)
+  const r = p.agg
+  const idx = keys.indexOf(activeKey)
 
   const spend = r.meta.spend + r.google.spend
   const paidNet = r.meta.net + r.google.net
@@ -1489,7 +1539,8 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
     .filter(([ch]) => ch !== 'Meta' && ch !== 'Google')
     .sort((a, b) => b[1].net - a[1].net)
   const chCM = (c) => (c.net || c.spend) ? c.net - c.cogs - (c.spend || 0) : null
-  const fmtDay = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const zoomTitle = zoom === 'day' ? 'Daily' : zoom === 'week' ? 'Weekly' : 'Quarterly'
+  const zoomNote = zoom === 'day' ? 'client business day' : `${p.days.length} business day${p.days.length === 1 ? '' : 's'} aggregated`
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
   const roasKey = <RoasKey thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
@@ -1506,14 +1557,19 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
     <div className="v-pad ov-pad">
       <div className="ov-top">
         <div>
-          <h4 className="v-h" style={{ margin: 0 }}>Daily P&amp;L</h4>
-          <p className="v-note" style={{ margin: '2px 0 0' }}>{fmtDay} · client business day{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}</p>
+          <h4 className="v-h" style={{ margin: 0 }}>{zoomTitle} P&amp;L</h4>
+          <p className="v-note" style={{ margin: '2px 0 0' }}>{p.long} · {zoomNote}{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}</p>
         </div>
         <div className="ov-nav">
-          <button onClick={() => setDay(days[Math.min(idx + 1, days.length - 1)])} disabled={idx >= days.length - 1} title="older">‹</button>
-          <span className="ov-day">{activeDay}</span>
-          <button onClick={() => setDay(days[Math.max(idx - 1, 0)])} disabled={idx <= 0} title="newer">›</button>
-          <button className="ov-today" onClick={() => setDay(days[0])} disabled={idx === 0}>latest ↦</button>
+          <div className="ov-zoom">
+            {[['day', 'Daily'], ['week', 'Weekly'], ['quarter', 'Quarterly']].map(([z, zl]) => (
+              <button key={z} className={z === zoom ? 'on' : ''} onClick={() => setZoom(z)} type="button">{zl}</button>
+            ))}
+          </div>
+          <button onClick={() => setSel(keys[Math.min(idx + 1, keys.length - 1)])} disabled={idx >= keys.length - 1} title="older">‹</button>
+          <span className="ov-day">{p.short}</span>
+          <button onClick={() => setSel(keys[Math.max(idx - 1, 0)])} disabled={idx <= 0} title="newer">›</button>
+          <button className="ov-today" onClick={() => setSel(keys[0])} disabled={idx === 0}>latest ↦</button>
         </div>
       </div>
 
@@ -1571,7 +1627,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
         </div>
       </div>
 
-      {drill && <SourceDrill day={activeDay} drill={drill} m={m} onClose={() => setDrill(null)} />}
+      {drill && <SourceDrill days={p.days} drill={drill} m={m} onClose={() => setDrill(null)} />}
     </div>
   )
 }
@@ -1580,15 +1636,19 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas }) {
 // queries against the actual tables, filtered to the selected business day.
 // A line can open SEVERAL tables (every table in its formula), each with a
 // TOTALS row pinned on top, plus a plain-English formula explanation.
-function SourceDrill({ day, drill, m, onClose }) {
+function SourceDrill({ days, drill, m, onClose }) {
   const { clientId } = useParams()
   const [state, setState] = useState({ loading: true, sets: [] })
+  // days = the selected period's business days, sorted ascending (one entry in Daily zoom)
+  const dFrom = days[0], dTo = days[days.length - 1]
+  const dayLabel = dFrom === dTo ? dFrom : `${dFrom} → ${dTo}`
   const dayOrders = useMemo(() => {
     const tz = m.sources?.tz || undefined
+    const inPeriod = new Set(days)
     const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined) } catch { return String(iso).slice(0, 10) } }
     const chMatch = (o) => !drill.channel ? true : drill.channel === 'Paid' ? (o.channel === 'Meta' || o.channel === 'Google') : o.channel === drill.channel
-    return (m.sources?.orders || []).filter(o => dayOf(o.date) === day && chMatch(o))
-  }, [m, day, drill.channel])
+    return (m.sources?.orders || []).filter(o => inPeriod.has(dayOf(o.date)) && chMatch(o))
+  }, [m, days, drill.channel])
 
   useEffect(() => {
     let alive = true
@@ -1612,28 +1672,28 @@ function SourceDrill({ day, drill, m, onClose }) {
       if (kind === 'meta_campaigns') {
         const { data, error } = await supabase.from('client_meta_campaigns')
           .select('campaign_name, date, spend, impressions, clicks, conversions')
-          .eq('client_id', clientId).eq('date', day).order('spend', { ascending: false })
+          .eq('client_id', clientId).gte('date', dFrom).lte('date', dTo).order('spend', { ascending: false })
         if (error) throw error
         return { table: 'client_meta_campaigns', note: 'Meta campaign day rows', rows: data || [] }
       }
       if (kind === 'google_campaigns') {
         const { data, error } = await supabase.from('client_google_campaigns')
           .select('campaign_name, date, cost, impressions, clicks, conversions')
-          .eq('client_id', clientId).eq('date', day).order('cost', { ascending: false })
+          .eq('client_id', clientId).gte('date', dFrom).lte('date', dTo).order('cost', { ascending: false })
         if (error) throw error
         return { table: 'client_google_campaigns', note: 'Google campaign day rows', rows: data || [] }
       }
       if (kind === 'pnl_day') {
         const { data, error } = await supabase.from('client_daily_pnl')
           .select('date, net_sales, gross_profit, total_orders, total_spend, cogs, cost_per_label')
-          .eq('client_id', clientId).eq('date', day)
+          .eq('client_id', clientId).gte('date', dFrom).lte('date', dTo)
         if (error) throw error
         return { table: 'client_daily_pnl', note: 'locked daily record', rows: data || [] }
       }
       if (kind === 'pnl_channels') {
         const { data, error } = await supabase.from('client_channel_daily_pnl')
           .select('day, channel, gross_revenue, net_revenue, discounts, refunds, orders, new_orders, cogs, spend')
-          .eq('client_id', clientId).eq('day', day).order('net_revenue', { ascending: false })
+          .eq('client_id', clientId).gte('day', dFrom).lte('day', dTo).order('net_revenue', { ascending: false })
         if (error) throw error
         return { table: 'client_channel_daily_pnl', note: 'per-channel daily record', rows: data || [] }
       }
@@ -1644,7 +1704,7 @@ function SourceDrill({ day, drill, m, onClose }) {
       .then(sets => { if (alive) setState({ loading: false, sets: sets.filter(Boolean) }) })
       .catch(e => { if (alive) setState({ loading: false, sets: [], error: e.message || String(e) }) })
     return () => { alive = false }
-  }, [drill.line, day, clientId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drill.line, dFrom, dTo, clientId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmt = (v) => v == null ? '—' : typeof v === 'number' ? Number(v.toFixed(2)).toLocaleString() : String(v)
   const totalsFor = (rows, cols) => {
@@ -1675,9 +1735,9 @@ function SourceDrill({ day, drill, m, onClose }) {
         return (
           <div key={si} className="ov-set">
             <div className="ov-drill-h">
-              <a className="mono ov-tlink" href={`/control/${clientId}/mission?focus=${set.table}&day=${day}`} target="_blank" rel="noreferrer"
+              <a className="mono ov-tlink" href={`/control/${clientId}/mission?focus=${set.table}${dFrom === dTo ? `&day=${dFrom}` : ''}`} target="_blank" rel="noreferrer"
                 title="Open this table in your Schema browser, filtered to this day">public.{set.table} ↗</a>
-              <span className="dim"> · {set.note} · {day} · {set.rows.length} rows · live Supabase read (RLS)</span>
+              <span className="dim"> · {set.note} · {dayLabel} · {set.rows.length} rows · live Supabase read (RLS)</span>
               {hits.length > 0 && <span className="ov-hi-note" title={hiTitle}>⌖ {hits.join(', ')} = source of “{drill.label}”</span>}
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
@@ -2610,6 +2670,10 @@ const CSS = `
 .ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;}
+.ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
+.ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
+.ide .ov-zoom button:hover{color:var(--txt);}
+.ide .ov-zoom button.on{background:var(--blue);color:#fff;}
 .ide .ov-nav button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:13px;padding:3px 10px;cursor:pointer;}
 .ide .ov-nav button:disabled{opacity:.35;cursor:default;}
 .ide .ov-nav button:not(:disabled):hover{border-color:var(--blue);}
