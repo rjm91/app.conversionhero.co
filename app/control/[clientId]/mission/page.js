@@ -1005,6 +1005,19 @@ function SettingsView({ canEdit, clientName }) {
       : { ok: false, text: j.error || 'Send failed — check the webhook URL.' } })
   }
 
+  // Digest preview — the exact payload the morning send would post, rendered
+  // Slack-style, plus the plain-text twin Chorus sends as the daily SMS.
+  const [pv, setPv] = useState({ loading: true })
+  const [pvTab, setPvTab] = useState('slack')
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/mission/pnl-digest?client_id=${clientId}`, { cache: 'no-store' })
+      .then(r => r.json().then(j => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => { if (alive) setPv(ok ? { loading: false, ...j } : { loading: false, error: j.error || 'preview failed' }) })
+      .catch(e => { if (alive) setPv({ loading: false, error: String(e?.message || e) }) })
+    return () => { alive = false }
+  }, [clientId])
+
   if (settings === null) return <p className="loading v-pad">loading settings…</p>
   if (!canEdit) return (
     <div className="v-pad">
@@ -1034,6 +1047,46 @@ function SettingsView({ canEdit, clientName }) {
           {state.msg && <span className={`set-msg ${state.msg.ok ? 'good' : 'bad'}`}>{state.msg.text}</span>}
         </div>
       </div>
+
+      <div className="set-card">
+        <div className="set-h">Digest preview{pv.date ? ` — ${pv.date}` : ''}</div>
+        <p className="v-note" style={{ marginTop: 0 }}>Exactly what tomorrow morning’s digest will look like. Both come from the same template: <b>Slack</b> is the channel post; <b>Text (Chorus)</b> is what the Chorus agent pulls via the <code>get_daily_digest</code> MCP tool and sends as the daily text notification.</p>
+        <div className="pv-tabs">
+          <button className={pvTab === 'slack' ? 'on' : ''} onClick={() => setPvTab('slack')} type="button">Slack</button>
+          <button className={pvTab === 'text' ? 'on' : ''} onClick={() => setPvTab('text')} type="button">Text (Chorus)</button>
+        </div>
+        {pv.loading ? <p className="loading" style={{ padding: '6px 0' }}>building preview from yesterday’s P&L…</p>
+          : pv.error ? <p className="v-note">{pv.error}</p>
+          : pvTab === 'slack' ? <SlackPreview payload={pv.payload} />
+          : <pre className="sms-prev">{pv.text}</pre>}
+      </div>
+    </div>
+  )
+}
+
+// Slack-style rendering of a Block Kit payload — an approximation for the
+// Settings preview (header / mrkdwn sections with *bold* / buttons / context).
+function SlackPreview({ payload }) {
+  const md = (s) => String(s || '').split('\n').map((ln, i) => (
+    <div key={i}>{ln.split(/(\*[^*]+\*)/g).map((seg, j) => seg.startsWith('*') && seg.endsWith('*') && seg.length > 2 ? <b key={j}>{seg.slice(1, -1)}</b> : seg)}</div>
+  ))
+  return (
+    <div className="slk">
+      <div className="slk-app">
+        <span className="slk-av">📊</span>
+        <span><span className="slk-name">ConversionHero</span><span className="slk-tag">APP</span><span className="slk-time">7:00 AM</span></span>
+      </div>
+      {(payload?.blocks || []).map((b, i) => {
+        if (b.type === 'header') return <div key={i} className="slk-h">{b.text?.text}</div>
+        if (b.type === 'section') return <div key={i} className="slk-sec">{md(b.text?.text)}</div>
+        if (b.type === 'actions') return (
+          <div key={i} className="slk-btns">
+            {(b.elements || []).map((e, j) => <span key={j} className={`slk-btn ${e.style === 'primary' ? 'primary' : ''}`}>{e.text?.text}</span>)}
+          </div>
+        )
+        if (b.type === 'context') return <div key={i} className="slk-ctx">{(b.elements || []).map(e => e.text).join(' ')}</div>
+        return null
+      })}
     </div>
   )
 }
@@ -2796,6 +2849,25 @@ const CSS = `
 .ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;}
+/* digest preview (Settings) — Slack-style mock + SMS text twin */
+.ide .pv-tabs{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;width:fit-content;margin-bottom:10px;}
+.ide .pv-tabs button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
+.ide .pv-tabs button:hover{color:var(--txt);}
+.ide .pv-tabs button.on{background:var(--blue);color:#fff;}
+.ide .slk{background:#1a1d21;border:1px solid var(--line);border-radius:10px;padding:14px 16px;max-width:580px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+.ide .slk-app{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.ide .slk-av{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#4f8ef7,#7c5cff);display:grid;place-items:center;font-size:17px;flex-shrink:0;}
+.ide .slk-name{font-weight:800;color:#e8eaed;font-size:14px;}
+.ide .slk-tag{font-size:9px;background:#35383f;color:#b9bcc4;padding:1px 4px;border-radius:3px;margin-left:5px;vertical-align:1px;}
+.ide .slk-time{color:#9a9ea6;font-size:11px;margin-left:6px;}
+.ide .slk-h{font-size:16px;font-weight:900;color:#e8eaed;margin:6px 0;}
+.ide .slk-sec{font-size:13px;color:#d1d3d8;line-height:1.55;margin:8px 0;}
+.ide .slk-sec b{color:#fff;}
+.ide .slk-btns{display:flex;gap:8px;margin:10px 0 4px;flex-wrap:wrap;}
+.ide .slk-btn{border:1px solid #565a63;border-radius:6px;padding:5px 12px;font-size:12.5px;font-weight:700;color:#d1d3d8;}
+.ide .slk-btn.primary{background:#007a5a;border-color:#007a5a;color:#fff;}
+.ide .slk-ctx{font-size:11px;color:#9a9ea6;margin-top:8px;}
+.ide .sms-prev{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap;max-width:580px;color:var(--txt);margin:0;}
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .ov-zoom button:hover{color:var(--txt);}

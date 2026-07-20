@@ -2,6 +2,8 @@
 // data access over Streamable HTTP.
 //
 //   • get_daily_pnl     — one day's locked P&L + per-channel rows
+//   • get_daily_digest  — the day's P&L as ready-to-send SMS text (same
+//                         template as the Slack morning digest)
 //   • get_pnl_range     — day rows across a range (trends)
 //   • list_tables       — the queryable schema
 //   • query_table       — the SAME guarded query the mission terminal agent
@@ -16,6 +18,7 @@ import { z } from 'zod'
 import { verify as verifyToken, originOf } from '../../../../lib/mcp-oauth'
 import { createClient } from '@supabase/supabase-js'
 import { getAgentDb, runAgentQuery, agentSchemaPrompt } from '../../../../lib/mission/agent-db'
+import { buildDigestForDay } from '../../../../lib/mission/pnl-digest'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -56,6 +59,20 @@ const handler = createMcpHandler((server) => {
         },
         channels: channels || [],
       })
+    },
+  )
+
+  server.tool(
+    'get_daily_digest',
+    `One day's Daily P&L digest for ${CLIENT_ID}, pre-formatted as plain text ready to send as an SMS/text notification — the EXACT same template as the morning Slack digest (revenue & orders, Meta/Google/Blended, margin, one-line lede). Send this text verbatim; do not re-summarize the numbers. Defaults to yesterday.`,
+    { date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('YYYY-MM-DD; defaults to yesterday in the client business timezone') },
+    async ({ date }) => {
+      const db = admin()
+      const { data: client } = await db.from('client').select('client_id, client_name, settings').eq('client_id', CLIENT_ID).single()
+      if (!client) return json({ error: 'client not found' })
+      const out = await buildDigestForDay(db, client, date ? { date } : {})
+      if (out.error) return json({ date: out.date, error: `no locked P&L for ${out.date} yet` })
+      return { content: [{ type: 'text', text: out.text }] }
     },
   )
 
