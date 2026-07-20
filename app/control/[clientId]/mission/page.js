@@ -197,13 +197,15 @@ export default function BusinessIDE() {
   // ROAS/CAC color thresholds override — same optimistic pattern as cost-per-label.
   const [roasOverride, setRoasOverride] = useState(null) // { red, green }
   const [cacOverride, setCacOverride] = useState(null)   // { green, red }
+  const [aovOverride, setAovOverride] = useState(null)   // { red, green }
   const m = useMemo(() => {
     if (!data) return null
     const costPerLabel = labelOverride != null ? labelOverride : data.pnlConfig?.costPerLabel
     const roas = roasOverride ? { roasRedBelow: roasOverride.red, roasGreenAbove: roasOverride.green } : {}
     const cac = cacOverride ? { cacGreenBelow: cacOverride.green, cacRedAbove: cacOverride.red } : {}
-    return computeMission({ ...data, pnlConfig: { ...data.pnlConfig, costPerLabel, ...roas, ...cac } })
-  }, [data, labelOverride, roasOverride, cacOverride])
+    const aov = aovOverride ? { aovRedBelow: aovOverride.red, aovGreenAbove: aovOverride.green } : {}
+    return computeMission({ ...data, pnlConfig: { ...data.pnlConfig, costPerLabel, ...roas, ...cac, ...aov } })
+  }, [data, labelOverride, roasOverride, cacOverride, aovOverride])
   const isAgencyRole = viewer?.role?.startsWith('agency')
   const canEditRoas = isAgencyRole || viewer?.role === 'client_admin'
   const saveCostPerLabel = useCallback(async (v) => {
@@ -213,6 +215,30 @@ export default function BusinessIDE() {
       await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { cost_per_label: val } }) })
     } catch { /* stays applied locally; next load re-reads */ }
   }, [clientId])
+  // AOV dial defaults — derived from the client's FULL locked P&L history
+  // (daily AOV = net_sales ÷ orders; red below the 33rd percentile, green
+  // above the 66th). Used until the client saves their own cutoffs.
+  const [aovHist, setAovHist] = useState(null)
+  useEffect(() => {
+    let alive = true
+    supabase.from('client_daily_pnl').select('net_sales, total_orders')
+      .eq('client_id', clientId).gt('total_orders', 0).limit(1000)
+      .then(({ data }) => {
+        if (!alive || !data?.length) return
+        const aovs = data.map(r => Number(r.net_sales) / Number(r.total_orders)).filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b)
+        if (aovs.length < 10) return // too little history to be meaningful
+        const pct = (p) => aovs[Math.min(aovs.length - 1, Math.floor(p * aovs.length))]
+        setAovHist({ red: Math.round(pct(1 / 3)), green: Math.round(pct(2 / 3)), days: aovs.length })
+      })
+    return () => { alive = false }
+  }, [clientId])
+  const saveAovThresholds = useCallback(async ({ red, green }) => {
+    setAovOverride({ red, green }) // optimistic — colors update instantly
+    try {
+      await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { aov_red_below: red, aov_green_above: green } }) })
+    } catch { /* stays applied locally; next load re-reads */ }
+  }, [clientId])
+
   // Data freshness — when the mission data was last fetched, + a light manual
   // refresh that re-pulls rows without resetting the terminal session.
   const [loadedAt, setLoadedAt] = useState(null)
@@ -714,7 +740,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -728,7 +754,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -1323,7 +1349,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1331,7 +1357,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
+  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} onSaveAov={onSaveAov} aovDefaults={aovDefaults} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
@@ -1653,6 +1679,57 @@ function LastUpdated({ at, onRefresh, refreshing }) {
   )
 }
 
+// AOV color-key popover — same pin/edit mechanics; dollar thresholds, higher
+// is better. Prepopulated from the client's full P&L history until saved.
+function AovKey({ thr, canEdit, onSave }) {
+  const [pinned, setPinned] = useState(false)
+  const [draft, setDraft] = useState(null) // { red, green } as strings while editing
+  const valid = draft && Number(draft.red) > 0 && Number(draft.green) > Number(draft.red)
+  const commit = () => {
+    if (!valid) return
+    onSave && onSave({ red: Math.round(Number(draft.red)), green: Math.round(Number(draft.green)) })
+    setDraft(null); setPinned(false)
+  }
+  useEffect(() => {
+    if (!pinned) return
+    const close = () => { setPinned(false); setDraft(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [pinned])
+  return (
+    <span className="ov-i" onClick={e => e.stopPropagation()}>
+      <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
+      <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
+        <b>AOV color key</b>
+        <span className="ov-pop-desc">AOV = net revenue ÷ orders — average order value.</span>
+        {draft ? (
+          <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
+            <span><i className="kd r" />red below $<input autoFocus type="number" step="1" min="1" value={draft.red}
+              onChange={e => setDraft(d => ({ ...d, red: e.target.value }))} /></span>
+            <span><i className="kd g" />green above $<input type="number" step="1" min="1" value={draft.green}
+              onChange={e => setDraft(d => ({ ...d, green: e.target.value }))} /></span>
+            <span className="ov-thr-note"><i className="kd y" />yellow = in between</span>
+            <span className="ov-thr-btns">
+              <button type="button" disabled={!valid} onClick={commit}>save</button>
+              <button type="button" onClick={() => setDraft(null)}>cancel</button>
+            </span>
+          </span>
+        ) : (
+          <>
+            <span><i className="kd r" />under ${thr.red} — below your usual</span>
+            <span><i className="kd y" />${thr.red} – ${thr.green} — your typical range</span>
+            <span><i className="kd g" />above ${thr.green} — strong</span>
+            {thr.auto && <span className="ov-thr-note">auto from {thr.days} days of your P&L history (33rd / 66th percentile) — save to lock in</span>}
+            {canEdit && (
+              <button type="button" className="ov-thr-edit" onClick={() => setDraft({ red: String(thr.red), green: String(thr.green) })}>✎ {thr.auto ? 'edit & save dial' : 'edit dial'}</button>
+            )}
+          </>
+        )}
+      </span>
+    </span>
+  )
+}
+
 // Static color-key note (hover only, no editor) — explains a fixed color rule.
 function KeyNote({ title, lines, desc }) {
   return (
@@ -1724,7 +1801,7 @@ function CacKey({ thr, canEdit, onSave, desc }) {
   )
 }
 
-function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing }) {
+function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing }) {
   const { $, x, pc, div, cmCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
@@ -1784,6 +1861,12 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
   const cacThr = { green: m.sources?.cacGreenBelow ?? null, red: m.sources?.cacRedAbove ?? null }
   const cacCls = (n) => (n == null || cacThr.green == null || cacThr.red == null) ? '' : n <= cacThr.green ? 'good' : n < cacThr.red ? 'warn' : 'bad'
   const cacKey = <CacKey desc="CAC = ad spend ÷ attributed orders — what one new customer costs." thr={cacThr} canEdit={canEditRoas} onSave={onSaveCac} />
+  // AOV dial: saved cutoffs win; otherwise the history-derived percentiles.
+  const aovThr = (m.sources?.aovRedBelow != null && m.sources?.aovGreenAbove != null)
+    ? { red: m.sources.aovRedBelow, green: m.sources.aovGreenAbove, auto: false }
+    : aovDefaults ? { red: aovDefaults.red, green: aovDefaults.green, days: aovDefaults.days, auto: true } : null
+  const aovCls = (n) => (!aovThr || n == null) ? '' : n < aovThr.red ? 'bad' : n <= aovThr.green ? 'warn' : 'good'
+  const aovKey = aovThr ? <AovKey thr={aovThr} canEdit={canEditRoas} onSave={onSaveAov} /> : null
   // Sign-based lines color themselves; the note tells the reader the rule.
   const signNote = (desc) => <KeyNote title="Color rule" desc={desc} lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
   const Line = ({ k, v, cls, dk, info }) => (
@@ -1808,7 +1891,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
       <Line k="Spend" v={b.spend ? $(b.spend) : '—'} cls={b.spend > 0 ? 'spend' : ''} dk={{ kinds: b.kinds, line: `${b.id}-spend`, hi: b.spendHi, explain: `${b.label} Spend = Σ spend across the ${b.label} campaign day rows = ${$(b.spend)}.` }} />
       <Line k="Attributed orders" v={b.orders} dk={{ kinds: ['orders'], line: `${b.id}-orders`, channel: b.channel, hi: ['utm_source'], explain: `${b.label} attributed orders = orders whose derived channel is ${b.chDesc} = ${b.orders}.` }} />
       <Line k="CAC" info={cacKey} v={$(cac)} cls={cacCls(cac)} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-cac`, channel: b.channel, hi: b.spendHi, explain: `${b.label} CAC = spend ÷ attributed orders = ${$(b.spend)} ÷ ${b.orders} = ${$(cac)}.` }} />
-      <Line k="AOV" v={$(div(b.net, b.orders))} dk={{ kinds: ['orders'], line: `${b.id}-aov`, channel: b.channel, hi: ['net_revenue'], explain: `${b.label} AOV = attributed net revenue ÷ attributed orders = ${$(b.net)} ÷ ${b.orders} = ${$(div(b.net, b.orders))}.` }} />
+      <Line k="AOV" info={aovKey} v={$(div(b.net, b.orders))} cls={aovCls(div(b.net, b.orders))} dk={{ kinds: ['orders'], line: `${b.id}-aov`, channel: b.channel, hi: ['net_revenue'], explain: `${b.label} AOV = attributed net revenue ÷ attributed orders = ${$(b.net)} ÷ ${b.orders} = ${$(div(b.net, b.orders))}.` }} />
       <Line k="Gross" v={$(b.gross)} dk={{ kinds: ['orders'], line: `${b.id}-gross`, channel: b.channel, hi: ['subtotal', 'discounts'], explain: `${b.label} Gross = Σ (subtotal + discounts) of attributed orders = ${$(b.gross)}.` }} />
       {b.id !== 'bl' && (
         <Line k="% of Paid Ad Rev" v={pc(div(b.net, paidNet))} dk={{ kinds: ['orders'], line: `${b.id}-pct`, channel: b.channel, hi: ['net_revenue'], explain: `% of Paid Ad Rev = ${b.label} net revenue ÷ (Meta + Google net revenue) = ${$(b.net)} ÷ ${$(paidNet)} = ${pc(div(b.net, paidNet))}.` }} />
@@ -1869,7 +1952,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
             <H>ORDERS</H>
             <Line k="Orders" v={r.orders} dk={{ kinds: ['orders'], line: 'count', hi: ['net_revenue'], explain: `Orders = count of the day's orders with positive net revenue = ${r.orders}.` }} />
             <Line k="New orders (order rate)" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
-            <Line k="AOV" v={$(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
+            <Line k="AOV" info={aovKey} v={$(div(r.net, r.orders))} cls={aovCls(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
           </div>
           <div className="ov-sec">
             <H>ORGANIC REVENUE</H>

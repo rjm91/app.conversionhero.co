@@ -30,8 +30,8 @@ export async function GET(request) {
   return NextResponse.json({ settings })
 }
 
-// Traffic-light dials (True ROAS + CAC) — the settings client admins may edit.
-const ROAS_KEYS = ['roas_red_below', 'roas_green_above', 'cac_green_below', 'cac_red_above']
+// Traffic-light dials (True ROAS + CAC + AOV) — the settings client admins may edit.
+const ROAS_KEYS = ['roas_red_below', 'roas_green_above', 'cac_green_below', 'cac_red_above', 'aov_red_below', 'aov_green_above']
 
 export async function PATCH(request) {
   const { client_id, settings } = await request.json()
@@ -76,6 +76,9 @@ export async function PATCH(request) {
   if (red >= green) return NextResponse.json({ error: 'Red threshold must be below the green threshold' }, { status: 400 })
   if (next.cac_green_below != null && next.cac_red_above != null && Number(next.cac_green_below) >= Number(next.cac_red_above)) {
     return NextResponse.json({ error: 'CAC green threshold must be below the red threshold' }, { status: 400 })
+  }
+  if (next.aov_red_below != null && next.aov_green_above != null && Number(next.aov_red_below) >= Number(next.aov_green_above)) {
+    return NextResponse.json({ error: 'AOV red threshold must be below the green threshold' }, { status: 400 })
   }
   const { error } = await db.from('client').update({ settings: next }).eq('client_id', client_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
