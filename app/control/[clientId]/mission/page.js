@@ -1681,7 +1681,7 @@ function LastUpdated({ at, onRefresh, refreshing }) {
 
 // AOV color-key popover — same pin/edit mechanics; dollar thresholds, higher
 // is better. Prepopulated from the client's full P&L history until saved.
-function AovKey({ thr, canEdit, onSave }) {
+function AovKey({ thr, hist, canEdit, onSave }) {
   const [pinned, setPinned] = useState(false)
   const [draft, setDraft] = useState(null) // { red, green } as strings while editing
   const valid = draft && Number(draft.red) > 0 && Number(draft.green) > Number(draft.red)
@@ -1719,7 +1719,9 @@ function AovKey({ thr, canEdit, onSave }) {
             <span><i className="kd r" />under ${thr.red} — below your usual</span>
             <span><i className="kd y" />${thr.red} – ${thr.green} — your typical range</span>
             <span><i className="kd g" />above ${thr.green} — strong</span>
-            {thr.auto && <span className="ov-thr-note">auto from {thr.days} days of your P&L history (33rd / 66th percentile) — save to lock in</span>}
+            {thr.auto
+              ? <span className="ov-thr-note">auto from {thr.days} days of your P&L history (33rd / 66th percentile) — save to lock in</span>
+              : hist && <span className="ov-thr-note">your actual history: low under ${hist.red} · high above ${hist.green} (33rd / 66th percentile, {hist.days} days)</span>}
             {canEdit && (
               <button type="button" className="ov-thr-edit" onClick={() => setDraft({ red: String(thr.red), green: String(thr.green) })}>✎ {thr.auto ? 'edit & save dial' : 'edit dial'}</button>
             )}
@@ -1866,7 +1868,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
     ? { red: m.sources.aovRedBelow, green: m.sources.aovGreenAbove, auto: false }
     : aovDefaults ? { red: aovDefaults.red, green: aovDefaults.green, days: aovDefaults.days, auto: true } : null
   const aovCls = (n) => (!aovThr || n == null) ? '' : n < aovThr.red ? 'bad' : n <= aovThr.green ? 'warn' : 'good'
-  const aovKey = aovThr ? <AovKey thr={aovThr} canEdit={canEditRoas} onSave={onSaveAov} /> : null
+  const aovKey = aovThr ? <AovKey thr={aovThr} hist={aovDefaults} canEdit={canEditRoas} onSave={onSaveAov} /> : null
   // Sign-based lines color themselves; the note tells the reader the rule.
   const signNote = (desc) => <KeyNote title="Color rule" desc={desc} lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
   const Line = ({ k, v, cls, dk, info }) => (
