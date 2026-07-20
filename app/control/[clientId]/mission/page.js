@@ -213,6 +213,19 @@ export default function BusinessIDE() {
       await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { cost_per_label: val } }) })
     } catch { /* stays applied locally; next load re-reads */ }
   }, [clientId])
+  // Data freshness — when the mission data was last fetched, + a light manual
+  // refresh that re-pulls rows without resetting the terminal session.
+  const [loadedAt, setLoadedAt] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshData = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      const d = await fetchMissionData(clientId, range.start, range.end)
+      setData(d); setLoadedAt(Date.now())
+    } catch { /* keep showing current data */ }
+    setRefreshing(false)
+  }, [clientId, range])
+
   // P&L zoom-out support: widen the loaded window so a Weekly/Quarterly view
   // aggregates full periods, not just the slice the current range happens to cover.
   const ensureRangeCovers = useCallback((startStr) => {
@@ -267,7 +280,7 @@ export default function BusinessIDE() {
     setTurns([]); setSelId(null); setSrvFindings(null)
     push({ kind: 'sys', text: `loading ${rangeLabel} of ${clientId} — orders, campaigns, BOM margins · running the watcher server-side…` })
     fetchMissionData(clientId, range.start, range.end)
-      .then(d => { if (alive) setData(d) })
+      .then(d => { if (alive) { setData(d); setLoadedAt(Date.now()) } })
       .catch(e => push({ kind: 'sys', text: 'load failed: ' + e.message }))
     fetch(`/api/mission/state?client_id=${clientId}&refresh=1&days=${Math.min(90, rangeN)}`, { cache: 'no-store' })
       .then(r => r.json())
@@ -701,7 +714,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -715,7 +728,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -1310,7 +1323,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1318,7 +1331,7 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
-  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} />
+  if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
   if (id === 'google') return <CampaignView m={m} platform="Google" />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" />
@@ -1623,6 +1636,23 @@ function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key', desc }) {
   )
 }
 
+// "Last updated: … ago" + manual refresh — data-freshness indicator for the
+// P&L. Re-renders every 10s; goes amber past 15 minutes.
+function LastUpdated({ at, onRefresh, refreshing }) {
+  const [, tick] = useState(0)
+  useEffect(() => { const t = setInterval(() => tick(n => n + 1), 10000); return () => clearInterval(t) }, [])
+  if (!at) return null
+  const s = Math.max(0, Math.floor((Date.now() - at) / 1000))
+  const n = s < 60 ? s : s < 3600 ? Math.floor(s / 60) : Math.floor(s / 3600)
+  const unit = s < 60 ? 'second' : s < 3600 ? 'minute' : 'hour'
+  return (
+    <span className={`ov-upd ${s > 900 ? 'stale' : ''}`} title="when this page's orders, campaigns and COGS were last fetched from the database">
+      Last updated: {n} {unit}{n === 1 ? '' : 's'} ago
+      <button type="button" onClick={onRefresh} disabled={refreshing} title="re-fetch live data now">{refreshing ? '…' : '⟳'}</button>
+    </span>
+  )
+}
+
 // Static color-key note (hover only, no editor) — explains a fixed color rule.
 function KeyNote({ title, lines, desc }) {
   return (
@@ -1694,7 +1724,7 @@ function CacKey({ thr, canEdit, onSave, desc }) {
   )
 }
 
-function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange }) {
+function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing }) {
   const { $, x, pc, div, cmCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
@@ -1813,6 +1843,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
           </p>
         </div>
         <div className="ov-nav">
+          <LastUpdated at={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
           <div className="ov-zoom">
             {[['day', 'Daily'], ['week', 'Weekly'], ['quarter', 'Quarterly']].map(([z, zl]) => (
               <button key={z} className={z === zoom ? 'on' : ''} onClick={() => pickZoom(z)} type="button">{zl}</button>
@@ -2957,7 +2988,12 @@ const CSS = `
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
 .ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
-.ide .ov-nav{display:flex;align-items:center;gap:6px;}
+.ide .ov-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ide .ov-upd{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-right:8px;white-space:nowrap;}
+.ide .ov-upd.stale{color:var(--amber);}
+.ide .ov-upd button{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);cursor:pointer;font-size:12px;line-height:1;padding:3px 7px;}
+.ide .ov-upd button:hover{color:var(--txt);border-color:var(--dim);}
+.ide .ov-upd button:disabled{opacity:.5;cursor:default;}
 /* digest preview (Settings) — Slack-style mock + SMS text twin + template editor */
 .ide .pv-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .ide .set-tag{font-size:9px;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:2px;letter-spacing:.05em;text-transform:uppercase;}
