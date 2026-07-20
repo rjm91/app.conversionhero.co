@@ -127,7 +127,7 @@ export default function SettingsPage() {
           <div className="flex items-start justify-between gap-4 mb-3">
             <div>
               <h2 id="chorus-access-heading" className="text-xs font-semibold text-gray-400 uppercase tracking-widest">ShieldTech MCP access</h2>
-              <p className="text-sm text-gray-400 mt-1">Data exposed by ShieldTech&apos;s MCP server to the connected Chorus agent</p>
+              <p className="text-sm text-gray-400 mt-1">Data exposed by ShieldTech&apos;s MCP server to your connected AI assistant</p>
             </div>
             <span className="flex-shrink-0 text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full">Read-only · ShieldTech scoped</span>
           </div>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-[#171B33] rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 dark:border-white/5">
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-6">
-                ShieldTech&apos;s MCP server gives Chorus read-only access to the approved reporting surface for questions and the daily P&amp;L digest. It cannot make changes to ShieldTech data, access another client, or retrieve connection credentials.
+                ShieldTech&apos;s MCP server gives your AI assistant read-only access to the approved reporting surface for questions and the daily P&amp;L digest. It cannot make changes to ShieldTech data, access another client, or retrieve connection credentials.
               </p>
             </div>
 

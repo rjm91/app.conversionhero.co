@@ -993,20 +993,22 @@ function SettingsView({ canEdit, clientName }) {
     setState({ saving: false, testing: false, msg: res.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: j.error || 'Save failed.' } })
   }
 
-  const sendTest = async () => {
-    setState(s => ({ ...s, testing: true, msg: null }))
+  const sendTest = async (format) => {
+    setState(s => ({ ...s, testing: format, msg: null }))
     const res = await fetch('/api/mission/pnl-digest', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId }),
+      body: JSON.stringify({ client_id: clientId, ...(format === 'text' ? { format } : {}) }),
     })
     const j = await res.json().catch(() => ({}))
     setState({ saving: false, testing: false, msg: res.ok
-      ? { ok: true, text: `Sent to Slack — yesterday’s P&L (${j.result?.date || ''}).` }
+      ? { ok: true, text: format === 'text'
+          ? `Posted the text-message version to Slack — proof of the daily text (${j.result?.date || ''}).`
+          : `Sent to Slack — yesterday’s P&L (${j.result?.date || ''}).` }
       : { ok: false, text: j.error || 'Send failed — check the webhook URL.' } })
   }
 
   // Digest preview — the exact payload the morning send would post, rendered
-  // Slack-style, plus the plain-text twin Chorus sends as the daily SMS.
+  // Slack-style, plus the plain-text twin sent as the daily text notification.
   const [pv, setPv] = useState({ loading: true })
   const [pvTab, setPvTab] = useState('slack')
   const [tplEdit, setTplEdit] = useState(false)
@@ -1078,18 +1080,19 @@ function SettingsView({ canEdit, clientName }) {
         </label>
         <div className="set-actions">
           <button className="set-btn primary" onClick={save} disabled={state.saving}>{state.saving ? 'saving…' : 'Save'}</button>
-          <button className="set-btn" onClick={sendTest} disabled={state.testing || !canTest} title={canTest ? 'post yesterday’s P&L now' : 'save a webhook first'}>{state.testing ? 'sending…' : 'Send test now'}</button>
+          <button className="set-btn" onClick={() => sendTest('blocks')} disabled={!!state.testing || !canTest} title={canTest ? 'post yesterday’s P&L to Slack now' : 'save a webhook first'}>{state.testing === 'blocks' ? 'sending…' : 'Send Slack test'}</button>
+          <button className="set-btn" onClick={() => sendTest('text')} disabled={!!state.testing || !canTest} title={canTest ? 'post the daily-text version to Slack so you can proof the exact SMS wording' : 'save a webhook first'}>{state.testing === 'text' ? 'sending…' : 'Send text test'}</button>
           {state.msg && <span className={`set-msg ${state.msg.ok ? 'good' : 'bad'}`}>{state.msg.text}</span>}
         </div>
       </div>
 
       <div className="set-card">
         <div className="set-h">Digest preview{pv.date ? ` — ${pv.date}` : ''}{pv.custom && !tplEdit ? <span className="set-tag">customized</span> : null}</div>
-        <p className="v-note" style={{ marginTop: 0 }}>Exactly what tomorrow morning’s digest will look like. Both come from the same template: <b>Slack</b> is the channel post; <b>Text (Chorus)</b> is what the Chorus agent pulls via the <code>get_daily_digest</code> MCP tool and sends as the daily text notification.</p>
+        <p className="v-note" style={{ marginTop: 0 }}>Exactly what tomorrow morning’s digest will look like. Both come from the same template: <b>Slack</b> is the channel post; <b>Text (SMS)</b> is the daily text notification your AI assistant sends each morning.</p>
         <div className="pv-bar">
           <div className="pv-tabs">
             <button className={pvTab === 'slack' ? 'on' : ''} onClick={() => setPvTab('slack')} type="button">Slack</button>
-            <button className={pvTab === 'text' ? 'on' : ''} onClick={() => setPvTab('text')} type="button">Text (Chorus)</button>
+            <button className={pvTab === 'text' ? 'on' : ''} onClick={() => setPvTab('text')} type="button">Text (SMS)</button>
           </div>
           {!pv.loading && !pv.error && !tplEdit && (
             <button className="set-btn" onClick={() => setTplEdit(true)} type="button">✎ Edit template</button>
