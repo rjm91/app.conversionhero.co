@@ -2713,8 +2713,8 @@ function RenderSpec({ spec, onDrill }) {
   const v = spec.verify
   // Deep link to the Schema browser filtered to this view's source rows
   const vUrl = (extra) => `/control/${clientId}/mission?focus=${v.table}&vq=${encodeVq({ filters: [...(v.filters || []), ...(extra || [])], hi: v.hi || [], label: spec.title })}`
-  const vLink = v?.table && (
-    <a className="vq-link" href={vUrl()} target="_blank" rel="noreferrer"
+  const vLink = (pos) => v?.table && (
+    <a className={`vq-link ${pos || ''}`} href={vUrl()} target="_blank" rel="noreferrer"
       title="Open the Schema browser filtered to the exact rows this view was computed from — live read through your login (RLS)">
       ⛏ verify source rows in Schema ↗
     </a>
@@ -2722,15 +2722,16 @@ function RenderSpec({ spec, onDrill }) {
   if (spec.type === 'bar' && spec.bars?.length) {
     return <>
       <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} onDrill={onDrill} />
-      {vLink}
+      {vLink()}
     </>
   }
-  if (spec.type === 'line' && spec.line?.series?.length) return <><LineChart line={spec.line} onDrill={onDrill} />{vLink}</>
+  if (spec.type === 'line' && spec.line?.series?.length) return <><LineChart line={spec.line} onDrill={onDrill} />{vLink()}</>
   if (spec.type === 'table' && spec.table?.head) {
     const rowHref = v?.table && v.row_column && Array.isArray(v.row_values)
       ? (i) => Array.isArray(v.row_values[i]) && v.row_values[i].length ? vUrl([{ column: v.row_column, op: 'in', value: v.row_values[i] }]) : null
       : null
-    return <><DataTable head={spec.table.head} rows={spec.table.rows || []} rowHref={rowHref} />{vLink}</>
+    // Link above AND below — long tables would otherwise hide it off-screen
+    return <>{vLink('top')}<DataTable head={spec.table.head} rows={spec.table.rows || []} rowHref={rowHref} />{vLink()}</>
   }
   return <p className="v-dim">unrenderable spec ({spec.type})</p>
 }
@@ -3081,6 +3082,7 @@ const CSS = `
 .ide .datatable tr.click{cursor:pointer;}
 .ide .datatable tr.click:hover td{background:rgba(110,168,254,.07);}
 .ide .vq-link{display:inline-block;margin-top:6px;font-size:11px;color:var(--blue);text-decoration:none;}
+.ide .vq-link.top{display:block;margin:0 0 8px;}
 .ide .vq-link:hover{text-decoration:underline;}
 .ide .cs-filter button{background:none;border:none;color:var(--dim);font:inherit;font-size:10px;cursor:pointer;}
 .ide .cs-filter button:hover{color:var(--txt);}
