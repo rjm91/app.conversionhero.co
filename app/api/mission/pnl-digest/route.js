@@ -38,7 +38,7 @@ export async function GET(request) {
 // Sends the Daily P&L Slack digest NOW (for testing the wiring). Agency-admin
 // only. Defaults to yesterday in the client's timezone.
 export async function POST(request) {
-  const { client_id, date } = await request.json()
+  const { client_id, date, format } = await request.json()
   const ssr = createServerClient()
   const { data: { user } } = await ssr.auth.getUser()
   if (!user || !client_id || !(await userCanAccessClient(user.id, client_id))) {
@@ -52,7 +52,7 @@ export async function POST(request) {
   if (!client) return NextResponse.json({ error: 'client not found' }, { status: 404 })
   if (!client.settings?.slack_pnl_webhook) return NextResponse.json({ error: 'No Slack webhook saved — add one first.' }, { status: 400 })
 
-  const result = await sendDailyPnlDigest(db, client, date ? { date } : {})
+  const result = await sendDailyPnlDigest(db, client, { ...(date ? { date } : {}), ...(format === 'text' ? { format } : {}) })
   const ok = result.posted
   return NextResponse.json({ ok, result }, { status: ok ? 200 : 502 })
 }
