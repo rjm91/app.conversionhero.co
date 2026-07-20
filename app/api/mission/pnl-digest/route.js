@@ -27,7 +27,11 @@ export async function GET(request) {
   if (!client) return NextResponse.json({ error: 'client not found' }, { status: 404 })
   const out = await buildDigestForDay(db, client, date ? { date } : {})
   if (out.error) return NextResponse.json({ error: `No P&L data for ${out.date} yet.`, date: out.date }, { status: 404 })
-  return NextResponse.json({ ok: true, date: out.date, payload: out.payload, text: out.text })
+  return NextResponse.json({
+    ok: true, date: out.date, payload: out.payload, text: out.text,
+    template: out.template, defaultTemplate: out.defaultTemplate, custom: out.custom,
+    tokens: out.tokens, footer: out.footer, url: out.url,
+  })
 }
 
 // POST /api/mission/pnl-digest  { client_id, date? }
