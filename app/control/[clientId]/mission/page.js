@@ -1080,8 +1080,8 @@ function SettingsView({ canEdit, clientName }) {
         </label>
         <div className="set-actions">
           <button className="set-btn primary" onClick={save} disabled={state.saving}>{state.saving ? 'saving…' : 'Save'}</button>
-          <button className="set-btn" onClick={() => sendTest('blocks')} disabled={!!state.testing || !canTest} title={canTest ? 'post yesterday’s P&L to Slack now' : 'save a webhook first'}>{state.testing === 'blocks' ? 'sending…' : 'Send Slack test'}</button>
-          <button className="set-btn" onClick={() => sendTest('text')} disabled={!!state.testing || !canTest} title={canTest ? 'post the daily-text version to Slack so you can proof the exact SMS wording' : 'save a webhook first'}>{state.testing === 'text' ? 'sending…' : 'Send text test'}</button>
+          <button className="set-btn" onClick={() => sendTest('blocks')} disabled={!!state.testing || !canTest} title={canTest ? 'post yesterday’s P&L to Slack now' : 'save a webhook first'}>{state.testing === 'blocks' ? 'sending…' : 'Slack Test'}</button>
+          <button className="set-btn" onClick={() => sendTest('text')} disabled={!!state.testing || !canTest} title={canTest ? 'post the daily-text version to Slack so you can proof the exact SMS wording' : 'save a webhook first'}>{state.testing === 'text' ? 'sending…' : 'SMS Test'}</button>
           {state.msg && <span className={`set-msg ${state.msg.ok ? 'good' : 'bad'}`}>{state.msg.text}</span>}
         </div>
       </div>
@@ -3240,7 +3240,7 @@ const CSS = `
 .ide .set-in{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:6px 9px;outline:none;}
 .ide .set-in:focus{border-color:var(--blue);}
 .ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
-.ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;}
+.ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;white-space:nowrap;}
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
 .ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
