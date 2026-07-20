@@ -1574,7 +1574,7 @@ function buildPeriods(list, zoom) {
 // ROAS color-key popover — hover previews, clicking the ⓘ pins it open (so the
 // mouse can reach "edit thresholds"), clicking anywhere else unpins. Own
 // component so each ROAS line's ⓘ pins independently.
-function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key' }) {
+function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key', desc }) {
   const [pinned, setPinned] = useState(false)
   const [draft, setDraft] = useState(null) // { red, green } as strings while editing
   const valid = draft && Number(draft.red) > 0 && Number(draft.green) > Number(draft.red)
@@ -1595,6 +1595,7 @@ function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key' }) {
       <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
       <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
         <b>{title}</b>
+        {desc && <span className="ov-pop-desc">{desc}</span>}
         {draft ? (
           <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
             <span><i className="kd r" />red below <input autoFocus type="number" step="0.05" min="0.05" value={draft.red}
@@ -1623,12 +1624,13 @@ function RoasKey({ thr, canEdit, onSave, title = 'ROAS color key' }) {
 }
 
 // Static color-key note (hover only, no editor) — explains a fixed color rule.
-function KeyNote({ title, lines }) {
+function KeyNote({ title, lines, desc }) {
   return (
     <span className="ov-i" onClick={e => e.stopPropagation()}>
       <span className="ov-i-g">ⓘ</span>
       <span className="ov-pop">
         <b>{title}</b>
+        {desc && <span className="ov-pop-desc">{desc}</span>}
         {lines.map((l, i) => <span key={i}>{l.k && <i className={`kd ${l.k}`} />}{l.t}</span>)}
       </span>
     </span>
@@ -1637,7 +1639,7 @@ function KeyNote({ title, lines }) {
 
 // CAC color-key popover — same pin/edit mechanics as RoasKey but inverted
 // (lower is better) and in dollars. Uncolored until both cutoffs are set.
-function CacKey({ thr, canEdit, onSave }) {
+function CacKey({ thr, canEdit, onSave, desc }) {
   const [pinned, setPinned] = useState(false)
   const [draft, setDraft] = useState(null) // { green, red } as strings while editing
   const valid = draft && Number(draft.green) > 0 && Number(draft.red) > Number(draft.green)
@@ -1658,6 +1660,7 @@ function CacKey({ thr, canEdit, onSave }) {
       <span className="ov-i-g" onClick={() => setPinned(p => !p)}>ⓘ</span>
       <span className={`ov-pop ${pinned || draft ? 'pin' : ''}`}>
         <b>CAC color key</b>
+        {desc && <span className="ov-pop-desc">{desc}</span>}
         {draft ? (
           <span className="ov-thr-form" onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}>
             <span><i className="kd g" />green below $<input autoFocus type="number" step="1" min="1" value={draft.green}
@@ -1747,12 +1750,12 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
 
   const toggle = (dk) => setDrill(d => (d && d.line === dk.line) ? null : dk)
   // Dials: True ROAS reuses the roas_* thresholds; CAC is inverted and optional.
-  const troasKey = <RoasKey title="True ROAS color key" thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
+  const troasKey = <RoasKey title="True ROAS color key" desc="True ROAS = (net revenue − COGS) ÷ ad spend — return after product costs, not the platform-reported number." thr={thr} canEdit={canEditRoas} onSave={onSaveRoas} />
   const cacThr = { green: m.sources?.cacGreenBelow ?? null, red: m.sources?.cacRedAbove ?? null }
   const cacCls = (n) => (n == null || cacThr.green == null || cacThr.red == null) ? '' : n <= cacThr.green ? 'good' : n < cacThr.red ? 'warn' : 'bad'
-  const cacKey = <CacKey thr={cacThr} canEdit={canEditRoas} onSave={onSaveCac} />
+  const cacKey = <CacKey desc="CAC = ad spend ÷ attributed orders — what one new customer costs." thr={cacThr} canEdit={canEditRoas} onSave={onSaveCac} />
   // Sign-based lines color themselves; the note tells the reader the rule.
-  const signNote = <KeyNote title="Color rule" lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
+  const signNote = (desc) => <KeyNote title="Color rule" desc={desc} lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle({ ...dk, label: k }) : undefined} disabled={!dk} type="button">
@@ -1783,9 +1786,9 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
       <Line k="ROAS" v={x(div(b.net, b.spend))} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-roas`, channel: b.channel, hi: ['net_revenue', ...b.spendHi], explain: `${b.label} ROAS = attributed net revenue ÷ spend = ${$(b.net)} ÷ ${$(b.spend)} = ${x(div(b.net, b.spend))}.` }} />
       <Line k="COGS (BOM)" v={$(b.cogs)} cls={b.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: `${b.id}-cogs`, channel: b.channel, hi: ['sku', 'qty'], explain: `${b.label} COGS = Σ (qty × BOM unit cost) across attributed orders' line items = ${$(b.cogs)}.` }} />
       {b.id !== 'bl' && (
-        <Line k="Contribution Margin" info={signNote} v={$(b.net - b.cogs)} cls={cmCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
+        <Line k="Contribution Margin" info={signNote('Contribution Margin = net revenue − COGS, before ad spend')} v={$(b.net - b.cogs)} cls={cmCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
       )}
-      <Line k="Net" info={signNote} v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
+      <Line k="Net" info={signNote('Net = net revenue − COGS − ad spend')} v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
       <Line k="True ROAS" info={troasKey} v={x(troas)} cls={rc(troas)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-troas`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} True ROAS = (net revenue − COGS) ÷ spend = (${$(b.net)} − ${$(b.cogs)}) ÷ ${$(b.spend)} = ${x(troas)}.` }} />
       </div>
     </>)
@@ -1829,7 +1832,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
             <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', hi: ['subtotal', 'discounts'], explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
             <Line k="Discounts" v={r.discounts > 0 ? '−' + $(r.discounts) : $(0)} cls={r.discounts > 0 ? 'warn' : ''} dk={{ kinds: ['orders'], line: 'discounts', hi: ['discounts'], explain: `Discounts = Σ discounts column = ${$(r.discounts)} (already included inside subtotal — never double-subtracted).` }} />
             <Line k="Refunds" v={r.refunds > 0 ? '−' + $(r.refunds) : $(0)} cls={r.refunds > 0 ? 'bad' : ''} dk={{ kinds: ['orders'], line: 'refunds', hi: ['refunds'], explain: `Refunds = Σ refunds column = ${$(r.refunds)}.` }} />
-            <Line k="Net Revenue" info={signNote} v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', hi: ['net_revenue'], explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
+            <Line k="Net Revenue" info={signNote('Net Revenue = gross − discounts − refunds')} v={$(r.net)} cls={cmCls(r.net)} dk={{ kinds: ['orders'], line: 'net', hi: ['net_revenue'], explain: `Net Revenue = Σ (subtotal − refunds) = ${$(r.net)} — the true revenue line (the net_revenue column).` }} />
           </div>
           <div className="ov-sec">
             <H>ORDERS</H>
@@ -1847,7 +1850,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, range
           <div className="ov-sec">
             <H>MARGIN</H>
             <Line k="COGS (BOM)" v={$(r.cogs)} cls={r.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: 'cogs', hi: ['sku', 'qty'], explain: `COGS = Σ (item qty × BOM unit cost) per line item — each SKU's recipe rows in client_sku_bom priced by client_materials = ${$(r.cogs)}.` }} />
-            <Line k={`Net (− ${r.shipped} labels × $${costPerLabel})`} info={signNote} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
+            <Line k={`Net (− ${r.shipped} labels × $${costPerLabel})`} info={signNote('Net = net revenue − COGS − ad spend − shipping labels')} v={$(cm - shipCost)} cls={cmCls(cm - shipCost)} dk={{ kinds: ['pnl_day', 'pnl_channels'], line: 'np', hi: ['gross_profit', 'cost_per_label'], explain: `Net = ${$(r.net)} net revenue − ${$(r.cogs)} COGS − ${$(spend)} ad spend − ${$(shipCost)} shipping labels (${r.shipped} fulfilled × $${costPerLabel}) = ${$(cm - shipCost)}.` }} />
           </div>
         </div>
 
@@ -2964,6 +2967,7 @@ const CSS = `
 .ide .ov-i:hover .ov-pop{display:block;}
 .ide .ov-pop b{display:block;color:var(--txt);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
 .ide .ov-i .ov-pop.pin{display:block;}
+.ide .ov-pop-desc{display:block;color:var(--faint);font-size:10.5px;line-height:1.45;margin:-3px 0 8px;font-style:italic;}
 .ide .ov-i-g{cursor:pointer;}
 /* invisible strip under the popover so the mouse can cross the gap to reach it */
 .ide .ov-i .ov-pop::after{content:'';position:absolute;left:0;right:0;top:100%;height:22px;}
