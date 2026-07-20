@@ -49,6 +49,8 @@ export async function PATCH(request) {
   }
   if (typeof settings?.timezone === 'string') patch.timezone = settings.timezone
   if (typeof settings?.daily_pnl_slack === 'boolean') patch.daily_pnl_slack = settings.daily_pnl_slack
+  // Digest body template ({{token}} text). Empty string = reset to default.
+  if (typeof settings?.digest_template === 'string') patch.digest_template = settings.digest_template.slice(0, 4000)
   if (typeof settings?.slack_pnl_webhook === 'string') {
     const url = settings.slack_pnl_webhook.trim()
     // Ignore the redaction placeholder (a non-admin round-trip) and only accept

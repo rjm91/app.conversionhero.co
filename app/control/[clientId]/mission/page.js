@@ -1009,14 +1009,49 @@ function SettingsView({ canEdit, clientName }) {
   // Slack-style, plus the plain-text twin Chorus sends as the daily SMS.
   const [pv, setPv] = useState({ loading: true })
   const [pvTab, setPvTab] = useState('slack')
+  const [tplEdit, setTplEdit] = useState(false)
+  const [tpl, setTpl] = useState('')
+  const [tplSaving, setTplSaving] = useState(false)
+  const [pvNonce, setPvNonce] = useState(0)
   useEffect(() => {
     let alive = true
     fetch(`/api/mission/pnl-digest?client_id=${clientId}`, { cache: 'no-store' })
       .then(r => r.json().then(j => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => { if (alive) setPv(ok ? { loading: false, ...j } : { loading: false, error: j.error || 'preview failed' }) })
+      .then(({ ok, j }) => {
+        if (!alive) return
+        setPv(ok ? { loading: false, ...j } : { loading: false, error: j.error || 'preview failed' })
+        if (ok) setTpl(j.template || '')
+      })
       .catch(e => { if (alive) setPv({ loading: false, error: String(e?.message || e) }) })
     return () => { alive = false }
-  }, [clientId])
+  }, [clientId, pvNonce])
+
+  // Live rendering while editing — mirrors renderDigest() in lib/mission/pnl-digest.
+  const livePv = useMemo(() => {
+    if (!tplEdit || !pv.tokens) return null
+    const filled = tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => pv.tokens[k] != null ? String(pv.tokens[k]) : `{{${k}}}`)
+    const paras = filled.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
+    const firstLines = (paras[0] || '').split('\n')
+    const header = (firstLines[0] || '').replace(/\*/g, '')
+    const afterHeader = firstLines.slice(1).join('\n').trim()
+    const sections = [...(afterHeader ? [afterHeader] : []), ...paras.slice(1)]
+    return {
+      payload: { blocks: [
+        { type: 'header', text: { text: header } },
+        ...sections.map(p => ({ type: 'section', text: { text: p } })),
+        { type: 'actions', elements: [{ text: { text: 'Open Overview' }, style: 'primary' }, { text: { text: 'Daily P&L History' } }] },
+        { type: 'context', elements: [{ text: pv.footer || '' }] },
+      ] },
+      text: filled.replace(/\*/g, '') + (pv.url ? `\n\nFull view: ${pv.url}` : ''),
+    }
+  }, [tplEdit, tpl, pv])
+
+  const saveTpl = async (value) => {
+    setTplSaving(true)
+    await fetch('/api/client-settings', { method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, settings: { digest_template: value } }) }).catch(() => {})
+    setTplSaving(false); setTplEdit(false); setPvNonce(n => n + 1) // re-fetch server-rendered preview
+  }
 
   if (settings === null) return <p className="loading v-pad">loading settings…</p>
   if (!canEdit) return (
@@ -1049,16 +1084,32 @@ function SettingsView({ canEdit, clientName }) {
       </div>
 
       <div className="set-card">
-        <div className="set-h">Digest preview{pv.date ? ` — ${pv.date}` : ''}</div>
+        <div className="set-h">Digest preview{pv.date ? ` — ${pv.date}` : ''}{pv.custom && !tplEdit ? <span className="set-tag">customized</span> : null}</div>
         <p className="v-note" style={{ marginTop: 0 }}>Exactly what tomorrow morning’s digest will look like. Both come from the same template: <b>Slack</b> is the channel post; <b>Text (Chorus)</b> is what the Chorus agent pulls via the <code>get_daily_digest</code> MCP tool and sends as the daily text notification.</p>
-        <div className="pv-tabs">
-          <button className={pvTab === 'slack' ? 'on' : ''} onClick={() => setPvTab('slack')} type="button">Slack</button>
-          <button className={pvTab === 'text' ? 'on' : ''} onClick={() => setPvTab('text')} type="button">Text (Chorus)</button>
+        <div className="pv-bar">
+          <div className="pv-tabs">
+            <button className={pvTab === 'slack' ? 'on' : ''} onClick={() => setPvTab('slack')} type="button">Slack</button>
+            <button className={pvTab === 'text' ? 'on' : ''} onClick={() => setPvTab('text')} type="button">Text (Chorus)</button>
+          </div>
+          {!pv.loading && !pv.error && !tplEdit && (
+            <button className="set-btn" onClick={() => setTplEdit(true)} type="button">✎ Edit template</button>
+          )}
         </div>
+        {tplEdit && (
+          <div className="tpl-edit">
+            <textarea className="tpl-ta" value={tpl} onChange={e => setTpl(e.target.value)} spellCheck={false} rows={Math.min(24, tpl.split('\n').length + 2)} />
+            <p className="v-note tpl-tokens">Placeholders (filled with each day’s numbers): {Object.keys(pv.tokens || {}).map(k => <code key={k}>{`{{${k}}}`}</code>)}. First line = Slack header · blank line = new block · *stars* = bold in Slack, stripped in the text version. Buttons and the footer are added automatically.</p>
+            <div className="set-actions">
+              <button className="set-btn primary" onClick={() => saveTpl(tpl)} disabled={tplSaving}>{tplSaving ? 'saving…' : 'Save template'}</button>
+              <button className="set-btn" onClick={() => saveTpl('')} disabled={tplSaving} title="go back to the built-in layout">Reset to default</button>
+              <button className="set-btn" onClick={() => { setTplEdit(false); setTpl(pv.template || '') }} disabled={tplSaving}>Cancel</button>
+            </div>
+          </div>
+        )}
         {pv.loading ? <p className="loading" style={{ padding: '6px 0' }}>building preview from yesterday’s P&L…</p>
           : pv.error ? <p className="v-note">{pv.error}</p>
-          : pvTab === 'slack' ? <SlackPreview payload={pv.payload} />
-          : <pre className="sms-prev">{pv.text}</pre>}
+          : pvTab === 'slack' ? <SlackPreview payload={(livePv || pv).payload} />
+          : <pre className="sms-prev">{(livePv || pv).text}</pre>}
       </div>
     </div>
   )
@@ -2849,7 +2900,14 @@ const CSS = `
 .ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;}
-/* digest preview (Settings) — Slack-style mock + SMS text twin */
+/* digest preview (Settings) — Slack-style mock + SMS text twin + template editor */
+.ide .pv-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.ide .set-tag{font-size:9px;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:2px;letter-spacing:.05em;text-transform:uppercase;}
+.ide .tpl-edit{margin:10px 0 14px;}
+.ide .tpl-ta{width:100%;max-width:580px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--txt);font:inherit;font-size:12px;line-height:1.55;resize:vertical;}
+.ide .tpl-ta:focus{outline:none;border-color:var(--blue);}
+.ide .tpl-tokens{max-width:580px;}
+.ide .tpl-tokens code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin:0 2px;font-size:10.5px;color:var(--blue);white-space:nowrap;}
 .ide .pv-tabs{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;width:fit-content;margin-bottom:10px;}
 .ide .pv-tabs button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .pv-tabs button:hover{color:var(--txt);}
