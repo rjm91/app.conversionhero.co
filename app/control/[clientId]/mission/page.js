@@ -1088,7 +1088,6 @@ function SettingsView({ canEdit, clientName }) {
 
       <div className="set-card">
         <div className="set-h">Digest preview{pv.date ? ` — ${pv.date}` : ''}{pv.custom && !tplEdit ? <span className="set-tag">customized</span> : null}</div>
-        <p className="v-note" style={{ marginTop: 0 }}>Exactly what tomorrow morning’s digest will look like. Both come from the same template: <b>Slack</b> is the channel post; <b>Text (SMS)</b> is the daily text notification your AI assistant sends each morning.</p>
         <div className="pv-bar">
           <div className="pv-tabs">
             <button className={pvTab === 'slack' ? 'on' : ''} onClick={() => setPvTab('slack')} type="button">Slack</button>
