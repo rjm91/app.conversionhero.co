@@ -2992,7 +2992,7 @@ const CSS = `
 .ide .ov-drill-x:hover{color:var(--txt);border-color:var(--dim);}
 .ide .ov-set{margin-bottom:16px;}
 /* column(s) the clicked P&L metric is computed from */
-.ide .ov-set th.hi{color:var(--blue);background:rgba(110,168,254,.10);}
+.ide .ov-set th.hi{color:var(--blue);background:linear-gradient(rgba(110,168,254,.10),rgba(110,168,254,.10)),var(--panel2);} /* opaque — sticky header must not let rows show through */
 .ide .ov-set td.hi{background:rgba(110,168,254,.07);}
 .ide .ov-set th .hi-ic{margin-left:4px;color:var(--blue);cursor:help;}
 .ide .ov-hi-note{margin-left:10px;color:var(--blue);font-size:11px;cursor:help;white-space:nowrap;}
