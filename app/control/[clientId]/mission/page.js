@@ -2004,6 +2004,7 @@ function ClientSchemaView({ tz }) {
   const [counts, setCounts] = useState({})
   const [table, setTable] = useState(null)
   const [dayFilter, setDayFilter] = useState(null)
+  const [vq, setVq] = useState(null) // verify deep link: { filters, hi, label }
   const [rows, setRows] = useState({ loading: false, list: [], total: null })
   const [q, setQ] = useState('')
 
@@ -2012,6 +2013,7 @@ function ClientSchemaView({ tz }) {
       const sp = new URLSearchParams(window.location.search)
       if (sp.get('focus')) setTable(sp.get('focus'))
       if (sp.get('day')) setDayFilter(sp.get('day'))
+      if (sp.get('vq')) { const o = decodeVq(sp.get('vq')); if (o && Array.isArray(o.filters)) setVq(o) }
     } catch { /* no params */ }
   }, [])
 
@@ -2066,15 +2068,23 @@ function ClientSchemaView({ tz }) {
             qy = qy.gte(tsCol, new Date(startMs).toISOString()).lt(tsCol, new Date(startMs + 86400000).toISOString())
           }
         }
+        // Verify deep link: apply the agent's exact query filters (guarded op set)
+        if (vq) {
+          for (const f of vq.filters || []) {
+            if (!f?.column || !f?.op) continue
+            if (f.op === 'in' && Array.isArray(f.value)) qy = qy.in(f.column, f.value)
+            else if (['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is'].includes(f.op)) qy = qy[f.op](f.column, f.value)
+          }
+        }
         const orderCol = ['created_at', 'ordered_at', 'day', 'date'].find(c => meta.columns.some(x => x.name === c))
         if (orderCol) qy = qy.order(orderCol, { ascending: false })
-        const { data, count, error } = await qy.limit(100)
+        const { data, count, error } = await qy.limit(vq ? 1000 : 100)
         if (error) throw error
         if (alive) setRows({ loading: false, list: data || [], total: count ?? 0 })
       } catch (e) { if (alive) setRows({ loading: false, list: [], total: null, error: e.message || String(e) }) }
     })()
     return () => { alive = false }
-  }, [table, dayFilter, model, clientId, tz])
+  }, [table, dayFilter, vq, model, clientId, tz])
 
   if (err) return <div className="v-pad"><p className="a-err">{err}</p></div>
   if (!model) return <div className="v-pad"><p className="a-dim">reading the schema…</p></div>
@@ -2124,20 +2134,32 @@ function ClientSchemaView({ tz }) {
             {dayFilter && (
               <div className="cs-filter">filtered: day = {dayFilter}<button onClick={() => setDayFilter(null)}>✕ clear</button></div>
             )}
-            {rows.error && <p className="a-err">{rows.error}</p>}
-            {rows.loading && <p className="a-dim">querying with your session…</p>}
-            {!rows.loading && rows.list.length === 0 && !rows.error && <p className="a-dim">no rows{dayFilter ? ' for this day' : ''}.</p>}
-            {rows.list.length > 0 && (
-              <div className="dpnl dp2" style={{ maxHeight: 'calc(100vh - 420px)' }}>
-                <table>
-                  <thead><tr>{cols.map(c => <th key={c} style={{ textAlign: 'left' }}>{c}</th>)}</tr></thead>
-                  <tbody>
-                    {rows.list.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
-                  </tbody>
-                </table>
+            {vq && (
+              <div className="cs-filter vq">
+                ⛏ verifying{vq.label ? <> “<b>{vq.label}</b>”</> : null} — {(vq.filters || []).map(f => `${f.column} ${f.op} ${Array.isArray(f.value) ? `[${f.value.length} value${f.value.length === 1 ? '' : 's'}]` : f.value ?? ''}`).join(' · ')} · rows read live through your login (RLS)
+                <button onClick={() => setVq(null)}>✕ clear</button>
               </div>
             )}
-            {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
+            {rows.error && <p className="a-err">{rows.error}</p>}
+            {rows.loading && <p className="a-dim">querying with your session…</p>}
+            {!rows.loading && rows.list.length === 0 && !rows.error && <p className="a-dim">no rows{dayFilter ? ' for this day' : vq ? ' match these filters' : ''}.</p>}
+            {rows.list.length > 0 && (() => {
+              const vhi = new Set(vq?.hi || [])
+              const hc = (c) => vhi.has(c) ? 'hi' : ''
+              const tot = vq ? cols.reduce((acc, c) => { const vals = rows.list.map(rw => rw[c]).filter(x => typeof x === 'number'); acc[c] = vals.length ? vals.reduce((a, b) => a + b, 0) : null; return acc }, {}) : null
+              return (
+                <div className="dpnl dp2 cs-tbl" style={{ maxHeight: 'calc(100vh - 420px)' }}>
+                  <table>
+                    <thead><tr>{cols.map(c => <th key={c} className={hc(c)} style={{ textAlign: 'left' }}>{c}{vhi.has(c) && <span className="hi-ic" title="highlighted — the verified numbers come from this column">⌖</span>}</th>)}</tr></thead>
+                    <tbody>
+                      {tot && <tr className="tot">{cols.map((c, i) => <td key={c} className={hc(c)} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>}
+                      {rows.list.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} className={hc(c)} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+            {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{vq ? ' — TOTALS covers the shown rows only' : dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
           </>
         )}
       </div>
@@ -2663,23 +2685,53 @@ function Turn({ t, selected, onSelect, onApprove, onTeach, onSaveTeach, onPin, o
 
 /* Simple read-only table for agent-rendered specs (ResizableTable is for the
    interactive doc views; this one is intentionally dependency-free). */
-function DataTable({ head, rows }) {
+function DataTable({ head, rows, rowHref }) {
   return (
     <div className="datatable"><table>
       <thead><tr>{head.map((h, i) => <th key={i} style={i > 0 ? { textAlign: 'right' } : undefined}>{h}</th>)}</tr></thead>
-      <tbody>{(rows || []).map((r, i) => <tr key={i}>{(Array.isArray(r) ? r : [String(r)]).map((c, j) => <td key={j} className={j > 0 ? 'num' : ''}>{c}</td>)}</tr>)}</tbody>
+      <tbody>{(rows || []).map((r, i) => {
+        const href = rowHref ? rowHref(i) : null
+        return (
+          <tr key={i} className={href ? 'click' : ''} title={href ? 'click to verify — opens the Schema browser filtered to this row’s source records' : undefined}
+            onClick={href ? () => window.open(href, '_blank', 'noopener') : undefined}>
+            {(Array.isArray(r) ? r : [String(r)]).map((c, j) => <td key={j} className={j > 0 ? 'num' : ''}>{c}</td>)}
+          </tr>
+        )
+      })}</tbody>
     </table></div>
   )
 }
 
+/* Verify deep links — encode a filter set for the Schema browser (?vq=…). */
+function encodeVq(o) { try { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') } catch { return '' } }
+function decodeVq(s) { try { return JSON.parse(decodeURIComponent(escape(atob(String(s).replace(/-/g, '+').replace(/_/g, '/'))))) } catch { return null } }
+
 /* Generative UI: render a spec the agent produced (bar | line | table) */
 const SERIES_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f']
 function RenderSpec({ spec, onDrill }) {
+  const { clientId } = useParams()
+  const v = spec.verify
+  // Deep link to the Schema browser filtered to this view's source rows
+  const vUrl = (extra) => `/control/${clientId}/mission?focus=${v.table}&vq=${encodeVq({ filters: [...(v.filters || []), ...(extra || [])], hi: v.hi || [], label: spec.title })}`
+  const vLink = v?.table && (
+    <a className="vq-link" href={vUrl()} target="_blank" rel="noreferrer"
+      title="Open the Schema browser filtered to the exact rows this view was computed from — live read through your login (RLS)">
+      ⛏ verify source rows in Schema ↗
+    </a>
+  )
   if (spec.type === 'bar' && spec.bars?.length) {
-    return <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} onDrill={onDrill} />
+    return <>
+      <Bars rows={spec.bars.map((b, i) => ({ label: b.label, value: b.value, color: SERIES_COLORS[i % SERIES_COLORS.length], text: b.text ?? String(b.value) }))} onDrill={onDrill} />
+      {vLink}
+    </>
   }
-  if (spec.type === 'line' && spec.line?.series?.length) return <LineChart line={spec.line} onDrill={onDrill} />
-  if (spec.type === 'table' && spec.table?.head) return <DataTable head={spec.table.head} rows={spec.table.rows || []} />
+  if (spec.type === 'line' && spec.line?.series?.length) return <><LineChart line={spec.line} onDrill={onDrill} />{vLink}</>
+  if (spec.type === 'table' && spec.table?.head) {
+    const rowHref = v?.table && v.row_column && Array.isArray(v.row_values)
+      ? (i) => Array.isArray(v.row_values[i]) && v.row_values[i].length ? vUrl([{ column: v.row_column, op: 'in', value: v.row_values[i] }]) : null
+      : null
+    return <><DataTable head={spec.table.head} rows={spec.table.rows || []} rowHref={rowHref} />{vLink}</>
+  }
   return <p className="v-dim">unrenderable spec ({spec.type})</p>
 }
 
@@ -3021,6 +3073,15 @@ const CSS = `
 .ide .cs-rel{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:10.5px;padding:3px 9px;cursor:pointer;}
 .ide .cs-rel:hover{color:var(--txt);border-color:var(--blue);}
 .ide .cs-filter{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--amber);background:rgba(242,180,92,.08);border:1px solid rgba(242,180,92,.25);border-radius:6px;padding:4px 10px;margin-bottom:10px;}
+/* verify deep link (agent answer → source rows) */
+.ide .cs-filter.vq{color:var(--blue);background:rgba(110,168,254,.08);border-color:rgba(110,168,254,.3);}
+.ide .cs-tbl th.hi{color:var(--blue);background:linear-gradient(rgba(110,168,254,.10),rgba(110,168,254,.10)),var(--panel2);}
+.ide .cs-tbl td.hi{background:rgba(110,168,254,.07);}
+.ide .cs-tbl th .hi-ic{margin-left:4px;color:var(--blue);cursor:help;}
+.ide .datatable tr.click{cursor:pointer;}
+.ide .datatable tr.click:hover td{background:rgba(110,168,254,.07);}
+.ide .vq-link{display:inline-block;margin-top:6px;font-size:11px;color:var(--blue);text-decoration:none;}
+.ide .vq-link:hover{text-decoration:underline;}
 .ide .cs-filter button{background:none;border:none;color:var(--dim);font:inherit;font-size:10px;cursor:pointer;}
 .ide .cs-filter button:hover{color:var(--txt);}
 .ide .dp2-sec{margin-bottom:22px;}

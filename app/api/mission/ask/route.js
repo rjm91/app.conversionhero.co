@@ -57,6 +57,18 @@ const TOOLS = [
         bars: { type: 'array', description: 'for type=bar', items: { type: 'object', properties: { label: { type: 'string' }, value: { type: 'number' }, text: { type: 'string', description: 'formatted value shown at bar end, e.g. "$8,136" or "4.17x"' } }, required: ['label', 'value'] } },
         line: { type: 'object', description: 'for type=line', properties: { labels: { type: 'array', items: { type: 'string' } }, series: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, values: { type: 'array', items: { type: 'number' } } }, required: ['name', 'values'] } } }, required: ['labels', 'series'] },
         table: { type: 'object', description: 'for type=table', properties: { head: { type: 'array', items: { type: 'string' } }, rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } } }, required: ['head', 'rows'] },
+        verify: {
+          type: 'object',
+          description: 'RECEIPT for this view — lets the user open the Schema browser filtered to the exact database rows behind it. ALWAYS include when the view came from query_data: same table + filters you queried. When each table row aggregates specific values of one column (e.g. each model = a list of SKUs), also set row_column and row_values (one array per rendered row, same order) so every row is click-to-verify.',
+          properties: {
+            table: { type: 'string', description: 'the table you queried' },
+            filters: { type: 'array', description: 'the filters you queried with (same shape as query_data filters)', items: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string' }, value: {} }, required: ['column', 'op'] } },
+            hi: { type: 'array', items: { type: 'string' }, description: 'columns to highlight (the ones the numbers came from, e.g. ["sku","qty"])' },
+            row_column: { type: 'string', description: 'column identifying one rendered row' },
+            row_values: { type: 'array', items: { type: 'array', items: { type: 'string' } }, description: 'per rendered row: the row_column values it aggregates' },
+          },
+          required: ['table'],
+        },
       },
       required: ['type', 'title'],
     },
@@ -273,7 +285,7 @@ export async function POST(request) {
     `MEMORY: when the user says "remember…" or shares a durable fact the DATABASE can't answer (a preference, seasonality, an external event, decision rationale), you MUST call the remember tool — one call per distinct fact. A conversational "noted" does NOT persist anything; only the tool does, so never claim you'll remember something without calling it. NEVER save metrics/counts/revenue (those are always queried fresh). Relevant memories are surfaced above when they exist.`,
     `CAMPAIGNS: build_campaign drafts GOOGLE Search campaigns (keywords + RSAs; user exports a Google Ads Editor CSV and pushes manually). build_meta_campaign drafts META (Facebook/Instagram) campaigns — NO keywords; instead Campaign objective → Ad Set (audience + budget + optimization) → Ad (primary text, headline, creative note). Pick the tool matching the platform the user names; if they just say "a campaign", ask which platform or infer from context (search intent → Google, audience/awareness → Meta). Ground all copy and targeting in this client's real data and funnels. Nothing publishes — the user reviews and pushes.`,
     allowQueries
-      ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
+      ? `QUERYING: you also have query_data — live read access to this client's database, scoped to their tenant by row-level security. Use it when the context JSON can't answer (customer-level fields, zip codes, ad-group/ad stats, other date windows). You get at most ${MAX_QUERIES_PER_ASK} queries per question, so plan them; select only the columns you need. Numbers you cite may come from the context JSON OR from query results — never from anywhere else. RECEIPTS: when you render_view from query results, include the verify field (table + the filters you used, hi columns; row_column/row_values per rendered row when each row aggregates specific values, e.g. the SKUs behind each model) — it gives the user a one-click path to the exact rows in their Schema browser. SCHEMA (table(columns…)):\n${agentSchemaPrompt()}`
       : `Answer ONLY from the context JSON. This user's role does not include database querying — if the context can't answer, say what's missing and suggest they ask an admin.`,
   ].join(' ')
   const tools = allowQueries ? TOOLS : TOOLS.filter(t => t.name !== 'query_data')
@@ -302,6 +314,7 @@ export async function POST(request) {
   const texts = []
   let queriesUsed = 0
   let agentDb = null
+  let lastQuery = null // most recent successful query_data input — fallback receipt for render_view
   let response = null
   let loopError = null
   try {
@@ -336,6 +349,7 @@ export async function POST(request) {
             try {
               agentDb = agentDb || await getAgentDb(clientId)
               result = await runAgentQuery(agentDb, clientId, tu.input)
+              if (!result?.error) lastQuery = tu.input
             } catch (e) {
               result = { error: e.message }
             }
@@ -357,7 +371,12 @@ export async function POST(request) {
         } else {
           // UI-only tool: hand to the dashboard. Honest ack — the page still
           // validates the input and may skip it, so don't claim it ran.
-          actions.push({ name: tu.name, input: tu.input })
+          // render_view without a receipt gets the last query as one, so every
+          // query-backed view is verifiable even when the model forgets.
+          const input = (tu.name === 'render_view' && !tu.input?.verify && lastQuery)
+            ? { ...tu.input, verify: { table: lastQuery.table, filters: lastQuery.filters || [], auto: true } }
+            : tu.input
+          actions.push({ name: tu.name, input })
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'queued — the dashboard will run this if the input is valid.' })
         }
       }
