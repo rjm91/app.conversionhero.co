@@ -2299,10 +2299,42 @@ function ClientSchemaView({ tz }) {
 const SCHEMA_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f', '#ee946c', '#5ac8e8', '#c78bfa']
 function SchemaGraph({ model, counts, onOpen, onList }) {
   const W = 1000, H = 640
+  const { clientId } = useParams()
   const nodes = model.tables
   const [pos, setPos] = useState(null)
   const [hover, setHover] = useState(null)
   const raf = useRef(0)
+  const svgRef = useRef(null)
+  const drag = useRef(null) // { name, ox, oy, moved }
+  const justDragged = useRef(false)
+  const storeKey = `csg_pos_${clientId}`
+
+  // Drag to rearrange — freeform positions persist per client.
+  const toSvg = (e) => {
+    const svg = svgRef.current
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse())
+    return { x: pt.x, y: pt.y }
+  }
+  const onNodeDown = (name) => (e) => {
+    e.preventDefault()
+    const p = toSvg(e)
+    drag.current = { name, ox: p.x - pos[name].x, oy: p.y - pos[name].y, moved: false }
+  }
+  const onMove = (e) => {
+    if (!drag.current || !pos) return
+    const { name, ox, oy } = drag.current
+    const p = toSvg(e)
+    drag.current.moved = true
+    cancelAnimationFrame(raf.current) // stop any running simulation — user owns layout now
+    setPos(prev => ({ ...prev, [name]: { ...prev[name], x: Math.max(40, Math.min(W - 40, p.x - ox)), y: Math.max(30, Math.min(H - 30, p.y - oy)) } }))
+  }
+  const onUp = () => {
+    if (drag.current?.moved && pos) {
+      try { localStorage.setItem(storeKey, JSON.stringify(Object.fromEntries(Object.entries(pos).map(([k, v]) => [k, { x: Math.round(v.x), y: Math.round(v.y) }])))) } catch { /* quota */ }
+    }
+    justDragged.current = !!drag.current?.moved
+    drag.current = null
+  }
 
   const degree = useMemo(() => {
     const d = {}
@@ -2312,6 +2344,14 @@ function SchemaGraph({ model, counts, onOpen, onList }) {
   }, [model, nodes])
 
   useEffect(() => {
+    // Saved freeform arrangement wins — skip the simulation entirely.
+    try {
+      const saved = JSON.parse(localStorage.getItem(storeKey) || 'null')
+      if (saved && nodes.every(t => saved[t.name])) {
+        setPos(Object.fromEntries(nodes.map(t => [t.name, { ...saved[t.name], vx: 0, vy: 0 }])))
+        return
+      }
+    } catch { /* fall through to simulation */ }
     // Seed on a circle (deterministic — busiest tables toward the centre).
     const order = [...nodes].sort((a, b) => (degree[b.name] || 0) - (degree[a.name] || 0))
     const P = {}
@@ -2369,10 +2409,14 @@ function SchemaGraph({ model, counts, onOpen, onList }) {
           <div className="csg-title">Schema map</div>
           <div className="csg-sub">{nodes.length} tables · {model.edges.length} relationships · click a table to open its rows</div>
         </div>
-        <button className="cs-graph-btn" onClick={onList}>☰ list view</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="cs-graph-btn" onClick={() => { try { localStorage.removeItem(storeKey) } catch { /* noop */ } window.location.reload() }} title="forget your arrangement and re-run the auto layout">↺ auto layout</button>
+          <button className="cs-graph-btn" onClick={onList}>☰ list view</button>
+        </div>
       </div>
       <div className="csg-canvas">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height="100%"
+          onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
           {pos && model.edges.map((e, i) => {
             const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null
             const lit = hover && (e.from === hover || e.to === hover)
@@ -2384,7 +2428,9 @@ function SchemaGraph({ model, counts, onOpen, onList }) {
             const dim = hover && hover !== t.name && !model.edges.some(e => (e.from === hover && e.to === t.name) || (e.to === hover && e.from === t.name))
             return (
               <g key={t.name} transform={`translate(${p.x},${p.y})`} className="csg-node" opacity={dim ? 0.35 : 1}
-                onClick={() => onOpen(t.name)} onMouseEnter={() => setHover(t.name)} onMouseLeave={() => setHover(null)}>
+                onPointerDown={onNodeDown(t.name)}
+                onClick={() => { if (!justDragged.current) onOpen(t.name) }}
+                onMouseEnter={() => setHover(t.name)} onMouseLeave={() => setHover(null)}>
                 <circle r={r} fill={col} fillOpacity="0.9" stroke={col} strokeWidth="1.5" />
                 <text textAnchor="middle" dy={r + 13} className="csg-label">{t.name.replace(/^client_/, '')}</text>
                 {counts[t.name] != null && <text textAnchor="middle" dy="4" className="csg-count">{counts[t.name] >= 1000 ? (counts[t.name] / 1000).toFixed(1) + 'k' : counts[t.name]}</text>}
