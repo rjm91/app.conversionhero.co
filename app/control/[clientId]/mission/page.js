@@ -2376,7 +2376,7 @@ function SchemaGraph({ model, counts, onOpen, onList }) {
           {pos && model.edges.map((e, i) => {
             const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null
             const lit = hover && (e.from === hover || e.to === hover)
-            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={lit ? '#8fb4ff' : 'rgba(255,255,255,.10)'} strokeWidth={lit ? 1.6 : 1} />
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={lit ? '#8fb4ff' : 'rgba(255,255,255,.13)'} strokeWidth={lit ? 1.6 : 1} strokeDasharray={e.logical ? '4 4' : undefined}><title>{`${e.from}.${e.col} → ${e.to}.${e.toCol}`}</title></line>
           })}
           {pos && nodes.map(t => {
             const p = pos[t.name]; if (!p) return null

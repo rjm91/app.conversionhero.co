@@ -59,6 +59,30 @@ export async function GET(request) {
     for (const t of tables) for (const c of t.columns) {
       if (c.ref && names.has(c.ref.table)) edges.push({ from: t.name, col: c.name, to: c.ref.table, toCol: c.ref.col })
     }
+    // The DB declares almost no real FKs — the module joins on logical keys
+    // (order_id, sku, campaign_id, business day). Curated edges so the schema
+    // map shows how the tables actually relate; marked logical for the UI.
+    const LOGICAL_EDGES = [
+      ['client_order_items', 'order_id', 'client_orders', 'order_id'],
+      ['client_sku_bom', 'parent_sku', 'client_skus', 'sku'],
+      ['client_sku_bom', 'component', 'client_materials', 'name'],
+      ['client_order_items', 'sku', 'client_skus', 'sku'],
+      ['client_google_ad_groups', 'campaign_id', 'client_google_campaigns', 'campaign_id'],
+      ['client_google_ads', 'ad_group_id', 'client_google_ad_groups', 'ad_group_id'],
+      ['client_channel_daily_pnl', 'day', 'client_daily_pnl', 'date'],
+      ['client_daily_metrics', 'date', 'client_daily_pnl', 'date'],
+      ['client_orders', 'created_at', 'client_daily_pnl', 'date'],
+      ['client_google_campaigns', 'date', 'client_daily_pnl', 'date'],
+      ['client_meta_campaigns', 'date', 'client_daily_pnl', 'date'],
+      ['client_klaviyo_campaigns', 'send_time', 'client_channel_daily_pnl', 'day'],
+    ]
+    const seen = new Set(edges.map(e => `${e.from}→${e.to}`))
+    for (const [from, col, to, toCol] of LOGICAL_EDGES) {
+      if (!names.has(from) || !names.has(to)) continue
+      if (seen.has(`${from}→${to}`) || seen.has(`${to}→${from}`)) continue
+      seen.add(`${from}→${to}`)
+      edges.push({ from, col, to, toCol, logical: true })
+    }
     return NextResponse.json({ tables, edges })
   } catch (e) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
