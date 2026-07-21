@@ -1941,8 +1941,8 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
         </div>
       </div>
 
-      <div className="ov-grid">
-        <div>
+      <div className="ov-grid ov-2col">
+        <div className="ov-metrics">
           <div className="ov-sec">
             <H>REVENUE</H>
             <Line k="Gross Revenue" v={$(r.gross)} cls="strong" dk={{ kinds: ['orders'], line: 'gross', hi: ['subtotal', 'discounts'], explain: `Gross Revenue = Σ (subtotal + discounts) across the day's orders = ${$(r.gross)}. Merchandise basis — excludes tax and shipping.` }} />
@@ -1955,6 +1955,10 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
             <Line k="Orders" v={r.orders} dk={{ kinds: ['orders'], line: 'count', hi: ['net_revenue'], explain: `Orders = count of the day's orders with positive net revenue = ${r.orders}.` }} />
             <Line k="New orders (order rate)" v={newClassified ? `${r.newOrders} (${pc(div(r.newOrders, r.orders))})` : '—'} dk={{ kinds: ['orders'], line: 'new', explain: `New orders = orders from first-ever customers (email matched across all history) = ${r.newOrders} of ${r.orders}.` }} />
             <Line k="AOV" info={aovKey} v={$(div(r.net, r.orders))} cls={aovCls(div(r.net, r.orders))} dk={{ kinds: ['orders'], line: 'aov', hi: ['net_revenue'], explain: `AOV = net revenue ÷ orders = ${$(r.net)} ÷ ${r.orders} = ${$(div(r.net, r.orders))}.` }} />
+          </div>
+          <div className="ov-sec">
+            <H>PAID ADS REVENUE</H>
+            {paidBlocks.map(b => <PaidBlock key={b.id} b={b} />)}
           </div>
           <div className="ov-sec">
             <H>ORGANIC REVENUE</H>
@@ -1970,15 +1974,13 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
           </div>
         </div>
 
-        <div>
-          <div className="ov-sec">
-            <H>PAID ADS REVENUE</H>
-            {paidBlocks.map(b => <PaidBlock key={b.id} b={b} />)}
-          </div>
+        {/* Right column: source tables for the clicked metric */}
+        <div className="ov-drillcol">
+          {drill
+            ? <SourceDrill days={p.days} drill={drill} m={m} onClose={() => setDrill(null)} />
+            : <div className="ov-drill-empty">Click any metric on the left to open its source rows here.</div>}
         </div>
       </div>
-
-      {drill && <SourceDrill days={p.days} drill={drill} m={m} onClose={() => setDrill(null)} />}
     </div>
   )
 }
@@ -2092,7 +2094,7 @@ function SourceDrill({ days, drill, m, onClose }) {
               {hits.length > 0 && <span className="ov-hi-note" title={hiTitle}>⌖ {hits.join(', ')} = source of “{drill.label}”</span>}
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
-              <div className="dpnl dp2" style={{ maxHeight: 280 }}>
+              <div className="dpnl dp2" style={{ maxHeight: 420 }}>
                 <table>
                   <thead><tr>{cols.map(c => <th key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{c}{hi.has(c) && <span className="hi-ic" title={hiTitle}>⌖</span>}</th>)}</tr></thead>
                   <tbody>
@@ -3115,6 +3117,12 @@ const CSS = `
 .ide .ov-day{font-weight:800;font-size:13px;padding:0 4px;font-variant-numeric:tabular-nums;}
 .ide .ov-today{font-size:11px;}
 .ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 64px;}
+/* PnL: metrics stacked on the left, click-to-drill tables on the right */
+.ide .ov-grid.ov-2col{grid-template-columns:minmax(340px,440px) minmax(0,1fr);gap:0 40px;align-items:start;}
+.ide .ov-drillcol{position:sticky;top:0;min-width:0;}
+.ide .ov-drillcol .ov-drill{margin-top:0;border-top:none;padding-top:0;}
+.ide .ov-drill-empty{border:1px dashed var(--line);border-radius:10px;padding:28px 20px;color:var(--faint);font-size:12px;text-align:center;margin-top:24px;}
+@media (max-width: 1100px){.ide .ov-grid.ov-2col{grid-template-columns:1fr;}.ide .ov-drillcol{position:static;}}
 .ide .ov-sec{margin-bottom:20px;}
 .ide .ov-h{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--blue);border-bottom:1px solid var(--line);padding-bottom:4px;margin:0 0 6px;}
 .ide .ov-h2{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--txt);margin:14px 0 3px;}
