@@ -2125,6 +2125,7 @@ function ClientSchemaView({ tz }) {
   const [vq, setVq] = useState(null) // verify deep link: { filters, hi, label }
   const [rows, setRows] = useState({ loading: false, list: [], total: null })
   const [q, setQ] = useState('')
+  const [view, setView] = useState('graph') // 'graph' | 'table'
 
   useEffect(() => {
     try {
@@ -2212,10 +2213,17 @@ function ClientSchemaView({ tz }) {
   const cols = rows.list.length ? Object.keys(rows.list[0]) : []
   const fmt = (v) => v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : typeof v === 'number' ? Number(Number(v).toFixed(2)).toLocaleString() : String(v)
 
+  if (view === 'graph') {
+    return <SchemaGraph model={model} counts={counts} onOpen={(name) => { setTable(name); setView('table') }} onList={() => setView('table')} />
+  }
+
   return (
     <div className="cs-root">
       <aside className="cs-rail">
-        <div className="cs-rail-h">YOUR DATA · {model.tables.length} tables</div>
+        <div className="cs-rail-h">
+          <span>YOUR DATA · {model.tables.length} tables</span>
+          <button className="cs-graph-btn" onClick={() => setView('graph')} title="schema map">⬡ map</button>
+        </div>
         <input className="cs-q" placeholder="filter tables…" value={q} onChange={e => setQ(e.target.value)} />
         {shown.map(t => (
           <button key={t.name} className={`cs-t ${t.name === table ? 'on' : ''}`} onClick={() => setTable(t.name)}>
@@ -2280,6 +2288,111 @@ function ClientSchemaView({ tz }) {
             {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{vq ? ' — TOTALS covers the shown rows only' : dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Schema map — force-directed graph of the client's tables (nodes) and their
+// foreign keys (links). Node size scales with row count; click a node to open
+// that table's rows. Runs a tiny spring/repulsion simulation on mount.
+const SCHEMA_COLORS = ['#6ea8fe', '#3fd68f', '#e8b45a', '#a78bfa', '#f4747f', '#ee946c', '#5ac8e8', '#c78bfa']
+function SchemaGraph({ model, counts, onOpen, onList }) {
+  const W = 1000, H = 640
+  const nodes = model.tables
+  const [pos, setPos] = useState(null)
+  const [hover, setHover] = useState(null)
+  const raf = useRef(0)
+
+  const degree = useMemo(() => {
+    const d = {}
+    for (const t of nodes) d[t.name] = 0
+    for (const e of model.edges) { if (d[e.from] != null) d[e.from]++; if (d[e.to] != null) d[e.to]++ }
+    return d
+  }, [model, nodes])
+
+  useEffect(() => {
+    // Seed on a circle (deterministic — busiest tables toward the centre).
+    const order = [...nodes].sort((a, b) => (degree[b.name] || 0) - (degree[a.name] || 0))
+    const P = {}
+    order.forEach((t, i) => {
+      const ang = (i / order.length) * Math.PI * 2
+      const rad = 60 + (i / order.length) * 240
+      P[t.name] = { x: W / 2 + Math.cos(ang) * rad, y: H / 2 + Math.sin(ang) * rad, vx: 0, vy: 0 }
+    })
+    let iter = 0
+    const step = () => {
+      iter++
+      for (const a of nodes) for (const b of nodes) {
+        if (a.name === b.name) continue
+        const pa = P[a.name], pb = P[b.name]
+        let dx = pa.x - pb.x, dy = pa.y - pb.y
+        let d2 = dx * dx + dy * dy || 0.01
+        const rep = 42000 / d2
+        const d = Math.sqrt(d2)
+        pa.vx += (dx / d) * rep; pa.vy += (dy / d) * rep
+      }
+      for (const e of model.edges) {
+        const pa = P[e.from], pb = P[e.to]; if (!pa || !pb) continue
+        const dx = pb.x - pa.x, dy = pb.y - pa.y
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.01
+        const f = (d - 150) * 0.02
+        pa.vx += (dx / d) * f; pa.vy += (dy / d) * f
+        pb.vx -= (dx / d) * f; pb.vy -= (dy / d) * f
+      }
+      for (const t of nodes) {
+        const p = P[t.name]
+        p.vx += (W / 2 - p.x) * 0.008; p.vy += (H / 2 - p.y) * 0.008
+        p.x += Math.max(-20, Math.min(20, p.vx)); p.y += Math.max(-20, Math.min(20, p.vy))
+        p.vx *= 0.82; p.vy *= 0.82
+        p.x = Math.max(60, Math.min(W - 60, p.x)); p.y = Math.max(50, Math.min(H - 50, p.y))
+      }
+      setPos({ ...P })
+      if (iter < 220) raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model])
+
+  const rOf = (name) => {
+    const c = counts[name]
+    const base = 20 + Math.min(26, Math.sqrt(c || 0) * 0.9)
+    return Math.round(base)
+  }
+  const colorOf = (name) => SCHEMA_COLORS[[...name].reduce((s, ch) => s + ch.charCodeAt(0), 0) % SCHEMA_COLORS.length]
+
+  return (
+    <div className="csg-root">
+      <div className="csg-head">
+        <div>
+          <div className="csg-title">Schema map</div>
+          <div className="csg-sub">{nodes.length} tables · {model.edges.length} relationships · click a table to open its rows</div>
+        </div>
+        <button className="cs-graph-btn" onClick={onList}>☰ list view</button>
+      </div>
+      <div className="csg-canvas">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+          {pos && model.edges.map((e, i) => {
+            const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null
+            const lit = hover && (e.from === hover || e.to === hover)
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={lit ? '#8fb4ff' : 'rgba(255,255,255,.10)'} strokeWidth={lit ? 1.6 : 1} />
+          })}
+          {pos && nodes.map(t => {
+            const p = pos[t.name]; if (!p) return null
+            const r = rOf(t.name), col = colorOf(t.name)
+            const dim = hover && hover !== t.name && !model.edges.some(e => (e.from === hover && e.to === t.name) || (e.to === hover && e.from === t.name))
+            return (
+              <g key={t.name} transform={`translate(${p.x},${p.y})`} className="csg-node" opacity={dim ? 0.35 : 1}
+                onClick={() => onOpen(t.name)} onMouseEnter={() => setHover(t.name)} onMouseLeave={() => setHover(null)}>
+                <circle r={r} fill={col} fillOpacity="0.9" stroke={col} strokeWidth="1.5" />
+                <text textAnchor="middle" dy={r + 13} className="csg-label">{t.name.replace(/^client_/, '')}</text>
+                {counts[t.name] != null && <text textAnchor="middle" dy="4" className="csg-count">{counts[t.name] >= 1000 ? (counts[t.name] / 1000).toFixed(1) + 'k' : counts[t.name]}</text>}
+              </g>
+            )
+          })}
+        </svg>
+        {!pos && <div className="csg-loading">laying out the schema…</div>}
       </div>
     </div>
   )
@@ -3183,7 +3296,20 @@ const CSS = `
 .ide .ov-tlink:hover{color:var(--blue);text-decoration:underline;}
 .ide .cs-root{display:flex;height:100%;min-height:0;}
 .ide .cs-rail{width:250px;flex-shrink:0;border-right:1px solid var(--line);overflow-y:auto;padding:14px 10px;}
-.ide .cs-rail-h{font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:0 4px 8px;}
+.ide .cs-rail-h{display:flex;align-items:center;justify-content:space-between;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:0 4px 8px;}
+.ide .cs-graph-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:11px;padding:3px 9px;cursor:pointer;letter-spacing:0;text-transform:none;}
+.ide .cs-graph-btn:hover{color:var(--txt);border-color:var(--dim);}
+/* schema map (force graph) */
+.ide .csg-root{display:flex;flex-direction:column;height:100%;min-height:0;padding:14px 18px;}
+.ide .csg-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+.ide .csg-title{font-size:15px;font-weight:800;color:var(--txt);}
+.ide .csg-sub{font-size:11px;color:var(--faint);margin-top:2px;}
+.ide .csg-canvas{flex:1;min-height:0;position:relative;background:radial-gradient(circle at 50% 45%,rgba(110,168,254,.05),transparent 60%);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+.ide .csg-node{cursor:pointer;transition:opacity .15s;}
+.ide .csg-node:hover circle{filter:brightness(1.15);}
+.ide .csg-label{fill:var(--dim);font-size:10px;font-weight:600;pointer-events:none;}
+.ide .csg-count{fill:#0b0e14;font-size:10px;font-weight:800;pointer-events:none;}
+.ide .csg-loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:12px;}
 .ide .cs-q{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 8px;margin-bottom:8px;outline:none;}
 .ide .cs-t{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;padding:4.5px 6px;cursor:pointer;text-align:left;border-radius:5px;}
 .ide .cs-t:hover{background:rgba(255,255,255,.03);color:var(--txt);}
