@@ -3614,6 +3614,9 @@ const CSS = `
 .ide .shield-num{font-size:24px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
 .ide .shield.good .shield-num{color:var(--green);} .ide .shield.warn .shield-num{color:var(--amber);} .ide .shield.bad .shield-num{color:var(--red);}
 .ide .shield-grade{font-size:12px;font-weight:600;color:var(--dim);margin-left:6px;}
+/* its ⓘ sits at the very top of the page — open the key downward, not up */
+.ide .shield .ov-pop{top:22px;bottom:auto;left:-8px;}
+.ide .shield .ov-pop::after{top:auto;bottom:100%;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ide .ov-upd{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-right:8px;white-space:nowrap;}
 .ide .ov-upd.stale{color:var(--amber);}
