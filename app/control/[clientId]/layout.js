@@ -251,6 +251,13 @@ export default function ClientLayout({ children }) {
   }
 
   const activeKey = getActiveKey(pathname, clientId)
+  // Users who switched to the new version (mission) land there instead of the
+  // classic dashboard until they switch back ('← classic' clears the flag).
+  useEffect(() => {
+    if (activeKey !== 'dashboard') return
+    try { if (localStorage.getItem(`prefer_mission_${clientId}`) === '1') router.replace(`/control/${clientId}/mission`) } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey, clientId])
   const activeGroup = getGroupForKey(activeKey)
   const activeGroupObj = activeGroup ? NAV_GROUPS[activeGroup] : null
   const activeItem = activeGroupObj?.items?.find(i => i.key === activeKey)
@@ -439,6 +446,12 @@ export default function ClientLayout({ children }) {
           </div>
           <span className="text-[#5a6377] text-[11px] ml-1">mission</span>
           <div className="ml-auto flex items-center gap-2">
+            <Link href={`/control/${clientId}/dashboard`}
+              onClick={() => { try { localStorage.removeItem(`prefer_mission_${clientId}`) } catch { /* noop */ } }}
+              title="back to the classic dashboard"
+              className="px-2 py-0.5 rounded text-[11px] text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/[0.06] transition">
+              ← classic
+            </Link>
             {realAgencyAdmin && (
               <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
                 className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/[0.06]'}`}>
@@ -640,6 +653,12 @@ export default function ClientLayout({ children }) {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-2.5">
+          {/* New-version switch — mission is the new app; remember the choice */}
+          <Link href={`/control/${clientId}/mission`}
+            onClick={() => { try { localStorage.setItem(`prefer_mission_${clientId}`, '1') } catch { /* noop */ } }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition text-blue-300 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:text-blue-200">
+            ✨ Try the new version
+          </Link>
           {realAgencyAdmin && (
             <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-gray-400 hover:text-white border border-white/10 hover:bg-white/[0.06]'}`}>
