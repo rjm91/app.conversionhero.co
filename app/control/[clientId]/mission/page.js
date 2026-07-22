@@ -2245,6 +2245,15 @@ function ClientSchemaView({ tz, showClientId }) {
   const [rows, setRows] = useState({ loading: false, list: [], total: null })
   const [q, setQ] = useState('')
   const [view, setView] = useState('table') // 'graph' | 'table' — default to the list
+  const [hiddenCols, setHiddenCols] = useState(new Set()) // columns toggled off
+  const [colsOpen, setColsOpen] = useState(false)         // column picker dropdown
+  const colsRef = useRef(null)
+  useEffect(() => { setHiddenCols(new Set()); setColsOpen(false) }, [table]) // reset per table
+  useEffect(() => {
+    const close = (e) => { if (colsRef.current && !colsRef.current.contains(e.target)) setColsOpen(false) }
+    if (colsOpen) document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [colsOpen])
 
   useEffect(() => {
     try {
@@ -2330,7 +2339,6 @@ function ClientSchemaView({ tz, showClientId }) {
   if (err) return <div className="v-pad"><p className="a-err">{err}</p></div>
   if (!model) return <div className="v-pad"><p className="a-dim">reading the schema…</p></div>
   const meta = model.tables.find(t => t.name === table)
-  const rels = meta ? model.edges.filter(e => e.from === table || e.to === table) : []
   const shown = model.tables.filter(t => !q || t.name.includes(q.toLowerCase()))
   // A verify deep link only applies to the table it was built for.
   const vqActive = vq && vq.table === table
@@ -2340,6 +2348,8 @@ function ClientSchemaView({ tz, showClientId }) {
     cols = cols.filter(c => c !== 'client_id')
     if (showClientId) cols = ['client_id', ...cols]
   }
+  const allCols = cols                       // every available column (order-normalized)
+  cols = cols.filter(c => !hiddenCols.has(c)) // what actually renders
   const fmt = (v) => v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : typeof v === 'number' ? Number(Number(v).toFixed(2)).toLocaleString() : String(v)
 
   if (view === 'graph') {
@@ -2367,25 +2377,34 @@ function ClientSchemaView({ tz, showClientId }) {
           <>
             <div className="cs-head">
               <span className="cs-path">public.{meta.name}</span>
-              <span className="dim"> · {meta.columns.length} columns · {rows.total == null ? '…' : `${rows.total.toLocaleString()} rows`}</span>
-            </div>
-            <div className="cs-cols">
-              {meta.columns.filter(c => showClientId || c.name !== 'client_id').map(c => (
-                <span key={c.name} className={`cs-col ${c.key.includes('PK') ? 'pk' : ''} ${c.key.includes('FK') ? 'fk' : ''}`}
-                  title={`${c.type}${c.nullable ? ' · nullable' : ''}${c.ref ? ` · FK → ${c.ref.table}.${c.ref.col}` : ''}`}>
-                  {c.name}{c.ref && <i onClick={() => setTable(c.ref.table)}> → {c.ref.table}</i>}
-                </span>
-              ))}
-            </div>
-            {rels.length > 0 && (
-              <div className="cs-rels">
-                {rels.map((e, i) => (
-                  <button key={i} className="cs-rel" onClick={() => setTable(e.from === table ? e.to : e.from)}>
-                    {e.from === table ? `→ ${e.to} (via ${e.col})` : `← ${e.from} (via ${e.col})`}
+              <span className="dim"> · {rows.total == null ? '…' : `${rows.total.toLocaleString()} rows`}</span>
+              {allCols.length > 0 && (
+                <div className="cs-colpick" ref={colsRef}>
+                  <button className="cs-graph-btn" onClick={() => setColsOpen(o => !o)}>
+                    ⊞ Columns <span className="dim">{cols.length}/{allCols.length}</span>
                   </button>
-                ))}
-              </div>
-            )}
+                  {colsOpen && (
+                    <div className="cs-colmenu">
+                      <div className="cs-colmenu-top">
+                        <button onClick={() => setHiddenCols(new Set())}>all</button>
+                        <button onClick={() => setHiddenCols(new Set(allCols.slice(1)))}>none</button>
+                      </div>
+                      {allCols.map(c => {
+                        const on = !hiddenCols.has(c)
+                        const meta2 = meta.columns.find(x => x.name === c)
+                        return (
+                          <label key={c} className="cs-colrow">
+                            <input type="checkbox" checked={on} onChange={() => setHiddenCols(s => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n })} />
+                            <span className="cs-colname">{c}</span>
+                            {meta2?.ref && <span className="cs-colfk">→ {meta2.ref.table}</span>}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {dayFilter && (
               <div className="cs-filter">filtered: day = {dayFilter}<button onClick={() => setDayFilter(null)}>✕ clear</button></div>
             )}
@@ -3760,16 +3779,19 @@ const CSS = `
 .ide .cs-tc{color:var(--faint);font-size:10.5px;font-variant-numeric:tabular-nums;}
 .ide .cs-note{color:var(--faint);font-size:10.5px;padding:10px 4px;line-height:1.5;}
 .ide .cs-main{flex:1;overflow-y:auto;padding:18px 24px;min-width:0;}
-.ide .cs-head{margin-bottom:10px;}
+.ide .cs-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
 .ide .cs-path{font-weight:800;font-size:14px;}
-.ide .cs-cols{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
-.ide .cs-col{font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:2px 7px;color:var(--dim);}
-.ide .cs-col.pk{border-color:rgba(63,214,143,.4);color:var(--green);}
-.ide .cs-col.fk{border-color:rgba(110,168,254,.4);}
-.ide .cs-col i{font-style:normal;color:var(--blue);cursor:pointer;}
-.ide .cs-rels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.ide .cs-rel{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:10.5px;padding:3px 9px;cursor:pointer;}
-.ide .cs-rel:hover{color:var(--txt);border-color:var(--blue);}
+/* column picker dropdown */
+.ide .cs-colpick{position:relative;margin-left:auto;}
+.ide .cs-colmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:40;width:230px;max-height:340px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.5);}
+.ide .cs-colmenu-top{display:flex;gap:6px;padding:2px 4px 6px;border-bottom:1px solid var(--line);margin-bottom:4px;}
+.ide .cs-colmenu-top button{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);font:inherit;font-size:10.5px;padding:2px 9px;cursor:pointer;}
+.ide .cs-colmenu-top button:hover{color:var(--txt);border-color:var(--dim);}
+.ide .cs-colrow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:5px;cursor:pointer;font-size:12px;}
+.ide .cs-colrow:hover{background:var(--hover,rgba(255,255,255,.05));}
+.ide .cs-colrow input{accent-color:var(--blue);cursor:pointer;}
+.ide .cs-colname{color:var(--txt);}
+.ide .cs-colfk{margin-left:auto;font-size:10px;color:var(--blue);}
 .ide .cs-filter{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--amber);background:rgba(242,180,92,.08);border:1px solid rgba(242,180,92,.25);border-radius:6px;padding:4px 10px;margin-bottom:10px;}
 /* verify deep link (agent answer → source rows) */
 .ide .cs-filter.vq{color:var(--blue);background:rgba(110,168,254,.08);border-color:rgba(110,168,254,.3);}
