@@ -1615,12 +1615,36 @@ function buildDailyRows(m) {
 // Roll the daily P&L rows up into periods for the Daily / Weekly / Quarterly
 // zoom. Every field is additive, so a week/quarter is just its days summed;
 // weeks start Sunday (matching the calendar views), quarters are calendar.
-function buildPeriods(list, zoom) {
+function blankAgg() {
+  return { gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
+    meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } }
+}
+function accumAgg(a, r) {
+  a.gross += r.gross; a.net += r.net; a.discounts += r.discounts; a.refunds += r.refunds
+  a.orders += r.orders; a.newOrders += r.newOrders; a.cogs += r.cogs; a.shipped += r.shipped
+  for (const [ch, c] of Object.entries(r.channels)) {
+    const cc = (a.channels[ch] = a.channels[ch] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
+    cc.net += c.net; cc.gross += c.gross; cc.cogs += c.cogs; cc.orders += c.orders; cc.newOrders += c.newOrders
+  }
+  for (const k of ['meta', 'google']) { a[k].net += r[k].net; a[k].cogs += r[k].cogs; a[k].orders += r[k].orders; a[k].spend += r[k].spend }
+}
+function buildPeriods(list, zoom, customRange) {
   if (zoom === 'day') {
     return list.map(r => ({
       key: r.day, days: [r.day], agg: r, short: r.day,
       long: new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     }))
+  }
+  if (zoom === 'custom') {
+    if (!customRange?.start || !customRange?.end) return []
+    const { start, end } = customRange
+    const days = list.filter(r => r.day >= start && r.day <= end)
+    const agg = blankAgg()
+    days.forEach(r => accumAgg(agg, r))
+    const f = (s) => new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return [{ key: `${start}..${end}`, days: days.map(r => r.day).sort(), agg,
+      short: `${new Date(start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → ${new Date(end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      long: `${f(start)} – ${f(end)}` }]
   }
   const P2 = (n) => String(n).padStart(2, '0')
   const by = {}
@@ -1640,22 +1664,72 @@ function buildPeriods(list, zoom) {
       short = `Q${q} ${d.getFullYear()}`
       long = `Q${q} ${d.getFullYear()} · ${['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'][q - 1]}`
     }
-    const g = (by[key] = by[key] || {
-      key, short, long, days: [],
-      agg: { gross: 0, net: 0, discounts: 0, refunds: 0, orders: 0, newOrders: 0, cogs: 0, shipped: 0, channels: {},
-        meta: { net: 0, cogs: 0, orders: 0, spend: 0 }, google: { net: 0, cogs: 0, orders: 0, spend: 0 } },
-    })
+    const g = (by[key] = by[key] || { key, short, long, days: [], agg: blankAgg() })
     g.days.push(r.day)
-    const a = g.agg
-    a.gross += r.gross; a.net += r.net; a.discounts += r.discounts; a.refunds += r.refunds
-    a.orders += r.orders; a.newOrders += r.newOrders; a.cogs += r.cogs; a.shipped += r.shipped
-    for (const [ch, c] of Object.entries(r.channels)) {
-      const cc = (a.channels[ch] = a.channels[ch] || { net: 0, gross: 0, cogs: 0, orders: 0, newOrders: 0 })
-      cc.net += c.net; cc.gross += c.gross; cc.cogs += c.cogs; cc.orders += c.orders; cc.newOrders += c.newOrders
-    }
-    for (const k of ['meta', 'google']) { a[k].net += r[k].net; a[k].cogs += r[k].cogs; a[k].orders += r[k].orders; a[k].spend += r[k].spend }
+    accumAgg(g.agg, r)
   }
   return Object.values(by).map(g => ({ ...g, days: [...g.days].sort() })).sort((x, y) => y.key.localeCompare(x.key))
+}
+
+// Airbnb-style range picker — two months, click a start then an end; the days
+// between highlight live as you hover. Emits YYYY-MM-DD start/end (sorted).
+function RangeCalendar({ value, onPick, onClose }) {
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const [viewM, setViewM] = useState(() => { const b = value?.end ? new Date(value.end + 'T00:00:00') : new Date(); return new Date(b.getFullYear(), b.getMonth(), 1) })
+  const [anchor, setAnchor] = useState(null) // YYYY-MM-DD of first click
+  const [hover, setHover] = useState(null)
+  const ref = useRef(null)
+  useEffect(() => {
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [onClose])
+
+  const lo = anchor && hover ? (anchor <= hover ? anchor : hover) : (value && !anchor ? value.start : anchor)
+  const hi = anchor && hover ? (anchor <= hover ? hover : anchor) : (value && !anchor ? value.end : anchor)
+  const clickDay = (s) => {
+    if (!anchor) { setAnchor(s); setHover(s); return }
+    if (s === anchor) { setAnchor(null); return }
+    const [a, b] = anchor <= s ? [anchor, s] : [s, anchor]
+    onPick(a, b)
+  }
+  const Month = ({ base }) => {
+    const y = base.getFullYear(), mo = base.getMonth()
+    const first = new Date(y, mo, 1)
+    const start = new Date(first); start.setDate(1 - first.getDay())
+    const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d })
+    return (
+      <div className="rc-month">
+        <div className="rc-mh">{first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+        <div className="rc-grid">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="rc-dow">{d}</div>)}
+          {cells.map((d, i) => {
+            const s = ymd(d), inMo = d.getMonth() === mo
+            const inRange = inMo && lo && hi && s >= lo && s <= hi
+            const edge = inRange && (s === lo || s === hi)
+            return (
+              <button key={i} type="button" disabled={!inMo}
+                className={`rc-day ${!inMo ? 'rc-out' : ''} ${edge ? 'rc-edge' : inRange ? 'rc-in' : ''}`}
+                onClick={() => inMo && clickDay(s)} onMouseEnter={() => anchor && setHover(s)}>
+                {d.getDate()}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+  const nextM = new Date(viewM.getFullYear(), viewM.getMonth() + 1, 1)
+  return (
+    <div className="rc-pop" ref={ref}>
+      <div className="rc-head">
+        <button type="button" onClick={() => setViewM(new Date(viewM.getFullYear(), viewM.getMonth() - 1, 1))}>‹</button>
+        <span className="rc-hint">{anchor ? 'pick the end date' : 'pick the start date'}</span>
+        <button type="button" onClick={() => setViewM(new Date(viewM.getFullYear(), viewM.getMonth() + 1, 1))}>›</button>
+      </div>
+      <div className="rc-months"><Month base={viewM} /><Month base={nextM} /></div>
+    </div>
+  )
 }
 
 // Overview — one business day at a time, laid out like Ryan's note: REVENUE /
@@ -1908,14 +1982,16 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
   const newClassified = !!m.pnl?.newClassified
   const costPerLabel = m.sources?.costPerLabel ?? 25
   const tz = m.sources?.tz || undefined
-  const [zoom, setZoom] = useState('day') // 'day' | 'week' | 'quarter'
-  const periods = useMemo(() => buildPeriods(list, zoom), [list, zoom])
+  const [zoom, setZoom] = useState('day') // 'day' | 'week' | 'quarter' | 'custom'
+  const [customRange, setCustomRange] = useState(null) // { start, end } YYYY-MM-DD
+  const [calOpen, setCalOpen] = useState(false)
+  const periods = useMemo(() => buildPeriods(list, zoom, customRange), [list, zoom, customRange])
   const keys = useMemo(() => periods.map(p => p.key), [periods])
   const [sel, setSel] = useState(null)
   const activeKey = sel && keys.includes(sel) ? sel : keys[0] || null
   const [drill, setDrill] = useState(null) // { kind, label, channel? }
   useEffect(() => { setDrill(null) }, [activeKey])
-  useEffect(() => { setSel(null) }, [zoom])
+  useEffect(() => { if (zoom !== 'custom') setSel(null) }, [zoom])
   // Esc de-selects the drilled metric (unless typing in a field, e.g. the ROAS editor)
   useEffect(() => {
     if (!drill) return
@@ -1935,21 +2011,31 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
   const organic = Object.entries(r.channels)
     .filter(([ch]) => ch !== 'Meta' && ch !== 'Google')
     .sort((a, b) => b[1].net - a[1].net)
-  const zoomTitle = zoom === 'day' ? 'Daily' : zoom === 'week' ? 'Weekly' : 'Quarterly'
+  const zoomTitle = zoom === 'day' ? 'Daily' : zoom === 'week' ? 'Weekly' : zoom === 'custom' ? 'Custom' : 'Quarterly'
   const zoomNote = zoom === 'day' ? 'client business day' : `${p.days.length} business day${p.days.length === 1 ? '' : 's'} aggregated`
   // Quarterly needs more history than the default window — widen the load to
   // the start of the PREVIOUS quarter so current + last quarter come in full.
   const pickZoom = (z) => {
-    setZoom(z)
+    if (z === 'custom') {
+      // Seed a default range (last 7 loaded days) so there's always a period, then open the calendar.
+      if (!customRange && list.length) { const days = list.map(x => x.day).sort(); setCustomRange({ start: days[Math.max(0, days.length - 7)], end: days[days.length - 1] }) }
+      setZoom('custom'); setCalOpen(true); return
+    }
+    setZoom(z); setCalOpen(false)
     if (z === 'quarter' && onEnsureRange) {
       const t = new Date()
       const pq = new Date(t.getFullYear(), Math.floor(t.getMonth() / 3) * 3 - 3, 1)
       onEnsureRange(`${pq.getFullYear()}-${String(pq.getMonth() + 1).padStart(2, '0')}-01`)
     }
   }
+  const applyCustom = (start, end) => {
+    if (onEnsureRange) onEnsureRange(start) // widen the loaded window if the start predates it
+    setCustomRange({ start, end }); setZoom('custom'); setCalOpen(false)
+  }
   // A period whose calendar start predates the loaded window is under-counted — say so.
   const expectedStart = zoom === 'week' ? p.key
     : zoom === 'quarter' ? `${p.key.split('-Q')[0]}-${String((Number(p.key.split('-Q')[1]) - 1) * 3 + 1).padStart(2, '0')}-01`
+    : zoom === 'custom' ? customRange?.start
     : null
   const partial = !!(expectedStart && rangeStart && expectedStart < rangeStart)
 
@@ -2031,14 +2117,25 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
         <div className="ov-nav">
           <LastUpdated at={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
           <div className="ov-zoom">
-            {[['day', 'Daily'], ['week', 'Weekly'], ['quarter', 'Quarterly']].map(([z, zl]) => (
+            {[['day', 'Daily'], ['week', 'Weekly'], ['quarter', 'Quarterly'], ['custom', 'Custom']].map(([z, zl]) => (
               <button key={z} className={z === zoom ? 'on' : ''} onClick={() => pickZoom(z)} type="button">{zl}</button>
             ))}
           </div>
-          <button onClick={() => setSel(keys[Math.min(idx + 1, keys.length - 1)])} disabled={idx >= keys.length - 1} title="older">‹</button>
-          <span className="ov-day">{p.short}</span>
-          <button onClick={() => setSel(keys[Math.max(idx - 1, 0)])} disabled={idx <= 0} title="newer">›</button>
-          <button className="ov-today" onClick={() => setSel(keys[0])} disabled={idx === 0}>latest ↦</button>
+          {zoom === 'custom' ? (
+            <div className="ov-calwrap">
+              <button className="ov-day ov-calbtn" onClick={() => setCalOpen(o => !o)} type="button" title="pick a custom date range">
+                📅 {customRange ? `${customRange.start} → ${customRange.end}` : 'pick dates'}
+              </button>
+              {calOpen && <RangeCalendar value={customRange} minDay={rangeStart} onPick={applyCustom} onClose={() => setCalOpen(false)} />}
+            </div>
+          ) : (
+            <>
+              <button onClick={() => setSel(keys[Math.min(idx + 1, keys.length - 1)])} disabled={idx >= keys.length - 1} title="older">‹</button>
+              <span className="ov-day">{p.short}</span>
+              <button onClick={() => setSel(keys[Math.max(idx - 1, 0)])} disabled={idx <= 0} title="newer">›</button>
+              <button className="ov-today" onClick={() => setSel(keys[0])} disabled={idx === 0}>latest ↦</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -3693,6 +3790,22 @@ const CSS = `
 .ide .slk-btn.primary{background:#007a5a;border-color:#007a5a;color:#fff;}
 .ide .slk-ctx{font-size:11px;color:#9a9ea6;margin-top:8px;}
 .ide .sms-prev{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap;max-width:580px;color:var(--txt);margin:0;}
+/* custom range picker */
+.ide .ov-calwrap{position:relative;}
+.ide .ov-calbtn{cursor:pointer;border:1px solid var(--line2);background:var(--panel);}
+.ide .rc-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:12px;box-shadow:0 18px 50px rgba(0,0,0,.55);}
+.ide .rc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.ide .rc-head button{width:26px;height:24px;border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:6px;cursor:pointer;}
+.ide .rc-hint{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+.ide .rc-months{display:flex;gap:16px;}
+.ide .rc-mh{text-align:center;font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px;}
+.ide .rc-grid{display:grid;grid-template-columns:repeat(7,26px);gap:1px;}
+.ide .rc-dow{text-align:center;font-size:9px;color:var(--faint);height:16px;line-height:16px;}
+.ide .rc-day{height:26px;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
+.ide .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border-radius:6px;}
+.ide .rc-out{visibility:hidden;}
+.ide .rc-in{background:rgba(var(--blue-500,110 168 254),.22);color:var(--txt);}
+.ide .rc-edge{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border-radius:6px;}
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .ov-zoom button:hover{color:var(--txt);}
