@@ -2251,7 +2251,7 @@ function ClientSchemaView({ tz, showClientId }) {
       const sp = new URLSearchParams(window.location.search)
       if (sp.get('focus')) setTable(sp.get('focus'))
       if (sp.get('day')) setDayFilter(sp.get('day'))
-      if (sp.get('vq')) { const o = decodeVq(sp.get('vq')); if (o && Array.isArray(o.filters)) setVq(o) }
+      if (sp.get('vq')) { const o = decodeVq(sp.get('vq')); if (o && Array.isArray(o.filters)) setVq({ ...o, table: sp.get('focus') || null }) }
     } catch { /* no params */ }
   }, [])
 
@@ -2306,8 +2306,11 @@ function ClientSchemaView({ tz, showClientId }) {
             qy = qy.gte(tsCol, new Date(startMs).toISOString()).lt(tsCol, new Date(startMs + 86400000).toISOString())
           }
         }
-        // Verify deep link: apply the agent's exact query filters (guarded op set)
-        if (vq) {
+        // Verify deep link: apply the agent's exact filters ONLY on the table
+        // it was built for — otherwise navigating to another table would query
+        // columns (e.g. sku) that table doesn't have.
+        const vqHere = vq && vq.table === table
+        if (vqHere) {
           for (const f of vq.filters || []) {
             if (!f?.column || !f?.op) continue
             if (f.op === 'in' && Array.isArray(f.value)) qy = qy.in(f.column, f.value)
@@ -2316,7 +2319,7 @@ function ClientSchemaView({ tz, showClientId }) {
         }
         const orderCol = ['created_at', 'ordered_at', 'day', 'date'].find(c => meta.columns.some(x => x.name === c))
         if (orderCol) qy = qy.order(orderCol, { ascending: false })
-        const { data, count, error } = await qy.limit(vq ? 1000 : 100)
+        const { data, count, error } = await qy.limit(vqHere ? 1000 : 100)
         if (error) throw error
         if (alive) setRows({ loading: false, list: data || [], total: count ?? 0 })
       } catch (e) { if (alive) setRows({ loading: false, list: [], total: null, error: e.message || String(e) }) }
@@ -2329,6 +2332,8 @@ function ClientSchemaView({ tz, showClientId }) {
   const meta = model.tables.find(t => t.name === table)
   const rels = meta ? model.edges.filter(e => e.from === table || e.to === table) : []
   const shown = model.tables.filter(t => !q || t.name.includes(q.toLowerCase()))
+  // A verify deep link only applies to the table it was built for.
+  const vqActive = vq && vq.table === table
   // client_id: security admins see it pinned leftmost; everyone else never sees it.
   let cols = rows.list.length ? Object.keys(rows.list[0]) : []
   if (cols.includes('client_id')) {
@@ -2384,7 +2389,7 @@ function ClientSchemaView({ tz, showClientId }) {
             {dayFilter && (
               <div className="cs-filter">filtered: day = {dayFilter}<button onClick={() => setDayFilter(null)}>✕ clear</button></div>
             )}
-            {vq && (
+            {vqActive && (
               <div className="cs-filter vq">
                 ⛏ verifying{vq.label ? <> “<b>{vq.label}</b>”</> : null} — {(vq.filters || []).map(f => `${f.column} ${f.op} ${Array.isArray(f.value) ? `[${f.value.length} value${f.value.length === 1 ? '' : 's'}]` : f.value ?? ''}`).join(' · ')} · rows read live through your login (RLS)
                 <button onClick={() => setVq(null)}>✕ clear</button>
@@ -2392,11 +2397,11 @@ function ClientSchemaView({ tz, showClientId }) {
             )}
             {rows.error && <p className="a-err">{rows.error}</p>}
             {rows.loading && <p className="a-dim">querying with your session…</p>}
-            {!rows.loading && rows.list.length === 0 && !rows.error && <p className="a-dim">no rows{dayFilter ? ' for this day' : vq ? ' match these filters' : ''}.</p>}
+            {!rows.loading && rows.list.length === 0 && !rows.error && <p className="a-dim">no rows{dayFilter ? ' for this day' : vqActive ? ' match these filters' : ''}.</p>}
             {rows.list.length > 0 && (() => {
-              const vhi = new Set(vq?.hi || [])
+              const vhi = new Set(vqActive ? (vq?.hi || []) : [])
               const hc = (c) => vhi.has(c) ? 'hi' : ''
-              const tot = vq ? cols.reduce((acc, c) => { const vals = rows.list.map(rw => rw[c]).filter(x => typeof x === 'number'); acc[c] = vals.length ? vals.reduce((a, b) => a + b, 0) : null; return acc }, {}) : null
+              const tot = vqActive ? cols.reduce((acc, c) => { const vals = rows.list.map(rw => rw[c]).filter(x => typeof x === 'number'); acc[c] = vals.length ? vals.reduce((a, b) => a + b, 0) : null; return acc }, {}) : null
               return (
                 <div className="dpnl dp2 cs-tbl" style={{ maxHeight: 'calc(100vh - 420px)' }}>
                   <table>
@@ -2409,7 +2414,7 @@ function ClientSchemaView({ tz, showClientId }) {
                 </div>
               )
             })()}
-            {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{vq ? ' — TOTALS covers the shown rows only' : dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
+            {rows.total > rows.list.length && <p className="a-dim" style={{ marginTop: 6 }}>showing first {rows.list.length} of {rows.total.toLocaleString()} rows{vqActive ? ' — TOTALS covers the shown rows only' : dayFilter ? '' : ' — deep-link with a day filter to narrow'}.</p>}
           </>
         )}
       </div>
