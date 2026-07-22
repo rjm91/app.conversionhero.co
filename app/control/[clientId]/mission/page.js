@@ -3585,7 +3585,7 @@ const CSS = `
 .ide .vtable th.sortable:hover{color:var(--txt);}
 .ide .qp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;}
 .ide .loading{color:var(--faint);font-size:12.5px;padding:18px;}
-.ide .v-pad{padding:18px 22px 26px;}
+.ide .v-pad{padding:18px 24px 40px;}
 .ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
 .ide .v-note{color:var(--faint);font-size:11px;margin-top:12px;}
 .ide .campaign-drill-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
@@ -3644,7 +3644,7 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
-.ide .ov-pad{padding:36px 52px 60px;}
+.ide .ov-pad{padding:18px 24px 40px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 /* Shield Score card */
 .ide .shield{display:inline-flex;align-items:center;gap:11px;padding:9px 14px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);}
