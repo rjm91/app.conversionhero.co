@@ -760,7 +760,7 @@ export default function BusinessIDE() {
               <ViewBody id={activeTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                 campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security'} />
+                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} />
             </div>
             {splitTab && <>
               <div className="resize-h" onMouseDown={startDrag('vsplit')} title="drag to resize" />
@@ -774,7 +774,7 @@ export default function BusinessIDE() {
                 <ViewBody id={splitTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                   campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security'} />
+                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} />
               </div>
             </>}
           </div>
