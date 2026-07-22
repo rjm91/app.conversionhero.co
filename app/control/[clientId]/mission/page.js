@@ -2032,6 +2032,26 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
 function SourceDrill({ days, drill, m, onClose }) {
   const { clientId } = useParams()
   const [state, setState] = useState({ loading: true, sets: [] })
+  const [sort, setSort] = useState({}) // { [setIdx]: { col, dir: 'asc'|'desc' } }
+  // Click a header to cycle asc → desc → off. TOTALS row always stays pinned.
+  const clickSort = (si, col) => setSort(s => {
+    const cur = s[si]
+    if (!cur || cur.col !== col) return { ...s, [si]: { col, dir: 'asc' } }
+    if (cur.dir === 'asc') return { ...s, [si]: { col, dir: 'desc' } }
+    const { [si]: _drop, ...rest } = s
+    return rest
+  })
+  const sortRows = (rows, cfg) => {
+    if (!cfg) return rows
+    const dir = cfg.dir === 'desc' ? -1 : 1
+    return [...rows].sort((a, b) => {
+      const av = a[cfg.col], bv = b[cfg.col]
+      if (av == null) return 1
+      if (bv == null) return -1
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir
+    })
+  }
   // days = the selected period's business days, sorted ascending (one entry in Daily zoom)
   const dFrom = days[0], dTo = days[days.length - 1]
   const dayLabel = dFrom === dTo ? dFrom : `${dFrom} → ${dTo}`
@@ -2136,10 +2156,19 @@ function SourceDrill({ days, drill, m, onClose }) {
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
               <div className="dpnl dp2" style={{ maxHeight: 420 }}>
                 <table>
-                  <thead><tr>{cols.map(c => <th key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{c}{hi.has(c) && <span className="hi-ic" title={hiTitle}>⌖</span>}</th>)}</tr></thead>
+                  <thead><tr>{cols.map(c => {
+                    const s = sort[si]
+                    const arrow = s?.col === c ? (s.dir === 'asc' ? ' ▲' : ' ▼') : ''
+                    return (
+                      <th key={c} className={`sortable${hcls(c)}`} style={{ textAlign: 'left' }} onClick={() => clickSort(si, c)}
+                        title="click to sort — click again to reverse, once more to clear">
+                        {c}{hi.has(c) && <span className="hi-ic" title={hiTitle}>⌖</span>}<span className="sort-ar">{arrow}</span>
+                      </th>
+                    )
+                  })}</tr></thead>
                   <tbody>
                     <tr className="tot">{cols.map((c, i) => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{i === 0 && tot[cols[0]] == null ? 'TOTALS' : tot[c] == null ? '' : fmt(tot[c])}</td>)}</tr>
-                    {set.rows.map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
+                    {sortRows(set.rows, sort[si]).map((rw, i) => <tr key={i}>{cols.map(c => <td key={c} className={hcls(c).trim()} style={{ textAlign: 'left' }}>{fmt(rw[c])}</td>)}</tr>)}
                   </tbody>
                 </table>
               </div>
@@ -3509,6 +3538,9 @@ const CSS = `
 .ide .dpnl{border:1px solid var(--line);border-radius:9px;overflow:auto;margin-top:4px;max-height:calc(100vh - 320px);}
 .ide .dpnl table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11.5px;font-variant-numeric:tabular-nums;}
 .ide .dpnl th{position:sticky;top:0;background:var(--panel2);color:var(--txt);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;line-height:1;padding:8px 11px;text-align:right;white-space:nowrap;z-index:2;border-bottom:1px solid var(--line);}
+.ide .dpnl th.sortable{cursor:pointer;user-select:none;}
+.ide .dpnl th.sortable:hover{color:var(--blue);}
+.ide .dpnl th .sort-ar{color:var(--blue);font-size:8px;}
 .ide .dpnl thead tr:first-child th{text-align:center;color:var(--blue);font-size:10px;border-left:1px solid var(--line);top:0;}
 .ide .dpnl thead tr:first-child th:first-child{border-left:none;}
 .ide .dpnl thead tr:last-child th{top:26px;}
