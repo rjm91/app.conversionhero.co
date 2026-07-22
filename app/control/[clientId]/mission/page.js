@@ -2244,7 +2244,7 @@ function ClientSchemaView({ tz, showClientId }) {
   const [vq, setVq] = useState(null) // verify deep link: { filters, hi, label }
   const [rows, setRows] = useState({ loading: false, list: [], total: null })
   const [q, setQ] = useState('')
-  const [view, setView] = useState('graph') // 'graph' | 'table'
+  const [view, setView] = useState('table') // 'graph' | 'table' — default to the list
 
   useEffect(() => {
     try {
