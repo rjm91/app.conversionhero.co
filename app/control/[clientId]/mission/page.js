@@ -3614,9 +3614,11 @@ const CSS = `
 .ide .shield-num{font-size:24px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
 .ide .shield.good .shield-num{color:var(--green);} .ide .shield.warn .shield-num{color:var(--amber);} .ide .shield.bad .shield-num{color:var(--red);}
 .ide .shield-grade{font-size:12px;font-weight:600;color:var(--dim);margin-left:6px;}
-/* its ⓘ sits at the very top of the page — open the key downward, not up */
-.ide .shield .ov-pop{top:22px;bottom:auto;left:-8px;}
-.ide .shield .ov-pop::after{top:auto;bottom:100%;}
+/* its ⓘ sits at the very top of the page — open the key downward, not up.
+   Extra .ov-i in the selector outranks the base .ide .ov-i .ov-pop rule that
+   appears later in this stylesheet (which would otherwise re-pin bottom:18px). */
+.ide .shield .ov-i .ov-pop{top:22px;bottom:auto;left:-8px;}
+.ide .shield .ov-i .ov-pop::after{top:auto;bottom:100%;height:24px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ide .ov-upd{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-right:8px;white-space:nowrap;}
 .ide .ov-upd.stale{color:var(--amber);}
@@ -3691,7 +3693,8 @@ const CSS = `
 .ide .ov-i:hover .ov-pop{display:block;}
 .ide .ov-pop b{display:block;color:var(--txt);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
 .ide .ov-i .ov-pop.pin{display:block;}
-.ide .ov-pop-desc{display:block;color:var(--faint);font-size:10.5px;line-height:1.45;margin:-3px 0 8px;font-style:italic;}
+/* element+class outranks the later '.ov-pop > span{display:flex}' rule below */
+.ide .ov-pop > span.ov-pop-desc{display:block;color:var(--faint);font-size:10.5px;line-height:1.45;margin:-3px 0 8px;font-style:italic;}
 .ide .ov-i-g{cursor:pointer;}
 /* invisible strip under the popover so the mouse can cross the gap to reach it */
 .ide .ov-i .ov-pop::after{content:'';position:absolute;left:0;right:0;top:100%;height:22px;}
