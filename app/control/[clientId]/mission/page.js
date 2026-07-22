@@ -14,6 +14,7 @@ import { MANUAL } from '../../../../lib/mission/manual'
 import { buildCsv, docCounts } from '../../../../lib/google-ads-csv'
 import { useTerminalHistory, relTime } from '../../../../lib/terminal-history'
 import { supabase } from '../../../../lib/supabase'
+import { fetchAllRows } from '../../../../lib/fetch-all'
 import { deriveChannel } from '../../../../lib/channels'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
@@ -760,7 +761,7 @@ export default function BusinessIDE() {
 
           <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
-              <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
+              <ViewBody id={activeTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                 campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
@@ -774,7 +775,7 @@ export default function BusinessIDE() {
                   </select>
                   <button className="tt-btn" onClick={() => setSplitTab(null)}>✕</button>
                 </div>
-                <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
+                <ViewBody id={splitTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                   campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
@@ -1392,7 +1393,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1402,8 +1403,8 @@ function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ord
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} onSaveAov={onSaveAov} aovDefaults={aovDefaults} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
-  if (id === 'google') return <CampaignView m={m} platform="Google" />
-  if (id === 'meta') return <CampaignView m={m} platform="Meta" />
+  if (id === 'google') return <CampaignView m={m} platform="Google" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
+  if (id === 'meta') return <CampaignView m={m} platform="Meta" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
   if (id === 'klaviyo') return <KlaviyoView m={m} />
   if (id === 'manual') return <div className="man-body wide"><Markdown text={MANUAL} /></div>
@@ -1964,11 +1965,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
     <div className="v-pad ov-pad">
       <div className="ov-top">
         <div>
-          <h4 className="v-h" style={{ margin: 0 }}>{zoomTitle} P&amp;L</h4>
-          <p className="v-note" style={{ margin: '2px 0 0' }}>
-            {p.long} · {zoomNote}{tz ? ` (${tz})` : ''} · click any line to open its source rows · navigating within {rangeLabel}
-            {partial && <span className="warn"> · ⚠ partial — data loaded from {rangeStart}; widen the range for the full period</span>}
-          </p>
+          {partial && <p className="v-note warn" style={{ margin: 0 }}>⚠ partial — data loaded from {rangeStart}; widen the range for the full period</p>}
         </div>
         <div className="ov-nav">
           <LastUpdated at={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
@@ -2725,28 +2722,269 @@ function Spark({ daily }) {
   )
 }
 
-function CampaignView({ m, platform }) {
-  const rows = m.campaigns.filter(c => c.platform === platform)
-  if (!rows.length) return <p className="loading v-pad">no {platform} campaigns in range.</p>
+function missionTableRow(record, cells) {
+  cells.__rec = record
+  return cells
+}
+
+function adsNumber(n) {
+  return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
+}
+
+function adCostPerConversion(cost, conversions) {
+  return Number(conversions) > 0 ? money(Number(cost || 0) / Number(conversions)) : '—'
+}
+
+function AdStatusPill({ status, stale = false }) {
+  const enabled = !stale && status === 'ENABLED'
+  const label = stale ? 'stale' : status ? String(status).toLowerCase() : 'unknown'
+  return <span className={`pill ${enabled ? 'ok' : 'dead'}`}>{label}</span>
+}
+
+// Google sync stores one row per entity per day. The Mission tab needs a
+// range-level view, so sum the daily rows while preserving the latest entity
+// status/name/type for the selected period.
+function aggregateGoogleHierarchy(rows, idKey, nameKey) {
+  const byId = new Map()
+  for (const row of rows || []) {
+    const id = String(row[idKey] || '')
+    if (!id) continue
+    let current = byId.get(id)
+    if (!current) {
+      current = { ...row, [idKey]: id, cost: 0, impressions: 0, clicks: 0, conversions: 0, _latestDate: '' }
+      byId.set(id, current)
+    }
+    current.cost += Number(row.cost) || 0
+    current.impressions += Number(row.impressions) || 0
+    current.clicks += Number(row.clicks) || 0
+    current.conversions += Number(row.conversions) || 0
+    const rowDate = String(row.date || '')
+    if (rowDate >= current._latestDate) {
+      current._latestDate = rowDate
+      current.status = row.status || current.status
+      current[nameKey] = row[nameKey] || current[nameKey]
+      current.ad_type = row.ad_type || current.ad_type
+      current.youtube_video_id = row.youtube_video_id || current.youtube_video_id
+    }
+  }
+  return [...byId.values()]
+    .map(row => ({ ...row, cpc: row.clicks > 0 ? row.cost / row.clicks : 0, cost_per_conversion: row.conversions > 0 ? row.cost / row.conversions : 0 }))
+    .sort((a, b) => b.cost - a.cost)
+}
+
+function GoogleCampaignHierarchy({ m, clientId, start, end, rangeLabel }) {
+  const campaigns = m.campaigns.filter(c => c.platform === 'Google')
+  const [level, setLevel] = useState('campaigns')
+  const [selectedCampaign, setSelectedCampaign] = useState(null)
+  const [selectedAdGroup, setSelectedAdGroup] = useState(null)
+  const [adGroups, setAdGroups] = useState([])
+  const [ads, setAds] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // A new client or date range always starts at the campaign level. The child
+  // tables are fetched only when requested, rather than loading every ad on
+  // every Mission-page visit.
+  useEffect(() => {
+    setLevel('campaigns')
+    setSelectedCampaign(null)
+    setSelectedAdGroup(null)
+    setAdGroups([])
+    setAds([])
+    setLoading(false)
+    setError('')
+  }, [clientId, start, end])
+
+  const readChildren = useCallback((table, foreignKey, foreignId) => fetchAllRows((from, to) => (
+    supabase.from(table)
+      .select('*')
+      .eq('client_id', clientId)
+      .eq(foreignKey, foreignId)
+      .gte('date', start)
+      .lte('date', end)
+      .order('date', { ascending: false })
+      .range(from, to)
+  )), [clientId, start, end])
+
+  const openCampaign = async (campaign) => {
+    setSelectedCampaign(campaign)
+    setSelectedAdGroup(null)
+    setLevel('adGroups')
+    setLoading(true)
+    setError('')
+    try {
+      const rows = await readChildren('client_google_ad_groups', 'campaign_id', campaign.campaign_id)
+      setAdGroups(aggregateGoogleHierarchy(rows, 'ad_group_id', 'ad_group_name'))
+    } catch (e) {
+      setAdGroups([])
+      setError(`Could not load this campaign’s ad groups: ${e?.message || 'unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openAdGroup = async (adGroup) => {
+    setSelectedAdGroup(adGroup)
+    setLevel('ads')
+    setLoading(true)
+    setError('')
+    try {
+      const rows = await readChildren('client_google_ads', 'ad_group_id', adGroup.ad_group_id)
+      setAds(aggregateGoogleHierarchy(rows, 'ad_id', 'ad_name'))
+    } catch (e) {
+      setAds([])
+      setError(`Could not load this ad group’s ads: ${e?.message || 'unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const backToCampaigns = () => {
+    setLevel('campaigns')
+    setSelectedCampaign(null)
+    setSelectedAdGroup(null)
+    setError('')
+  }
+  const backToAdGroups = () => {
+    setLevel('adGroups')
+    setSelectedAdGroup(null)
+    setError('')
+  }
+
+  const currentRows = level === 'campaigns' ? campaigns : level === 'adGroups' ? adGroups : ads
+  const tableId = `google-${level}-${clientId}`
+  const table = level === 'campaigns'
+    ? {
+        columns: [{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: 'Clicks', num: true }, { label: 'Conversions', num: true }, { label: 'Cost / Conv.', num: true }, { label: 'True ROAS', num: true }],
+        rows: campaigns.map(c => missionTableRow(c, [
+          { v: c.campaign_name, cls: 'tname', s: c.campaign_name },
+          { v: <AdStatusPill status={c.status} stale={c.stale} />, s: c.stale ? 'stale' : c.status },
+          { v: money(c.spend), cls: 'num', s: c.spend },
+          { v: adsNumber(c.clicks), cls: 'num', s: c.clicks },
+          { v: adsNumber(c.conversions), cls: 'num', s: c.conversions },
+          { v: adCostPerConversion(c.spend, c.conversions), cls: 'num', s: c.conversions > 0 ? c.spend / c.conversions : -1 },
+          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`, s: c.trueRoas ?? -1 },
+        ])),
+        rowKey: r => r.campaign_id,
+        onRowClick: openCampaign,
+        empty: 'no Google campaigns in this range.',
+        note: `Click a campaign to open its ad groups · source: client_google_campaigns · ${rangeLabel}`,
+      }
+    : level === 'adGroups'
+      ? {
+          columns: [{ label: 'Ad Group' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: 'Clicks', num: true }, { label: 'Conversions', num: true }, { label: 'Cost / Conv.', num: true }],
+          rows: adGroups.map(g => missionTableRow(g, [
+            { v: g.ad_group_name || g.ad_group_id, cls: 'tname', s: g.ad_group_name },
+            { v: <AdStatusPill status={g.status} />, s: g.status },
+            { v: money(g.cost), cls: 'num', s: g.cost },
+            { v: adsNumber(g.clicks), cls: 'num', s: g.clicks },
+            { v: adsNumber(g.conversions), cls: 'num', s: g.conversions },
+            { v: adCostPerConversion(g.cost, g.conversions), cls: 'num', s: g.cost_per_conversion || -1 },
+          ])),
+          rowKey: r => r.ad_group_id,
+          onRowClick: openAdGroup,
+          empty: 'no ad groups in this campaign for this range.',
+          note: `Click an ad group to open its ads · source: client_google_ad_groups · ${rangeLabel}`,
+        }
+      : {
+          columns: [{ label: 'Ad' }, { label: 'Type' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: 'Clicks', num: true }, { label: 'Conversions', num: true }, { label: 'Cost / Conv.', num: true }],
+          rows: ads.map(ad => missionTableRow(ad, [
+            { v: ad.ad_name || `Ad ${ad.ad_id}`, cls: 'tname', s: ad.ad_name },
+            { v: ad.ad_type || '—', cls: 'mono', s: ad.ad_type || '' },
+            { v: <AdStatusPill status={ad.status} />, s: ad.status },
+            { v: money(ad.cost), cls: 'num', s: ad.cost },
+            { v: adsNumber(ad.clicks), cls: 'num', s: ad.clicks },
+            { v: adsNumber(ad.conversions), cls: 'num', s: ad.conversions },
+            { v: adCostPerConversion(ad.cost, ad.conversions), cls: 'num', s: ad.cost_per_conversion || -1 },
+          ])),
+          rowKey: r => r.ad_id,
+          onRowClick: null,
+          empty: 'no ads in this ad group for this range.',
+          note: `source: client_google_ads · ${rangeLabel}`,
+        }
+
   return (
     <div className="v-pad">
-      <ResizableTable
-        id={`camp-${platform}`}
-        columns={[{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: '$/day', num: true }, { label: 'Clicks', num: true }, { label: 'Orders (CH)', num: true }, { label: 'Attr. Rev', num: true }, { label: 'True ROAS', num: true }]}
-        rows={rows.map(c => [
-          { v: c.campaign_name, cls: 'tname', s: c.campaign_name },
-          { v: c.stale ? <span className="pill dead">stale</span> : c.status === 'ENABLED' ? <span className="pill ok">enabled</span> : <span className="pill dead">paused</span>, s: c.stale ? 'stale' : c.status },
-          { v: money(c.spend), cls: 'num', s: c.spend },
-          { v: money(c.spendPerDay), cls: 'num', s: c.spendPerDay },
-          { v: c.clicks.toLocaleString(), cls: 'num', s: c.clicks },
-          { v: c.chOrders, cls: 'num', s: c.chOrders },
-          { v: money(c.chRevenue), cls: 'num', s: c.chRevenue },
-          { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`, s: c.trueRoas ?? -999 },
-        ])}
-        note="True ROAS = (UTM-attributed revenue − BOM COGS) ÷ spend · breakeven 1.00x · ask the terminal about any row."
-      />
+      <div className="campaign-drill-head">
+        <div>
+          <h3 className="v-h" style={{ margin: 0 }}>Google Ads</h3>
+          <p className="v-note">Campaign performance for {rangeLabel}. Drill into the underlying Google entities without leaving Mission Control.</p>
+        </div>
+        <div className="campaign-drill-path" aria-label="Google Ads hierarchy">
+          <span className={level === 'campaigns' ? 'on' : ''}>Campaigns</span><b>›</b><span className={level === 'adGroups' ? 'on' : ''}>Ad groups</span><b>›</b><span className={level === 'ads' ? 'on' : ''}>Ads</span>
+        </div>
+      </div>
+
+      {level !== 'campaigns' && (
+        <nav className="campaign-breadcrumb" aria-label="Campaign drill-down path">
+          <button onClick={backToCampaigns}>Campaigns</button>
+          <span>›</span>
+          {level === 'adGroups'
+            ? <strong>{selectedCampaign?.campaign_name}</strong>
+            : <button onClick={backToAdGroups}>{selectedCampaign?.campaign_name}</button>}
+          {level === 'ads' && <><span>›</span><strong>{selectedAdGroup?.ad_group_name}</strong></>}
+        </nav>
+      )}
+
+      {error && <p className="campaign-drill-error" role="alert">{error}</p>}
+      {loading
+        ? <p className="loading">loading {level === 'adGroups' ? 'ad groups' : 'ads'}…</p>
+        : table.rows.length
+          ? <ResizableTable id={tableId} columns={table.columns} rows={table.rows} rowKeyOf={table.rowKey} onRowClick={table.onRowClick} note={table.note} />
+          : <p className="loading">{table.empty}</p>}
     </div>
   )
+}
+
+function MetaCampaignFramework({ m, rangeLabel }) {
+  const rows = m.campaigns.filter(c => c.platform === 'Meta')
+  return (
+    <div className="v-pad">
+      <div className="campaign-drill-head">
+        <div>
+          <h3 className="v-h" style={{ margin: 0 }}>Meta Ads</h3>
+          <p className="v-note">Campaign performance for {rangeLabel}. The hierarchy is ready for ad-set and ad data once those entities are synced.</p>
+        </div>
+        <div className="campaign-drill-path" aria-label="Meta Ads target hierarchy">
+          <span className="on">Campaigns</span><b>›</b><span>Ad sets</span><b>›</b><span>Ads</span>
+        </div>
+      </div>
+
+      <section className="meta-framework" aria-labelledby="meta-framework-heading">
+        <div>
+          <p id="meta-framework-heading" className="meta-framework-title">Campaign level is live · ad-set and ad drill-down is pending</p>
+          <p className="meta-framework-copy">Meta currently syncs only <code>client_meta_campaigns</code>, so this tab can safely show campaign totals but cannot yet invent ad-set or ad rows.</p>
+        </div>
+        <ol className="meta-framework-list">
+          <li>Create RLS-protected daily <code>client_meta_ad_sets</code> and <code>client_meta_ads</code> tables keyed to their parent campaign/ad-set IDs.</li>
+          <li>Extend the Meta Graph sync to fetch <code>level=adset</code> and <code>level=ad</code> insights, plus current delivery, budget, targeting/placement, and creative metadata where the connection permits it.</li>
+          <li>Backfill the selected history, add the tables to the Schema/MCP allowlists, then enable this same campaign → ad set → ad drill-down.</li>
+        </ol>
+      </section>
+
+      {rows.length
+        ? <ResizableTable
+            id="meta-campaigns"
+            columns={[{ label: 'Campaign' }, { label: 'Status' }, { label: 'Spend', num: true }, { label: 'Clicks', num: true }, { label: 'Conversions', num: true }, { label: 'True ROAS', num: true }]}
+            rows={rows.map(c => missionTableRow(c, [
+              { v: c.campaign_name, cls: 'tname', s: c.campaign_name },
+              { v: <AdStatusPill status={c.status} stale={c.stale} />, s: c.stale ? 'stale' : c.status },
+              { v: money(c.spend), cls: 'num', s: c.spend },
+              { v: adsNumber(c.clicks), cls: 'num', s: c.clicks },
+              { v: adsNumber(c.conversions), cls: 'num', s: c.conversions },
+              { v: c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—', cls: `num strong ${c.trueRoas == null ? '' : c.trueRoas >= 1 ? 'good' : 'bad'}`, s: c.trueRoas ?? -1 },
+            ]))}
+            rowKeyOf={c => c.campaign_id}
+            note={`Campaign-level source: client_meta_campaigns · ${rangeLabel}`}
+          />
+        : <p className="loading">no Meta campaigns in this range.</p>}
+    </div>
+  )
+}
+
+function CampaignView({ m, platform, clientId, start, end, rangeLabel }) {
+  if (platform === 'Meta') return <MetaCampaignFramework m={m} rangeLabel={rangeLabel} />
+  return <GoogleCampaignHierarchy m={m} clientId={clientId} start={start} end={end} rangeLabel={rangeLabel} />
 }
 
 // Every column of client_orders — the picker can mirror the table 1:1.
@@ -3229,6 +3467,13 @@ const CSS = `
 .ide .v-pad{padding:18px 22px 26px;}
 .ide .v-h{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px;}
 .ide .v-note{color:var(--faint);font-size:11px;margin-top:12px;}
+.ide .campaign-drill-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+.ide .campaign-drill-head .v-note{margin:4px 0 0;}
+.ide .campaign-drill-path{display:flex;align-items:center;gap:7px;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);}
+.ide .campaign-drill-path b{font-size:14px;font-weight:400;color:var(--line);line-height:10px;}.ide .campaign-drill-path .on{color:var(--blue);}
+.ide .campaign-breadcrumb{display:flex;align-items:center;gap:7px;margin:0 0 12px;font-size:11.5px;min-width:0;}.ide .campaign-breadcrumb button{border:0;background:none;padding:0;color:var(--blue);font:inherit;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px;}.ide .campaign-breadcrumb button:hover{text-decoration:underline;}.ide .campaign-breadcrumb span{color:var(--faint);}.ide .campaign-breadcrumb strong{color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ide .campaign-drill-error{margin:0 0 12px;border:1px solid rgba(244,116,127,.3);border-radius:6px;background:rgba(244,116,127,.08);color:var(--red);font-size:11.5px;padding:8px 10px;}
+.ide .meta-framework{border:1px solid rgba(110,168,254,.26);border-radius:8px;background:rgba(110,168,254,.055);padding:12px 14px;margin:0 0 15px;max-width:880px;}.ide .meta-framework-title{font-size:12px;font-weight:800;color:var(--txt);margin:0 0 4px;}.ide .meta-framework-copy{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0;}.ide .meta-framework code{font-size:10.5px;color:var(--blue);background:rgba(110,168,254,.1);border-radius:3px;padding:1px 4px;}.ide .meta-framework-list{margin:10px 0 0;padding:9px 0 0 18px;border-top:1px solid rgba(110,168,254,.16);color:var(--dim);font-size:11px;line-height:1.55;}.ide .meta-framework-list li+li{margin-top:4px;}
 
 /* campaign builder sheet */
 .ide .cb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
