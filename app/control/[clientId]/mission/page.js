@@ -711,7 +711,7 @@ export default function BusinessIDE() {
   const problems = openTurns
 
   return (
-    <div className="ide">
+    <div className="ide mission-shell">
       <style>{CSS}</style>
 
       <div className="ide-cols">
@@ -3555,7 +3555,7 @@ function LineChart({ line, onDrill }) {
             <line x1={px(hover)} y1={P} x2={px(hover)} y2={H - P} stroke="rgba(255,255,255,.28)" strokeWidth="1" strokeDasharray="3 3" />
             {series.map((s, i) => s.values[hover] != null && (
               <circle key={i} cx={px(hover)} cy={py(s.values[hover])} r="3.5"
-                fill={SERIES_COLORS[i % SERIES_COLORS.length]} stroke="#202023" strokeWidth="1.5" />
+                fill={SERIES_COLORS[i % SERIES_COLORS.length]} stroke="var(--bg)" strokeWidth="1.5" />
             ))}
           </>}
         </svg>
@@ -3622,8 +3622,7 @@ function Markdown({ text }) {
 
 /* ══════════ IDE CSS ══════════ */
 const CSS = `
-.ide{--bg:#202023;--panel:#1a1a1c;--panel2:#2a2a2e;--line:rgba(255,255,255,.06);--txt:#e4e4e6;--dim:#9a9aa2;--faint:#6a6a72;--green:#3fd68f;--red:#f4747f;--amber:#e8b45a;--orange:#ee946c;--blue:#6ea8fe;--purple:#a78bfa;
-  position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;background:var(--bg);color:var(--txt);font:13px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+.ide{position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;}
 .ide-cols{display:flex;height:100%;}
 .ide .dim{color:var(--faint);} .ide .good{color:var(--green);} .ide .warn{color:var(--amber);} .ide .bad,.ide .badc{color:var(--red);}
 .ide .goodc{color:var(--green);} .ide .bluec{color:var(--blue);} .ide .purpc{color:var(--purple);} .ide .dimc{color:var(--faint);}
@@ -3900,7 +3899,7 @@ const CSS = `
 .ide .csg-node{cursor:pointer;transition:opacity .15s;}
 .ide .csg-node:hover circle{filter:brightness(1.15);}
 .ide .csg-label{fill:var(--dim);font-size:10px;font-weight:600;pointer-events:none;}
-.ide .csg-count{fill:#202023;font-size:10px;font-weight:800;pointer-events:none;}
+.ide .csg-count{fill:var(--bg);font-size:10px;font-weight:800;pointer-events:none;}
 .ide .csg-loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:12px;}
 .ide .cs-q{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 8px;margin-bottom:8px;outline:none;}
 .ide .cs-t{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;padding:4.5px 6px;cursor:pointer;text-align:left;border-radius:5px;}
@@ -4162,7 +4161,7 @@ const CSS = `
 .ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
 .ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;white-space:nowrap;}
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
-.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
+.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
 .ide .set-msg{font-size:11.5px;} .ide .set-msg.good{color:var(--green);} .ide .set-msg.bad{color:var(--red);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}

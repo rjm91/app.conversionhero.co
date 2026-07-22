@@ -362,7 +362,7 @@ export default function AgencyMission() {
   }
 
   return (
-    <div className="aide">
+    <div className="aide mission-shell">
       <style>{CSS}</style>
       {dragging && <div className="drag-overlay" />}
       <div className="aide-body">
@@ -614,7 +614,7 @@ const SV_CLUSTER = {
   funnel:  { label: 'Funnels',        color: '#e8b45a' },
   mission: { label: 'Agent brain',    color: '#a78bfa' },
   billing: { label: 'Auth & billing', color: '#5ad1e8' },
-  system:  { label: 'System',         color: '#8a93a8' },
+  system:  { label: 'System',         color: '#9a9aa2' },
 }
 const SV_CLUSTER_ORDER = ['agency', 'billing', 'funnel', 'client', 'mission', 'system']
 const svColor = (d) => (SV_CLUSTER[d] || SV_CLUSTER.system).color
@@ -1062,14 +1062,15 @@ function SchemaView() {
 }
 
 const CSS = `
-.aide{--bg:#0b0e14;--panel:#12161f;--panel2:#161b28;--line:rgba(255,255,255,.08);--txt:#dbe1ee;--dim:#8a93a8;--faint:#5a6377;--blue:#6ea8fe;--green:#3fd68f;--amber:#f2b45c;--red:#ff6b6b;
-  position:fixed;inset:var(--mt-top,36px) 0 0 0;background:var(--bg);color:var(--txt);font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
+.aide{position:fixed;inset:var(--mt-top,36px) 0 0 0;display:flex;flex-direction:column;overflow:hidden;}
 .aide-body{flex:1;display:flex;min-height:0;}
 .aide .ex{width:230px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
-.aide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
-.aide .resize-h:hover,.aide .resize-h:active{background:rgba(110,168,254,.45);}
-.aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
-.aide .resize-v:hover,.aide .resize-v:active{background:rgba(110,168,254,.45);}
+.aide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;transition:background .12s;}
+.aide .resize-h:hover{background:rgba(255,255,255,.10);}
+.aide .resize-h:active{background:rgba(255,255,255,.16);}
+.aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;transition:background .12s;}
+.aide .resize-v:hover{background:rgba(255,255,255,.10);}
+.aide .resize-v:active{background:rgba(255,255,255,.16);}
 /* Covers embedded frames during a drag so they don't swallow mouse events. */
 .aide .drag-overlay{position:fixed;inset:0;z-index:9999;}
 .aide .ex-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);}
@@ -1077,9 +1078,9 @@ const CSS = `
 .aide .ex-badge{font-size:8.5px;font-weight:800;letter-spacing:.06em;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;}
 .aide .ex-sec{margin-top:12px;}
 .aide .ex-h{font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:2px 14px;margin-bottom:2px;}
-.aide .ex-item{width:100%;display:flex;align-items:center;gap:9px;padding:5px 14px;background:none;border:none;color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
+.aide .ex-item{width:100%;display:flex;align-items:center;gap:9px;padding:5px 14px;background:none;border:0;border-left:2px solid transparent;color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
 .aide .ex-item:hover{background:rgba(255,255,255,.03);color:var(--txt);}
-.aide .ex-item.on{background:rgba(110,168,254,.1);color:var(--txt);}
+.aide .ex-item.on{background:rgba(110,168,254,.07);border-left-color:var(--blue);color:var(--txt);}
 .aide .ex-ic{width:16px;text-align:center;}
 .aide .ex-item{text-decoration:none;}
 .aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
@@ -1095,11 +1096,11 @@ const CSS = `
 .aide .burger:hover{color:var(--txt);}
 .aide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
 .aide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
-.aide .tab-x{color:var(--faint);font-size:14px;}.aide .tab-x:hover{color:var(--red);}
+.aide .tab-x{color:var(--faint);font-size:13px;}.aide .tab-x:hover{color:var(--txt);}
 .aide .tab-spacer{flex:1;}
 .aide .view{flex:1;overflow-y:auto;min-height:0;position:relative;}
 .aide .ag-frame{width:100%;height:100%;border:none;background:var(--bg);}
-.aide .v-pad{padding:20px 24px;}
+.aide .v-pad{padding:18px 24px 40px;}
 .aide .v-h{font-size:15px;font-weight:800;margin:0 0 4px;}
 .aide .v-h-row{display:flex;align-items:center;justify-content:space-between;}
 .aide .v-note{color:var(--dim);font-size:12px;margin:0 0 14px;max-width:760px;}
@@ -1130,7 +1131,7 @@ const CSS = `
 .aide .pill.sent{background:rgba(242,180,92,.16);color:var(--amber);}
 .aide .pill.won{background:rgba(63,214,143,.14);color:var(--green);}
 .aide .a-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;}
-.aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
+.aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
 .aide .a-btn:hover{border-color:var(--dim);}
 .aide .panel{min-height:120px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;position:relative;}
 .aide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
@@ -1167,7 +1168,7 @@ const CSS = `
 .aide .prompt-hint{padding:5px 4px 6px;font-size:11.5px;letter-spacing:.01em;user-select:none;color:var(--faint);}
 .aide .ph-mode{font-weight:700;}.aide .ph-mode.warn{color:var(--amber);}
 .aide .ph-agent{color:var(--blue);font-weight:700;}
-.aide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 4px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
+.aide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 10px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
 .aide .statusbar .seg{padding:0 10px;border-right:1px solid var(--line);display:flex;gap:6px;align-items:center;height:100%;}
 .aide .statusbar .seg.last{border-right:none;gap:6px;}
 .aide .seg b{font-variant-numeric:tabular-nums;}
@@ -1181,7 +1182,6 @@ const CSS = `
 
 /* ── Schema view (ERD canvas + live data) — prefixed .sv-* so it never
       collides with the agency IDE's own classes ── */
-.aide{--purple:#a78bfa;}
 .aide .sv-root{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;}
 .aide .sv-toolbar{display:flex;align-items:center;gap:14px;height:32px;flex-shrink:0;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11px;overflow-x:auto;white-space:nowrap;}
 .aide .sv-title{font-weight:800;color:var(--txt);}
