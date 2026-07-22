@@ -406,8 +406,8 @@ export default function ClientLayout({ children }) {
   // destinations live inside the IDE's explorer (APPS section) and ⌘P.
   if (activeKey === 'mission') {
     return (
-      <div className="flex flex-col h-screen bg-[#0b0e14]" style={{ '--mt-top': '36px' }}>
-        <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#0b0e14] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
+      <div className="flex flex-col h-screen bg-[#1a1a1c]" style={{ '--mt-top': '36px' }}>
+        <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#1a1a1c] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
           {/* Client switcher — same dropdown as the classic nav, IDE-skinned.
               Only agency admins get the dropdown, so only they get the button. */}
           <div ref={el => dropdownRefs.current['brand'] = el} className="relative h-full flex items-center">
@@ -427,7 +427,7 @@ export default function ClientLayout({ children }) {
               </span>
             )}
             {openDropdown === 'brand' && isAgencyAdmin && (
-              <div className="absolute top-full left-1 mt-1 bg-[#161b28] border border-white/[0.07] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
+              <div className="absolute top-full left-1 mt-1 bg-[#26262a] border border-white/[0.07] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
                 <Link href="/control" onClick={() => setOpenDropdown(null)}
                   className="flex items-center gap-2 px-2.5 py-2 text-[#8a93a8] text-[12px] rounded-md hover:text-[#dbe1ee] hover:bg-white/5 transition">
                   <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
