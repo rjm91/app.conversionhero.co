@@ -85,7 +85,7 @@ export default function BusinessIDE() {
   const [splitPct, setSplitPct] = useState(45)     // right pane width %
   const [qpOpen, setQpOpen] = useState(false)      // ⌘P quick-open
   const [qpQ, setQpQ] = useState('')
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [panelOpen, setPanelOpen] = useState(false) // closed on load — open via sidebar Terminal/Problems or ctrl+`
   const [panelTab, setPanelTab] = useState('terminal') // 'terminal' | 'problems'
   const [sideOpen, setSideOpen] = useState(true)
   // Resizable panes — drag the dividers like a real IDE; sizes persist.
