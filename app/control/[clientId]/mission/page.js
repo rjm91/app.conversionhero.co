@@ -56,6 +56,15 @@ const TREE = [
   ]},
 ]
 const VIEW_TITLES = { overview: 'PnL', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+// Tabs the client can never lose (structural). Everything else is toggleable in
+// Settings; DEFAULT_CLIENT_HIDDEN applies until an agency admin sets an explicit list.
+const CORE_TABS = new Set(['overview', 'schema', 'settings'])
+const TOGGLEABLE_TABS = [
+  { id: 'google', label: 'Google Ads' }, { id: 'meta', label: 'Meta Ads' },
+  { id: 'campaign', label: 'Campaign Builder' }, { id: 'manual', label: 'Manual' },
+  { id: 'ledger', label: 'Ledger' }, { id: 'policies', label: 'Policies' }, { id: 'memory', label: 'Memory' },
+]
+const DEFAULT_CLIENT_HIDDEN = ['manual', 'ledger', 'policies', 'memory']
 
 export default function BusinessIDE() {
   const { clientId } = useParams()
@@ -201,6 +210,26 @@ export default function BusinessIDE() {
   }, [data, labelOverride, roasOverride, cacOverride, aovOverride])
   const isAgencyRole = viewer?.role?.startsWith('agency')
   const canEditRoas = isAgencyRole || viewer?.role === 'client_admin'
+  // Client-visible tab control: agency sees everything; a client (real client
+  // role OR the agency "view-as" preview) only sees tabs not hidden in settings.
+  const [viewAs, setViewAs] = useState(false)
+  useEffect(() => {
+    const read = () => { try { setViewAs(localStorage.getItem('ca_view_as_client') === '1') } catch { /* noop */ } }
+    read(); window.addEventListener('ca:viewas', read); window.addEventListener('storage', read)
+    return () => { window.removeEventListener('ca:viewas', read); window.removeEventListener('storage', read) }
+  }, [])
+  const isClientView = !isAgencyRole || viewAs
+  const hiddenTabs = data?.settings?.mission_hidden_tabs || DEFAULT_CLIENT_HIDDEN
+  const visibleTree = useMemo(() => TREE.map(sec => ({
+    ...sec,
+    items: sec.items.filter(it => !isClientView || CORE_TABS.has(it.id) || !hiddenTabs.includes(it.id)),
+  })).filter(sec => sec.items.length), [isClientView, hiddenTabs])
+  const saveMissionTabs = useCallback(async (hidden) => {
+    setData(d => d ? { ...d, settings: { ...(d.settings || {}), mission_hidden_tabs: hidden } } : d)
+    try {
+      await fetch('/api/client-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, settings: { mission_hidden_tabs: hidden } }) })
+    } catch { /* stays applied locally; next load re-reads */ }
+  }, [clientId])
   const saveCostPerLabel = useCallback(async (v) => {
     const val = Math.max(0, Number(v) || 0)
     setLabelOverride(val) // optimistic — P&L updates instantly
@@ -681,7 +710,7 @@ export default function BusinessIDE() {
               <span>{data?.clientName || clientId}</span>
               <span className="exp-badge">ECOM</span>
             </div>
-            {TREE.map(sec => (
+            {visibleTree.map(sec => (
               <div key={sec.section}>
                 <div className="exp-sec">{sec.section}</div>
                 {sec.items.map(it => (
@@ -733,7 +762,7 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
                 onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
             </div>
             {splitTab && <>
@@ -747,7 +776,7 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing}
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
                   onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
               </div>
             </>}
@@ -992,7 +1021,7 @@ function PnlHistoryView() {
 }
 
 /* ══════════ Settings — per-client ops config (Slack digest, cost/label) ══════════ */
-function SettingsView({ canEdit, clientName }) {
+function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
   const { clientId } = useParams()
   const [settings, setSettings] = useState(null)
   const [webhook, setWebhook] = useState('')
@@ -1095,9 +1124,30 @@ function SettingsView({ canEdit, clientName }) {
     </div>
   )
   const canTest = !!settings.slack_pnl_webhook || /^https:\/\/hooks\.slack\.com\//.test(webhook.trim())
+  const hidden = new Set(hiddenTabs || [])
+  const toggleTab = (id) => {
+    const next = hidden.has(id) ? [...hidden].filter(x => x !== id) : [...hidden, id]
+    onSaveMissionTabs && onSaveMissionTabs(next)
+  }
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
+
+      <div className="set-card">
+        <div className="set-h">Client-visible tabs</div>
+        <p className="v-note" style={{ marginTop: 0 }}>Agency-only. Toggle a tab off to hide it from this client’s users and your “view-as” preview. PnL, Schema and Settings always stay visible.</p>
+        {TOGGLEABLE_TABS.map(t => {
+          const on = !hidden.has(t.id)
+          return (
+            <label key={t.id} className="set-row toggle" style={{ justifyContent: 'space-between' }}>
+              <span className="set-l" style={{ margin: 0 }}>{t.label} <span className={on ? 'good' : 'a-dim'} style={{ fontSize: 10, marginLeft: 6 }}>{on ? 'visible to client' : 'hidden (agency only)'}</span></span>
+              <button type="button" role="switch" aria-checked={on} onClick={() => toggleTab(t.id)}
+                className={`tabsw ${on ? 'on' : ''}`}><span /></button>
+            </label>
+          )
+        })}
+      </div>
+
       <div className="set-card">
         <div className="set-h">Daily P&amp;L → Slack digest</div>
         <p className="v-note" style={{ marginTop: 0 }}>Post {clientName}’s locked Daily P&amp;L to a Slack channel every morning at 7:00 AM Phoenix (yesterday’s completed day). Create an <b>Incoming Webhook</b> in Slack for the target channel, then paste its URL below.</p>
@@ -1342,13 +1392,13 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'pnl_history') return <PnlHistoryView />
-  if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} />
+  if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} onSaveAov={onSaveAov} aovDefaults={aovDefaults} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
@@ -3596,6 +3646,10 @@ const CSS = `
 .ide .set-h{font-size:13px;font-weight:800;color:var(--txt);margin-bottom:4px;}
 .ide .set-row{display:flex;flex-direction:column;gap:4px;margin-top:12px;}
 .ide .set-row.toggle{flex-direction:row;align-items:center;gap:8px;cursor:pointer;}
+.ide .tabsw{position:relative;width:38px;height:21px;border-radius:11px;border:none;background:var(--line);cursor:pointer;flex-shrink:0;transition:background .15s;}
+.ide .tabsw.on{background:var(--green);}
+.ide .tabsw span{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:transform .15s;}
+.ide .tabsw.on span{transform:translateX(17px);}
 .ide .set-l{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--faint);}
 .ide .set-in{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:6px 9px;outline:none;}
 .ide .set-in:focus{border-color:var(--blue);}
