@@ -444,7 +444,8 @@ export default function ClientLayout({ children }) {
               </div>
             )}
           </div>
-          <span className="text-[#5a6377] text-[11px] ml-1">mission</span>
+          {isEcom && <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-1.5">Ecom</span>}
+          <span className="text-[#5a6377] text-[11px] ml-1.5">mission</span>
           <div className="ml-auto flex items-center gap-2">
             <Link href={`/control/${clientId}/dashboard`}
               onClick={() => { try { localStorage.removeItem(`prefer_mission_${clientId}`) } catch { /* noop */ } }}

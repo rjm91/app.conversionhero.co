@@ -707,10 +707,6 @@ export default function BusinessIDE() {
         {/* ── Explorer ── */}
         {sideOpen && (
           <div className="explorer" style={{ width: sideW }}>
-            <div className="exp-head">
-              <span>{data?.clientName || clientId}</span>
-              <span className="exp-badge">ECOM</span>
-            </div>
             {visibleTree.map(sec => (
               <div key={sec.section}>
                 <div className="exp-sec">{sec.section}</div>
