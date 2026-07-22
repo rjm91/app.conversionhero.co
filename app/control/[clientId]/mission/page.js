@@ -94,6 +94,7 @@ export default function BusinessIDE() {
   // Resizable panes — drag the dividers like a real IDE; sizes persist.
   const [sideW, setSideW] = useState(218)
   const [panelH, setPanelH] = useState(300)
+  const viewRowRef = useRef(null)
   const dragRef = useRef(null) // {type:'side'|'panel'}
   useEffect(() => {
     try {
@@ -112,7 +113,8 @@ export default function BusinessIDE() {
         const w = Math.min(480, Math.max(140, e.clientX))
         setSideW(w); localStorage.setItem('ide_sideW', String(w))
       } else if (d.type === 'vsplit') {
-        const pct = Math.min(70, Math.max(20, (window.innerWidth - e.clientX) / window.innerWidth * 100))
+        const deltaPct = (e.clientX - d.startX) / d.trackW * 100
+        const pct = Math.min(70, Math.max(20, d.startPct - deltaPct))
         setSplitPct(pct); localStorage.setItem('ide_splitPct', String(Math.round(pct)))
       } else {
         const h = Math.min(window.innerHeight - 220, Math.max(120, window.innerHeight - e.clientY - 30))
@@ -131,7 +133,16 @@ export default function BusinessIDE() {
   }, [])
   const startDrag = (type) => (e) => {
     e.preventDefault()
-    dragRef.current = { type }
+    if (type === 'vsplit') {
+      const trackW = viewRowRef.current?.getBoundingClientRect().width
+      if (!trackW) return
+      // Track movement relative to where the divider was grabbed. Using the
+      // full window here makes the divider jump because the editor starts to
+      // the right of the explorer sidebar.
+      dragRef.current = { type, startX: e.clientX, startPct: splitPct, trackW }
+    } else {
+      dragRef.current = { type }
+    }
     document.body.style.cursor = type === 'panel' ? 'row-resize' : 'col-resize'
     document.body.style.userSelect = 'none'
   }
@@ -755,7 +766,7 @@ export default function BusinessIDE() {
               onClick={() => setSplitTab(s => s ? null : (tabs.find(t => t !== activeTab) || activeTab))}>⫿</button>
           </div>
 
-          <div className={`view-row ${splitTab ? 'issplit' : ''}`}>
+          <div ref={viewRowRef} className={`view-row ${splitTab ? 'issplit' : ''}`}>
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
@@ -3685,7 +3696,9 @@ const CSS = `
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .ov-zoom button:hover{color:var(--txt);}
-.ide .ov-zoom button.on{background:var(--blue);color:#fff;}
+/* active zoom = client's brand primary (--blue-500 is set on :root as "r g b"
+   channels by the layout; falls back to the default blue when no brand color) */
+.ide .ov-zoom button.on{background:rgb(var(--blue-500, 110 168 254));color:#fff;}
 .ide .ov-nav button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:13px;padding:3px 10px;cursor:pointer;}
 .ide .ov-nav button:disabled{opacity:.35;cursor:default;}
 .ide .ov-nav button:not(:disabled):hover{border-color:var(--blue);}
