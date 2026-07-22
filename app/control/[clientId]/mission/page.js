@@ -2200,7 +2200,7 @@ function SourceDrill({ days, drill, m, onClose }) {
             <div className="ov-drill-h">
               <a className="mono ov-tlink" href={`/control/${clientId}/mission?focus=${set.table}${dFrom === dTo ? `&day=${dFrom}` : ''}`} target="_blank" rel="noreferrer"
                 title="Open this table in your Schema browser, filtered to this day">public.{set.table} ↗</a>
-              <span className="dim"> · {set.note} · {dayLabel} · {set.rows.length} rows · live Supabase read (RLS)</span>
+              <span className="dim"> · {set.note} · {dayLabel} · {set.rows.length} rows · live database read (RLS)</span>
               {hits.length > 0 && <span className="ov-hi-note" title={hiTitle}>⌖ {hits.join(', ')} = source of “{drill.label}”</span>}
             </div>
             {set.rows.length === 0 ? <p className="a-dim" style={{ padding: '4px 0 10px' }}>no rows for this day.</p> : (
