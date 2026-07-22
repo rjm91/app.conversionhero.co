@@ -68,12 +68,13 @@ const PAID_CHANNELS = new Set(['Google', 'Meta', 'TikTok'])
 export function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
 
 function rollupOrders(orderList, cogsByOrder, adSpend) {
-  let revenue = 0, discounts = 0, refunds = 0, netRevenue = 0, cogs = 0
+  let revenue = 0, grossRevenue = 0, discounts = 0, refunds = 0, netRevenue = 0, cogs = 0
   const netByChannel = {}
   for (const o of orderList) {
     const money = orderMoney(o)
     const channel = deriveChannel(o)
     revenue += Number(o.sale_amount) || 0
+    grossRevenue += money.gross     // true merchandise gross = subtotal + discounts (excl. tax/shipping)
     discounts += money.discounts
     refunds += money.refunds
     netRevenue += money.net
@@ -83,7 +84,7 @@ function rollupOrders(orderList, cogsByOrder, adSpend) {
   const count = orderList.length
   const contribution = revenue - cogs
   return {
-    count, revenue, discounts, refunds, netRevenue, cogs, contribution, adSpend,
+    count, revenue, grossRevenue, discounts, refunds, netRevenue, cogs, contribution, adSpend,
     netProfit: contribution - adSpend,
     aov: count ? revenue / count : 0,
     trueAov: count ? contribution / count : 0,
@@ -1386,7 +1387,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     { label: 'Orders', value: fmtNum(visibleVm.count), info: 'Visible organic (non-paid) orders in this range.' },
     { label: 'True AOV', value: cogs.hasCogs ? fmt$2(visibleVm.trueAov) : fmt$2(visibleVm.aov), ch: cogs.hasCogs, info: 'Average contribution per visible organic order (revenue − real COGS ÷ orders).' },
   ] : [
-    { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(visibleVm.revenue), info: view === 'paid' ? 'Revenue from visible paid channels (Google + Meta) in this range.' : 'Total Shopify sales across visible channels.' },
+    { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(view === 'paid' ? visibleVm.revenue : visibleVm.grossRevenue), info: view === 'paid' ? 'Revenue from visible paid channels (Google + Meta) in this range.' : 'Merchandise gross = subtotal + discounts (before discounts, excludes tax & shipping). Same basis as the mission P&L.' },
     ...(view === 'all' ? [
       { label: 'Discounts', value: fmt$(-visibleVm.discounts), tone: 'cost', info: 'Merchandise discounts applied to visible orders in this range. Discounts are already reflected in each order subtotal.' },
       { label: 'Refunds', value: fmt$(-visibleVm.refunds), tone: 'cost', info: 'Merchandise refunded from visible orders in this range.' },
