@@ -3804,7 +3804,7 @@ const CSS = `
 .ide .rc-day{height:26px;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
 .ide .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border-radius:6px;}
 .ide .rc-out{visibility:hidden;}
-.ide .rc-in{background:rgba(var(--blue-500,110 168 254),.22);color:var(--txt);}
+.ide .rc-in{background:rgb(var(--blue-500,110 168 254) / .22);color:var(--txt);}
 .ide .rc-edge{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border-radius:6px;}
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
