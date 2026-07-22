@@ -760,7 +760,7 @@ export default function BusinessIDE() {
               <ViewBody id={activeTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                 campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security'} />
             </div>
             {splitTab && <>
               <div className="resize-h" onMouseDown={startDrag('vsplit')} title="drag to resize" />
@@ -774,7 +774,7 @@ export default function BusinessIDE() {
                 <ViewBody id={splitTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
                   campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} />
+                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security'} />
               </div>
             </>}
           </div>
@@ -1389,7 +1389,7 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask }) {
+function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask, showClientId }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
@@ -1398,7 +1398,7 @@ function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies,
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} onSaveAov={onSaveAov} aovDefaults={aovDefaults} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
-  if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} />
+  if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} showClientId={showClientId} />
   if (id === 'google') return <CampaignView m={m} platform="Google" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
   if (id === 'meta') return <CampaignView m={m} platform="Meta" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
@@ -2234,7 +2234,7 @@ function SourceDrill({ days, drill, m, onClose }) {
 // read with the signed-in user's own supabase session, so RLS tenant policies
 // enforce the boundary; a client login can never see another tenant's rows.
 // Deep-linked from the Overview drills (?focus=<table>&day=YYYY-MM-DD).
-function ClientSchemaView({ tz }) {
+function ClientSchemaView({ tz, showClientId }) {
   const { clientId } = useParams()
   const [model, setModel] = useState(null)
   const [err, setErr] = useState(null)
@@ -2329,7 +2329,12 @@ function ClientSchemaView({ tz }) {
   const meta = model.tables.find(t => t.name === table)
   const rels = meta ? model.edges.filter(e => e.from === table || e.to === table) : []
   const shown = model.tables.filter(t => !q || t.name.includes(q.toLowerCase()))
-  const cols = rows.list.length ? Object.keys(rows.list[0]) : []
+  // client_id: security admins see it pinned leftmost; everyone else never sees it.
+  let cols = rows.list.length ? Object.keys(rows.list[0]) : []
+  if (cols.includes('client_id')) {
+    cols = cols.filter(c => c !== 'client_id')
+    if (showClientId) cols = ['client_id', ...cols]
+  }
   const fmt = (v) => v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : typeof v === 'number' ? Number(Number(v).toFixed(2)).toLocaleString() : String(v)
 
   if (view === 'graph') {
@@ -2360,7 +2365,7 @@ function ClientSchemaView({ tz }) {
               <span className="dim"> · {meta.columns.length} columns · {rows.total == null ? '…' : `${rows.total.toLocaleString()} rows`}</span>
             </div>
             <div className="cs-cols">
-              {meta.columns.map(c => (
+              {meta.columns.filter(c => showClientId || c.name !== 'client_id').map(c => (
                 <span key={c.name} className={`cs-col ${c.key.includes('PK') ? 'pk' : ''} ${c.key.includes('FK') ? 'fk' : ''}`}
                   title={`${c.type}${c.nullable ? ' · nullable' : ''}${c.ref ? ` · FK → ${c.ref.table}.${c.ref.col}` : ''}`}>
                   {c.name}{c.ref && <i onClick={() => setTable(c.ref.table)}> → {c.ref.table}</i>}
