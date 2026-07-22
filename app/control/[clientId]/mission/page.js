@@ -3523,10 +3523,12 @@ const CSS = `
 .ide .explorer{flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
 
 /* resize handles — invisible until hover, like VS Code */
-.ide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
-.ide .resize-h:hover,.ide .resize-h:active{background:rgba(110,168,254,.45);}
-.ide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
-.ide .resize-v:hover,.ide .resize-v:active{background:rgba(110,168,254,.45);}
+.ide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;transition:background .12s;}
+.ide .resize-h:hover{background:rgba(255,255,255,.10);}
+.ide .resize-h:active{background:rgba(255,255,255,.16);}
+.ide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;transition:background .12s;}
+.ide .resize-v:hover{background:rgba(255,255,255,.10);}
+.ide .resize-v:active{background:rgba(255,255,255,.16);}
 .ide .exp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:800;font-size:12.5px;border-bottom:1px solid var(--line);}
 .ide .exp-badge{font-size:9px;font-weight:800;color:var(--green);background:rgba(63,214,143,.12);border-radius:4px;padding:1px 6px;}
 .ide .exp-sec{font-size:9.5px;font-weight:800;letter-spacing:.09em;color:var(--faint);padding:14px 14px 4px;}
