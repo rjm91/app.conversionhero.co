@@ -42,15 +42,8 @@ const TREE = [
     { id: 'google', icon: '🔍', label: 'Google Ads' },
     { id: 'meta', icon: '📘', label: 'Meta Ads' },
   ]},
-  { section: 'REVENUE', items: [
-    { id: 'orders', icon: '🛍', label: 'Orders' },
-    { id: 'klaviyo', icon: '✉️', label: 'Klaviyo' },
-  ]},
   { section: 'BUILD', items: [
     { id: 'campaign', icon: '🎯', label: 'Campaign Builder' },
-  ]},
-  { section: 'RECORDS', items: [
-    { id: 'pnl_history', icon: '📒', label: 'Daily P&L History' },
   ]},
   { section: 'DOCS', items: [
     { id: 'manual', icon: '📖', label: 'Manual' },
