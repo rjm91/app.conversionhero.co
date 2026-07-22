@@ -1685,13 +1685,15 @@ function RangeCalendar({ value, onPick, onClose }) {
     return () => document.removeEventListener('mousedown', close)
   }, [onClose])
 
-  const lo = anchor && hover ? (anchor <= hover ? anchor : hover) : (value && !anchor ? value.start : anchor)
-  const hi = anchor && hover ? (anchor <= hover ? hover : anchor) : (value && !anchor ? value.end : anchor)
+  // After the first click, the anchor fills and the span extends live to the
+  // hovered day. Before a new pick starts, preview the currently saved range.
+  const lo = anchor ? (hover && hover < anchor ? hover : anchor) : (value?.start || null)
+  const hi = anchor ? (hover && hover > anchor ? hover : anchor) : (value?.end || null)
   const clickDay = (s) => {
-    if (!anchor) { setAnchor(s); setHover(s); return }
-    if (s === anchor) { setAnchor(null); return }
+    if (!anchor) { setAnchor(s); setHover(s); return } // first click = start
+    if (s === anchor) { setAnchor(null); setHover(null); return } // click start again = undo
     const [a, b] = anchor <= s ? [anchor, s] : [s, anchor]
-    onPick(a, b)
+    onPick(a, b) // second click = end → commit
   }
   const Month = ({ base }) => {
     const y = base.getFullYear(), mo = base.getMonth()
@@ -3801,11 +3803,12 @@ const CSS = `
 .ide .rc-mh{text-align:center;font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px;}
 .ide .rc-grid{display:grid;grid-template-columns:repeat(7,26px);gap:1px;}
 .ide .rc-dow{text-align:center;font-size:9px;color:var(--faint);height:16px;line-height:16px;}
-.ide .rc-day{height:26px;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
-.ide .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border-radius:6px;}
+.ide .ov-nav .rc-day{height:26px;padding:0;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
+.ide .ov-nav .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border:none;border-radius:6px;}
 .ide .rc-out{visibility:hidden;}
-.ide .rc-in{background:rgb(var(--blue-500,110 168 254) / .22);color:var(--txt);}
-.ide .rc-edge{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border-radius:6px;}
+.ide .ov-nav .rc-day.rc-in,.ide .ov-nav .rc-day.rc-in:hover{background:rgb(var(--blue-500,110 168 254) / .22);color:var(--txt);border:none;border-radius:0;}
+.ide .ov-nav .rc-day.rc-edge,.ide .ov-nav .rc-day.rc-edge:hover{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border:none;border-radius:6px;}
+.ide .ov-nav .rc-day:focus-visible{outline:2px solid rgb(var(--blue-500,110 168 254));outline-offset:1px;}
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .ov-zoom button:hover{color:var(--txt);}
