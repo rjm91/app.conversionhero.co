@@ -1772,6 +1772,51 @@ function AovKey({ thr, hist, canEdit, onSave }) {
   )
 }
 
+// Shield Score — one 0–100 daily health number rolled up from the KPIs that
+// already carry red/yellow/green dials. Each KPI is scored off its own
+// thresholds (40 at red, 85 at green, extrapolated past), then weighted;
+// missing KPIs (no spend, unset dial) drop out and the weights re-normalize.
+function bandScore(value, red, green, higherBetter) {
+  if (value == null || red == null || green == null || red === green) return null
+  const t = higherBetter ? (value - red) / (green - red) : (red - value) / (red - green)
+  return Math.max(5, Math.min(100, 40 + t * 45))
+}
+function computeShieldScore({ troas, cac, aov, marginPct }, thr, cacThr, aovThr) {
+  const parts = [
+    { key: 'True ROAS', w: 0.35, s: bandScore(troas, thr.red, thr.green, true) },
+    { key: 'CAC', w: 0.25, s: bandScore(cac, cacThr.red, cacThr.green, false) },
+    { key: 'AOV', w: 0.20, s: aovThr ? bandScore(aov, aovThr.red, aovThr.green, true) : null },
+    { key: 'Net margin', w: 0.20, s: marginPct == null ? null : Math.max(5, Math.min(100, 40 + (marginPct / 0.30) * 45)) },
+  ].filter(p => p.s != null)
+  if (!parts.length) return null
+  const wsum = parts.reduce((a, p) => a + p.w, 0)
+  const score = Math.round(parts.reduce((a, p) => a + p.s * (p.w / wsum), 0))
+  const grade = score >= 85 ? 'Excellent' : score >= 70 ? 'Strong' : score >= 55 ? 'Steady' : score >= 40 ? 'Watch' : 'Alert'
+  const cls = score >= 70 ? 'good' : score >= 55 ? 'warn' : 'bad'
+  return { score, grade, cls, parts: parts.map(p => ({ ...p, weight: Math.round((p.w / wsum) * 100) })) }
+}
+function ShieldScore({ result }) {
+  if (!result) return null
+  const { score, grade, cls, parts } = result
+  return (
+    <div className={`shield ${cls}`}>
+      <span className="shield-emoji">🛡</span>
+      <div className="shield-mid">
+        <div className="shield-lbl">Shield Score</div>
+        <div className="shield-num">{score}<span className="shield-grade">· {grade}</span></div>
+      </div>
+      <span className="ov-i" onClick={e => e.stopPropagation()}>
+        <span className="ov-i-g">ⓘ</span>
+        <span className="ov-pop">
+          <b>Shield Score</b>
+          <span className="ov-pop-desc">Daily health from your dialed KPIs — 40 at each red line, 85 at green.</span>
+          {parts.map(p => <span key={p.key}><i className={`kd ${p.s >= 70 ? 'g' : p.s >= 55 ? 'y' : 'r'}`} />{p.key} — {Math.round(p.s)}/100 <span className="a-dim">({p.weight}%)</span></span>)}
+        </span>
+      </span>
+    </div>
+  )
+}
+
 // Static color-key note (hover only, no editor) — explains a fixed color rule.
 function KeyNote({ title, lines, desc }) {
   return (
@@ -1911,6 +1956,14 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
   const aovKey = aovThr ? <AovKey thr={aovThr} hist={aovDefaults} canEdit={canEditRoas} onSave={onSaveAov} /> : null
   // Sign-based lines color themselves; the note tells the reader the rule.
   const signNote = (desc) => <KeyNote title="Color rule" desc={desc} lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
+  // Shield Score — composite daily health from the dialed KPIs (paid basis).
+  const _paidNet = r.meta.net + r.google.net, _paidCogs = r.meta.cogs + r.google.cogs, _paidOrders = r.meta.orders + r.google.orders
+  const shield = computeShieldScore({
+    troas: spend > 0 ? (_paidNet - _paidCogs) / spend : null,
+    cac: spend > 0 && _paidOrders > 0 ? spend / _paidOrders : null,
+    aov: r.orders > 0 ? r.net / r.orders : null,
+    marginPct: r.net > 0 ? (cm - shipCost) / r.net : null,
+  }, thr, cacThr, aovThr)
   const Line = ({ k, v, cls, dk, info }) => (
     <button className={`ov-line ${dk ? 'on' : ''} ${drill && dk && drill.line === dk.line ? 'open' : ''}`}
       onClick={dk ? () => toggle({ ...dk, label: k }) : undefined} disabled={!dk} type="button">
@@ -1961,7 +2014,8 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
     <div className="v-pad ov-pad">
       <div className="ov-top">
         <div>
-          {partial && <p className="v-note warn" style={{ margin: 0 }}>⚠ partial — data loaded from {rangeStart}; widen the range for the full period</p>}
+          <ShieldScore result={shield} />
+          {partial && <p className="v-note warn" style={{ margin: '6px 0 0' }}>⚠ partial — data loaded from {rangeStart}; widen the range for the full period</p>}
         </div>
         <div className="ov-nav">
           <LastUpdated at={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
@@ -3550,6 +3604,16 @@ const CSS = `
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
 .ide .ov-pad{padding:36px 52px 60px;}
 .ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+/* Shield Score card */
+.ide .shield{display:inline-flex;align-items:center;gap:11px;padding:9px 14px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);}
+.ide .shield.good{border-color:rgba(63,214,143,.35);box-shadow:inset 0 0 0 1px rgba(63,214,143,.06);}
+.ide .shield.warn{border-color:rgba(232,180,90,.35);}
+.ide .shield.bad{border-color:rgba(244,116,127,.4);}
+.ide .shield-emoji{font-size:22px;line-height:1;}
+.ide .shield-lbl{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+.ide .shield-num{font-size:24px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
+.ide .shield.good .shield-num{color:var(--green);} .ide .shield.warn .shield-num{color:var(--amber);} .ide .shield.bad .shield-num{color:var(--red);}
+.ide .shield-grade{font-size:12px;font-weight:600;color:var(--dim);margin-left:6px;}
 .ide .ov-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ide .ov-upd{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-right:8px;white-space:nowrap;}
 .ide .ov-upd.stale{color:var(--amber);}
