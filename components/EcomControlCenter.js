@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetch-all'
 import { isAgencyAdmin } from '../lib/roles'
 import { buildCostBook, buildSkuIndex, orderCogs } from '../lib/cogs'
+import { orderMoney } from '../lib/mission/pnl'
 import MetaConnectionModal from './MetaConnectionModal'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
@@ -65,6 +66,32 @@ export function deriveChannel(o) {
 // a paid-media metric, so it must only ever measure paid revenue vs ad spend.
 const PAID_CHANNELS = new Set(['Google', 'Meta', 'TikTok'])
 export function isPaidOrder(o) { return PAID_CHANNELS.has(deriveChannel(o)) }
+
+function rollupOrders(orderList, cogsByOrder, adSpend) {
+  let revenue = 0, grossRevenue = 0, discounts = 0, refunds = 0, netRevenue = 0, cogs = 0
+  const netByChannel = {}
+  for (const o of orderList) {
+    const money = orderMoney(o)
+    const channel = deriveChannel(o)
+    revenue += Number(o.sale_amount) || 0
+    grossRevenue += money.gross     // true merchandise gross = subtotal + discounts (excl. tax/shipping)
+    discounts += money.discounts
+    refunds += money.refunds
+    netRevenue += money.net
+    cogs += cogsByOrder[o.lead_id]?.cogs || 0
+    netByChannel[channel] = (netByChannel[channel] || 0) + money.net
+  }
+  const count = orderList.length
+  const contribution = revenue - cogs
+  return {
+    count, revenue, grossRevenue, discounts, refunds, netRevenue, cogs, contribution, adSpend,
+    netProfit: contribution - adSpend,
+    aov: count ? revenue / count : 0,
+    trueAov: count ? contribution / count : 0,
+    costPerOrder: count ? adSpend / count : 0,
+    netByChannel: Object.entries(netByChannel).sort((a, b) => b[1] - a[1]),
+  }
+}
 
 // Local calendar date (YYYY-MM-DD) in the viewer's machine timezone — NOT UTC.
 // Using toISOString() here would roll "today" to tomorrow every evening for
@@ -1210,51 +1237,58 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const viewOrders = useMemo(() => (
     view === 'all' ? orders : orders.filter(o => isPaidOrder(o) === (view === 'paid'))
   ), [orders, view])
-  const vm = useMemo(() => {
-    let revenue = 0, vc = 0
-    const byChannel = {}
-    for (const o of viewOrders) {
-      const amt = Number(o.sale_amount) || 0
-      revenue += amt; vc += cogsByOrder[o.lead_id]?.cogs || 0
-      const ch = deriveChannel(o); byChannel[ch] = (byChannel[ch] || 0) + amt
-    }
-    const contribution = revenue - vc
-    const adSpend = view === 'organic' ? 0 : m.adSpend
-    const count = viewOrders.length
-    return {
-      count, revenue, cogs: vc, contribution, adSpend,
-      netProfit: contribution - adSpend,
-      aov: count ? revenue / count : 0,
-      trueAov: count ? contribution / count : 0,
-      costPerOrder: count ? adSpend / count : 0,
-      byChannel: Object.entries(byChannel).sort((a, b) => b[1] - a[1]),
-    }
-  }, [viewOrders, cogsByOrder, view, m.adSpend])
+  const vm = useMemo(() => rollupOrders(viewOrders, cogsByOrder, view === 'organic' ? 0 : m.adSpend), [viewOrders, cogsByOrder, view, m.adSpend])
 
-  // Channel focus: a clicked Revenue-by-Channel bar scopes the Overview header
-  // KPIs to that single channel. Ad spend only exists for paid platforms —
-  // organic/owned channels (Klaviyo, Direct, …) carry $0.
+  // The × control excludes a channel from the whole Overview, not just its
+  // bar. The platform's spend and clicks come out with its attributed orders.
+  const visibleOrders = useMemo(() => viewOrders.filter(o => !hiddenChannels.has(deriveChannel(o))), [viewOrders, hiddenChannels])
+  const visibleAdSpend = useMemo(() => {
+    if (view === 'organic') return 0
+    return (hiddenChannels.has('Google') ? 0 : m.googleSpend) + (hiddenChannels.has('Meta') ? 0 : m.metaSpend)
+  }, [view, hiddenChannels, m.googleSpend, m.metaSpend])
+  const visibleClicks = useMemo(() => {
+    if (view === 'organic') return 0
+    return (hiddenChannels.has('Google') ? 0 : m.googleClicks) + (hiddenChannels.has('Meta') ? 0 : m.metaClicks)
+  }, [view, hiddenChannels, m.googleClicks, m.metaClicks])
+  const visibleVm = useMemo(() => rollupOrders(visibleOrders, cogsByOrder, visibleAdSpend), [visibleOrders, cogsByOrder, visibleAdSpend])
+  const visiblePaid = useMemo(() => {
+    let revenue = 0, cogs = 0
+    for (const o of visibleOrders) {
+      if (!isPaidOrder(o)) continue
+      revenue += Number(o.sale_amount) || 0
+      cogs += cogsByOrder[o.lead_id]?.cogs || 0
+    }
+    const contribution = revenue - cogs
+    return { revenue, cogs, contribution, trueRoas: visibleAdSpend ? contribution / visibleAdSpend : null }
+  }, [visibleOrders, cogsByOrder, visibleAdSpend])
+
+  // Channel focus: a clicked Net Revenue by Channel bar scopes the entire
+  // Overview (header, efficiency, and order detail) to one channel.
   const focus = useMemo(() => {
     if (!channelFocus) return null
-    let revenue = 0, fc = 0
+    let netRevenue = 0, discounts = 0, refunds = 0, fc = 0
     const list = []
     for (const o of viewOrders) {
       if (deriveChannel(o) !== channelFocus) continue
-      revenue += Number(o.sale_amount) || 0
+      const money = orderMoney(o)
+      netRevenue += money.net
+      discounts += money.discounts
+      refunds += money.refunds
       fc += cogsByOrder[o.lead_id]?.cogs || 0
       list.push(o)
     }
     const adSpend = { Google: m.googleSpend, Meta: m.metaSpend, TikTok: m.tiktokSpend }[channelFocus] || 0
-    const contribution = revenue - fc
+    const clicks = { Google: m.googleClicks, Meta: m.metaClicks, TikTok: m.tiktokClicks }[channelFocus] || 0
+    const contribution = netRevenue - fc
     const count = list.length
     return {
-      revenue, cogs: fc, count, adSpend, contribution, list,
+      netRevenue, discounts, refunds, cogs: fc, count, adSpend, clicks, contribution, list,
       netProfit: contribution - adSpend,
       trueRoas: adSpend ? contribution / adSpend : null,
-      aov: count ? revenue / count : 0,
+      aov: count ? netRevenue / count : 0,
       trueAov: count ? contribution / count : 0,
     }
-  }, [channelFocus, viewOrders, cogsByOrder, m.googleSpend, m.metaSpend, m.tiktokSpend])
+  }, [channelFocus, viewOrders, cogsByOrder, m.googleSpend, m.metaSpend, m.tiktokSpend, m.googleClicks, m.metaClicks, m.tiktokClicks])
 
   // Daily time series for the trend charts: spend/impr/clicks/conv from the raw
   // per-day campaign rows, plus CH conv/revenue from orders bucketed by order
@@ -1324,9 +1358,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
   const metaSynced   = useMemo(() => metaCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [metaCampaigns])
   const tiktokSynced = useMemo(() => tiktokCampaigns.reduce((mx, c) => (c.synced_at || '') > mx ? c.synced_at : mx, ''), [tiktokCampaigns])
 
-  // Bars scale against the biggest VISIBLE channel, so excluding a whale
-  // (Meta, Google…) re-stretches the rest for comparison.
-  const visChannels = vm.byChannel.filter(([name]) => !hiddenChannels.has(name))
+  // Net-revenue bars scale against the biggest visible channel. Excluding a
+  // channel also updates the Overview totals, so the bar and its KPIs agree.
+  const visChannels = vm.netByChannel.filter(([name]) => !hiddenChannels.has(name))
   const channelMax = Math.max(1, ...visChannels.map(([, v]) => v))
   const hideChannel = (name) => {
     setHiddenChannels(prev => new Set([...prev, name]))
@@ -1334,31 +1368,51 @@ export default function EcomControlCenter({ clientId, clientName }) {
   }
   const showChannel = (name) => setHiddenChannels(prev => { const s = new Set(prev); s.delete(name); return s })
 
-  // Overview KPIs adapt to the Paid / Organic / All lens — or, when a channel
-  // bar is focused, to that single revenue channel.
+  // Overview KPIs adapt to the Paid / Organic / All lens, visible-channel
+  // exclusions, or a single focused channel.
   const overviewKpis = focus ? [
-    { label: `${channelFocus} Revenue`, value: fmt$(focus.revenue), info: `Revenue from orders attributed to ${channelFocus} in this range.` },
+    { label: `${channelFocus} Net Revenue`, value: fmt$(focus.netRevenue), info: `Net revenue from orders attributed to ${channelFocus}: merchandise subtotal minus refunds. Discounts are already reflected in subtotal.` },
+    { label: 'Discounts', value: fmt$(-focus.discounts), tone: 'cost', info: `Merchandise discounts applied to ${channelFocus} orders in this range. Discounts are already reflected in each order subtotal.` },
+    { label: 'Refunds', value: fmt$(-focus.refunds), tone: 'cost', info: `Merchandise refunded from ${channelFocus} orders in this range.` },
     { label: 'COGS', value: cogs.hasCogs ? fmt$(focus.cogs) : '—', tone: 'cost', info: `Real cost of goods sold on ${channelFocus} orders — BOM materials × quantities per SKU.` },
     { label: 'Ad Spend', value: fmt$(focus.adSpend), tone: 'cost', info: PAID_CHANNELS.has(channelFocus) ? `${channelFocus} ad spend in this range.` : `${channelFocus} is an organic/owned channel — no ad spend attached.` },
-    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(focus.netProfit) : '—', ch: cogs.hasCogs && focus.netProfit >= 0, tone: cogs.hasCogs && focus.netProfit < 0 ? 'bad' : undefined, info: `${channelFocus} revenue − COGS − ${channelFocus} ad spend.` },
-    { label: 'True ROAS', value: (cogs.hasCogs && focus.trueRoas != null) ? fmtRoas(focus.trueRoas) : '—', ch: true, info: `${channelFocus} contribution (revenue − COGS) ÷ ${channelFocus} ad spend.` },
+    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(focus.netProfit) : '—', ch: cogs.hasCogs && focus.netProfit >= 0, tone: cogs.hasCogs && focus.netProfit < 0 ? 'bad' : undefined, info: `${channelFocus} net revenue − COGS − ${channelFocus} ad spend.` },
+    { label: 'True ROAS', value: (cogs.hasCogs && focus.trueRoas != null) ? fmtRoas(focus.trueRoas) : '—', ch: true, info: `${channelFocus} contribution (net revenue − COGS) ÷ ${channelFocus} ad spend.` },
     { label: 'Orders', value: fmtNum(focus.count), info: `Orders attributed to ${channelFocus} in this range.` },
-    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(focus.trueAov) : fmt$2(focus.aov), ch: cogs.hasCogs, info: `Average contribution per ${channelFocus} order (revenue − real COGS ÷ orders).` },
+    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(focus.trueAov) : fmt$2(focus.aov), ch: cogs.hasCogs, info: `Average contribution per ${channelFocus} order (net revenue − real COGS ÷ orders).` },
   ] : view === 'organic' ? [
-    { label: 'Organic Revenue', value: fmt$(vm.revenue), info: 'Revenue from non-paid channels (Direct, Klaviyo, organic, Draft Order, …). No ad spend attached.' },
-    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
-    { label: 'Margin', value: cogs.hasCogs ? fmt$(vm.contribution) : '—', ch: cogs.hasCogs && vm.contribution >= 0, tone: cogs.hasCogs && vm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on organic orders = revenue − real COGS. Pure margin, no ad cost.' },
-    { label: 'Orders', value: fmtNum(vm.count), info: 'Organic (non-paid) orders in this range.' },
-    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), ch: cogs.hasCogs, info: 'Average contribution per organic order (revenue − real COGS ÷ orders).' },
+    { label: 'Organic Revenue', value: fmt$(visibleVm.revenue), info: 'Revenue from visible non-paid channels (Direct, Klaviyo, organic, Draft Order, …). No ad spend attached.' },
+    { label: 'COGS', value: cogs.hasCogs ? fmt$(visibleVm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
+    { label: 'Margin', value: cogs.hasCogs ? fmt$(visibleVm.contribution) : '—', ch: cogs.hasCogs && visibleVm.contribution >= 0, tone: cogs.hasCogs && visibleVm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on visible organic orders = revenue − real COGS. Pure margin, no ad cost.' },
+    { label: 'Orders', value: fmtNum(visibleVm.count), info: 'Visible organic (non-paid) orders in this range.' },
+    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(visibleVm.trueAov) : fmt$2(visibleVm.aov), ch: cogs.hasCogs, info: 'Average contribution per visible organic order (revenue − real COGS ÷ orders).' },
   ] : [
-    { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(vm.revenue), info: view === 'paid' ? 'Revenue from paid channels (Google + Meta) in this range.' : 'Total Shopify sales across every channel (paid, email, organic, direct).' },
-    { label: 'COGS', value: cogs.hasCogs ? fmt$(vm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Revenue − COGS − ad spend = net profit.' },
-    { label: 'Ad Spend', value: fmt$(vm.adSpend), tone: 'cost', info: 'Blended Google + Meta ad spend. Organic/email carry no ad cost.' },
-    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(vm.netProfit) : '—', ch: cogs.hasCogs && vm.netProfit >= 0, tone: cogs.hasCogs && vm.netProfit < 0 ? 'bad' : undefined, info: 'Net profit = gross revenue − real COGS − ad spend (before other operating costs). Green = profit, red = loss.' },
-    { label: 'True ROAS', value: (cogs.hasCogs && paid.trueRoas != null) ? fmtRoas(paid.trueRoas) : '—', ch: true, info: 'Paid-only, margin-aware ROAS = paid contribution (paid revenue − COGS) ÷ ad spend. Organic & direct sales are excluded — ROAS measures advertising only.' },
-    { label: 'Orders', value: fmtNum(vm.count), info: view === 'paid' ? 'Orders attributed to paid channels.' : 'All orders across every channel.' },
-    { label: 'Attributed', value: fmtPct(m.attrRate), ch: true, info: 'Share of orders matched to a Google/Meta campaign ID — first-party attribution.' },
+    { label: view === 'paid' ? 'Paid Revenue' : 'Gross Revenue', value: fmt$(view === 'paid' ? visibleVm.revenue : visibleVm.grossRevenue), info: view === 'paid' ? 'Revenue from visible paid channels (Google + Meta) in this range.' : 'Merchandise gross = subtotal + discounts (before discounts, excludes tax & shipping). Same basis as the mission P&L.' },
+    ...(view === 'all' ? [
+      { label: 'Discounts', value: fmt$(-visibleVm.discounts), tone: 'cost', info: 'Merchandise discounts applied to visible orders in this range. Discounts are already reflected in each order subtotal.' },
+      { label: 'Refunds', value: fmt$(-visibleVm.refunds), tone: 'cost', info: 'Merchandise refunded from visible orders in this range.' },
+    ] : []),
+    { label: 'COGS', value: cogs.hasCogs ? fmt$(visibleVm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Revenue − COGS − ad spend = net profit.' },
+    { label: 'Ad Spend', value: fmt$(visibleVm.adSpend), tone: 'cost', info: 'Blended spend from visible Google and Meta channels. Organic/email carry no ad cost.' },
+    { label: 'Net Profit', value: cogs.hasCogs ? fmt$(visibleVm.netProfit) : '—', ch: cogs.hasCogs && visibleVm.netProfit >= 0, tone: cogs.hasCogs && visibleVm.netProfit < 0 ? 'bad' : undefined, info: 'Net profit = gross revenue − real COGS − ad spend (before other operating costs). Green = profit, red = loss.' },
+    { label: 'True ROAS', value: (cogs.hasCogs && visiblePaid.trueRoas != null) ? fmtRoas(visiblePaid.trueRoas) : '—', ch: true, info: 'Visible paid-only, margin-aware ROAS = paid contribution (paid revenue − COGS) ÷ visible ad spend. Organic & direct sales are excluded — ROAS measures advertising only.' },
+    { label: 'Orders', value: fmtNum(visibleVm.count), info: view === 'paid' ? 'Visible orders attributed to paid channels.' : 'All visible orders across every channel.' },
+    { label: 'Attributed', value: fmtPct(visibleVm.count ? visibleOrders.filter(o => (o.utm_campaign || '').trim()).length / visibleVm.count : 0), ch: true, info: 'Share of visible orders matched to a Google/Meta campaign ID — first-party attribution.' },
   ]
+
+  const efficiencyOrders = focus ? focus.list : visibleOrders
+  const efficiencyRevenue = focus ? focus.netRevenue : visibleVm.revenue
+  const efficiencyCogs = focus ? focus.cogs : visibleVm.cogs
+  const efficiencyCount = focus ? focus.count : visibleVm.count
+  const efficiencySpend = focus ? focus.adSpend : visibleVm.adSpend
+  const efficiencyClicks = focus ? focus.clicks : visibleClicks
+  const efficiencyAov = focus ? focus.aov : visibleVm.aov
+  const efficiencyTrueAov = focus ? focus.trueAov : visibleVm.trueAov
+  const efficiencyUsesNet = !!focus
+  const efficiencyTrackedOrders = efficiencyOrders.filter(o => (o.utm_campaign || '').trim())
+  const efficiencyTrackedRevenue = efficiencyTrackedOrders.reduce((sum, o) => sum + (efficiencyUsesNet ? orderMoney(o).net : (Number(o.sale_amount) || 0)), 0)
+  const efficiencyConvRate = efficiencyClicks ? efficiencyCount / efficiencyClicks : 0
+  const efficiencyBasis = efficiencyUsesNet ? 'net revenue' : 'revenue'
 
   // ── Metric drill-downs: click a metric → see its source rows ──
   const orderRows = (list) => list.map(o => [o.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(o.sale_amount)])
@@ -1367,6 +1421,12 @@ export default function EcomControlCenter({ clientId, clientName }) {
     columns: ['Order', 'Date', 'Channel', 'Amount'],
     rows: orderRows(list),
     footer: ['Total', '', '', fmt$2(list.reduce((s, o) => s + (Number(o.sale_amount) || 0), 0))],
+  })
+  const drillScopedOrders = (title, value, formula, list, useNet = false) => setDrill({
+    title, value, formula,
+    columns: ['Order', 'Date', 'Channel', useNet ? 'Net revenue' : 'Amount'],
+    rows: list.map(o => [o.order_name || o.lead_id, o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—', deriveChannel(o), fmt$2(useNet ? orderMoney(o).net : o.sale_amount)]),
+    footer: ['Total', '', '', fmt$2(list.reduce((sum, o) => sum + (useNet ? orderMoney(o).net : (Number(o.sale_amount) || 0)), 0))],
   })
 
   const googleColor = isDark ? '#ffffff' : '#171717' // white in dark, near-black in light
@@ -1486,18 +1546,17 @@ export default function EcomControlCenter({ clientId, clientName }) {
             kpis={overviewKpis}>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Revenue by Channel</p>
-                {vm.byChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : visChannels.map(([name, val]) => (
-                  // ✕ excludes the channel from the list (bars rescale to what's
-                  // left). Bar click → focus this channel (toggle): header KPIs
-                  // swap to its numbers and its orders list expands below.
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Net Revenue by Channel <InfoTip text="Net revenue = merchandise subtotal minus refunds. Discounts are already reflected in the subtotal, so they are not subtracted twice. Excludes tax and shipping." /></p>
+                {vm.netByChannel.length === 0 ? <p className="text-sm text-gray-400">No orders in range.</p> : visChannels.map(([name, val]) => (
+                  // ✕ excludes the channel from the Overview (bars, header and
+                  // efficiency all recalculate). Bar click focuses one channel.
                   <div key={name} className="flex items-center group/row">
-                    <button onClick={() => hideChannel(name)} title={`Hide ${name} — compare the rest without it`}
+                    <button onClick={() => hideChannel(name)} title={`Exclude ${name} from the Overview totals`}
                       className="w-5 h-5 mr-0.5 flex items-center justify-center rounded text-[11px] leading-none text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition flex-shrink-0">
                       ✕
                     </button>
                     <button onClick={() => setChannelFocus(f => f === name ? null : name)}
-                      title={channelFocus === name ? 'Clear channel focus' : `Show ${name} metrics + orders`}
+                      title={channelFocus === name ? 'Clear channel focus' : `Show ${name} net-revenue metrics + orders`}
                       className={`flex-1 flex items-center gap-3 py-1.5 rounded-md px-1 transition cursor-pointer text-left group min-w-0 ${channelFocus === name ? 'bg-gray-50 dark:bg-white/[0.04] ring-1 ring-blue-500/40' : `hover:bg-gray-50 dark:hover:bg-white/[0.03] ${channelFocus ? 'opacity-50 hover:opacity-100' : ''}`}`}>
                       <span className="w-24 text-xs text-gray-500 dark:text-gray-400 truncate group-hover:text-gray-700 dark:group-hover:text-gray-200">{name}</span>
                       <div className="flex-1 h-2 rounded bg-gray-100 dark:bg-[#161b30] overflow-hidden">
@@ -1509,9 +1568,9 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 ))}
                 {hiddenChannels.size > 0 && (
                   <div className="flex items-center flex-wrap gap-1.5 mt-2.5">
-                    <span className="text-[10px] uppercase tracking-wide font-bold text-gray-400 dark:text-gray-500">Hidden:</span>
-                    {vm.byChannel.filter(([name]) => hiddenChannels.has(name)).map(([name, val]) => (
-                      <button key={name} onClick={() => showChannel(name)} title={`Show ${name} again`}
+                    <span className="text-[10px] uppercase tracking-wide font-bold text-gray-400 dark:text-gray-500">Excluded:</span>
+                    {vm.netByChannel.filter(([name]) => hiddenChannels.has(name)).map(([name, val]) => (
+                      <button key={name} onClick={() => showChannel(name)} title={`Include ${name} in the Overview again`}
                         className="inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full pl-2 pr-2.5 py-0.5 bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-white/[0.12] transition">
                         <span className="w-2 h-2 rounded-full flex-shrink-0 opacity-60" style={{ background: channelColor(name) }} />
                         {name} · {fmt$(val)}
@@ -1529,14 +1588,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Efficiency</p>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), ch: cogs.hasCogs, info: 'True AOV = average CONTRIBUTION per order (revenue − real COGS) ÷ orders. The margin each order actually leaves on the table.',
-                      onClick: () => drillOrders('True AOV', cogs.hasCogs ? fmt$2(vm.trueAov) : fmt$2(vm.aov), cogs.hasCogs ? `Avg contribution per order = (revenue − COGS) ÷ orders = (${fmt$(vm.revenue)} − ${fmt$(vm.cogs)}) ÷ ${vm.count} = ${fmt$2(vm.trueAov)}` : `Average order value = ${fmt$(vm.revenue)} ÷ ${vm.count}`, viewOrders) },
-                    { label: 'Cost / Order', value: fmt$2(vm.costPerOrder), info: 'Ad spend ÷ orders in view. In the Organic lens this is $0 (no ad cost).',
-                      onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(vm.costPerOrder), formula: `Ad spend ÷ orders = ${fmt$(vm.adSpend)} ÷ ${vm.count} = ${fmt$2(vm.costPerOrder)}`, columns: ['Source', 'Value'], rows: [['Ad spend', fmt$2(vm.adSpend)], ['Orders', String(vm.count)]], footer: ['Cost / Order', fmt$2(vm.costPerOrder)] }) },
-                    { label: 'Conversion Rate', value: fmtPct(m.convRate), info: 'All orders ÷ blended ad clicks (Google + Meta). A rough orders-per-paid-click ratio; the numerator includes non-paid orders, so it runs high.',
-                      onClick: () => setDrill({ title: 'Conversion Rate', value: fmtPct(m.convRate), formula: `All orders ÷ blended ad clicks = ${m.orderCount} ÷ ${fmtNum(m.clicks)} = ${fmtPct(m.convRate)}`, columns: ['Source', 'Value'], rows: [['Google clicks', fmtNum(m.googleClicks)], ['Meta clicks', fmtNum(m.metaClicks)], ['Total clicks', fmtNum(m.clicks)], ['Orders', String(m.orderCount)]], footer: ['Conversion rate', fmtPct(m.convRate)] }) },
-                    { label: 'Tracked Revenue (CH)', value: fmt$(m.trackedRevenue), ch: true, info: "Revenue from orders matched to a Google/Meta campaign ID — ConversionHero's first-party attributed revenue.",
-                      onClick: () => drillOrders('Tracked Revenue (CH)', fmt$(m.trackedRevenue), 'Orders matched to a Google/Meta campaign ID (first-party attribution).', orders.filter(o => (o.utm_campaign || '').trim())) },
+                    { label: 'True AOV', value: cogs.hasCogs ? fmt$2(efficiencyTrueAov) : fmt$2(efficiencyAov), ch: cogs.hasCogs, info: `True AOV = average contribution per order (${efficiencyBasis} − real COGS) ÷ orders. It follows the selected channel or excluded-channel scope.`,
+                      onClick: () => drillScopedOrders('True AOV', cogs.hasCogs ? fmt$2(efficiencyTrueAov) : fmt$2(efficiencyAov), cogs.hasCogs ? `Avg contribution per order = (${efficiencyBasis} − COGS) ÷ orders = (${fmt$(efficiencyRevenue)} − ${fmt$(efficiencyCogs)}) ÷ ${efficiencyCount} = ${fmt$2(efficiencyTrueAov)}` : `Average order value = ${fmt$(efficiencyRevenue)} ÷ ${efficiencyCount} = ${fmt$2(efficiencyAov)}`, efficiencyOrders, efficiencyUsesNet) },
+                    { label: 'Cost / Order', value: fmt$2(efficiencyCount ? efficiencySpend / efficiencyCount : 0), info: 'Scoped ad spend ÷ scoped orders. It follows the selected channel or excluded-channel scope.',
+                      onClick: () => setDrill({ title: 'Cost / Order', value: fmt$2(efficiencyCount ? efficiencySpend / efficiencyCount : 0), formula: `Scoped ad spend ÷ scoped orders = ${fmt$(efficiencySpend)} ÷ ${efficiencyCount} = ${fmt$2(efficiencyCount ? efficiencySpend / efficiencyCount : 0)}`, columns: ['Source', 'Value'], rows: [['Ad spend', fmt$2(efficiencySpend)], ['Orders', String(efficiencyCount)]], footer: ['Cost / Order', fmt$2(efficiencyCount ? efficiencySpend / efficiencyCount : 0)] }) },
+                    { label: 'Conversion Rate', value: fmtPct(efficiencyConvRate), info: 'Scoped orders ÷ paid clicks. It follows the selected channel or excluded-channel scope.',
+                      onClick: () => setDrill({ title: 'Conversion Rate', value: fmtPct(efficiencyConvRate), formula: `Scoped orders ÷ scoped paid clicks = ${efficiencyCount} ÷ ${fmtNum(efficiencyClicks)} = ${fmtPct(efficiencyConvRate)}`, columns: ['Source', 'Value'], rows: [[focus ? `${channelFocus} clicks` : 'Visible Google + Meta clicks', fmtNum(efficiencyClicks)], ['Orders', String(efficiencyCount)]], footer: ['Conversion rate', fmtPct(efficiencyConvRate)] }) },
+                    { label: 'Tracked Revenue (CH)', value: fmt$(efficiencyTrackedRevenue), ch: true, info: `Revenue from scoped orders matched to a Google/Meta campaign ID — ConversionHero's first-party attribution.${efficiencyUsesNet ? ' Uses net revenue for the selected channel.' : ''}`,
+                      onClick: () => drillScopedOrders('Tracked Revenue (CH)', fmt$(efficiencyTrackedRevenue), `Scoped orders matched to a Google/Meta campaign ID (first-party attribution).${efficiencyUsesNet ? ' Net revenue basis.' : ''}`, efficiencyTrackedOrders, efficiencyUsesNet) },
                   ].map(({ label, value, ch, info, onClick }) => (
                     <button key={label} onClick={onClick} className="text-left bg-gray-50 dark:bg-[#161b30] rounded-lg px-3.5 py-3 hover:ring-2 hover:ring-blue-500/30 hover:bg-gray-100 dark:hover:bg-[#1b2238] transition cursor-pointer">
                       <div className={`text-xl font-bold ${ch ? 'text-[#34CC93]' : 'text-gray-900 dark:text-white'}`}>{value}</div>
@@ -1553,7 +1612,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#0d1020] border-b border-gray-100 dark:border-white/[0.06]">
                   <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: channelColor(channelFocus) }} />
                   <span className="text-sm font-bold text-gray-900 dark:text-white">{channelFocus} orders</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{focus.count} · {fmt$(focus.revenue)}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{focus.count} · {fmt$(focus.netRevenue)} net</span>
                   <button onClick={() => setChannelFocus(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
                 </div>
                 {focus.list.length === 0 ? <p className="p-4 text-sm text-gray-400">No orders in range.</p> : (
@@ -1563,7 +1622,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                         <th className="px-4 py-2 font-semibold">Order</th>
                         <th className="px-4 py-2 font-semibold">Date</th>
                         {cogs.hasCogs && <th className="px-4 py-2 font-semibold text-right">COGS</th>}
-                        <th className="px-4 py-2 font-semibold text-right">Amount</th>
+                        <th className="px-4 py-2 font-semibold text-right">Net revenue</th>
                       </tr></thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-white/[0.06]">
                         {focus.list.map(o => (
@@ -1571,14 +1630,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
                             <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{o.order_name || o.lead_id}</td>
                             <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{o.created_at ? new Date(o.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}</td>
                             {cogs.hasCogs && <td className="px-4 py-2 text-right text-amber-500 dark:text-amber-400">{fmt$2(cogsByOrder[o.lead_id]?.cogs || 0)}</td>}
-                            <td className="px-4 py-2 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(orderMoney(o).net)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot><tr className="border-t border-gray-200 dark:border-white/10 font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-[#0d1020]">
                         <td className="px-4 py-2">Total</td><td />
                         {cogs.hasCogs && <td className="px-4 py-2 text-right text-amber-500 dark:text-amber-400">{fmt$2(focus.cogs)}</td>}
-                        <td className="px-4 py-2 text-right">{fmt$2(focus.revenue)}</td>
+                        <td className="px-4 py-2 text-right">{fmt$2(focus.netRevenue)}</td>
                       </tr></tfoot>
                     </table>
                   </div>
