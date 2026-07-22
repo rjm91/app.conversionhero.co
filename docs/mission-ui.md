@@ -125,6 +125,22 @@ labels may step down to 9–12 px. Numeric values use tabular figures.
 - Default content padding is 18 px vertically and 24 px horizontally.
 - Empty states are quiet, specific, and placed where results will appear.
 
+### Schema surfaces
+
+- Client and agency Schema views expose the same two modes: **Tables** for
+  browsing live rows and **Schema map** for understanding relationships.
+- Tables is the default mode. Keep the mode switch visible in both modes and
+  preserve the selected table when switching between them.
+- A table browser includes search, row counts, a selected-table state, column
+  visibility controls, and a horizontally scrollable live-row grid.
+- Agency Schema groups its larger table set by operational domain. The group
+  color may identify the domain, but selection remains the agency accent.
+- The agency map may use a larger clustered, pannable canvas than the client
+  map. Zoom, fit, reset, draggable positions, and selected-table details remain
+  available without changing the underlying table selection.
+- Schema data is read-only in Mission. Agency rows may use privileged reads but
+  must remain role-gated, table-whitelisted, paginated, and redact secrets.
+
 ## Accessibility and quality bar
 
 - Interactive elements must be keyboard reachable and expose a visible focus

@@ -672,18 +672,25 @@ function SchemaView() {
   const [model, setModel] = useState(null)      // { tables, edges, counts }
   const [err, setErr] = useState(null)
   const [counts, setCounts] = useState(null)     // { table: rowCount|null }
+  const [mode, setMode] = useState('table')      // ShieldTech parity: table browser first, map on demand
+  const [tableQuery, setTableQuery] = useState('')
+  const [domainFilter, setDomainFilter] = useState('all')
   const [pos, setPos] = useState({})             // name -> {x,y}
   const [view, setView] = useState({ x: 0, y: 0, k: 0.72 })
   const [focus, setFocus] = useState(null)
   const [hoverEdge, setHoverEdge] = useState(null)
   const [rowState, setRowState] = useState({})   // table -> { rows, columns, total, loading, error, offset }
+  const [hiddenCols, setHiddenCols] = useState(new Set())
+  const [colsOpen, setColsOpen] = useState(false)
 
   const vpRef = useRef(null)
+  const colsRef = useRef(null)
   const drag = useRef(null)
   const didFit = useRef(false)
+  const didSelect = useRef(false)
   // Deep-link support: /control/mission?focus=<table>&day=YYYY-MM-DD&client_id=chXXX
   // (the client-mission drill headers link here). linkFilter scopes the row
-  // browser; pendingFocus centers the table once layout exists.
+  // browser; pendingFocus selects the requested table once the model exists.
   const [linkFilter, setLinkFilter] = useState(null)
   const pendingFocusRef = useRef(null)
   useEffect(() => {
@@ -694,6 +701,13 @@ function SchemaView() {
       if (focus0) pendingFocusRef.current = focus0
     } catch { /* no params */ }
   }, [])
+
+  useEffect(() => { setHiddenCols(new Set()); setColsOpen(false) }, [focus])
+  useEffect(() => {
+    const close = (e) => { if (colsRef.current && !colsRef.current.contains(e.target)) setColsOpen(false) }
+    if (colsOpen) document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [colsOpen])
 
   /* ── load the parsed schema + live row counts ── */
   useEffect(() => {
@@ -744,17 +758,21 @@ function SchemaView() {
   }, [model, meta])
 
   useEffect(() => {
-    if (didFit.current || !model || !meta || !Object.keys(pos).length || !vpRef.current) return
+    if (mode !== 'map' || didFit.current || !model || !meta || !Object.keys(pos).length || !vpRef.current) return
     const r = vpRef.current.getBoundingClientRect()
     setView(svFitView(pos, model.tables, meta.heights, r.width, r.height))
     didFit.current = true
-  }, [pos, model, meta])
+  }, [mode, pos, model, meta])
   useEffect(() => {
-    if (!didFit.current || !meta || !pendingFocusRef.current) return
-    const t = pendingFocusRef.current
-    if (meta.byName[t]) { pendingFocusRef.current = null; focusTable(t, true) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta, pos])
+    if (!model || !meta || didSelect.current) return
+    didSelect.current = true
+    const requested = pendingFocusRef.current
+    pendingFocusRef.current = null
+    const first = (requested && meta.byName[requested] ? requested : null)
+      || model.tables.find(t => t.name === 'agency')?.name
+      || model.tables[0]?.name
+    if (first) setFocus(first)
+  }, [model, meta])
 
   const related = useMemo(() => {
     if (!model) return null
@@ -810,7 +828,7 @@ function SchemaView() {
   /* ── pan / zoom / drag ── */
   useEffect(() => {
     const el = vpRef.current
-    if (!el) return
+    if (!el || mode !== 'map') return
     const onWheel = (e) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
@@ -823,7 +841,7 @@ function SchemaView() {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     const move = (e) => {
@@ -881,6 +899,44 @@ function SchemaView() {
   const focusT = focus && meta ? meta.byName[focus] : null
   const focusRows = focus ? rowState[focus] : null
 
+  // The agency schema is much larger than a client schema, so the table rail is
+  // grouped by domain and can be narrowed without changing the map model.
+  const orderedTables = useMemo(() => {
+    if (!model) return []
+    return [...model.tables].sort((a, b) => {
+      const da = SV_CLUSTER_ORDER.indexOf(a.domain), db = SV_CLUSTER_ORDER.indexOf(b.domain)
+      return (da - db) || a.name.localeCompare(b.name)
+    })
+  }, [model])
+  const tableGroups = useMemo(() => {
+    const needle = tableQuery.trim().toLowerCase()
+    return SV_CLUSTER_ORDER.map(domain => ({
+      domain,
+      tables: orderedTables.filter(t => (domainFilter === 'all' || t.domain === domain) && t.domain === domain && (!needle || t.name.toLowerCase().includes(needle))),
+    })).filter(g => g.tables.length)
+  }, [orderedTables, tableQuery, domainFilter])
+  const focusLinks = useMemo(() => {
+    if (!focus || !meta) return []
+    const seen = new Set()
+    return [...(meta.outbound[focus] || []).map(e => ({ ...e, other: e.to, direction: 'out' })),
+      ...(meta.inbound[focus] || []).map(e => ({ ...e, other: e.from, direction: 'in' }))]
+      .filter(e => { const k = `${e.direction}:${e.other}`; if (seen.has(k)) return false; seen.add(k); return true })
+  }, [focus, meta])
+  const allRowCols = focusRows?.columns?.length
+    ? focusRows.columns
+    : (focusT?.columns || []).map(c => c.name)
+  const shownRowCols = allRowCols.filter(c => !hiddenCols.has(c))
+  const fmtCell = (v) => {
+    if (v == null || v === '') return ''
+    if (typeof v === 'object') return JSON.stringify(v)
+    if (typeof v === 'number') return Number(Number(v).toFixed(4)).toLocaleString()
+    return String(v)
+  }
+  const openTableMode = () => {
+    if (!focus && orderedTables[0]) setFocus(orderedTables[0].name)
+    setMode('table')
+  }
+
   const bounds = useMemo(() => {
     let maxx = 1000, maxy = 800
     if (meta) for (const n in pos) { maxx = Math.max(maxx, pos[n].x + SV_CARD_W); maxy = Math.max(maxy, pos[n].y + (meta.heights[n] || 120)) }
@@ -890,22 +946,159 @@ function SchemaView() {
   return (
     <div className="sv-root">
       <div className="sv-toolbar">
-        <span className="sv-title">schema.graph</span>
+        <span className="sv-title">schema.{mode === 'table' ? 'tables' : 'map'}</span>
+        <div className="sv-mode" role="tablist" aria-label="Schema view">
+          <button className={mode === 'table' ? 'on' : ''} onClick={openTableMode} role="tab" aria-selected={mode === 'table'}>▦ Tables</button>
+          <button className={mode === 'map' ? 'on' : ''} onClick={() => setMode('map')} role="tab" aria-selected={mode === 'map'}>⬡ Schema map</button>
+        </div>
         <span className="sv-meta">{model ? `${model.counts.tables} tables · ${model.counts.fk} FK · ${model.counts.logical} logical` : 'loading…'}</span>
-        <div className="sv-legend-inline">
-          <span className="sv-lg"><span className="sv-lg-pk">PK</span> key glows</span>
-          <span className="sv-lg"><span className="sv-lg-fk">FK</span> foreign link</span>
-          <span className="sv-lg"><b>client_id · agency_id</b> tenant spine</span>
-        </div>
-        <div className="sv-tools">
-          <button onClick={() => setView(v => ({ ...v, k: Math.min(2.4, v.k * 1.2) }))} title="Zoom in">＋</button>
-          <button onClick={() => setView(v => ({ ...v, k: Math.max(0.12, v.k * 0.83) }))} title="Zoom out">－</button>
-          <button onClick={fitAll} title="Fit">⤢</button>
-          <button onClick={resetLayout} title="Reset layout">↺</button>
-          <span className="sv-zoom">{Math.round(view.k * 100)}%</span>
-        </div>
+        {mode === 'map' ? (
+          <>
+            <div className="sv-legend-inline">
+              <span className="sv-lg"><span className="sv-lg-pk">PK</span> key glows</span>
+              <span className="sv-lg"><span className="sv-lg-fk">FK</span> foreign link</span>
+              <span className="sv-lg"><b>client_id · agency_id</b> tenant spine</span>
+            </div>
+            <div className="sv-tools">
+              <button onClick={() => setView(v => ({ ...v, k: Math.min(2.4, v.k * 1.2) }))} title="Zoom in">＋</button>
+              <button onClick={() => setView(v => ({ ...v, k: Math.max(0.12, v.k * 0.83) }))} title="Zoom out">－</button>
+              <button onClick={fitAll} title="Fit">⤢</button>
+              <button onClick={resetLayout} title="Reset layout">↺</button>
+              <span className="sv-zoom">{Math.round(view.k * 100)}%</span>
+            </div>
+          </>
+        ) : <span className="sv-readonly">live rows · read only</span>}
       </div>
 
+      {mode === 'table' ? (
+        <div className="sv-browser">
+          <aside className="sv-browser-rail">
+            <div className="sv-br-head">
+              <span>AGENCY DATA</span>
+              <span>{model?.tables?.length || '…'} tables</span>
+            </div>
+            <div className="sv-br-controls">
+              <input value={tableQuery} onChange={e => setTableQuery(e.target.value)} placeholder="filter tables…" aria-label="Filter schema tables" />
+              <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)} aria-label="Filter tables by domain">
+                <option value="all">all domains</option>
+                {SV_CLUSTER_ORDER.map(domain => <option key={domain} value={domain}>{SV_CLUSTER[domain].label}</option>)}
+              </select>
+            </div>
+            <div className="sv-br-list">
+              {err && <div className="sv-br-msg err">failed to load schema: {err}</div>}
+              {!model && !err && <div className="sv-br-msg">reading db/schema.md…</div>}
+              {model && tableGroups.length === 0 && <div className="sv-br-msg">no matching tables</div>}
+              {tableGroups.map(group => (
+                <div className="sv-br-group" key={group.domain}>
+                  <div className="sv-br-group-h">
+                    <span className="sv-br-dot" style={{ background: svColor(group.domain) }} />
+                    <span>{SV_CLUSTER[group.domain].label}</span>
+                    <span>{group.tables.length}</span>
+                  </div>
+                  {group.tables.map(t => {
+                    const rc = counts?.[t.name]
+                    return (
+                      <button key={t.name} className={`sv-br-table ${focus === t.name ? 'on' : ''}`} onClick={() => setFocus(t.name)}>
+                        <span className="sv-br-name">{t.name}</span>
+                        <span className="sv-br-count">{rc === undefined ? '…' : rc === null ? '—' : svNum(rc)}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="sv-br-note">Agency access · live Supabase rows · sensitive values redacted</div>
+          </aside>
+
+          <section className="sv-browser-main">
+            {!focusT && <div className="sv-table-empty">Select a table to browse its columns and live rows.</div>}
+            {focusT && (
+              <>
+                <div className="sv-table-head">
+                  <div className="sv-table-identity">
+                    <div><span className="sv-table-dot" style={{ background: svColor(focusT.domain) }} /><b>public.{focusT.name}</b></div>
+                    <span>{SV_CLUSTER[focusT.domain].label} · {focusT.columns.length} columns · {focusRows?.total == null ? '…' : `${svNum(focusRows.total)} rows`}</span>
+                  </div>
+                  {allRowCols.length > 0 && (
+                    <div className="sv-colpick" ref={colsRef}>
+                      <button className="sv-table-btn" onClick={() => setColsOpen(o => !o)}>⊞ Columns <span>{shownRowCols.length}/{allRowCols.length}</span></button>
+                      {colsOpen && (
+                        <div className="sv-colmenu">
+                          <div className="sv-colmenu-top">
+                            <button onClick={() => setHiddenCols(new Set())}>all</button>
+                            <button onClick={() => setHiddenCols(new Set(allRowCols.slice(1)))}>first only</button>
+                          </div>
+                          {allRowCols.map(c => {
+                            const on = !hiddenCols.has(c)
+                            const cm = focusT.columns.find(x => x.name === c)
+                            return (
+                              <label key={c} className="sv-colrow">
+                                <input type="checkbox" checked={on} onChange={() => setHiddenCols(s => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n })} />
+                                <span>{c}</span>
+                                <small>{cm?.type}</small>
+                                {cm?.ref && <em>→ {cm.ref.table}</em>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {(focusLinks.length > 0 || linkFilter) && (
+                  <div className="sv-table-context">
+                    {focusLinks.length > 0 && <div className="sv-relations"><span>RELATED</span>{focusLinks.map(e => (
+                      <button key={`${e.direction}:${e.other}`} onClick={() => setFocus(e.other)} title={`${e.from}.${e.col} → ${e.to}.${e.toCol}`}>
+                        {e.direction === 'out' ? '→' : '←'} {e.other}
+                      </button>
+                    ))}</div>}
+                    {linkFilter && (
+                      <div className="sv-filter">
+                        filtered: {linkFilter.day ? `day = ${linkFilter.day}` : ''}{linkFilter.day && linkFilter.client_id ? ' · ' : ''}{linkFilter.client_id ? `client = ${linkFilter.client_id}` : ''}
+                        <button onClick={() => { setLinkFilter(null); setRowState({}) }}>✕ clear</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="sv-table-data">
+                  {(!focusRows || (focusRows.loading && !focusRows.rows)) && <div className="sv-table-empty">querying live rows…</div>}
+                  {focusRows?.error && <div className="sv-table-empty err">error: {focusRows.error}</div>}
+                  {focusRows?.rows && focusRows.rows.length === 0 && !focusRows.loading && <div className="sv-table-empty">no rows{linkFilter ? ' match these filters' : ''}</div>}
+                  {focusRows?.rows && focusRows.rows.length > 0 && (
+                    <div className="sv-table-grid-scroll">
+                      <table className="sv-grid sv-table-grid">
+                        <thead><tr>{shownRowCols.map(c => {
+                          const cm = focusT.columns.find(x => x.name === c)
+                          return <th key={c} title={cm ? `${cm.type}${cm.key ? ` · ${cm.key}` : ''}` : c}>{c}{cm?.key && <span className={`sv-th-key ${cm.key.includes('PK') ? 'pk' : 'fk'}`}>{cm.key.replace('+', '·')}</span>}</th>
+                        })}</tr></thead>
+                        <tbody>{focusRows.rows.map((row, ri) => (
+                          <tr key={ri}>{shownRowCols.map(c => {
+                            const s = fmtCell(row[c])
+                            return <td key={c} title={s}>{s ? (s.length > 160 ? s.slice(0, 160) + '…' : s) : <span className="sv-null">null</span>}</td>
+                          })}</tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {focusRows?.rows && focusRows.rows.length > 0 && (
+                  <div className="sv-table-foot">
+                    <span>showing {svNum(focusRows.rows.length)} of {svNum(focusRows.total || focusRows.rows.length)} rows</span>
+                    {focusRows.rows.length < (focusRows.total || 0) && (
+                      <button className="sv-table-btn" disabled={focusRows.loading} onClick={() => fetchRows(focus, (focusRows.offset || 0) + 25, true)}>
+                        {focusRows.loading ? 'loading…' : 'load 25 more'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      ) : (
       <div className={`sv-viewport ${focus ? 'has-focus' : ''}`} ref={vpRef} onMouseDown={startPan}>
         {err && <div className="sv-loading">failed to load schema: {err}</div>}
         {!model && !err && <div className="sv-loading">parsing db/schema.md…</div>}
@@ -1057,6 +1250,7 @@ function SchemaView() {
 
         {model && <div className="sv-hint">scroll = zoom · drag bg = pan · drag card = move · click = browse rows</div>}
       </div>
+      )}
     </div>
   )
 }
@@ -1186,6 +1380,12 @@ const CSS = `
 .aide .sv-toolbar{display:flex;align-items:center;gap:14px;height:32px;flex-shrink:0;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11px;overflow-x:auto;white-space:nowrap;}
 .aide .sv-title{font-weight:800;color:var(--txt);}
 .aide .sv-meta{color:var(--faint);}
+.aide .sv-mode{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel2);flex-shrink:0;}
+.aide .sv-mode button{height:23px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:10.5px;padding:0 9px;cursor:pointer;}
+.aide .sv-mode button:last-child{border-right:0;}
+.aide .sv-mode button:hover{color:var(--txt);background:rgba(255,255,255,.035);}
+.aide .sv-mode button.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 -2px 0 var(--blue);}
+.aide .sv-readonly{margin-left:auto;color:var(--faint);}
 .aide .sv-legend-inline{display:flex;align-items:center;gap:14px;color:var(--faint);}
 .aide .sv-lg{display:flex;align-items:center;gap:5px;}
 .aide .sv-lg b{color:var(--blue);}
@@ -1195,6 +1395,69 @@ const CSS = `
 .aide .sv-tools button{width:24px;height:22px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);border-radius:5px;font:inherit;font-size:12px;cursor:pointer;}
 .aide .sv-tools button:hover{color:var(--txt);border-color:var(--dim);}
 .aide .sv-zoom{color:var(--faint);font-variant-numeric:tabular-nums;min-width:38px;text-align:right;}
+
+/* Tables is the default agency-schema surface. It mirrors the client Mission
+   browser while grouping the larger agency schema into bounded domains. */
+.aide .sv-browser{flex:1;display:flex;min-height:0;overflow:hidden;}
+.aide .sv-browser-rail{width:286px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line);}
+.aide .sv-br-head{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--faint);font-size:9.5px;font-weight:800;letter-spacing:.07em;flex-shrink:0;}
+.aide .sv-br-controls{display:grid;grid-template-columns:minmax(0,1fr) 106px;gap:6px;padding:0 9px 9px;flex-shrink:0;}
+.aide .sv-br-controls input,.aide .sv-br-controls select{min-width:0;height:28px;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:10.5px;padding:0 8px;outline:none;}
+.aide .sv-br-controls input:focus,.aide .sv-br-controls select:focus{border-color:var(--blue);box-shadow:0 0 0 1px rgba(110,168,254,.18);}
+.aide .sv-br-controls select{color:var(--dim);cursor:pointer;padding-right:2px;}
+.aide .sv-br-list{flex:1;min-height:0;overflow-y:auto;padding:0 7px 10px;}
+.aide .sv-br-group{margin-bottom:8px;}
+.aide .sv-br-group-h{position:sticky;top:0;z-index:1;height:24px;display:flex;align-items:center;gap:7px;padding:0 6px;background:var(--panel);color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+.aide .sv-br-group-h span:last-child{margin-left:auto;font-variant-numeric:tabular-nums;}
+.aide .sv-br-dot,.aide .sv-table-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;box-shadow:0 0 7px currentColor;}
+.aide .sv-br-table{width:100%;height:27px;display:flex;align-items:center;gap:8px;padding:0 7px;border:0;border-left:2px solid transparent;border-radius:4px;background:transparent;color:var(--dim);font:inherit;font-size:11px;text-align:left;cursor:pointer;}
+.aide .sv-br-table:hover{background:rgba(255,255,255,.035);color:var(--txt);}
+.aide .sv-br-table.on{background:rgba(110,168,254,.09);border-left-color:var(--blue);color:var(--txt);}
+.aide .sv-br-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-br-count{color:var(--faint);font-size:9.5px;font-variant-numeric:tabular-nums;}
+.aide .sv-br-msg{padding:12px 8px;color:var(--faint);font-size:11px;line-height:1.5;}
+.aide .sv-br-msg.err{color:var(--red);}
+.aide .sv-br-note{flex-shrink:0;padding:8px 11px;border-top:1px solid var(--line);color:var(--faint);font-size:9.5px;line-height:1.4;}
+.aide .sv-browser-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.aide .sv-table-head{min-height:62px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .sv-table-identity{min-width:0;display:flex;flex-direction:column;gap:3px;}
+.aide .sv-table-identity>div{display:flex;align-items:center;gap:8px;min-width:0;}
+.aide .sv-table-identity b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-table-identity>span{color:var(--faint);font-size:10.5px;}
+.aide .sv-table-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:10.5px;padding:5px 9px;cursor:pointer;white-space:nowrap;}
+.aide .sv-table-btn:hover:not(:disabled){color:var(--txt);border-color:var(--dim);}
+.aide .sv-table-btn:disabled{opacity:.5;cursor:default;}
+.aide .sv-table-btn span{color:var(--faint);}
+.aide .sv-colpick{position:relative;margin-left:auto;flex-shrink:0;}
+.aide .sv-colmenu{position:absolute;right:0;top:calc(100% + 5px);z-index:50;width:280px;max-height:360px;overflow-y:auto;padding:6px;background:var(--popup);border:1px solid var(--line2);border-radius:9px;box-shadow:0 16px 44px rgba(0,0,0,.55);}
+.aide .sv-colmenu-top{display:flex;gap:6px;padding:2px 4px 6px;margin-bottom:4px;border-bottom:1px solid var(--line);}
+.aide .sv-colmenu-top button{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);font:inherit;font-size:9.5px;padding:2px 8px;cursor:pointer;}
+.aide .sv-colmenu-top button:hover{color:var(--txt);}
+.aide .sv-colrow{display:flex;align-items:center;gap:7px;min-height:27px;padding:2px 6px;border-radius:5px;color:var(--txt);font-size:10.5px;cursor:pointer;}
+.aide .sv-colrow:hover{background:rgba(255,255,255,.04);}
+.aide .sv-colrow input{accent-color:var(--blue);cursor:pointer;}
+.aide .sv-colrow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-colrow small{margin-left:auto;color:var(--faint);font-size:9px;white-space:nowrap;}
+.aide .sv-colrow em{color:var(--purple);font-size:8.5px;font-style:normal;white-space:nowrap;}
+.aide .sv-table-context{padding:8px 16px 0;flex-shrink:0;}
+.aide .sv-relations{display:flex;align-items:center;gap:5px;overflow-x:auto;padding-bottom:2px;}
+.aide .sv-relations>span{color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.07em;margin-right:2px;}
+.aide .sv-relations button{border:1px solid var(--line);border-radius:99px;background:var(--panel2);color:var(--dim);font:inherit;font-size:9.5px;padding:2px 7px;cursor:pointer;white-space:nowrap;}
+.aide .sv-relations button:hover{color:var(--blue);border-color:rgba(110,168,254,.35);}
+.aide .sv-table-data{flex:1;min-height:0;display:flex;padding:10px 16px 12px;overflow:hidden;}
+.aide .sv-table-empty{padding:22px;color:var(--faint);font-size:11.5px;}
+.aide .sv-table-empty.err{color:var(--red);}
+.aide .sv-table-grid-scroll{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);}
+.aide .sv-table-grid{width:max-content;min-width:100%;}
+.aide .sv-table-grid th{top:0;height:27px;z-index:2;}
+.aide .sv-table-grid td{max-width:360px;height:26px;}
+.aide .sv-table-grid th:first-child{position:sticky;left:0;z-index:3;}
+.aide .sv-table-grid td:first-child{position:sticky;left:0;z-index:1;background:var(--bg);}
+.aide .sv-table-grid tr:hover td:first-child{background:var(--panel2);}
+.aide .sv-th-key{display:inline-block;margin-left:5px;border-radius:3px;padding:0 4px;font-size:8px;font-weight:800;}
+.aide .sv-th-key.pk{color:var(--amber);background:rgba(232,180,90,.14);}
+.aide .sv-th-key.fk{color:var(--blue);background:rgba(110,168,254,.14);}
+.aide .sv-table-foot{height:38px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-top:1px solid var(--line);color:var(--faint);font-size:10.5px;flex-shrink:0;}
 
 .aide .sv-viewport{flex:1;position:relative;overflow:hidden;background:
   radial-gradient(circle at 1px 1px, rgba(255,255,255,.045) 1px, transparent 0) 0 0/26px 26px, var(--bg);cursor:grab;min-height:0;}
