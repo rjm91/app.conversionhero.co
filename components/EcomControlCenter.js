@@ -1265,11 +1265,14 @@ export default function EcomControlCenter({ clientId, clientName }) {
   // Overview (header, efficiency, and order detail) to one channel.
   const focus = useMemo(() => {
     if (!channelFocus) return null
-    let netRevenue = 0, fc = 0
+    let netRevenue = 0, discounts = 0, refunds = 0, fc = 0
     const list = []
     for (const o of viewOrders) {
       if (deriveChannel(o) !== channelFocus) continue
-      netRevenue += orderMoney(o).net
+      const money = orderMoney(o)
+      netRevenue += money.net
+      discounts += money.discounts
+      refunds += money.refunds
       fc += cogsByOrder[o.lead_id]?.cogs || 0
       list.push(o)
     }
@@ -1278,7 +1281,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
     const contribution = netRevenue - fc
     const count = list.length
     return {
-      netRevenue, cogs: fc, count, adSpend, clicks, contribution, list,
+      netRevenue, discounts, refunds, cogs: fc, count, adSpend, clicks, contribution, list,
       netProfit: contribution - adSpend,
       trueRoas: adSpend ? contribution / adSpend : null,
       aov: count ? netRevenue / count : 0,
@@ -1368,6 +1371,8 @@ export default function EcomControlCenter({ clientId, clientName }) {
   // exclusions, or a single focused channel.
   const overviewKpis = focus ? [
     { label: `${channelFocus} Net Revenue`, value: fmt$(focus.netRevenue), info: `Net revenue from orders attributed to ${channelFocus}: merchandise subtotal minus refunds. Discounts are already reflected in subtotal.` },
+    { label: 'Discounts', value: fmt$(-focus.discounts), tone: 'cost', info: `Merchandise discounts applied to ${channelFocus} orders in this range. Discounts are already reflected in each order subtotal.` },
+    { label: 'Refunds', value: fmt$(-focus.refunds), tone: 'cost', info: `Merchandise refunded from ${channelFocus} orders in this range.` },
     { label: 'COGS', value: cogs.hasCogs ? fmt$(focus.cogs) : '—', tone: 'cost', info: `Real cost of goods sold on ${channelFocus} orders — BOM materials × quantities per SKU.` },
     { label: 'Ad Spend', value: fmt$(focus.adSpend), tone: 'cost', info: PAID_CHANNELS.has(channelFocus) ? `${channelFocus} ad spend in this range.` : `${channelFocus} is an organic/owned channel — no ad spend attached.` },
     { label: 'Net Profit', value: cogs.hasCogs ? fmt$(focus.netProfit) : '—', ch: cogs.hasCogs && focus.netProfit >= 0, tone: cogs.hasCogs && focus.netProfit < 0 ? 'bad' : undefined, info: `${channelFocus} net revenue − COGS − ${channelFocus} ad spend.` },
