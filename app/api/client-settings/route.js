@@ -51,6 +51,10 @@ export async function PATCH(request) {
   if (typeof settings?.daily_pnl_slack === 'boolean') patch.daily_pnl_slack = settings.daily_pnl_slack
   // Digest body template ({{token}} text). Empty string = reset to default.
   if (typeof settings?.digest_template === 'string') patch.digest_template = settings.digest_template.slice(0, 4000)
+  // Mission tabs hidden from the client view (agency always sees all).
+  if (Array.isArray(settings?.mission_hidden_tabs)) {
+    patch.mission_hidden_tabs = [...new Set(settings.mission_hidden_tabs.filter(x => typeof x === 'string').slice(0, 40))]
+  }
   if (typeof settings?.slack_pnl_webhook === 'string') {
     const url = settings.slack_pnl_webhook.trim()
     // Ignore the redaction placeholder (a non-admin round-trip) and only accept
