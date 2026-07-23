@@ -258,11 +258,12 @@ export default function ClientLayout({ children }) {
   }
 
   const activeKey = getActiveKey(pathname, clientId)
-  // Users who switched to the new version (mission) land there instead of the
-  // classic dashboard until they switch back ('← classic' clears the flag).
+  // Mission is the default experience agency-wide. Landing on the classic
+  // dashboard redirects to mission UNLESS the user opted into classic
+  // ('prefer_classic' flag, set by the mission '← classic' switch).
   useEffect(() => {
     if (activeKey !== 'dashboard') return
-    try { if (localStorage.getItem(`prefer_mission_${clientId}`) === '1') router.replace(`/control/${clientId}/mission`) } catch { /* noop */ }
+    try { if (localStorage.getItem(`prefer_classic_${clientId}`) !== '1') router.replace(`/control/${clientId}/mission`) } catch { /* noop */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, clientId])
   const activeGroup = getGroupForKey(activeKey)
@@ -455,8 +456,8 @@ export default function ClientLayout({ children }) {
           <span className="text-[var(--faint)] text-[11px] ml-1.5">mission</span>
           <div className="ml-auto flex items-center gap-2">
             <Link href={`/control/${clientId}/dashboard`}
-              onClick={() => { try { localStorage.removeItem(`prefer_mission_${clientId}`) } catch { /* noop */ } }}
-              title="back to the classic dashboard"
+              onClick={() => { try { localStorage.setItem(`prefer_classic_${clientId}`, '1') } catch { /* noop */ } }}
+              title="Switch to the classic dashboard (you can switch back anytime)"
               className="px-2 py-0.5 rounded text-[11px] text-[var(--dim)] hover:text-[var(--txt)] hover:bg-white/[0.06] transition">
               ← classic
             </Link>
@@ -661,11 +662,13 @@ export default function ClientLayout({ children }) {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-2.5">
-          {/* New-version switch — mission is the new app; remember the choice */}
+          {/* Mission is the default now; classic is opt-in. This clears the
+              opt-out so the user returns to (and stays on) the new version. */}
           <Link href={`/control/${clientId}/mission`}
-            onClick={() => { try { localStorage.setItem(`prefer_mission_${clientId}`, '1') } catch { /* noop */ } }}
+            onClick={() => { try { localStorage.removeItem(`prefer_classic_${clientId}`) } catch { /* noop */ } }}
+            title="Return to the new version (default)"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition text-blue-300 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:text-blue-200">
-            ✨ Try the new version
+            ✨ Back to new version
           </Link>
           {realAgencyAdmin && (
             <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
