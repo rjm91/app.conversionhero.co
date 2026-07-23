@@ -18,6 +18,55 @@
   --blue-900: 30 58 138;
 }
 
+/* Shared Cursor-style shell for client + agency Mission. Keep foundational
+   palette and typography here so the two scopes cannot drift independently.
+   See docs/mission-ui.md for the design contract and usage rules. */
+.mission-shell {
+  --mission-canvas: #202023;
+  --mission-chrome: #1a1a1c;
+  --mission-raised: #2a2a2e;
+  --mission-popup: #26262a;
+  --mission-line: rgba(255,255,255,.06);
+  --mission-line-strong: rgba(255,255,255,.10);
+  --mission-text: #e4e4e6;
+  --mission-text-dim: #9a9aa2;
+  --mission-text-faint: #6a6a72;
+  --mission-blue: #6ea8fe;
+  --mission-green: #3fd68f;
+  --mission-amber: #e8b45a;
+  --mission-red: #f4747f;
+  --mission-orange: #ee946c;
+  --mission-purple: #a78bfa;
+
+  /* Compatibility aliases used by the existing Mission view styles. */
+  --bg: var(--mission-canvas);
+  --panel: var(--mission-chrome);
+  --panel2: var(--mission-raised);
+  --popup: var(--mission-popup);
+  --line: var(--mission-line);
+  --line2: var(--mission-line-strong);
+  --txt: var(--mission-text);
+  --dim: var(--mission-text-dim);
+  --faint: var(--mission-text-faint);
+  --blue: var(--mission-blue);
+  --green: var(--mission-green);
+  --amber: var(--mission-amber);
+  --red: var(--mission-red);
+  --orange: var(--mission-orange);
+  --purple: var(--mission-purple);
+
+  background: var(--bg);
+  color: var(--txt);
+  font: 13px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+.mission-titlebar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  color: var(--txt);
+  font: inherit;
+}
+
 /* Force visible text in password inputs (overrides browser autofill) */
 input[type="password"] {
   -webkit-text-fill-color: #111827 !important;

@@ -16,12 +16,16 @@ const tid = () => Math.random().toString(36).slice(2)
 const TREE = [
   { section: 'DATA', items: [{ id: 'schema', icon: '🗄', label: 'Schema' }] },
   { section: 'FLEET', items: [{ id: 'fleet', icon: '🛰', label: 'Fleet' }] },
+  { section: 'CAMPAIGNS', items: [
+    { id: 'google', icon: '🔍', label: 'Google Ads' },
+    { id: 'meta', icon: '📘', label: 'Meta Ads' },
+  ] },
   { section: 'SALES', items: [
     { id: 'leads', icon: '🧲', label: 'Leads / Pipeline' },
     { id: 'agreements', icon: '📄', label: 'Agreements' },
   ] },
 ]
-const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', leads: 'Leads / Pipeline', agreements: 'Agreements' }
+const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', google: 'Google Ads', meta: 'Meta Ads', leads: 'Leads / Pipeline', agreements: 'Agreements' }
 const TREE_ICONS = Object.fromEntries(TREE.flatMap(g => g.items.map(i => [i.id, i.icon])))
 
 const PACKAGES = [
@@ -362,7 +366,7 @@ export default function AgencyMission() {
   }
 
   return (
-    <div className="aide">
+    <div className="aide mission-shell">
       <style>{CSS}</style>
       {dragging && <div className="drag-overlay" />}
       <div className="aide-body">
@@ -419,6 +423,8 @@ export default function AgencyMission() {
             {err && <p className="a-err">{err}</p>}
             {activeTab === 'schema' && <SchemaView />}
             {activeTab === 'fleet' && <FleetView fleet={fleet} />}
+            {activeTab === 'google' && <AgencyPaidMediaView platform="google" />}
+            {activeTab === 'meta' && <AgencyPaidMediaView platform="meta" />}
             {activeTab === 'leads' && <LeadsView leads={leads} onOpen={openAgreementTab} />}
             {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={openAgreementTab} onNew={() => ask('draft a new agreement')} />}
             {/* Agreement builders stay mounted (form state survives tab switches);
@@ -543,6 +549,189 @@ function FleetView({ fleet }) {
   )
 }
 
+const MCC_PLATFORM = {
+  google: { icon: '🔍', title: 'Google Ads', subtitle: 'Manager account view · clients, ad accounts, and campaigns', source: 'client_google_campaigns' },
+  meta: { icon: '📘', title: 'Meta Ads', subtitle: 'Facebook & Instagram · clients, ad accounts, and campaigns', source: 'client_meta_campaigns' },
+}
+const mccMoney = (n, digits = 0) => '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+const mccNum = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
+const mccRate = (n) => n == null ? '—' : Number(n).toFixed(2) + 'x'
+const mccDate = (d) => d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'
+function mccAccountId(platform, value) {
+  const v = String(value || '').replace(/\D/g, '')
+  if (!v || v === 'unassigned') return 'unassigned sync rows'
+  if (platform === 'google' && v.length === 10) return `${v.slice(0, 3)}-${v.slice(3, 6)}-${v.slice(6)}`
+  return platform === 'meta' ? `act_${v}` : v
+}
+function mccStatus(status, stale) {
+  if (stale) return { label: 'stale', cls: 'stale' }
+  const value = String(status || 'unknown').toLowerCase()
+  return { label: value, cls: /enabled|active/.test(value) ? 'live' : /paused/.test(value) ? 'paused' : 'off' }
+}
+
+function AgencyPaidMediaView({ platform }) {
+  const cfg = MCC_PLATFORM[platform]
+  const [days, setDays] = useState(30)
+  const [reload, setReload] = useState(0)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [accountQuery, setAccountQuery] = useState('')
+  const [campaignQuery, setCampaignQuery] = useState('')
+  const [selectedKey, setSelectedKey] = useState(null)
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
+    fetch(`/api/agency/paid-media?platform=${platform}&days=${days}`, { cache: 'no-store', signal: controller.signal })
+      .then(async r => { const body = await r.json(); if (!r.ok || body.error) throw new Error(body.error || `HTTP ${r.status}`); return body })
+      .then(setData)
+      .catch(e => { if (e.name !== 'AbortError') setError(e.message || String(e)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [platform, days, reload])
+
+  useEffect(() => {
+    const accounts = data?.accounts || []
+    setSelectedKey(current => accounts.some(a => a.key === current) ? current : (accounts[0]?.key || null))
+  }, [data])
+  useEffect(() => { setSelectedCampaignId(null); setCampaignQuery('') }, [selectedKey])
+
+  const accounts = data?.accounts || []
+  const aq = accountQuery.trim().toLowerCase()
+  const shownAccounts = accounts.filter(a => !aq || [a.client_name, a.client_id, a.account_id, a.industry].some(v => String(v || '').toLowerCase().includes(aq)))
+  const account = accounts.find(a => a.key === selectedKey) || null
+  const cq = campaignQuery.trim().toLowerCase()
+  const campaigns = (account?.campaigns || []).filter(c => !cq || [c.campaign_name, c.campaign_id, c.status, c.channel_type].some(v => String(v || '').toLowerCase().includes(cq)))
+  const selectedCampaign = account?.campaigns?.find(c => c.campaign_id === selectedCampaignId) || null
+  const summary = data?.summary
+
+  return (
+    <div className={`mcc-root ${platform}`}>
+      <header className="mcc-head">
+        <div className="mcc-heading">
+          <span className="mcc-logo">{cfg.icon}</span>
+          <div><h3>{cfg.title}</h3><p>{cfg.subtitle}</p></div>
+        </div>
+        <div className="mcc-actions">
+          <div className="mcc-range" aria-label="Reporting range">
+            {[7, 30, 90].map(n => <button key={n} className={days === n ? 'on' : ''} onClick={() => setDays(n)}>{n}D</button>)}
+          </div>
+          <button className="mcc-refresh" disabled={loading} onClick={() => setReload(x => x + 1)} title="Refresh paid-media data">{loading ? '↻' : '⟳'}</button>
+        </div>
+      </header>
+
+      <div className="mcc-kpis">
+        <div><span>Spend</span><b>{summary ? mccMoney(summary.metrics.spend) : '—'}</b></div>
+        <div><span>Connected accounts</span><b>{summary ? `${summary.connected_accounts}/${summary.accounts}` : '—'}</b></div>
+        <div><span>Campaigns</span><b>{summary ? summary.campaigns.toLocaleString() : '—'}</b><small>{summary ? `${summary.active_campaigns} active` : ''}</small></div>
+        <div><span>Clicks</span><b>{summary ? mccNum(summary.metrics.clicks) : '—'}</b></div>
+        <div><span>Conversions</span><b>{summary ? mccNum(summary.metrics.conversions) : '—'}</b></div>
+        <div><span>Cost / conversion</span><b>{summary?.metrics.cpa != null ? mccMoney(summary.metrics.cpa, 2) : '—'}</b></div>
+        <div><span>Platform ROAS</span><b className={summary?.metrics.roas >= 1 ? 'good' : ''}>{summary ? mccRate(summary.metrics.roas) : '—'}</b></div>
+      </div>
+
+      {error && <div className="mcc-alert err">Could not load {cfg.title}: {error}</div>}
+      {data?.truncated && <div className="mcc-alert warn">This range exceeded 50,000 daily rows. Narrow the range for a complete rollup.</div>}
+      {data?.limitation && <div className="mcc-alert info">{data.limitation}</div>}
+
+      <div className="mcc-body">
+        <aside className="mcc-accounts">
+          <div className="mcc-accounts-head"><span>AD ACCOUNTS</span><b>{shownAccounts.length}</b></div>
+          <input className="mcc-search" value={accountQuery} onChange={e => setAccountQuery(e.target.value)} placeholder="filter clients or account IDs…" aria-label="Filter ad accounts" />
+          <div className="mcc-account-list">
+            {loading && !data && <div className="mcc-empty">loading account fleet…</div>}
+            {!loading && !error && shownAccounts.length === 0 && <div className="mcc-empty">no ad accounts found for this range.</div>}
+            {shownAccounts.map(a => (
+              <button key={a.key} className={`mcc-account ${selectedKey === a.key ? 'on' : ''}`} onClick={() => setSelectedKey(a.key)}>
+                <span className={`mcc-conn ${a.connected && a.active ? 'ok' : ''}`} title={a.connected ? (a.active ? 'connected' : 'inactive') : 'campaign rows have no matching saved connection'} />
+                <span className="mcc-account-copy">
+                  <b>{a.client_name}</b>
+                  <small>{mccAccountId(platform, a.account_id)} · {a.campaign_count} campaign{a.campaign_count === 1 ? '' : 's'}</small>
+                </span>
+                <span className="mcc-account-spend">{mccMoney(a.metrics.spend)}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <main className="mcc-main">
+          {!account && <div className="mcc-empty main">Select an ad account to inspect its campaigns.</div>}
+          {account && (
+            <>
+              <div className="mcc-account-head">
+                <div>
+                  <div className="mcc-path"><span>Accounts</span><b>›</b><strong>{account.client_name}</strong></div>
+                  <p>{mccAccountId(platform, account.account_id)} · {account.industry || 'industry not set'} · last sync {account.last_sync ? relTime(account.last_sync) : 'unknown'}</p>
+                </div>
+                <a href={`/control/${account.client_id}/mission?tab=${platform}`} className="mcc-open-client">Open client Mission ↗</a>
+              </div>
+
+              <div className="mcc-campaign-tools">
+                <div><b>Campaigns</b><span>{account.campaign_count} in {data?.range?.days || days} days</span></div>
+                <input className="mcc-search" value={campaignQuery} onChange={e => setCampaignQuery(e.target.value)} placeholder="filter campaigns…" aria-label="Filter campaigns" />
+              </div>
+
+              <div className={`mcc-campaign-area ${selectedCampaign ? 'has-detail' : ''}`}>
+                <div className="mcc-grid-scroll">
+                  <table className="mcc-grid">
+                    <thead><tr><th>Campaign</th><th>Status</th><th>Type</th><th>Budget</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CPC</th><th>Conv.</th><th>Cost / conv.</th><th>ROAS</th><th>Last active</th></tr></thead>
+                    <tbody>
+                      {campaigns.map(c => {
+                        const state = mccStatus(c.status, c.stale)
+                        return (
+                          <tr key={c.campaign_id} className={selectedCampaignId === c.campaign_id ? 'on' : ''} onClick={() => setSelectedCampaignId(c.campaign_id)}>
+                            <td><b>{c.campaign_name}</b><small>{c.campaign_id}</small></td>
+                            <td><span className={`mcc-status ${state.cls}`}>{state.label}</span></td>
+                            <td>{c.channel_type || (platform === 'meta' ? 'Meta' : '—')}</td>
+                            <td>{c.budget ? mccMoney(c.budget) : '—'}</td>
+                            <td className="num">{mccMoney(c.metrics.spend)}</td>
+                            <td className="num">{mccNum(c.metrics.impressions)}</td>
+                            <td className="num">{mccNum(c.metrics.clicks)}</td>
+                            <td className="num">{c.metrics.cpc != null ? mccMoney(c.metrics.cpc, 2) : '—'}</td>
+                            <td className="num">{mccNum(c.metrics.conversions)}</td>
+                            <td className="num">{c.metrics.cpa != null ? mccMoney(c.metrics.cpa, 2) : '—'}</td>
+                            <td className={`num ${c.metrics.roas >= 1 ? 'good' : c.metrics.roas != null ? 'bad' : ''}`}>{mccRate(c.metrics.roas)}</td>
+                            <td>{mccDate(c.latest_date)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {!loading && campaigns.length === 0 && <div className="mcc-empty">no campaigns match this account and range.</div>}
+                </div>
+
+                {selectedCampaign && (
+                  <aside className="mcc-detail">
+                    <div className="mcc-detail-head"><span>CAMPAIGN</span><button onClick={() => setSelectedCampaignId(null)}>×</button></div>
+                    <h4>{selectedCampaign.campaign_name}</h4>
+                    <p className="mcc-detail-id">{selectedCampaign.campaign_id}</p>
+                    <div className="mcc-detail-state">{(() => { const s = mccStatus(selectedCampaign.status, selectedCampaign.stale); return <span className={`mcc-status ${s.cls}`}>{s.label}</span> })()}<span>{selectedCampaign.channel_type || (platform === 'meta' ? 'Meta' : 'type unavailable')}</span></div>
+                    <div className="mcc-detail-grid">
+                      <div><span>Spend</span><b>{mccMoney(selectedCampaign.metrics.spend)}</b></div>
+                      <div><span>Budget</span><b>{selectedCampaign.budget ? mccMoney(selectedCampaign.budget) : '—'}</b></div>
+                      <div><span>Impressions</span><b>{mccNum(selectedCampaign.metrics.impressions)}</b></div>
+                      <div><span>Clicks</span><b>{mccNum(selectedCampaign.metrics.clicks)}</b></div>
+                      <div><span>Conversions</span><b>{mccNum(selectedCampaign.metrics.conversions)}</b></div>
+                      <div><span>Cost / conv.</span><b>{selectedCampaign.metrics.cpa != null ? mccMoney(selectedCampaign.metrics.cpa, 2) : '—'}</b></div>
+                      <div><span>Conv. value</span><b>{mccMoney(selectedCampaign.metrics.conversion_value)}</b></div>
+                      <div><span>ROAS</span><b>{mccRate(selectedCampaign.metrics.roas)}</b></div>
+                    </div>
+                    <p className="mcc-detail-note">{selectedCampaign.daily_rows} daily source row{selectedCampaign.daily_rows === 1 ? '' : 's'} · latest {mccDate(selectedCampaign.latest_date)} · {cfg.source}</p>
+                    <a href={`/control/${account.client_id}/mission?tab=${platform}`} className="mcc-detail-open">Open {platform === 'google' ? 'campaign hierarchy' : 'client campaign tab'} ↗</a>
+                  </aside>
+                )}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
+
 function statusPill(s) {
   const v = (s || '').toLowerCase()
   if (/sent|viewed/.test(v)) return 'sent'
@@ -614,7 +803,7 @@ const SV_CLUSTER = {
   funnel:  { label: 'Funnels',        color: '#e8b45a' },
   mission: { label: 'Agent brain',    color: '#a78bfa' },
   billing: { label: 'Auth & billing', color: '#5ad1e8' },
-  system:  { label: 'System',         color: '#8a93a8' },
+  system:  { label: 'System',         color: '#9a9aa2' },
 }
 const SV_CLUSTER_ORDER = ['agency', 'billing', 'funnel', 'client', 'mission', 'system']
 const svColor = (d) => (SV_CLUSTER[d] || SV_CLUSTER.system).color
@@ -672,18 +861,25 @@ function SchemaView() {
   const [model, setModel] = useState(null)      // { tables, edges, counts }
   const [err, setErr] = useState(null)
   const [counts, setCounts] = useState(null)     // { table: rowCount|null }
+  const [mode, setMode] = useState('table')      // ShieldTech parity: table browser first, map on demand
+  const [tableQuery, setTableQuery] = useState('')
+  const [domainFilter, setDomainFilter] = useState('all')
   const [pos, setPos] = useState({})             // name -> {x,y}
   const [view, setView] = useState({ x: 0, y: 0, k: 0.72 })
   const [focus, setFocus] = useState(null)
   const [hoverEdge, setHoverEdge] = useState(null)
   const [rowState, setRowState] = useState({})   // table -> { rows, columns, total, loading, error, offset }
+  const [hiddenCols, setHiddenCols] = useState(new Set())
+  const [colsOpen, setColsOpen] = useState(false)
 
   const vpRef = useRef(null)
+  const colsRef = useRef(null)
   const drag = useRef(null)
   const didFit = useRef(false)
+  const didSelect = useRef(false)
   // Deep-link support: /control/mission?focus=<table>&day=YYYY-MM-DD&client_id=chXXX
   // (the client-mission drill headers link here). linkFilter scopes the row
-  // browser; pendingFocus centers the table once layout exists.
+  // browser; pendingFocus selects the requested table once the model exists.
   const [linkFilter, setLinkFilter] = useState(null)
   const pendingFocusRef = useRef(null)
   useEffect(() => {
@@ -694,6 +890,13 @@ function SchemaView() {
       if (focus0) pendingFocusRef.current = focus0
     } catch { /* no params */ }
   }, [])
+
+  useEffect(() => { setHiddenCols(new Set()); setColsOpen(false) }, [focus])
+  useEffect(() => {
+    const close = (e) => { if (colsRef.current && !colsRef.current.contains(e.target)) setColsOpen(false) }
+    if (colsOpen) document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [colsOpen])
 
   /* ── load the parsed schema + live row counts ── */
   useEffect(() => {
@@ -744,17 +947,21 @@ function SchemaView() {
   }, [model, meta])
 
   useEffect(() => {
-    if (didFit.current || !model || !meta || !Object.keys(pos).length || !vpRef.current) return
+    if (mode !== 'map' || didFit.current || !model || !meta || !Object.keys(pos).length || !vpRef.current) return
     const r = vpRef.current.getBoundingClientRect()
     setView(svFitView(pos, model.tables, meta.heights, r.width, r.height))
     didFit.current = true
-  }, [pos, model, meta])
+  }, [mode, pos, model, meta])
   useEffect(() => {
-    if (!didFit.current || !meta || !pendingFocusRef.current) return
-    const t = pendingFocusRef.current
-    if (meta.byName[t]) { pendingFocusRef.current = null; focusTable(t, true) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta, pos])
+    if (!model || !meta || didSelect.current) return
+    didSelect.current = true
+    const requested = pendingFocusRef.current
+    pendingFocusRef.current = null
+    const first = (requested && meta.byName[requested] ? requested : null)
+      || model.tables.find(t => t.name === 'agency')?.name
+      || model.tables[0]?.name
+    if (first) setFocus(first)
+  }, [model, meta])
 
   const related = useMemo(() => {
     if (!model) return null
@@ -810,7 +1017,7 @@ function SchemaView() {
   /* ── pan / zoom / drag ── */
   useEffect(() => {
     const el = vpRef.current
-    if (!el) return
+    if (!el || mode !== 'map') return
     const onWheel = (e) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
@@ -823,7 +1030,7 @@ function SchemaView() {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     const move = (e) => {
@@ -881,6 +1088,44 @@ function SchemaView() {
   const focusT = focus && meta ? meta.byName[focus] : null
   const focusRows = focus ? rowState[focus] : null
 
+  // The agency schema is much larger than a client schema, so the table rail is
+  // grouped by domain and can be narrowed without changing the map model.
+  const orderedTables = useMemo(() => {
+    if (!model) return []
+    return [...model.tables].sort((a, b) => {
+      const da = SV_CLUSTER_ORDER.indexOf(a.domain), db = SV_CLUSTER_ORDER.indexOf(b.domain)
+      return (da - db) || a.name.localeCompare(b.name)
+    })
+  }, [model])
+  const tableGroups = useMemo(() => {
+    const needle = tableQuery.trim().toLowerCase()
+    return SV_CLUSTER_ORDER.map(domain => ({
+      domain,
+      tables: orderedTables.filter(t => (domainFilter === 'all' || t.domain === domain) && t.domain === domain && (!needle || t.name.toLowerCase().includes(needle))),
+    })).filter(g => g.tables.length)
+  }, [orderedTables, tableQuery, domainFilter])
+  const focusLinks = useMemo(() => {
+    if (!focus || !meta) return []
+    const seen = new Set()
+    return [...(meta.outbound[focus] || []).map(e => ({ ...e, other: e.to, direction: 'out' })),
+      ...(meta.inbound[focus] || []).map(e => ({ ...e, other: e.from, direction: 'in' }))]
+      .filter(e => { const k = `${e.direction}:${e.other}`; if (seen.has(k)) return false; seen.add(k); return true })
+  }, [focus, meta])
+  const allRowCols = focusRows?.columns?.length
+    ? focusRows.columns
+    : (focusT?.columns || []).map(c => c.name)
+  const shownRowCols = allRowCols.filter(c => !hiddenCols.has(c))
+  const fmtCell = (v) => {
+    if (v == null || v === '') return ''
+    if (typeof v === 'object') return JSON.stringify(v)
+    if (typeof v === 'number') return Number(Number(v).toFixed(4)).toLocaleString()
+    return String(v)
+  }
+  const openTableMode = () => {
+    if (!focus && orderedTables[0]) setFocus(orderedTables[0].name)
+    setMode('table')
+  }
+
   const bounds = useMemo(() => {
     let maxx = 1000, maxy = 800
     if (meta) for (const n in pos) { maxx = Math.max(maxx, pos[n].x + SV_CARD_W); maxy = Math.max(maxy, pos[n].y + (meta.heights[n] || 120)) }
@@ -890,22 +1135,159 @@ function SchemaView() {
   return (
     <div className="sv-root">
       <div className="sv-toolbar">
-        <span className="sv-title">schema.graph</span>
+        <span className="sv-title">schema.{mode === 'table' ? 'tables' : 'map'}</span>
+        <div className="sv-mode" role="tablist" aria-label="Schema view">
+          <button className={mode === 'table' ? 'on' : ''} onClick={openTableMode} role="tab" aria-selected={mode === 'table'}>▦ Tables</button>
+          <button className={mode === 'map' ? 'on' : ''} onClick={() => setMode('map')} role="tab" aria-selected={mode === 'map'}>⬡ Schema map</button>
+        </div>
         <span className="sv-meta">{model ? `${model.counts.tables} tables · ${model.counts.fk} FK · ${model.counts.logical} logical` : 'loading…'}</span>
-        <div className="sv-legend-inline">
-          <span className="sv-lg"><span className="sv-lg-pk">PK</span> key glows</span>
-          <span className="sv-lg"><span className="sv-lg-fk">FK</span> foreign link</span>
-          <span className="sv-lg"><b>client_id · agency_id</b> tenant spine</span>
-        </div>
-        <div className="sv-tools">
-          <button onClick={() => setView(v => ({ ...v, k: Math.min(2.4, v.k * 1.2) }))} title="Zoom in">＋</button>
-          <button onClick={() => setView(v => ({ ...v, k: Math.max(0.12, v.k * 0.83) }))} title="Zoom out">－</button>
-          <button onClick={fitAll} title="Fit">⤢</button>
-          <button onClick={resetLayout} title="Reset layout">↺</button>
-          <span className="sv-zoom">{Math.round(view.k * 100)}%</span>
-        </div>
+        {mode === 'map' ? (
+          <>
+            <div className="sv-legend-inline">
+              <span className="sv-lg"><span className="sv-lg-pk">PK</span> key glows</span>
+              <span className="sv-lg"><span className="sv-lg-fk">FK</span> foreign link</span>
+              <span className="sv-lg"><b>client_id · agency_id</b> tenant spine</span>
+            </div>
+            <div className="sv-tools">
+              <button onClick={() => setView(v => ({ ...v, k: Math.min(2.4, v.k * 1.2) }))} title="Zoom in">＋</button>
+              <button onClick={() => setView(v => ({ ...v, k: Math.max(0.12, v.k * 0.83) }))} title="Zoom out">－</button>
+              <button onClick={fitAll} title="Fit">⤢</button>
+              <button onClick={resetLayout} title="Reset layout">↺</button>
+              <span className="sv-zoom">{Math.round(view.k * 100)}%</span>
+            </div>
+          </>
+        ) : <span className="sv-readonly">live rows · read only</span>}
       </div>
 
+      {mode === 'table' ? (
+        <div className="sv-browser">
+          <aside className="sv-browser-rail">
+            <div className="sv-br-head">
+              <span>AGENCY DATA</span>
+              <span>{model?.tables?.length || '…'} tables</span>
+            </div>
+            <div className="sv-br-controls">
+              <input value={tableQuery} onChange={e => setTableQuery(e.target.value)} placeholder="filter tables…" aria-label="Filter schema tables" />
+              <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)} aria-label="Filter tables by domain">
+                <option value="all">all domains</option>
+                {SV_CLUSTER_ORDER.map(domain => <option key={domain} value={domain}>{SV_CLUSTER[domain].label}</option>)}
+              </select>
+            </div>
+            <div className="sv-br-list">
+              {err && <div className="sv-br-msg err">failed to load schema: {err}</div>}
+              {!model && !err && <div className="sv-br-msg">reading db/schema.md…</div>}
+              {model && tableGroups.length === 0 && <div className="sv-br-msg">no matching tables</div>}
+              {tableGroups.map(group => (
+                <div className="sv-br-group" key={group.domain}>
+                  <div className="sv-br-group-h">
+                    <span className="sv-br-dot" style={{ background: svColor(group.domain) }} />
+                    <span>{SV_CLUSTER[group.domain].label}</span>
+                    <span>{group.tables.length}</span>
+                  </div>
+                  {group.tables.map(t => {
+                    const rc = counts?.[t.name]
+                    return (
+                      <button key={t.name} className={`sv-br-table ${focus === t.name ? 'on' : ''}`} onClick={() => setFocus(t.name)}>
+                        <span className="sv-br-name">{t.name}</span>
+                        <span className="sv-br-count">{rc === undefined ? '…' : rc === null ? '—' : svNum(rc)}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="sv-br-note">Agency access · live Supabase rows · sensitive values redacted</div>
+          </aside>
+
+          <section className="sv-browser-main">
+            {!focusT && <div className="sv-table-empty">Select a table to browse its columns and live rows.</div>}
+            {focusT && (
+              <>
+                <div className="sv-table-head">
+                  <div className="sv-table-identity">
+                    <div><span className="sv-table-dot" style={{ background: svColor(focusT.domain) }} /><b>public.{focusT.name}</b></div>
+                    <span>{SV_CLUSTER[focusT.domain].label} · {focusT.columns.length} columns · {focusRows?.total == null ? '…' : `${svNum(focusRows.total)} rows`}</span>
+                  </div>
+                  {allRowCols.length > 0 && (
+                    <div className="sv-colpick" ref={colsRef}>
+                      <button className="sv-table-btn" onClick={() => setColsOpen(o => !o)}>⊞ Columns <span>{shownRowCols.length}/{allRowCols.length}</span></button>
+                      {colsOpen && (
+                        <div className="sv-colmenu">
+                          <div className="sv-colmenu-top">
+                            <button onClick={() => setHiddenCols(new Set())}>all</button>
+                            <button onClick={() => setHiddenCols(new Set(allRowCols.slice(1)))}>first only</button>
+                          </div>
+                          {allRowCols.map(c => {
+                            const on = !hiddenCols.has(c)
+                            const cm = focusT.columns.find(x => x.name === c)
+                            return (
+                              <label key={c} className="sv-colrow">
+                                <input type="checkbox" checked={on} onChange={() => setHiddenCols(s => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n })} />
+                                <span>{c}</span>
+                                <small>{cm?.type}</small>
+                                {cm?.ref && <em>→ {cm.ref.table}</em>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {(focusLinks.length > 0 || linkFilter) && (
+                  <div className="sv-table-context">
+                    {focusLinks.length > 0 && <div className="sv-relations"><span>RELATED</span>{focusLinks.map(e => (
+                      <button key={`${e.direction}:${e.other}`} onClick={() => setFocus(e.other)} title={`${e.from}.${e.col} → ${e.to}.${e.toCol}`}>
+                        {e.direction === 'out' ? '→' : '←'} {e.other}
+                      </button>
+                    ))}</div>}
+                    {linkFilter && (
+                      <div className="sv-filter">
+                        filtered: {linkFilter.day ? `day = ${linkFilter.day}` : ''}{linkFilter.day && linkFilter.client_id ? ' · ' : ''}{linkFilter.client_id ? `client = ${linkFilter.client_id}` : ''}
+                        <button onClick={() => { setLinkFilter(null); setRowState({}) }}>✕ clear</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="sv-table-data">
+                  {(!focusRows || (focusRows.loading && !focusRows.rows)) && <div className="sv-table-empty">querying live rows…</div>}
+                  {focusRows?.error && <div className="sv-table-empty err">error: {focusRows.error}</div>}
+                  {focusRows?.rows && focusRows.rows.length === 0 && !focusRows.loading && <div className="sv-table-empty">no rows{linkFilter ? ' match these filters' : ''}</div>}
+                  {focusRows?.rows && focusRows.rows.length > 0 && (
+                    <div className="sv-table-grid-scroll">
+                      <table className="sv-grid sv-table-grid">
+                        <thead><tr>{shownRowCols.map(c => {
+                          const cm = focusT.columns.find(x => x.name === c)
+                          return <th key={c} title={cm ? `${cm.type}${cm.key ? ` · ${cm.key}` : ''}` : c}>{c}{cm?.key && <span className={`sv-th-key ${cm.key.includes('PK') ? 'pk' : 'fk'}`}>{cm.key.replace('+', '·')}</span>}</th>
+                        })}</tr></thead>
+                        <tbody>{focusRows.rows.map((row, ri) => (
+                          <tr key={ri}>{shownRowCols.map(c => {
+                            const s = fmtCell(row[c])
+                            return <td key={c} title={s}>{s ? (s.length > 160 ? s.slice(0, 160) + '…' : s) : <span className="sv-null">null</span>}</td>
+                          })}</tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {focusRows?.rows && focusRows.rows.length > 0 && (
+                  <div className="sv-table-foot">
+                    <span>showing {svNum(focusRows.rows.length)} of {svNum(focusRows.total || focusRows.rows.length)} rows</span>
+                    {focusRows.rows.length < (focusRows.total || 0) && (
+                      <button className="sv-table-btn" disabled={focusRows.loading} onClick={() => fetchRows(focus, (focusRows.offset || 0) + 25, true)}>
+                        {focusRows.loading ? 'loading…' : 'load 25 more'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      ) : (
       <div className={`sv-viewport ${focus ? 'has-focus' : ''}`} ref={vpRef} onMouseDown={startPan}>
         {err && <div className="sv-loading">failed to load schema: {err}</div>}
         {!model && !err && <div className="sv-loading">parsing db/schema.md…</div>}
@@ -1057,19 +1439,21 @@ function SchemaView() {
 
         {model && <div className="sv-hint">scroll = zoom · drag bg = pan · drag card = move · click = browse rows</div>}
       </div>
+      )}
     </div>
   )
 }
 
 const CSS = `
-.aide{--bg:#0b0e14;--panel:#12161f;--panel2:#161b28;--line:rgba(255,255,255,.08);--txt:#dbe1ee;--dim:#8a93a8;--faint:#5a6377;--blue:#6ea8fe;--green:#3fd68f;--amber:#f2b45c;--red:#ff6b6b;
-  position:fixed;inset:var(--mt-top,36px) 0 0 0;background:var(--bg);color:var(--txt);font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
+.aide{position:fixed;inset:var(--mt-top,36px) 0 0 0;display:flex;flex-direction:column;overflow:hidden;}
 .aide-body{flex:1;display:flex;min-height:0;}
 .aide .ex{width:230px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding-bottom:20px;}
-.aide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;}
-.aide .resize-h:hover,.aide .resize-h:active{background:rgba(110,168,254,.45);}
-.aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;}
-.aide .resize-v:hover,.aide .resize-v:active{background:rgba(110,168,254,.45);}
+.aide .resize-h{width:5px;margin:0 -2px;flex-shrink:0;cursor:col-resize;z-index:5;position:relative;transition:background .12s;}
+.aide .resize-h:hover{background:rgba(255,255,255,.10);}
+.aide .resize-h:active{background:rgba(255,255,255,.16);}
+.aide .resize-v{height:5px;margin-bottom:-2px;cursor:row-resize;z-index:5;position:relative;flex-shrink:0;transition:background .12s;}
+.aide .resize-v:hover{background:rgba(255,255,255,.10);}
+.aide .resize-v:active{background:rgba(255,255,255,.16);}
 /* Covers embedded frames during a drag so they don't swallow mouse events. */
 .aide .drag-overlay{position:fixed;inset:0;z-index:9999;}
 .aide .ex-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);}
@@ -1077,9 +1461,9 @@ const CSS = `
 .aide .ex-badge{font-size:8.5px;font-weight:800;letter-spacing:.06em;background:rgba(110,168,254,.15);color:var(--blue);padding:2px 6px;border-radius:4px;}
 .aide .ex-sec{margin-top:12px;}
 .aide .ex-h{font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:2px 14px;margin-bottom:2px;}
-.aide .ex-item{width:100%;display:flex;align-items:center;gap:9px;padding:5px 14px;background:none;border:none;color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
+.aide .ex-item{width:100%;display:flex;align-items:center;gap:9px;padding:5px 14px;background:none;border:0;border-left:2px solid transparent;color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
 .aide .ex-item:hover{background:rgba(255,255,255,.03);color:var(--txt);}
-.aide .ex-item.on{background:rgba(110,168,254,.1);color:var(--txt);}
+.aide .ex-item.on{background:rgba(110,168,254,.07);border-left-color:var(--blue);color:var(--txt);}
 .aide .ex-ic{width:16px;text-align:center;}
 .aide .ex-item{text-decoration:none;}
 .aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
@@ -1095,11 +1479,11 @@ const CSS = `
 .aide .burger:hover{color:var(--txt);}
 .aide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
 .aide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
-.aide .tab-x{color:var(--faint);font-size:14px;}.aide .tab-x:hover{color:var(--red);}
+.aide .tab-x{color:var(--faint);font-size:13px;}.aide .tab-x:hover{color:var(--txt);}
 .aide .tab-spacer{flex:1;}
 .aide .view{flex:1;overflow-y:auto;min-height:0;position:relative;}
 .aide .ag-frame{width:100%;height:100%;border:none;background:var(--bg);}
-.aide .v-pad{padding:20px 24px;}
+.aide .v-pad{padding:18px 24px 40px;}
 .aide .v-h{font-size:15px;font-weight:800;margin:0 0 4px;}
 .aide .v-h-row{display:flex;align-items:center;justify-content:space-between;}
 .aide .v-note{color:var(--dim);font-size:12px;margin:0 0 14px;max-width:760px;}
@@ -1130,7 +1514,7 @@ const CSS = `
 .aide .pill.sent{background:rgba(242,180,92,.16);color:var(--amber);}
 .aide .pill.won{background:rgba(63,214,143,.14);color:var(--green);}
 .aide .a-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;}
-.aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
+.aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
 .aide .a-btn:hover{border-color:var(--dim);}
 .aide .panel{min-height:120px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;position:relative;}
 .aide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
@@ -1167,7 +1551,7 @@ const CSS = `
 .aide .prompt-hint{padding:5px 4px 6px;font-size:11.5px;letter-spacing:.01em;user-select:none;color:var(--faint);}
 .aide .ph-mode{font-weight:700;}.aide .ph-mode.warn{color:var(--amber);}
 .aide .ph-agent{color:var(--blue);font-weight:700;}
-.aide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 4px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
+.aide .statusbar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--panel);padding:0 10px;height:30px;font-size:11px;flex-shrink:0;overflow-x:auto;white-space:nowrap;}
 .aide .statusbar .seg{padding:0 10px;border-right:1px solid var(--line);display:flex;gap:6px;align-items:center;height:100%;}
 .aide .statusbar .seg.last{border-right:none;gap:6px;}
 .aide .seg b{font-variant-numeric:tabular-nums;}
@@ -1179,13 +1563,116 @@ const CSS = `
 .aide .helpbtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font:inherit;font-size:11px;font-weight:800;cursor:pointer;}
 .aide .helpbtn:hover{color:var(--txt);}
 
+/* ── Agency paid-media manager (MCC-style account → campaign browser) ── */
+.aide .mcc-root{--mcc-accent:var(--blue);position:absolute;inset:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--bg);}
+.aide .mcc-root.meta{--mcc-accent:#7f8cff;}
+.aide .mcc-head{height:58px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0;}
+.aide .mcc-heading{display:flex;align-items:center;gap:10px;min-width:0;}
+.aide .mcc-logo{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:15px;}
+.aide .mcc-heading h3{font-size:14px;line-height:1.2;margin:0;color:var(--txt);}
+.aide .mcc-heading p{font-size:10.5px;margin:3px 0 0;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.aide .mcc-actions{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.aide .mcc-range{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel2);}
+.aide .mcc-range button{height:25px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:10px;padding:0 9px;cursor:pointer;}
+.aide .mcc-range button:last-child{border-right:0;}
+.aide .mcc-range button:hover{color:var(--txt);}
+.aide .mcc-range button.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 -2px 0 var(--mcc-accent);}
+.aide .mcc-refresh{width:28px;height:27px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font:inherit;cursor:pointer;}
+.aide .mcc-refresh:hover:not(:disabled){color:var(--txt);border-color:var(--dim);}
+.aide .mcc-refresh:disabled{opacity:.6;}
+.aide .mcc-kpis{min-height:61px;display:grid;grid-template-columns:repeat(7,minmax(100px,1fr));border-bottom:1px solid var(--line);background:var(--bg);flex-shrink:0;overflow-x:auto;}
+.aide .mcc-kpis>div{display:flex;flex-direction:column;justify-content:center;padding:7px 13px;border-right:1px solid var(--line);white-space:nowrap;}
+.aide .mcc-kpis>div:last-child{border-right:0;}
+.aide .mcc-kpis span{color:var(--faint);font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;}
+.aide .mcc-kpis b{color:var(--txt);font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums;}
+.aide .mcc-kpis b.good{color:var(--green);}
+.aide .mcc-kpis small{color:var(--faint);font-size:8.5px;}
+.aide .mcc-alert{min-height:29px;display:flex;align-items:center;padding:4px 14px;border-bottom:1px solid var(--line);font-size:10px;flex-shrink:0;}
+.aide .mcc-alert.err{color:var(--red);background:rgba(244,116,127,.07);}
+.aide .mcc-alert.warn{color:var(--amber);background:rgba(232,180,90,.07);}
+.aide .mcc-alert.info{color:var(--dim);background:rgba(110,168,254,.05);}
+.aide .mcc-body{flex:1;display:flex;min-height:0;overflow:hidden;}
+.aide .mcc-accounts{width:300px;display:flex;flex-direction:column;min-height:0;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);}
+.aide .mcc-accounts-head{height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.07em;}
+.aide .mcc-accounts-head b{font-size:9px;font-variant-numeric:tabular-nums;}
+.aide .mcc-search{height:29px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--txt);font:inherit;font-size:10.5px;padding:0 9px;outline:none;}
+.aide .mcc-search:focus{border-color:var(--mcc-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--mcc-accent) 20%,transparent);}
+.aide .mcc-accounts>.mcc-search{margin:0 8px 8px;flex-shrink:0;}
+.aide .mcc-account-list{flex:1;min-height:0;overflow-y:auto;padding:0 6px 8px;}
+.aide .mcc-account{width:100%;min-height:51px;display:flex;align-items:center;gap:8px;padding:6px 7px;border:0;border-left:2px solid transparent;border-radius:5px;background:transparent;color:var(--dim);font:inherit;text-align:left;cursor:pointer;}
+.aide .mcc-account:hover{background:rgba(255,255,255,.035);}
+.aide .mcc-account.on{background:color-mix(in srgb,var(--mcc-accent) 10%,transparent);border-left-color:var(--mcc-accent);color:var(--txt);}
+.aide .mcc-conn{width:7px;height:7px;border-radius:50%;background:var(--faint);flex-shrink:0;}
+.aide .mcc-conn.ok{background:var(--green);box-shadow:0 0 7px rgba(63,214,143,.5);}
+.aide .mcc-account-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.aide .mcc-account-copy b{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .mcc-account-copy small{font-size:9px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .mcc-account-spend{font-size:10px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;flex-shrink:0;}
+.aide .mcc-account.on .mcc-account-spend{color:var(--txt);}
+.aide .mcc-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.aide .mcc-account-head{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .mcc-path{display:flex;align-items:center;gap:7px;font-size:11px;}
+.aide .mcc-path span,.aide .mcc-path b{color:var(--faint);font-weight:400;}
+.aide .mcc-path strong{color:var(--txt);font-size:12px;}
+.aide .mcc-account-head p{margin:3px 0 0;color:var(--faint);font-size:9.5px;}
+.aide .mcc-open-client,.aide .mcc-detail-open{border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:10px;text-decoration:none;padding:5px 9px;white-space:nowrap;}
+.aide .mcc-open-client:hover,.aide .mcc-detail-open:hover{color:var(--txt);border-color:var(--mcc-accent);}
+.aide .mcc-campaign-tools{height:45px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .mcc-campaign-tools>div{display:flex;align-items:baseline;gap:8px;}
+.aide .mcc-campaign-tools b{font-size:11.5px;}
+.aide .mcc-campaign-tools span{font-size:9.5px;color:var(--faint);}
+.aide .mcc-campaign-tools .mcc-search{width:220px;}
+.aide .mcc-campaign-area{flex:1;min-height:0;display:flex;overflow:hidden;}
+.aide .mcc-grid-scroll{flex:1;min-width:0;min-height:0;overflow:auto;}
+.aide .mcc-grid{width:max-content;min-width:100%;border-collapse:collapse;font-size:10px;}
+.aide .mcc-grid th{position:sticky;top:0;z-index:3;height:27px;padding:0 9px;background:var(--panel2);border-bottom:1px solid var(--line);color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.04em;text-align:left;white-space:nowrap;}
+.aide .mcc-grid td{height:34px;padding:3px 9px;border-bottom:1px solid rgba(255,255,255,.035);color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.aide .mcc-grid th:first-child,.aide .mcc-grid td:first-child{position:sticky;left:0;z-index:2;background:var(--bg);min-width:220px;max-width:300px;}
+.aide .mcc-grid th:first-child{z-index:4;background:var(--panel2);}
+.aide .mcc-grid tbody tr{cursor:pointer;}
+.aide .mcc-grid tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--txt);}
+.aide .mcc-grid tbody tr:hover td:first-child{background:var(--panel2);}
+.aide .mcc-grid tbody tr.on td{background:color-mix(in srgb,var(--mcc-accent) 7%,transparent);color:var(--txt);}
+.aide .mcc-grid tbody tr.on td:first-child{box-shadow:inset 2px 0 0 var(--mcc-accent);background:color-mix(in srgb,var(--mcc-accent) 10%,var(--bg));}
+.aide .mcc-grid td:first-child b{display:block;max-width:270px;overflow:hidden;text-overflow:ellipsis;color:var(--txt);}
+.aide .mcc-grid td:first-child small{display:block;max-width:270px;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:8.5px;}
+.aide .mcc-grid td.num{text-align:right;color:var(--txt);}
+.aide .mcc-grid td.good{color:var(--green);}.aide .mcc-grid td.bad{color:var(--red);}
+.aide .mcc-status{display:inline-block;border-radius:99px;padding:1px 6px;font-size:8.5px;font-weight:800;}
+.aide .mcc-status.live{color:var(--green);background:rgba(63,214,143,.12);}
+.aide .mcc-status.paused{color:var(--amber);background:rgba(232,180,90,.12);}
+.aide .mcc-status.stale,.aide .mcc-status.off{color:var(--faint);background:rgba(255,255,255,.05);}
+.aide .mcc-detail{width:300px;min-height:0;overflow-y:auto;flex-shrink:0;padding:0 14px 14px;background:var(--panel);border-left:1px solid var(--line);box-shadow:-12px 0 30px rgba(0,0,0,.16);}
+.aide .mcc-detail-head{height:34px;display:flex;align-items:center;justify-content:space-between;color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.07em;}
+.aide .mcc-detail-head button{border:0;background:none;color:var(--faint);font:inherit;font-size:16px;cursor:pointer;}
+.aide .mcc-detail-head button:hover{color:var(--txt);}
+.aide .mcc-detail h4{font-size:12px;line-height:1.35;margin:3px 0;color:var(--txt);}
+.aide .mcc-detail-id{margin:0;color:var(--faint);font-size:9px;word-break:break-all;}
+.aide .mcc-detail-state{display:flex;align-items:center;gap:7px;margin:10px 0;}
+.aide .mcc-detail-state>span:last-child{color:var(--dim);font-size:9.5px;}
+.aide .mcc-detail-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.aide .mcc-detail-grid>div{display:flex;flex-direction:column;padding:7px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+.aide .mcc-detail-grid>div:nth-child(2n){border-right:0;}
+.aide .mcc-detail-grid>div:nth-last-child(-n+2){border-bottom:0;}
+.aide .mcc-detail-grid span{color:var(--faint);font-size:8px;text-transform:uppercase;letter-spacing:.04em;}
+.aide .mcc-detail-grid b{color:var(--txt);font-size:11px;margin-top:2px;font-variant-numeric:tabular-nums;}
+.aide .mcc-detail-note{margin:10px 0;color:var(--faint);font-size:9px;line-height:1.5;}
+.aide .mcc-detail-open{display:block;text-align:center;}
+.aide .mcc-empty{padding:14px;color:var(--faint);font-size:10.5px;}
+.aide .mcc-empty.main{padding:24px;}
+
 /* ── Schema view (ERD canvas + live data) — prefixed .sv-* so it never
       collides with the agency IDE's own classes ── */
-.aide{--purple:#a78bfa;}
 .aide .sv-root{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;}
 .aide .sv-toolbar{display:flex;align-items:center;gap:14px;height:32px;flex-shrink:0;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11px;overflow-x:auto;white-space:nowrap;}
 .aide .sv-title{font-weight:800;color:var(--txt);}
 .aide .sv-meta{color:var(--faint);}
+.aide .sv-mode{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel2);flex-shrink:0;}
+.aide .sv-mode button{height:23px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:10.5px;padding:0 9px;cursor:pointer;}
+.aide .sv-mode button:last-child{border-right:0;}
+.aide .sv-mode button:hover{color:var(--txt);background:rgba(255,255,255,.035);}
+.aide .sv-mode button.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 -2px 0 var(--blue);}
+.aide .sv-readonly{margin-left:auto;color:var(--faint);}
 .aide .sv-legend-inline{display:flex;align-items:center;gap:14px;color:var(--faint);}
 .aide .sv-lg{display:flex;align-items:center;gap:5px;}
 .aide .sv-lg b{color:var(--blue);}
@@ -1195,6 +1682,69 @@ const CSS = `
 .aide .sv-tools button{width:24px;height:22px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);border-radius:5px;font:inherit;font-size:12px;cursor:pointer;}
 .aide .sv-tools button:hover{color:var(--txt);border-color:var(--dim);}
 .aide .sv-zoom{color:var(--faint);font-variant-numeric:tabular-nums;min-width:38px;text-align:right;}
+
+/* Tables is the default agency-schema surface. It mirrors the client Mission
+   browser while grouping the larger agency schema into bounded domains. */
+.aide .sv-browser{flex:1;display:flex;min-height:0;overflow:hidden;}
+.aide .sv-browser-rail{width:286px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line);}
+.aide .sv-br-head{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--faint);font-size:9.5px;font-weight:800;letter-spacing:.07em;flex-shrink:0;}
+.aide .sv-br-controls{display:grid;grid-template-columns:minmax(0,1fr) 106px;gap:6px;padding:0 9px 9px;flex-shrink:0;}
+.aide .sv-br-controls input,.aide .sv-br-controls select{min-width:0;height:28px;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:10.5px;padding:0 8px;outline:none;}
+.aide .sv-br-controls input:focus,.aide .sv-br-controls select:focus{border-color:var(--blue);box-shadow:0 0 0 1px rgba(110,168,254,.18);}
+.aide .sv-br-controls select{color:var(--dim);cursor:pointer;padding-right:2px;}
+.aide .sv-br-list{flex:1;min-height:0;overflow-y:auto;padding:0 7px 10px;}
+.aide .sv-br-group{margin-bottom:8px;}
+.aide .sv-br-group-h{position:sticky;top:0;z-index:1;height:24px;display:flex;align-items:center;gap:7px;padding:0 6px;background:var(--panel);color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+.aide .sv-br-group-h span:last-child{margin-left:auto;font-variant-numeric:tabular-nums;}
+.aide .sv-br-dot,.aide .sv-table-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;box-shadow:0 0 7px currentColor;}
+.aide .sv-br-table{width:100%;height:27px;display:flex;align-items:center;gap:8px;padding:0 7px;border:0;border-left:2px solid transparent;border-radius:4px;background:transparent;color:var(--dim);font:inherit;font-size:11px;text-align:left;cursor:pointer;}
+.aide .sv-br-table:hover{background:rgba(255,255,255,.035);color:var(--txt);}
+.aide .sv-br-table.on{background:rgba(110,168,254,.09);border-left-color:var(--blue);color:var(--txt);}
+.aide .sv-br-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-br-count{color:var(--faint);font-size:9.5px;font-variant-numeric:tabular-nums;}
+.aide .sv-br-msg{padding:12px 8px;color:var(--faint);font-size:11px;line-height:1.5;}
+.aide .sv-br-msg.err{color:var(--red);}
+.aide .sv-br-note{flex-shrink:0;padding:8px 11px;border-top:1px solid var(--line);color:var(--faint);font-size:9.5px;line-height:1.4;}
+.aide .sv-browser-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.aide .sv-table-head{min-height:62px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .sv-table-identity{min-width:0;display:flex;flex-direction:column;gap:3px;}
+.aide .sv-table-identity>div{display:flex;align-items:center;gap:8px;min-width:0;}
+.aide .sv-table-identity b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-table-identity>span{color:var(--faint);font-size:10.5px;}
+.aide .sv-table-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);font:inherit;font-size:10.5px;padding:5px 9px;cursor:pointer;white-space:nowrap;}
+.aide .sv-table-btn:hover:not(:disabled){color:var(--txt);border-color:var(--dim);}
+.aide .sv-table-btn:disabled{opacity:.5;cursor:default;}
+.aide .sv-table-btn span{color:var(--faint);}
+.aide .sv-colpick{position:relative;margin-left:auto;flex-shrink:0;}
+.aide .sv-colmenu{position:absolute;right:0;top:calc(100% + 5px);z-index:50;width:280px;max-height:360px;overflow-y:auto;padding:6px;background:var(--popup);border:1px solid var(--line2);border-radius:9px;box-shadow:0 16px 44px rgba(0,0,0,.55);}
+.aide .sv-colmenu-top{display:flex;gap:6px;padding:2px 4px 6px;margin-bottom:4px;border-bottom:1px solid var(--line);}
+.aide .sv-colmenu-top button{background:none;border:1px solid var(--line);border-radius:5px;color:var(--dim);font:inherit;font-size:9.5px;padding:2px 8px;cursor:pointer;}
+.aide .sv-colmenu-top button:hover{color:var(--txt);}
+.aide .sv-colrow{display:flex;align-items:center;gap:7px;min-height:27px;padding:2px 6px;border-radius:5px;color:var(--txt);font-size:10.5px;cursor:pointer;}
+.aide .sv-colrow:hover{background:rgba(255,255,255,.04);}
+.aide .sv-colrow input{accent-color:var(--blue);cursor:pointer;}
+.aide .sv-colrow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .sv-colrow small{margin-left:auto;color:var(--faint);font-size:9px;white-space:nowrap;}
+.aide .sv-colrow em{color:var(--purple);font-size:8.5px;font-style:normal;white-space:nowrap;}
+.aide .sv-table-context{padding:8px 16px 0;flex-shrink:0;}
+.aide .sv-relations{display:flex;align-items:center;gap:5px;overflow-x:auto;padding-bottom:2px;}
+.aide .sv-relations>span{color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.07em;margin-right:2px;}
+.aide .sv-relations button{border:1px solid var(--line);border-radius:99px;background:var(--panel2);color:var(--dim);font:inherit;font-size:9.5px;padding:2px 7px;cursor:pointer;white-space:nowrap;}
+.aide .sv-relations button:hover{color:var(--blue);border-color:rgba(110,168,254,.35);}
+.aide .sv-table-data{flex:1;min-height:0;display:flex;padding:10px 16px 12px;overflow:hidden;}
+.aide .sv-table-empty{padding:22px;color:var(--faint);font-size:11.5px;}
+.aide .sv-table-empty.err{color:var(--red);}
+.aide .sv-table-grid-scroll{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);}
+.aide .sv-table-grid{width:max-content;min-width:100%;}
+.aide .sv-table-grid th{top:0;height:27px;z-index:2;}
+.aide .sv-table-grid td{max-width:360px;height:26px;}
+.aide .sv-table-grid th:first-child{position:sticky;left:0;z-index:3;}
+.aide .sv-table-grid td:first-child{position:sticky;left:0;z-index:1;background:var(--bg);}
+.aide .sv-table-grid tr:hover td:first-child{background:var(--panel2);}
+.aide .sv-th-key{display:inline-block;margin-left:5px;border-radius:3px;padding:0 4px;font-size:8px;font-weight:800;}
+.aide .sv-th-key.pk{color:var(--amber);background:rgba(232,180,90,.14);}
+.aide .sv-th-key.fk{color:var(--blue);background:rgba(110,168,254,.14);}
+.aide .sv-table-foot{height:38px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-top:1px solid var(--line);color:var(--faint);font-size:10.5px;flex-shrink:0;}
 
 .aide .sv-viewport{flex:1;position:relative;overflow:hidden;background:
   radial-gradient(circle at 1px 1px, rgba(255,255,255,.045) 1px, transparent 0) 0 0/26px 26px, var(--bg);cursor:grab;min-height:0;}

@@ -105,7 +105,7 @@ function getActiveKey(pathname, clientId) {
 }
 
 /* ─── User Menu (preserved from original) ─── */
-function UserMenu() {
+function UserMenu({ mission = false }) {
   const router = useRouter()
   const { clientId } = useParams()
   const [open, setOpen] = useState(false)
@@ -142,19 +142,26 @@ function UserMenu() {
   const initials = nameParts.length >= 2
     ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
     : (nameParts[0]?.[0] || '?').toUpperCase()
+  const menuCls = mission
+    ? 'absolute right-0 mt-2 w-60 bg-[var(--popup)] border border-[var(--line2)] rounded-lg shadow-xl z-50 overflow-hidden'
+    : 'absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden'
+  const sectionBorder = mission ? 'border-[var(--line2)]' : 'border-gray-100 dark:border-white/10'
+  const menuLink = mission
+    ? 'flex items-center gap-3 px-4 py-2 text-sm text-[var(--dim)] hover:bg-white/5 hover:text-[var(--txt)] transition'
+    : 'flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition'
 
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:ring-2 hover:ring-blue-400 hover:ring-offset-2 dark:hover:ring-offset-[#0c0e18] transition"
+        className={`w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:ring-2 hover:ring-blue-400 hover:ring-offset-2 transition ${mission ? 'hover:ring-offset-[var(--panel)]' : 'dark:hover:ring-offset-[#0c0e18]'}`}
       >
         <span className="text-white text-xs font-bold">{initials}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="px-4 py-4 border-b border-gray-100 dark:border-white/10 flex items-center gap-3">
+        <div className={menuCls}>
+          <div className={`px-4 py-4 border-b flex items-center gap-3 ${sectionBorder}`}>
             <div className="flex-shrink-0">
               {user.avatar ? (
                 <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
@@ -165,21 +172,21 @@ function UserMenu() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || user.email}</p>
+              <p className={`text-sm font-semibold truncate ${mission ? 'text-[var(--txt)]' : 'text-gray-900 dark:text-white'}`}>{user.name || user.email}</p>
               {user.role && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                <p className={`text-xs truncate mt-0.5 ${mission ? 'text-[var(--dim)]' : 'text-gray-500 dark:text-gray-400'}`}>
                   {user.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </p>
               )}
-              {user.name && <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{user.email}</p>}
+              {user.name && <p className={`text-xs truncate mt-0.5 ${mission ? 'text-[var(--faint)]' : 'text-gray-400 dark:text-gray-500'}`}>{user.email}</p>}
             </div>
           </div>
           <div className="py-1.5">
-            <Link href={`/control/${clientId}/profile`} onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+            <Link href={`/control/${clientId}/profile`} onClick={() => setOpen(false)} className={menuLink}>
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               Profile
             </Link>
-            <Link href={`/control/${clientId}/settings`} onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+            <Link href={`/control/${clientId}/settings`} onClick={() => setOpen(false)} className={menuLink}>
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -188,8 +195,8 @@ function UserMenu() {
             </Link>
           </div>
           <ThemeSelector />
-          <div className="border-t border-gray-100 dark:border-white/10 py-1.5">
-            <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-red-600 dark:hover:text-red-400 transition">
+          <div className={`border-t py-1.5 ${sectionBorder}`}>
+            <button onClick={handleSignOut} className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition ${mission ? 'text-[var(--dim)] hover:bg-white/5 hover:text-[var(--red)]' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-red-600 dark:hover:text-red-400'}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               Log out
             </button>
@@ -406,8 +413,8 @@ export default function ClientLayout({ children }) {
   // destinations live inside the IDE's explorer (APPS section) and ⌘P.
   if (activeKey === 'mission') {
     return (
-      <div className="flex flex-col h-screen bg-[#1a1a1c]" style={{ '--mt-top': '36px' }}>
-        <header className="h-9 flex items-center gap-1 pl-2 pr-2.5 border-b border-white/[0.07] bg-[#1a1a1c] flex-shrink-0 relative z-50" style={{ fontFamily: '"SF Mono", ui-monospace, Menlo, Consolas, monospace' }}>
+      <div className="mission-shell flex flex-col h-screen" style={{ '--mt-top': '36px' }}>
+        <header className="mission-titlebar h-9 flex items-center gap-1 pl-2 pr-2.5 flex-shrink-0 relative z-50">
           {/* Client switcher — same dropdown as the classic nav, IDE-skinned.
               Only agency admins get the dropdown, so only they get the button. */}
           <div ref={el => dropdownRefs.current['brand'] = el} className="relative h-full flex items-center">
@@ -417,27 +424,27 @@ export default function ClientLayout({ children }) {
                 className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition group"
               >
                 <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
-                <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
-                <svg className="w-2.5 h-2.5 text-[#5a6377] group-hover:text-[#8a93a8] transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+                <span className="text-[var(--txt)] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
+                <svg className="w-2.5 h-2.5 text-[var(--faint)] group-hover:text-[var(--dim)] transition flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
               </button>
             ) : (
               <span className="flex items-center gap-2 px-2 py-1">
                 <span className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{clientInitials}</span>
-                <span className="text-[#dbe1ee] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
+                <span className="text-[var(--txt)] font-bold text-[12px] truncate max-w-[180px]">{clientName || clientId}</span>
               </span>
             )}
             {openDropdown === 'brand' && isAgencyAdmin && (
-              <div className="absolute top-full left-1 mt-1 bg-[#26262a] border border-white/[0.07] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
+              <div className="absolute top-full left-1 mt-1 bg-[var(--popup)] border border-[var(--line2)] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
                 <Link href="/control" onClick={() => setOpenDropdown(null)}
-                  className="flex items-center gap-2 px-2.5 py-2 text-[#8a93a8] text-[12px] rounded-md hover:text-[#dbe1ee] hover:bg-white/5 transition">
+                  className="flex items-center gap-2 px-2.5 py-2 text-[var(--dim)] text-[12px] rounded-md hover:text-[var(--txt)] hover:bg-white/5 transition">
                   <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Agency
                 </Link>
                 <div className="my-1 border-t border-white/[0.07]" />
                 {clients.map(c => (
                   <Link key={c.client_id} href={`/control/${c.client_id}/mission`} onClick={() => setOpenDropdown(null)}
-                    className={`flex items-center gap-2 px-2.5 py-2 text-[12px] rounded-md transition ${c.client_id === clientId ? 'bg-[rgba(110,168,254,.12)] text-[#dbe1ee]' : 'text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/5'}`}>
-                    <span className="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-[8px] font-bold text-[#8a93a8] flex-shrink-0">{(c.client_name || 'CA').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
+                    className={`flex items-center gap-2 px-2.5 py-2 text-[12px] rounded-md transition ${c.client_id === clientId ? 'bg-[rgba(110,168,254,.12)] text-[var(--txt)]' : 'text-[var(--dim)] hover:text-[var(--txt)] hover:bg-white/5'}`}>
+                    <span className="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-[8px] font-bold text-[var(--dim)] flex-shrink-0">{(c.client_name || 'CA').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
                     {c.client_name}
                   </Link>
                 ))}
@@ -445,22 +452,22 @@ export default function ClientLayout({ children }) {
             )}
           </div>
           {isEcom && <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-1.5">Ecom</span>}
-          <span className="text-[#5a6377] text-[11px] ml-1.5">mission</span>
+          <span className="text-[var(--faint)] text-[11px] ml-1.5">mission</span>
           <div className="ml-auto flex items-center gap-2">
             <Link href={`/control/${clientId}/dashboard`}
               onClick={() => { try { localStorage.removeItem(`prefer_mission_${clientId}`) } catch { /* noop */ } }}
               title="back to the classic dashboard"
-              className="px-2 py-0.5 rounded text-[11px] text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/[0.06] transition">
+              className="px-2 py-0.5 rounded text-[11px] text-[var(--dim)] hover:text-[var(--txt)] hover:bg-white/[0.06] transition">
               ← classic
             </Link>
             {realAgencyAdmin && (
               <button onClick={toggleViewAs} title={viewAsClient ? 'Exit client view' : 'Preview what the client sees'}
-                className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-[#8a93a8] hover:text-[#dbe1ee] hover:bg-white/[0.06]'}`}>
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold transition ${viewAsClient ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-[var(--dim)] hover:text-[var(--txt)] hover:bg-white/[0.06]'}`}>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg>
                 {viewAsClient ? 'client view' : 'view-as'}
               </button>
             )}
-            <UserMenu />
+            <UserMenu mission />
           </div>
         </header>
         <main className="flex-1 min-h-0">

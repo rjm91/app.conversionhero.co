@@ -80,9 +80,16 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
-  // Deep link (?focus=<table>&day=…) → open the client Schema browser tab.
+  // Deep links from agency Mission can open a client data surface directly.
   useEffect(() => {
-    try { if (new URLSearchParams(window.location.search).get('focus')) { setTabs(t => t.includes('schema') ? t : [...t, 'schema']); setActiveTab('schema') } } catch { /* ignore */ }
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const requested = sp.get('focus') ? 'schema' : sp.get('tab')
+      if (requested && VIEW_TITLES[requested]) {
+        setTabs(t => t.includes(requested) ? t : [...t, requested])
+        setActiveTab(requested)
+      }
+    } catch { /* ignore */ }
   }, [])
   const [splitTab, setSplitTab] = useState(null)   // second editor pane (or null)
   const [splitPct, setSplitPct] = useState(45)     // right pane width %
@@ -711,7 +718,7 @@ export default function BusinessIDE() {
   const problems = openTurns
 
   return (
-    <div className="ide">
+    <div className="ide mission-shell">
       <style>{CSS}</style>
 
       <div className="ide-cols">
@@ -1685,13 +1692,15 @@ function RangeCalendar({ value, onPick, onClose }) {
     return () => document.removeEventListener('mousedown', close)
   }, [onClose])
 
-  const lo = anchor && hover ? (anchor <= hover ? anchor : hover) : (value && !anchor ? value.start : anchor)
-  const hi = anchor && hover ? (anchor <= hover ? hover : anchor) : (value && !anchor ? value.end : anchor)
+  // After the first click, the anchor fills and the span extends live to the
+  // hovered day. Before a new pick starts, preview the currently saved range.
+  const lo = anchor ? (hover && hover < anchor ? hover : anchor) : (value?.start || null)
+  const hi = anchor ? (hover && hover > anchor ? hover : anchor) : (value?.end || null)
   const clickDay = (s) => {
-    if (!anchor) { setAnchor(s); setHover(s); return }
-    if (s === anchor) { setAnchor(null); return }
+    if (!anchor) { setAnchor(s); setHover(s); return } // first click = start
+    if (s === anchor) { setAnchor(null); setHover(null); return } // click start again = undo
     const [a, b] = anchor <= s ? [anchor, s] : [s, anchor]
-    onPick(a, b)
+    onPick(a, b) // second click = end → commit
   }
   const Month = ({ base }) => {
     const y = base.getFullYear(), mo = base.getMonth()
@@ -2228,10 +2237,26 @@ function SourceDrill({ days, drill, m, onClose }) {
     const fetchKind = async (kind) => {
       if (kind === 'orders') {
         const { data, error } = await supabase.from('client_orders')
-          .select('order_name, order_id, created_at, utm_source, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
+          .select('order_name, order_id, created_at, utm_source, utm_medium, utm_campaign, utm_content, first_utm_source, first_utm_medium, first_utm_campaign, first_utm_content, last_utm_source, last_utm_medium, last_utm_campaign, last_utm_content, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
           .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
         if (error) throw error
-        return { table: 'client_orders', note: `${chLabel}orders`, rows: data || [] }
+        const rows = (data || []).map(r => ({
+          order_name: r.order_name,
+          order_id: r.order_id,
+          created_at: r.created_at,
+          derived_channel: deriveChannel(r),
+          utm_source: r.utm_source,
+          shopify_channel: r.shopify_channel,
+          financial_status: r.financial_status,
+          fulfillment_status: r.fulfillment_status,
+          sale_amount: r.sale_amount,
+          subtotal: r.subtotal,
+          discounts: r.discounts,
+          refunds: r.refunds,
+          tax: r.tax,
+          net_revenue: r.net_revenue,
+        }))
+        return { table: 'client_orders', note: `${chLabel}orders · last-touch attribution`, rows }
       }
       if (kind === 'items') {
         const { data, error } = await supabase.from('client_order_items')
@@ -3553,7 +3578,7 @@ function LineChart({ line, onDrill }) {
             <line x1={px(hover)} y1={P} x2={px(hover)} y2={H - P} stroke="rgba(255,255,255,.28)" strokeWidth="1" strokeDasharray="3 3" />
             {series.map((s, i) => s.values[hover] != null && (
               <circle key={i} cx={px(hover)} cy={py(s.values[hover])} r="3.5"
-                fill={SERIES_COLORS[i % SERIES_COLORS.length]} stroke="#202023" strokeWidth="1.5" />
+                fill={SERIES_COLORS[i % SERIES_COLORS.length]} stroke="var(--bg)" strokeWidth="1.5" />
             ))}
           </>}
         </svg>
@@ -3620,8 +3645,7 @@ function Markdown({ text }) {
 
 /* ══════════ IDE CSS ══════════ */
 const CSS = `
-.ide{--bg:#202023;--panel:#1a1a1c;--panel2:#2a2a2e;--line:rgba(255,255,255,.06);--txt:#e4e4e6;--dim:#9a9aa2;--faint:#6a6a72;--green:#3fd68f;--red:#f4747f;--amber:#e8b45a;--orange:#ee946c;--blue:#6ea8fe;--purple:#a78bfa;
-  position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;background:var(--bg);color:var(--txt);font:13px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+.ide{position:fixed;inset:0;top:var(--mt-top,57px);z-index:30;}
 .ide-cols{display:flex;height:100%;}
 .ide .dim{color:var(--faint);} .ide .good{color:var(--green);} .ide .warn{color:var(--amber);} .ide .bad,.ide .badc{color:var(--red);}
 .ide .goodc{color:var(--green);} .ide .bluec{color:var(--blue);} .ide .purpc{color:var(--purple);} .ide .dimc{color:var(--faint);}
@@ -3741,8 +3765,10 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
-.ide .ov-pad{padding:18px 24px 40px;}
-.ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.ide .ov-pad{padding:0 24px 40px;}
+/* Sticky IDE-style header — Shield Score + Last-updated + zoom/date controls
+   stay pinned as the metrics scroll under them. */
+.ide .ov-top{position:sticky;top:0;z-index:20;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--bg);padding:16px 0 12px;margin-bottom:16px;border-bottom:1px solid var(--line);}
 /* Shield Score card */
 .ide .shield{display:inline-flex;align-items:center;gap:11px;padding:9px 14px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);}
 .ide .shield.good{border-color:rgba(63,214,143,.35);box-shadow:inset 0 0 0 1px rgba(63,214,143,.06);}
@@ -3801,11 +3827,12 @@ const CSS = `
 .ide .rc-mh{text-align:center;font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px;}
 .ide .rc-grid{display:grid;grid-template-columns:repeat(7,26px);gap:1px;}
 .ide .rc-dow{text-align:center;font-size:9px;color:var(--faint);height:16px;line-height:16px;}
-.ide .rc-day{height:26px;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
-.ide .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border-radius:6px;}
+.ide .ov-nav .rc-day{height:26px;padding:0;border:none;background:none;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;border-radius:0;}
+.ide .ov-nav .rc-day:hover:not(:disabled){background:rgba(255,255,255,.08);border:none;border-radius:6px;}
 .ide .rc-out{visibility:hidden;}
-.ide .rc-in{background:rgb(var(--blue-500,110 168 254) / .22);color:var(--txt);}
-.ide .rc-edge{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border-radius:6px;}
+.ide .ov-nav .rc-day.rc-in,.ide .ov-nav .rc-day.rc-in:hover{background:rgb(var(--blue-500,110 168 254) / .22);color:var(--txt);border:none;border-radius:0;}
+.ide .ov-nav .rc-day.rc-edge,.ide .ov-nav .rc-day.rc-edge:hover{background:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;border:none;border-radius:6px;}
+.ide .ov-nav .rc-day:focus-visible{outline:2px solid rgb(var(--blue-500,110 168 254));outline-offset:1px;}
 .ide .ov-zoom{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:2px;margin-right:8px;}
 .ide .ov-zoom button{background:none;border:none;color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;}
 .ide .ov-zoom button:hover{color:var(--txt);}
@@ -3820,7 +3847,7 @@ const CSS = `
 .ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 64px;}
 /* PnL: metrics stacked on the left, click-to-drill tables on the right */
 .ide .ov-grid.ov-2col{grid-template-columns:minmax(340px,440px) minmax(0,1fr);gap:0 40px;align-items:start;}
-.ide .ov-drillcol{position:sticky;top:0;min-width:0;}
+.ide .ov-drillcol{position:sticky;top:78px;min-width:0;}
 .ide .ov-drillcol .ov-drill{margin-top:0;border-top:none;padding-top:0;}
 .ide .ov-drill-empty{border:1px dashed var(--line);border-radius:10px;padding:28px 20px;color:var(--faint);font-size:12px;text-align:center;margin-top:24px;}
 @media (max-width: 1100px){.ide .ov-grid.ov-2col{grid-template-columns:1fr;}.ide .ov-drillcol{position:static;}}
@@ -3897,7 +3924,7 @@ const CSS = `
 .ide .csg-node{cursor:pointer;transition:opacity .15s;}
 .ide .csg-node:hover circle{filter:brightness(1.15);}
 .ide .csg-label{fill:var(--dim);font-size:10px;font-weight:600;pointer-events:none;}
-.ide .csg-count{fill:#202023;font-size:10px;font-weight:800;pointer-events:none;}
+.ide .csg-count{fill:var(--bg);font-size:10px;font-weight:800;pointer-events:none;}
 .ide .csg-loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:12px;}
 .ide .cs-q{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 8px;margin-bottom:8px;outline:none;}
 .ide .cs-t{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;padding:4.5px 6px;cursor:pointer;text-align:left;border-radius:5px;}
@@ -4159,7 +4186,7 @@ const CSS = `
 .ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
 .ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;white-space:nowrap;}
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
-.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:#0b1220;font-weight:700;}
+.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
 .ide .set-msg{font-size:11.5px;} .ide .set-msg.good{color:var(--green);} .ide .set-msg.bad{color:var(--red);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
