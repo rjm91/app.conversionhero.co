@@ -7,6 +7,7 @@ import { fetchAllRows } from '../../../../lib/fetch-all'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import CampaignBuilder from '../../../../components/CampaignBuilder'
+import MetaConnectionModal from '../../../../components/MetaConnectionModal'
 import { useAuth } from '../../../../lib/useAuth'
 import { isAgencyUser } from '../../../../lib/roles'
 
@@ -69,6 +70,7 @@ export default function PaidAdsPage() {
   const [clientName,     setClientName]     = useState('')
   const [statusFilter,   setStatusFilter]   = useState(initStatus)
   const [searchQuery,    setSearchQuery]    = useState('')
+  const [metaModalOpen,  setMetaModalOpen]  = useState(false)
   const [loading,        setLoading]        = useState(true)
   const [syncing,        setSyncing]        = useState(false)
   const [syncedAt,       setSyncedAt]       = useState(null)
@@ -877,7 +879,7 @@ export default function PaidAdsPage() {
               <p className="text-sm font-semibold text-gray-900 dark:text-white">Meta (Facebook)</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Connect Meta Ads to pull spend and match it to CH-attributed conversions.</p>
             </div>
-            <button className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">
+            <button onClick={() => setMetaModalOpen(true)} className="text-xs font-semibold border border-gray-200 dark:border-white/[0.12] px-3.5 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition">
               Connect Meta →
             </button>
           </div>
@@ -892,6 +894,10 @@ export default function PaidAdsPage() {
             </button>
           </div>
         </div>
+      )}
+      {metaModalOpen && (
+        <MetaConnectionModal clientId={clientId} clientName={clientName} start={appliedStart} end={appliedEnd}
+          onClose={() => setMetaModalOpen(false)} onSaved={() => {}} />
       )}
     </div>
   )
