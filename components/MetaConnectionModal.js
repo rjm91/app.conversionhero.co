@@ -15,6 +15,7 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
   const [appSecret, setAppSecret] = useState('')
   const [showToken, setShowToken] = useState(false)
 
+  const [showGuide, setShowGuide] = useState(false)
   const [testing, setTesting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -114,6 +115,18 @@ export default function MetaConnectionModal({ clientId, clientName, start, end, 
               <button type="button" onClick={() => setShowToken(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-gray-600">{showToken ? 'hide' : 'show'}</button>
             </div>
             <span className="text-[11px] text-gray-400">Use a long-lived System User token so it won&apos;t expire.</span>
+            <button type="button" onClick={() => setShowGuide(g => !g)} className="mt-1 text-[11px] font-medium text-blue-500 hover:text-blue-600">
+              {showGuide ? '▾ Hide' : '▸'} How do I get a System User token?
+            </button>
+            {showGuide && (
+              <ol className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed list-decimal pl-4 space-y-1 bg-gray-50 dark:bg-white/[0.03] rounded-lg px-3 py-2.5">
+                <li>Confirm this client&apos;s <b>ad account</b> is shared to <b>your</b> Business Manager (Business settings → Accounts → Ad accounts → it should appear). If not, have the client &quot;Assign partner&quot; the ad account to your business.</li>
+                <li>Business settings → <b>Users → System users</b> → add one (e.g. &quot;CH API&quot;), role <b>Admin</b>.</li>
+                <li>Select that system user → <b>Assign assets</b> → pick this client&apos;s ad account → toggle <b>Manage campaigns</b> (full control) → Save.</li>
+                <li><b>Generate new token</b> → choose your app → scopes <b>ads_read</b> (and <b>ads_management</b> if you&apos;ll push campaigns) → Generate. System-user tokens don&apos;t expire.</li>
+                <li>Paste that token above. Reading data only needs <b>ads_read</b>.</li>
+              </ol>
+            )}
           </label>
 
           {/* App secret (optional) */}
