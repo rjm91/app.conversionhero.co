@@ -1574,6 +1574,7 @@ const DP = {
   pc: (n) => n == null ? '—' : (n * 100).toFixed(1) + '%',
   div: (a, b) => (b > 0 ? a / b : null),
   cmCls: (n) => n > 0 ? 'good' : n < 0 ? 'bad' : '',
+  lossOnlyCls: (n) => n < 0 ? 'bad' : '',
   roasCls: (n, t) => n == null ? '' : n < (t?.red ?? 1) ? 'bad' : n <= (t?.green ?? 1.2) ? 'warn' : 'good',
   day: (r, isTot) => isTot ? r.day : new Date(r.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
 }
@@ -1983,7 +1984,7 @@ function CacKey({ thr, canEdit, onSave, desc }) {
 }
 
 function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing }) {
-  const { $, x, pc, div, cmCls, roasCls } = DP
+  const { $, x, pc, div, cmCls, lossOnlyCls, roasCls } = DP
   // ROAS traffic-light thresholds — per-client, editable in the color-key popover
   const thr = { red: m.sources?.roasRedBelow ?? 1, green: m.sources?.roasGreenAbove ?? 1.2 }
   const rc = (n) => roasCls(n, thr)
@@ -2062,6 +2063,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
   const aovKey = aovThr ? <AovKey thr={aovThr} hist={aovDefaults} canEdit={canEditRoas} onSave={onSaveAov} /> : null
   // Sign-based lines color themselves; the note tells the reader the rule.
   const signNote = (desc) => <KeyNote title="Color rule" desc={desc} lines={[{ k: 'g', t: 'green — positive, making money' }, { k: 'r', t: 'red — negative, losing money' }]} />
+  const contributionNote = <KeyNote title="Color rule" desc="Contribution Margin = net revenue − COGS, before ad spend" lines={[{ k: 'n', t: 'white — zero or positive' }, { k: 'r', t: 'red — negative' }]} />
   // Shield Score — composite daily health from the dialed KPIs (paid basis).
   const _paidNet = r.meta.net + r.google.net, _paidCogs = r.meta.cogs + r.google.cogs, _paidOrders = r.meta.orders + r.google.orders
   const shield = computeShieldScore({
@@ -2100,7 +2102,7 @@ function OverviewView({ m, rangeLabel, canEditRoas, onSaveRoas, onSaveCac, onSav
       <Line k="ROAS" v={x(div(b.net, b.spend))} dk={{ kinds: ['orders', ...b.kinds], line: `${b.id}-roas`, channel: b.channel, hi: ['net_revenue', ...b.spendHi], explain: `${b.label} ROAS = attributed net revenue ÷ spend = ${$(b.net)} ÷ ${$(b.spend)} = ${x(div(b.net, b.spend))}.` }} />
       <Line k="COGS (BOM)" v={$(b.cogs)} cls={b.cogs > 0 ? 'warn' : ''} dk={{ kinds: ['items'], line: `${b.id}-cogs`, channel: b.channel, hi: ['sku', 'qty'], explain: `${b.label} COGS = Σ (qty × BOM unit cost) across attributed orders' line items = ${$(b.cogs)}.` }} />
       {b.id !== 'bl' && (
-        <Line k="Contribution Margin" info={signNote('Contribution Margin = net revenue − COGS, before ad spend')} v={$(b.net - b.cogs)} cls={cmCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
+        <Line k="Contribution Margin" info={contributionNote} v={$(b.net - b.cogs)} cls={lossOnlyCls(b.net - b.cogs)} dk={{ kinds: ['orders', 'items'], line: `${b.id}-cm`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty'], explain: `${b.label} Contribution Margin = net revenue − COGS, before ad spend = ${$(b.net)} − ${$(b.cogs)} = ${$(b.net - b.cogs)}.` }} />
       )}
       <Line k="Net" info={signNote('Net = net revenue − COGS − ad spend')} v={netAfter == null ? '—' : $(netAfter)} cls={cmCls(netAfter)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-net`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} Net = ${$(b.net)} net revenue − ${$(b.cogs)} COGS − ${$(b.spend)} spend = ${netAfter == null ? '—' : $(netAfter)}.` }} />
       <Line k="True ROAS" info={troasKey} v={x(troas)} cls={rc(troas)} dk={{ kinds: ['orders', 'items', ...b.kinds], line: `${b.id}-troas`, channel: b.channel, hi: ['net_revenue', 'sku', 'qty', ...b.spendHi], explain: `${b.label} True ROAS = (net revenue − COGS) ÷ spend = (${$(b.net)} − ${$(b.cogs)}) ÷ ${$(b.spend)} = ${x(troas)}.` }} />
@@ -2781,7 +2783,7 @@ function PnlTable({ p, sources, campaigns, rangeLabel, canEditLabel, onSaveLabel
     ['Conversion Rate', gaGap ? '—' : pc1(p.cvrBlended), '', gaGap ? 'dim' : 'good'],
     ['sep'],
     ['COGS', $(p.cogs), G(p.cogs), 'bad', null, sources?.hasCogs ? O('cogs') : null],
-    ['Contribution Margin', $2(p.contributionMargin), G(p.contributionMargin), 'good'],
+    ['Contribution Margin', $2(p.contributionMargin), G(p.contributionMargin), p.contributionMargin < 0 ? 'bad' : ''],
     ['Orders Shipped', String(p.ordersShipped), '', '', null, O('shipped')],
     ['Shipping Costs', $2(p.shippingCosts), G(p.shippingCosts), 'warn', 'shipping', O('shippingCost')],
     ['sep'],
@@ -3870,7 +3872,7 @@ const CSS = `
 .ide .ov-v.spend{color:var(--orange);} /* ad spend — money out, not a warning */
 .ide .ov-v.lgreen{color:#8fe0bb;}
 .ide .kd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;flex-shrink:0;}
-.ide .kd.g{background:var(--green);}.ide .kd.y{background:var(--amber);}.ide .kd.r{background:var(--red);}
+.ide .kd.g{background:var(--green);}.ide .kd.y{background:var(--amber);}.ide .kd.r{background:var(--red);}.ide .kd.n{background:var(--txt);}
 .ide .ov-i{position:relative;display:inline-block;margin-left:7px;color:var(--faint);font-size:10px;cursor:help;}
 .ide .ov-i:hover{color:var(--blue);}
 .ide .ov-i .ov-pop{display:none;position:absolute;left:-12px;bottom:18px;z-index:60;width:250px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 13px;box-shadow:0 14px 40px rgba(0,0,0,.5);font-size:11px;color:var(--dim);text-align:left;white-space:normal;}
