@@ -436,7 +436,7 @@ export default function ClientLayout({ children }) {
             )}
             {openDropdown === 'brand' && isAgencyAdmin && (
               <div className="absolute top-full left-1 mt-1 bg-[var(--popup)] border border-[var(--line2)] rounded-lg p-1 min-w-[220px] max-h-[70vh] overflow-y-auto z-[100] shadow-xl">
-                <Link href="/control" onClick={() => setOpenDropdown(null)}
+                <Link href="/control/mission" onClick={() => setOpenDropdown(null)}
                   className="flex items-center gap-2 px-2.5 py-2 text-[var(--dim)] text-[12px] rounded-md hover:text-[var(--txt)] hover:bg-white/5 transition">
                   <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Agency
