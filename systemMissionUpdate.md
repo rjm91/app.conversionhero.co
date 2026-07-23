@@ -119,5 +119,49 @@ Steps for the user (mostly manual/Meta-side, not code):
 5. Reading = `ads_read` only (light). Writing campaigns = separate
    `ads_management` + App Review path (still blocked).
 
-Likely code work if requested: a smoother onboarding UX, or confirming the
-new-client creation flow surfaces the Connect Meta button for non-ecom clients.
+### Progress on the Contour/Meta onboarding task (this session, continued)
+
+- **Fixed dead "Connect Meta" button** (`app/control/[clientId]/paid-ads/page.js`):
+  it had no onClick, so non-ecom clients (med spa etc.) couldn't connect Meta at
+  all. Now opens `MetaConnectionModal` (imported + `metaModalOpen` state + mounted
+  at the end of the component, passing `appliedStart`/`appliedEnd`).
+- **Added token how-to** in `components/MetaConnectionModal.js`: a collapsible
+  "How do I get a System User token?" guide (share ad account → create system
+  user → assign asset with Manage campaigns → generate token with ads_read).
+
+- **Meta connection now reachable from the default (mission) experience**:
+  added a "Meta Ads connection" card to **mission Settings** (agency-only) that
+  opens `MetaConnectionModal`. Also still available from classic paid-ads (now
+  wired). `MetaConnectionModal` imported into `mission/page.js`; SettingsView
+  computes a last-30-day start/end for the modal's optional Sync-now.
+
+### Client creation flow (confirmed)
+
+- **POST `/api/clients`** with `{ client_name, account_type: 'ecom' | (else
+  home_service), industry, city, state }` → auto-generates `chNNN` id, inserts
+  into `client` table (`is_ecom = account_type==='ecom'`). UI in
+  `app/control/clients/page.js` (also links Google Ads customer_id per client via
+  `client_google_ads_account`).
+- So creating Contour = a **home_service** (non-ecom) client.
+
+### ⚠️ DECISION POINT — mission default vs lead-gen clients
+
+- The mission **PnL is ECOM-oriented** (built on `client_orders`: gross/net,
+  COGS/BOM, AOV, orders). Contour Scottsdale is a **med spa = lead-gen**
+  (`home_service`, uses `client_lead`, not orders). With mission now the default,
+  a lead-gen client would land on a PnL that doesn't fit (little/no order data).
+- **Options for the user to decide:**
+  1. Build a **lead-gen variant** of the mission overview (cost-per-lead, leads,
+     appointment rate, spend, CAC per lead) shown when `!is_ecom`.
+  2. Or **default non-ecom clients to classic** (paid-ads/leads views) while ecom
+     clients get mission — i.e. gate the mission-default redirect on `is_ecom`.
+  3. Or keep mission default for everyone and accept the PnL is ecom-only for now
+     (Meta spend still flows into `client_meta_campaigns` and shows in paid-ads).
+- Meta *data pull* itself is client-type-agnostic — it lands in
+  `client_meta_campaigns` and shows in the Paid Ads view regardless. So Contour
+  onboarding (connect → sync → see spend) works today via mission Settings →
+  Connect Meta, independent of the PnL-fit question.
+
+### Other noted gaps (out of scope for Contour)
+
+- TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
