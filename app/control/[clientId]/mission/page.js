@@ -3765,8 +3765,10 @@ const CSS = `
 .ide .dpnl tr.tot td:first-child{background:var(--panel2);}
 .ide .dpnl tr:not(.tot):hover td{background:rgba(255,255,255,.02);}
 .ide .dpnl tr:not(.tot):hover td:first-child{background:var(--panel2);}
-.ide .ov-pad{padding:18px 24px 40px;}
-.ide .ov-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.ide .ov-pad{padding:0 24px 40px;}
+/* Sticky IDE-style header — Shield Score + Last-updated + zoom/date controls
+   stay pinned as the metrics scroll under them. */
+.ide .ov-top{position:sticky;top:0;z-index:20;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--bg);padding:16px 0 12px;margin-bottom:16px;border-bottom:1px solid var(--line);}
 /* Shield Score card */
 .ide .shield{display:inline-flex;align-items:center;gap:11px;padding:9px 14px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);}
 .ide .shield.good{border-color:rgba(63,214,143,.35);box-shadow:inset 0 0 0 1px rgba(63,214,143,.06);}
@@ -3845,7 +3847,7 @@ const CSS = `
 .ide .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 64px;}
 /* PnL: metrics stacked on the left, click-to-drill tables on the right */
 .ide .ov-grid.ov-2col{grid-template-columns:minmax(340px,440px) minmax(0,1fr);gap:0 40px;align-items:start;}
-.ide .ov-drillcol{position:sticky;top:0;min-width:0;}
+.ide .ov-drillcol{position:sticky;top:78px;min-width:0;}
 .ide .ov-drillcol .ov-drill{margin-top:0;border-top:none;padding-top:0;}
 .ide .ov-drill-empty{border:1px dashed var(--line);border-radius:10px;padding:28px 20px;color:var(--faint);font-size:12px;text-align:center;margin-top:24px;}
 @media (max-width: 1100px){.ide .ov-grid.ov-2col{grid-template-columns:1fr;}.ide .ov-drillcol{position:static;}}
