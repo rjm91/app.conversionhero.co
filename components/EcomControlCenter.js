@@ -31,29 +31,36 @@ const CHANNEL_BY_SOURCENAME = {
 // Detect an ad platform in a single attribution string (source/medium/campaign).
 function platformOf(str) {
   const s = (str || '').toLowerCase()
-  if (/facebook|meta|instagram|\bfb\b/.test(s)) return 'Meta'
+  if (/facebook|meta|instagram|\bfb\b|\big\b/.test(s)) return 'Meta'
   if (/google|adwords|gads|youtube/.test(s))    return 'Google'
   return null
 }
+const prettySource = (source) => String(source).replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+function touchChannel(source, medium, campaign, content) {
+  const src = String(source || '').trim()
+  const srcLower = src.toLowerCase()
+  if (src) {
+    if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(srcLower)) return 'Klaviyo'
+    const paid = platformOf(src)
+    if (paid) return paid
+    if (/shop_app|shopapp|\bshop\b/.test(srcLower)) return 'Shop'
+    return prettySource(src)
+  }
+  const med = String(medium || '').trim().toLowerCase()
+  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(med)) return 'Klaviyo'
+  const paidMedium = platformOf(med)
+  if (paidMedium) return paidMedium
+  return platformOf([campaign, content].filter(Boolean).join(' ')) || null
+}
 export function deriveChannel(o) {
-  // RULE: if Google or Facebook appears ANYWHERE in the journey (first OR last
-  // visit, or the merged top-level UTM), attribute the order to that platform —
-  // even if the last click was email/Klaviyo. Prefer last-touch platform, then
-  // first-touch, then the merged top-level UTM (for rows synced before we kept
-  // both visits).
-  const lastP   = platformOf([o.last_utm_source,  o.last_utm_medium,  o.last_utm_campaign].join(' '))
-  const firstP  = platformOf([o.first_utm_source, o.first_utm_medium, o.first_utm_campaign].join(' '))
-  const mergedP = platformOf([o.utm_source, o.utm_medium, o.utm_campaign, o.utm_content].join(' '))
-  const platform = lastP || firstP || mergedP
-  if (platform) return platform
-  // No platform anywhere → next strongest signal across every source we have.
-  const blob = [o.utm_source, o.utm_medium, o.first_utm_source, o.first_utm_medium, o.last_utm_source, o.last_utm_medium]
-    .filter(Boolean).join(' ').toLowerCase()
-  // Email/SMS flows: ShieldTech (and most ecom clients) run these through
-  // Klaviyo, so the bucket carries the tool's name in the dashboard.
-  if (/klaviyo|mailchimp|sendgrid|newsletter|email/.test(blob)) return 'Klaviyo'
-  if (/shop_app|shopapp|\bshop\b/.test(blob)) return 'Shop'
-  if (o.utm_source) return o.utm_source.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  // Source-based last-touch attribution. The merged top-level UTM is Shopify's
+  // last-visit-first value, then explicit last visit, then first visit.
+  const merged = touchChannel(o.utm_source, o.utm_medium, o.utm_campaign, o.utm_content)
+  if (merged) return merged
+  const last = touchChannel(o.last_utm_source, o.last_utm_medium, o.last_utm_campaign, o.last_utm_content)
+  if (last) return last
+  const first = touchChannel(o.first_utm_source, o.first_utm_medium, o.first_utm_campaign, o.first_utm_content)
+  if (first) return first
   // Last resort: the Shopify sales channel.
   const ch = o.shopify_channel
   if (ch && CHANNEL_BY_SOURCENAME[ch]) return CHANNEL_BY_SOURCENAME[ch]
@@ -1941,7 +1948,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
               ) : null}
               open={open.klaviyo} onToggle={toggle}
               kpis={[
-                { label: 'Verified Rev', value: fmt$(klav.revenue), ch: true, info: 'ConversionHero first-party number: revenue from orders carrying Klaviyo email/SMS UTMs on the Shopify order, with no paid-ad touch anywhere in the journey.' },
+                { label: 'Verified Rev', value: fmt$(klav.revenue), ch: true, info: 'ConversionHero first-party number: revenue from orders whose last-touch Shopify UTM source is Klaviyo email/SMS.' },
                 ...(klavApi.value > 0 ? [{ label: 'Klaviyo Rev', value: fmt$(klavApi.value), info: "Klaviyo's own attributed revenue (its engagement-window model). It credits itself more generously — e.g. it claims orders your ads also claim. The gap vs Verified Rev is normal; verified is the money-truth number." }] : []),
                 { label: 'COGS', value: cogs.hasCogs ? fmt$(klav.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold on verified Klaviyo orders (from your BOM).' },
                 { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', ch: cogs.hasCogs && klav.contribution >= 0, info: 'Verified Klaviyo revenue − real COGS. No ad cost — email margin is nearly pure.' },

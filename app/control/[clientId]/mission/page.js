@@ -2237,10 +2237,26 @@ function SourceDrill({ days, drill, m, onClose }) {
     const fetchKind = async (kind) => {
       if (kind === 'orders') {
         const { data, error } = await supabase.from('client_orders')
-          .select('order_name, order_id, created_at, utm_source, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
+          .select('order_name, order_id, created_at, utm_source, utm_medium, utm_campaign, utm_content, first_utm_source, first_utm_medium, first_utm_campaign, first_utm_content, last_utm_source, last_utm_medium, last_utm_campaign, last_utm_content, shopify_channel, financial_status, fulfillment_status, sale_amount, subtotal, discounts, refunds, tax, net_revenue')
           .eq('client_id', clientId).in('order_id', ids).order('created_at', { ascending: true })
         if (error) throw error
-        return { table: 'client_orders', note: `${chLabel}orders`, rows: data || [] }
+        const rows = (data || []).map(r => ({
+          order_name: r.order_name,
+          order_id: r.order_id,
+          created_at: r.created_at,
+          derived_channel: deriveChannel(r),
+          utm_source: r.utm_source,
+          shopify_channel: r.shopify_channel,
+          financial_status: r.financial_status,
+          fulfillment_status: r.fulfillment_status,
+          sale_amount: r.sale_amount,
+          subtotal: r.subtotal,
+          discounts: r.discounts,
+          refunds: r.refunds,
+          tax: r.tax,
+          net_revenue: r.net_revenue,
+        }))
+        return { table: 'client_orders', note: `${chLabel}orders · last-touch attribution`, rows }
       }
       if (kind === 'items') {
         const { data, error } = await supabase.from('client_order_items')
