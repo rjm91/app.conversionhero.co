@@ -3768,7 +3768,7 @@ const CSS = `
 .ide .ov-pad{padding:0 24px 40px;}
 /* Sticky IDE-style header — Shield Score + Last-updated + zoom/date controls
    stay pinned as the metrics scroll under them. */
-.ide .ov-top{position:sticky;top:0;z-index:20;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--bg);padding:16px 0 12px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+.ide .ov-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--bg);padding:16px 0 12px;margin-bottom:16px;border-bottom:1px solid var(--line);}
 /* Shield Score card */
 .ide .shield{display:inline-flex;align-items:center;gap:11px;padding:9px 14px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);}
 .ide .shield.good{border-color:rgba(63,214,143,.35);box-shadow:inset 0 0 0 1px rgba(63,214,143,.06);}
