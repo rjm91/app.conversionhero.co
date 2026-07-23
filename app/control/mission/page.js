@@ -16,12 +16,16 @@ const tid = () => Math.random().toString(36).slice(2)
 const TREE = [
   { section: 'DATA', items: [{ id: 'schema', icon: '🗄', label: 'Schema' }] },
   { section: 'FLEET', items: [{ id: 'fleet', icon: '🛰', label: 'Fleet' }] },
+  { section: 'CAMPAIGNS', items: [
+    { id: 'google', icon: '🔍', label: 'Google Ads' },
+    { id: 'meta', icon: '📘', label: 'Meta Ads' },
+  ] },
   { section: 'SALES', items: [
     { id: 'leads', icon: '🧲', label: 'Leads / Pipeline' },
     { id: 'agreements', icon: '📄', label: 'Agreements' },
   ] },
 ]
-const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', leads: 'Leads / Pipeline', agreements: 'Agreements' }
+const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', google: 'Google Ads', meta: 'Meta Ads', leads: 'Leads / Pipeline', agreements: 'Agreements' }
 const TREE_ICONS = Object.fromEntries(TREE.flatMap(g => g.items.map(i => [i.id, i.icon])))
 
 const PACKAGES = [
@@ -419,6 +423,8 @@ export default function AgencyMission() {
             {err && <p className="a-err">{err}</p>}
             {activeTab === 'schema' && <SchemaView />}
             {activeTab === 'fleet' && <FleetView fleet={fleet} />}
+            {activeTab === 'google' && <AgencyPaidMediaView platform="google" />}
+            {activeTab === 'meta' && <AgencyPaidMediaView platform="meta" />}
             {activeTab === 'leads' && <LeadsView leads={leads} onOpen={openAgreementTab} />}
             {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={openAgreementTab} onNew={() => ask('draft a new agreement')} />}
             {/* Agreement builders stay mounted (form state survives tab switches);
@@ -538,6 +544,189 @@ function FleetView({ fleet }) {
             </a>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+const MCC_PLATFORM = {
+  google: { icon: '🔍', title: 'Google Ads', subtitle: 'Manager account view · clients, ad accounts, and campaigns', source: 'client_google_campaigns' },
+  meta: { icon: '📘', title: 'Meta Ads', subtitle: 'Facebook & Instagram · clients, ad accounts, and campaigns', source: 'client_meta_campaigns' },
+}
+const mccMoney = (n, digits = 0) => '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+const mccNum = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
+const mccRate = (n) => n == null ? '—' : Number(n).toFixed(2) + 'x'
+const mccDate = (d) => d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'
+function mccAccountId(platform, value) {
+  const v = String(value || '').replace(/\D/g, '')
+  if (!v || v === 'unassigned') return 'unassigned sync rows'
+  if (platform === 'google' && v.length === 10) return `${v.slice(0, 3)}-${v.slice(3, 6)}-${v.slice(6)}`
+  return platform === 'meta' ? `act_${v}` : v
+}
+function mccStatus(status, stale) {
+  if (stale) return { label: 'stale', cls: 'stale' }
+  const value = String(status || 'unknown').toLowerCase()
+  return { label: value, cls: /enabled|active/.test(value) ? 'live' : /paused/.test(value) ? 'paused' : 'off' }
+}
+
+function AgencyPaidMediaView({ platform }) {
+  const cfg = MCC_PLATFORM[platform]
+  const [days, setDays] = useState(30)
+  const [reload, setReload] = useState(0)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [accountQuery, setAccountQuery] = useState('')
+  const [campaignQuery, setCampaignQuery] = useState('')
+  const [selectedKey, setSelectedKey] = useState(null)
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
+    fetch(`/api/agency/paid-media?platform=${platform}&days=${days}`, { cache: 'no-store', signal: controller.signal })
+      .then(async r => { const body = await r.json(); if (!r.ok || body.error) throw new Error(body.error || `HTTP ${r.status}`); return body })
+      .then(setData)
+      .catch(e => { if (e.name !== 'AbortError') setError(e.message || String(e)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [platform, days, reload])
+
+  useEffect(() => {
+    const accounts = data?.accounts || []
+    setSelectedKey(current => accounts.some(a => a.key === current) ? current : (accounts[0]?.key || null))
+  }, [data])
+  useEffect(() => { setSelectedCampaignId(null); setCampaignQuery('') }, [selectedKey])
+
+  const accounts = data?.accounts || []
+  const aq = accountQuery.trim().toLowerCase()
+  const shownAccounts = accounts.filter(a => !aq || [a.client_name, a.client_id, a.account_id, a.industry].some(v => String(v || '').toLowerCase().includes(aq)))
+  const account = accounts.find(a => a.key === selectedKey) || null
+  const cq = campaignQuery.trim().toLowerCase()
+  const campaigns = (account?.campaigns || []).filter(c => !cq || [c.campaign_name, c.campaign_id, c.status, c.channel_type].some(v => String(v || '').toLowerCase().includes(cq)))
+  const selectedCampaign = account?.campaigns?.find(c => c.campaign_id === selectedCampaignId) || null
+  const summary = data?.summary
+
+  return (
+    <div className={`mcc-root ${platform}`}>
+      <header className="mcc-head">
+        <div className="mcc-heading">
+          <span className="mcc-logo">{cfg.icon}</span>
+          <div><h3>{cfg.title}</h3><p>{cfg.subtitle}</p></div>
+        </div>
+        <div className="mcc-actions">
+          <div className="mcc-range" aria-label="Reporting range">
+            {[7, 30, 90].map(n => <button key={n} className={days === n ? 'on' : ''} onClick={() => setDays(n)}>{n}D</button>)}
+          </div>
+          <button className="mcc-refresh" disabled={loading} onClick={() => setReload(x => x + 1)} title="Refresh paid-media data">{loading ? '↻' : '⟳'}</button>
+        </div>
+      </header>
+
+      <div className="mcc-kpis">
+        <div><span>Spend</span><b>{summary ? mccMoney(summary.metrics.spend) : '—'}</b></div>
+        <div><span>Connected accounts</span><b>{summary ? `${summary.connected_accounts}/${summary.accounts}` : '—'}</b></div>
+        <div><span>Campaigns</span><b>{summary ? summary.campaigns.toLocaleString() : '—'}</b><small>{summary ? `${summary.active_campaigns} active` : ''}</small></div>
+        <div><span>Clicks</span><b>{summary ? mccNum(summary.metrics.clicks) : '—'}</b></div>
+        <div><span>Conversions</span><b>{summary ? mccNum(summary.metrics.conversions) : '—'}</b></div>
+        <div><span>Cost / conversion</span><b>{summary?.metrics.cpa != null ? mccMoney(summary.metrics.cpa, 2) : '—'}</b></div>
+        <div><span>Platform ROAS</span><b className={summary?.metrics.roas >= 1 ? 'good' : ''}>{summary ? mccRate(summary.metrics.roas) : '—'}</b></div>
+      </div>
+
+      {error && <div className="mcc-alert err">Could not load {cfg.title}: {error}</div>}
+      {data?.truncated && <div className="mcc-alert warn">This range exceeded 50,000 daily rows. Narrow the range for a complete rollup.</div>}
+      {data?.limitation && <div className="mcc-alert info">{data.limitation}</div>}
+
+      <div className="mcc-body">
+        <aside className="mcc-accounts">
+          <div className="mcc-accounts-head"><span>AD ACCOUNTS</span><b>{shownAccounts.length}</b></div>
+          <input className="mcc-search" value={accountQuery} onChange={e => setAccountQuery(e.target.value)} placeholder="filter clients or account IDs…" aria-label="Filter ad accounts" />
+          <div className="mcc-account-list">
+            {loading && !data && <div className="mcc-empty">loading account fleet…</div>}
+            {!loading && !error && shownAccounts.length === 0 && <div className="mcc-empty">no ad accounts found for this range.</div>}
+            {shownAccounts.map(a => (
+              <button key={a.key} className={`mcc-account ${selectedKey === a.key ? 'on' : ''}`} onClick={() => setSelectedKey(a.key)}>
+                <span className={`mcc-conn ${a.connected && a.active ? 'ok' : ''}`} title={a.connected ? (a.active ? 'connected' : 'inactive') : 'campaign rows have no matching saved connection'} />
+                <span className="mcc-account-copy">
+                  <b>{a.client_name}</b>
+                  <small>{mccAccountId(platform, a.account_id)} · {a.campaign_count} campaign{a.campaign_count === 1 ? '' : 's'}</small>
+                </span>
+                <span className="mcc-account-spend">{mccMoney(a.metrics.spend)}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <main className="mcc-main">
+          {!account && <div className="mcc-empty main">Select an ad account to inspect its campaigns.</div>}
+          {account && (
+            <>
+              <div className="mcc-account-head">
+                <div>
+                  <div className="mcc-path"><span>Accounts</span><b>›</b><strong>{account.client_name}</strong></div>
+                  <p>{mccAccountId(platform, account.account_id)} · {account.industry || 'industry not set'} · last sync {account.last_sync ? relTime(account.last_sync) : 'unknown'}</p>
+                </div>
+                <a href={`/control/${account.client_id}/mission?tab=${platform}`} className="mcc-open-client">Open client Mission ↗</a>
+              </div>
+
+              <div className="mcc-campaign-tools">
+                <div><b>Campaigns</b><span>{account.campaign_count} in {data?.range?.days || days} days</span></div>
+                <input className="mcc-search" value={campaignQuery} onChange={e => setCampaignQuery(e.target.value)} placeholder="filter campaigns…" aria-label="Filter campaigns" />
+              </div>
+
+              <div className={`mcc-campaign-area ${selectedCampaign ? 'has-detail' : ''}`}>
+                <div className="mcc-grid-scroll">
+                  <table className="mcc-grid">
+                    <thead><tr><th>Campaign</th><th>Status</th><th>Type</th><th>Budget</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CPC</th><th>Conv.</th><th>Cost / conv.</th><th>ROAS</th><th>Last active</th></tr></thead>
+                    <tbody>
+                      {campaigns.map(c => {
+                        const state = mccStatus(c.status, c.stale)
+                        return (
+                          <tr key={c.campaign_id} className={selectedCampaignId === c.campaign_id ? 'on' : ''} onClick={() => setSelectedCampaignId(c.campaign_id)}>
+                            <td><b>{c.campaign_name}</b><small>{c.campaign_id}</small></td>
+                            <td><span className={`mcc-status ${state.cls}`}>{state.label}</span></td>
+                            <td>{c.channel_type || (platform === 'meta' ? 'Meta' : '—')}</td>
+                            <td>{c.budget ? mccMoney(c.budget) : '—'}</td>
+                            <td className="num">{mccMoney(c.metrics.spend)}</td>
+                            <td className="num">{mccNum(c.metrics.impressions)}</td>
+                            <td className="num">{mccNum(c.metrics.clicks)}</td>
+                            <td className="num">{c.metrics.cpc != null ? mccMoney(c.metrics.cpc, 2) : '—'}</td>
+                            <td className="num">{mccNum(c.metrics.conversions)}</td>
+                            <td className="num">{c.metrics.cpa != null ? mccMoney(c.metrics.cpa, 2) : '—'}</td>
+                            <td className={`num ${c.metrics.roas >= 1 ? 'good' : c.metrics.roas != null ? 'bad' : ''}`}>{mccRate(c.metrics.roas)}</td>
+                            <td>{mccDate(c.latest_date)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {!loading && campaigns.length === 0 && <div className="mcc-empty">no campaigns match this account and range.</div>}
+                </div>
+
+                {selectedCampaign && (
+                  <aside className="mcc-detail">
+                    <div className="mcc-detail-head"><span>CAMPAIGN</span><button onClick={() => setSelectedCampaignId(null)}>×</button></div>
+                    <h4>{selectedCampaign.campaign_name}</h4>
+                    <p className="mcc-detail-id">{selectedCampaign.campaign_id}</p>
+                    <div className="mcc-detail-state">{(() => { const s = mccStatus(selectedCampaign.status, selectedCampaign.stale); return <span className={`mcc-status ${s.cls}`}>{s.label}</span> })()}<span>{selectedCampaign.channel_type || (platform === 'meta' ? 'Meta' : 'type unavailable')}</span></div>
+                    <div className="mcc-detail-grid">
+                      <div><span>Spend</span><b>{mccMoney(selectedCampaign.metrics.spend)}</b></div>
+                      <div><span>Budget</span><b>{selectedCampaign.budget ? mccMoney(selectedCampaign.budget) : '—'}</b></div>
+                      <div><span>Impressions</span><b>{mccNum(selectedCampaign.metrics.impressions)}</b></div>
+                      <div><span>Clicks</span><b>{mccNum(selectedCampaign.metrics.clicks)}</b></div>
+                      <div><span>Conversions</span><b>{mccNum(selectedCampaign.metrics.conversions)}</b></div>
+                      <div><span>Cost / conv.</span><b>{selectedCampaign.metrics.cpa != null ? mccMoney(selectedCampaign.metrics.cpa, 2) : '—'}</b></div>
+                      <div><span>Conv. value</span><b>{mccMoney(selectedCampaign.metrics.conversion_value)}</b></div>
+                      <div><span>ROAS</span><b>{mccRate(selectedCampaign.metrics.roas)}</b></div>
+                    </div>
+                    <p className="mcc-detail-note">{selectedCampaign.daily_rows} daily source row{selectedCampaign.daily_rows === 1 ? '' : 's'} · latest {mccDate(selectedCampaign.latest_date)} · {cfg.source}</p>
+                    <a href={`/control/${account.client_id}/mission?tab=${platform}`} className="mcc-detail-open">Open {platform === 'google' ? 'campaign hierarchy' : 'client campaign tab'} ↗</a>
+                  </aside>
+                )}
+              </div>
+            </>
+          )}
+        </main>
       </div>
     </div>
   )
@@ -1373,6 +1562,104 @@ const CSS = `
 .aide .kbd{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--panel2);}
 .aide .helpbtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font:inherit;font-size:11px;font-weight:800;cursor:pointer;}
 .aide .helpbtn:hover{color:var(--txt);}
+
+/* ── Agency paid-media manager (MCC-style account → campaign browser) ── */
+.aide .mcc-root{--mcc-accent:var(--blue);position:absolute;inset:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--bg);}
+.aide .mcc-root.meta{--mcc-accent:#7f8cff;}
+.aide .mcc-head{height:58px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0;}
+.aide .mcc-heading{display:flex;align-items:center;gap:10px;min-width:0;}
+.aide .mcc-logo{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:15px;}
+.aide .mcc-heading h3{font-size:14px;line-height:1.2;margin:0;color:var(--txt);}
+.aide .mcc-heading p{font-size:10.5px;margin:3px 0 0;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.aide .mcc-actions{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.aide .mcc-range{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel2);}
+.aide .mcc-range button{height:25px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:10px;padding:0 9px;cursor:pointer;}
+.aide .mcc-range button:last-child{border-right:0;}
+.aide .mcc-range button:hover{color:var(--txt);}
+.aide .mcc-range button.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 -2px 0 var(--mcc-accent);}
+.aide .mcc-refresh{width:28px;height:27px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font:inherit;cursor:pointer;}
+.aide .mcc-refresh:hover:not(:disabled){color:var(--txt);border-color:var(--dim);}
+.aide .mcc-refresh:disabled{opacity:.6;}
+.aide .mcc-kpis{min-height:61px;display:grid;grid-template-columns:repeat(7,minmax(100px,1fr));border-bottom:1px solid var(--line);background:var(--bg);flex-shrink:0;overflow-x:auto;}
+.aide .mcc-kpis>div{display:flex;flex-direction:column;justify-content:center;padding:7px 13px;border-right:1px solid var(--line);white-space:nowrap;}
+.aide .mcc-kpis>div:last-child{border-right:0;}
+.aide .mcc-kpis span{color:var(--faint);font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;}
+.aide .mcc-kpis b{color:var(--txt);font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums;}
+.aide .mcc-kpis b.good{color:var(--green);}
+.aide .mcc-kpis small{color:var(--faint);font-size:8.5px;}
+.aide .mcc-alert{min-height:29px;display:flex;align-items:center;padding:4px 14px;border-bottom:1px solid var(--line);font-size:10px;flex-shrink:0;}
+.aide .mcc-alert.err{color:var(--red);background:rgba(244,116,127,.07);}
+.aide .mcc-alert.warn{color:var(--amber);background:rgba(232,180,90,.07);}
+.aide .mcc-alert.info{color:var(--dim);background:rgba(110,168,254,.05);}
+.aide .mcc-body{flex:1;display:flex;min-height:0;overflow:hidden;}
+.aide .mcc-accounts{width:300px;display:flex;flex-direction:column;min-height:0;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);}
+.aide .mcc-accounts-head{height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.07em;}
+.aide .mcc-accounts-head b{font-size:9px;font-variant-numeric:tabular-nums;}
+.aide .mcc-search{height:29px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--txt);font:inherit;font-size:10.5px;padding:0 9px;outline:none;}
+.aide .mcc-search:focus{border-color:var(--mcc-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--mcc-accent) 20%,transparent);}
+.aide .mcc-accounts>.mcc-search{margin:0 8px 8px;flex-shrink:0;}
+.aide .mcc-account-list{flex:1;min-height:0;overflow-y:auto;padding:0 6px 8px;}
+.aide .mcc-account{width:100%;min-height:51px;display:flex;align-items:center;gap:8px;padding:6px 7px;border:0;border-left:2px solid transparent;border-radius:5px;background:transparent;color:var(--dim);font:inherit;text-align:left;cursor:pointer;}
+.aide .mcc-account:hover{background:rgba(255,255,255,.035);}
+.aide .mcc-account.on{background:color-mix(in srgb,var(--mcc-accent) 10%,transparent);border-left-color:var(--mcc-accent);color:var(--txt);}
+.aide .mcc-conn{width:7px;height:7px;border-radius:50%;background:var(--faint);flex-shrink:0;}
+.aide .mcc-conn.ok{background:var(--green);box-shadow:0 0 7px rgba(63,214,143,.5);}
+.aide .mcc-account-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.aide .mcc-account-copy b{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .mcc-account-copy small{font-size:9px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aide .mcc-account-spend{font-size:10px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;flex-shrink:0;}
+.aide .mcc-account.on .mcc-account-spend{color:var(--txt);}
+.aide .mcc-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.aide .mcc-account-head{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .mcc-path{display:flex;align-items:center;gap:7px;font-size:11px;}
+.aide .mcc-path span,.aide .mcc-path b{color:var(--faint);font-weight:400;}
+.aide .mcc-path strong{color:var(--txt);font-size:12px;}
+.aide .mcc-account-head p{margin:3px 0 0;color:var(--faint);font-size:9.5px;}
+.aide .mcc-open-client,.aide .mcc-detail-open{border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:10px;text-decoration:none;padding:5px 9px;white-space:nowrap;}
+.aide .mcc-open-client:hover,.aide .mcc-detail-open:hover{color:var(--txt);border-color:var(--mcc-accent);}
+.aide .mcc-campaign-tools{height:45px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.aide .mcc-campaign-tools>div{display:flex;align-items:baseline;gap:8px;}
+.aide .mcc-campaign-tools b{font-size:11.5px;}
+.aide .mcc-campaign-tools span{font-size:9.5px;color:var(--faint);}
+.aide .mcc-campaign-tools .mcc-search{width:220px;}
+.aide .mcc-campaign-area{flex:1;min-height:0;display:flex;overflow:hidden;}
+.aide .mcc-grid-scroll{flex:1;min-width:0;min-height:0;overflow:auto;}
+.aide .mcc-grid{width:max-content;min-width:100%;border-collapse:collapse;font-size:10px;}
+.aide .mcc-grid th{position:sticky;top:0;z-index:3;height:27px;padding:0 9px;background:var(--panel2);border-bottom:1px solid var(--line);color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.04em;text-align:left;white-space:nowrap;}
+.aide .mcc-grid td{height:34px;padding:3px 9px;border-bottom:1px solid rgba(255,255,255,.035);color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.aide .mcc-grid th:first-child,.aide .mcc-grid td:first-child{position:sticky;left:0;z-index:2;background:var(--bg);min-width:220px;max-width:300px;}
+.aide .mcc-grid th:first-child{z-index:4;background:var(--panel2);}
+.aide .mcc-grid tbody tr{cursor:pointer;}
+.aide .mcc-grid tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--txt);}
+.aide .mcc-grid tbody tr:hover td:first-child{background:var(--panel2);}
+.aide .mcc-grid tbody tr.on td{background:color-mix(in srgb,var(--mcc-accent) 7%,transparent);color:var(--txt);}
+.aide .mcc-grid tbody tr.on td:first-child{box-shadow:inset 2px 0 0 var(--mcc-accent);background:color-mix(in srgb,var(--mcc-accent) 10%,var(--bg));}
+.aide .mcc-grid td:first-child b{display:block;max-width:270px;overflow:hidden;text-overflow:ellipsis;color:var(--txt);}
+.aide .mcc-grid td:first-child small{display:block;max-width:270px;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:8.5px;}
+.aide .mcc-grid td.num{text-align:right;color:var(--txt);}
+.aide .mcc-grid td.good{color:var(--green);}.aide .mcc-grid td.bad{color:var(--red);}
+.aide .mcc-status{display:inline-block;border-radius:99px;padding:1px 6px;font-size:8.5px;font-weight:800;}
+.aide .mcc-status.live{color:var(--green);background:rgba(63,214,143,.12);}
+.aide .mcc-status.paused{color:var(--amber);background:rgba(232,180,90,.12);}
+.aide .mcc-status.stale,.aide .mcc-status.off{color:var(--faint);background:rgba(255,255,255,.05);}
+.aide .mcc-detail{width:300px;min-height:0;overflow-y:auto;flex-shrink:0;padding:0 14px 14px;background:var(--panel);border-left:1px solid var(--line);box-shadow:-12px 0 30px rgba(0,0,0,.16);}
+.aide .mcc-detail-head{height:34px;display:flex;align-items:center;justify-content:space-between;color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.07em;}
+.aide .mcc-detail-head button{border:0;background:none;color:var(--faint);font:inherit;font-size:16px;cursor:pointer;}
+.aide .mcc-detail-head button:hover{color:var(--txt);}
+.aide .mcc-detail h4{font-size:12px;line-height:1.35;margin:3px 0;color:var(--txt);}
+.aide .mcc-detail-id{margin:0;color:var(--faint);font-size:9px;word-break:break-all;}
+.aide .mcc-detail-state{display:flex;align-items:center;gap:7px;margin:10px 0;}
+.aide .mcc-detail-state>span:last-child{color:var(--dim);font-size:9.5px;}
+.aide .mcc-detail-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.aide .mcc-detail-grid>div{display:flex;flex-direction:column;padding:7px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+.aide .mcc-detail-grid>div:nth-child(2n){border-right:0;}
+.aide .mcc-detail-grid>div:nth-last-child(-n+2){border-bottom:0;}
+.aide .mcc-detail-grid span{color:var(--faint);font-size:8px;text-transform:uppercase;letter-spacing:.04em;}
+.aide .mcc-detail-grid b{color:var(--txt);font-size:11px;margin-top:2px;font-variant-numeric:tabular-nums;}
+.aide .mcc-detail-note{margin:10px 0;color:var(--faint);font-size:9px;line-height:1.5;}
+.aide .mcc-detail-open{display:block;text-align:center;}
+.aide .mcc-empty{padding:14px;color:var(--faint);font-size:10.5px;}
+.aide .mcc-empty.main{padding:24px;}
 
 /* ── Schema view (ERD canvas + live data) — prefixed .sv-* so it never
       collides with the agency IDE's own classes ── */

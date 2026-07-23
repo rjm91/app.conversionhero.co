@@ -141,6 +141,23 @@ labels may step down to 9–12 px. Numeric values use tabular figures.
 - Schema data is read-only in Mission. Agency rows may use privileged reads but
   must remain role-gated, table-whitelisted, paginated, and redact secrets.
 
+### Agency paid-media surfaces
+
+- Agency Mission exposes Google Ads and Meta Ads as separate campaign tabs,
+  matching the destinations in Client Mission.
+- Each agency tab follows a manager-account hierarchy: fleet summary, ad-account
+  rail, campaign table, then selected-campaign details. The account selection
+  remains visible while campaign data is inspected.
+- Reporting ranges are explicit and local to the paid-media tab. Every total
+  must be derived from the same selected range.
+- Account and campaign reads are agency-role-gated and read-only. Connection
+  secrets are never selected by reporting endpoints.
+- When the stored sync does not support a deeper entity, the UI stops at the
+  last truthful level and names the limitation. It must not synthesize ad sets,
+  ads, targeting, or creative data that is not present.
+- Cross-scope links may open the corresponding Client Mission tab for deeper
+  work while preserving the agency center as the fleet-level overview.
+
 ## Accessibility and quality bar
 
 - Interactive elements must be keyboard reachable and expose a visible focus

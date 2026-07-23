@@ -80,9 +80,16 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
-  // Deep link (?focus=<table>&day=…) → open the client Schema browser tab.
+  // Deep links from agency Mission can open a client data surface directly.
   useEffect(() => {
-    try { if (new URLSearchParams(window.location.search).get('focus')) { setTabs(t => t.includes('schema') ? t : [...t, 'schema']); setActiveTab('schema') } } catch { /* ignore */ }
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const requested = sp.get('focus') ? 'schema' : sp.get('tab')
+      if (requested && VIEW_TITLES[requested]) {
+        setTabs(t => t.includes(requested) ? t : [...t, requested])
+        setActiveTab(requested)
+      }
+    } catch { /* ignore */ }
   }, [])
   const [splitTab, setSplitTab] = useState(null)   // second editor pane (or null)
   const [splitPct, setSplitPct] = useState(45)     // right pane width %
