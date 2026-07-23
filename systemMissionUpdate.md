@@ -162,6 +162,17 @@ Steps for the user (mostly manual/Meta-side, not code):
   onboarding (connect → sync → see spend) works today via mission Settings →
   Connect Meta, independent of the PnL-fit question.
 
+### Mission client/agency switcher (confirmed + fixed)
+
+- The mission titlebar top-left dropdown (`app/control/[clientId]/layout.js`,
+  ~line 437+): **switching to another client** already links to
+  `/control/<id>/mission` (stays in mission ✓). **"Agency"** previously linked
+  to `/control` (classic agency dashboard) — **fixed** to `/control/mission` (the
+  agency-level mission view). So the whole switcher now stays in mission
+  structure.
+- Agency-level mission view = `app/control/mission/page.js` (login already sends
+  agency admins there).
+
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
