@@ -222,7 +222,10 @@ export default function LoginPage() {
     if (isAgencyAdmin(role)) {
       router.push('/control/mission')
     } else if (clientId) {
-      router.push(`/control/${clientId}/dashboard`)
+      // Mission is the default; honor a classic opt-out to avoid a redirect flash.
+      let classic = false
+      try { classic = localStorage.getItem(`prefer_classic_${clientId}`) === '1' } catch { /* noop */ }
+      router.push(`/control/${clientId}/${classic ? 'dashboard' : 'mission'}`)
     } else {
       setError('Your account is not linked to a client. Contact your administrator.')
       setLoading(false)

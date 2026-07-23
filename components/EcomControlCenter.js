@@ -491,6 +491,7 @@ function OrderModal({ order, orders = [], cogs, onNavigate, onClose }) {
   const sd = order
   const lines = Array.isArray(order.client_order_items) ? order.client_order_items : []
   const money = n => '$' + (Number(n) || 0).toFixed(2)
+  const contributionMargin = cogs ? (Number(order.sale_amount) || 0) - cogs.cogs : Number(order.sale_amount) || 0
   const date = order.created_at ? new Date(order.created_at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
   const Field = ({ label, children }) => (
     <div><div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold">{label}</div><div className="text-gray-800 dark:text-gray-100">{children}</div></div>
@@ -565,7 +566,7 @@ function OrderModal({ order, orders = [], cogs, onNavigate, onClose }) {
           )}
           <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-white/[0.06]">
             <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Contribution margin</span>
-            <span className="text-lg font-extrabold text-[#1a9e6e] dark:text-[#34CC93]">{cogs ? money((Number(order.sale_amount) || 0) - cogs.cogs) : money(order.sale_amount)}</span>
+            <span className={`text-lg font-extrabold ${contributionMargin < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-900 dark:text-white'}`}>{money(contributionMargin)}</span>
           </div>
         </div>
       </div>
@@ -1390,7 +1391,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
   ] : view === 'organic' ? [
     { label: 'Organic Revenue', value: fmt$(visibleVm.revenue), info: 'Revenue from visible non-paid channels (Direct, Klaviyo, organic, Draft Order, …). No ad spend attached.' },
     { label: 'COGS', value: cogs.hasCogs ? fmt$(visibleVm.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold — total product cost from your BOM (materials × quantities per SKU). Organic revenue − COGS = margin.' },
-    { label: 'Margin', value: cogs.hasCogs ? fmt$(visibleVm.contribution) : '—', ch: cogs.hasCogs && visibleVm.contribution >= 0, tone: cogs.hasCogs && visibleVm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on visible organic orders = revenue − real COGS. Pure margin, no ad cost.' },
+    { label: 'Margin', value: cogs.hasCogs ? fmt$(visibleVm.contribution) : '—', tone: cogs.hasCogs && visibleVm.contribution < 0 ? 'bad' : undefined, info: 'Contribution margin on visible organic orders = revenue − real COGS. White when zero or positive; red when negative.' },
     { label: 'Orders', value: fmtNum(visibleVm.count), info: 'Visible organic (non-paid) orders in this range.' },
     { label: 'True AOV', value: cogs.hasCogs ? fmt$2(visibleVm.trueAov) : fmt$2(visibleVm.aov), ch: cogs.hasCogs, info: 'Average contribution per visible organic order (revenue − real COGS ÷ orders).' },
   ] : [
@@ -1951,7 +1952,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                 { label: 'Verified Rev', value: fmt$(klav.revenue), ch: true, info: 'ConversionHero first-party number: revenue from orders whose last-touch Shopify UTM source is Klaviyo email/SMS.' },
                 ...(klavApi.value > 0 ? [{ label: 'Klaviyo Rev', value: fmt$(klavApi.value), info: "Klaviyo's own attributed revenue (its engagement-window model). It credits itself more generously — e.g. it claims orders your ads also claim. The gap vs Verified Rev is normal; verified is the money-truth number." }] : []),
                 { label: 'COGS', value: cogs.hasCogs ? fmt$(klav.cogs) : '—', tone: 'cost', info: 'Real cost of goods sold on verified Klaviyo orders (from your BOM).' },
-                { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', ch: cogs.hasCogs && klav.contribution >= 0, info: 'Verified Klaviyo revenue − real COGS. No ad cost — email margin is nearly pure.' },
+                { label: 'Margin', value: cogs.hasCogs ? fmt$(klav.contribution) : '—', tone: cogs.hasCogs && klav.contribution < 0 ? 'bad' : undefined, info: 'Verified Klaviyo revenue − real COGS. White when zero or positive; red when negative.' },
                 { label: 'Orders', value: fmtNum(klav.count), info: 'Verified (UTM-attributed) Klaviyo orders.' },
                 { label: '% of Organic', value: fmtPct(vm.revenue > 0 ? klav.revenue / vm.revenue : 0), ch: true, info: 'Verified Klaviyo share of all organic revenue in this range.' },
               ]}>
@@ -2013,7 +2014,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                     <thead className="bg-gray-50 dark:bg-[#0d1020]">
                       <tr>
                         {['Campaign / Flow', 'Medium', 'Orders', 'Revenue', 'COGS', 'Margin', 'AOV'].map((h, i) => (
-                          <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold ${i >= 5 ? 'text-[#34CC93] bg-[#34CC93]/[0.06]' : 'text-gray-500 dark:text-gray-400'} uppercase tracking-wide`}>{h}</th>
+                          <th key={h} className={`${i === 0 ? 'text-left' : i === 1 ? 'text-center' : 'text-right'} px-4 py-3 text-xs font-semibold ${i === 6 ? 'text-[#34CC93] bg-[#34CC93]/[0.06]' : 'text-gray-500 dark:text-gray-400'} uppercase tracking-wide`}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -2024,7 +2025,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                         <td className="px-4 py-3 text-right">{fmtNum(klav.count)}</td>
                         <td className="px-4 py-3 text-right">{fmt$2(klav.revenue)}</td>
                         <td className="px-4 py-3 text-right">{cogs.hasCogs ? fmt$2(klav.cogs) : '—'}</td>
-                        <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{cogs.hasCogs ? fmt$2(klav.contribution) : '—'}</td>
+                        <td className={`px-4 py-3 text-right ${cogs.hasCogs && klav.contribution < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-900 dark:text-white'}`}>{cogs.hasCogs ? fmt$2(klav.contribution) : '—'}</td>
                         <td className="px-4 py-3 text-right text-[#34CC93] bg-[#34CC93]/[0.1]">{fmt$2(klav.aov)}</td>
                       </tr>
                       {klav.campaigns.map(c => (
@@ -2040,7 +2041,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmtNum(c.orders)}</td>
                           <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(c.revenue)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{cogs.hasCogs ? fmt$2(c.cogs) : '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{cogs.hasCogs ? fmt$2(c.revenue - c.cogs) : '—'}</td>
+                          <td className={`px-4 py-3 text-right font-semibold ${cogs.hasCogs && c.revenue - c.cogs < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-900 dark:text-white'}`}>{cogs.hasCogs ? fmt$2(c.revenue - c.cogs) : '—'}</td>
                           <td className="px-4 py-3 text-right font-semibold text-[#34CC93] bg-[#34CC93]/[0.05]">{c.orders > 0 ? fmt$2(c.revenue / c.orders) : '—'}</td>
                         </tr>
                       ))}
@@ -2074,7 +2075,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Channel</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">COGS</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#34CC93] uppercase tracking-wide">Margin</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Margin</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fulfillment</th>
                     </tr>
@@ -2087,7 +2088,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                       <td />
                       <td className="px-4 py-3 text-right tabular-nums">{fmt$2(vm.revenue)}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{cogs.hasCogs ? fmt$2(vm.cogs) : '—'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#1a9e6e] dark:text-[#34CC93]">{cogs.hasCogs ? fmt$2(vm.contribution) : '—'}</td>
+                      <td className={`px-4 py-3 text-right tabular-nums ${cogs.hasCogs && vm.contribution < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-900 dark:text-white'}`}>{cogs.hasCogs ? fmt$2(vm.contribution) : '—'}</td>
                       <td />
                       <td />
                     </tr>
@@ -2102,7 +2103,7 @@ export default function EcomControlCenter({ clientId, clientName }) {
                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{deriveChannel(o)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt$2(o.sale_amount)}</td>
                         <td className="px-4 py-3 text-right tabular-nums text-gray-500 dark:text-gray-400">{oc ? fmt$2(oc.cogs) : '—'}</td>
-                        <td className="px-4 py-3 text-right tabular-nums font-medium text-[#1a9e6e] dark:text-[#34CC93]">{margin != null ? fmt$2(margin) : '—'}</td>
+                        <td className={`px-4 py-3 text-right tabular-nums font-medium ${margin != null && margin < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-900 dark:text-white'}`}>{margin != null ? fmt$2(margin) : '—'}</td>
                         <td className="px-4 py-3 text-center"><Pill status={o.financial_status} /></td>
                         <td className="px-4 py-3 text-center"><Pill status={o.fulfillment_status} /></td>
                       </tr>
