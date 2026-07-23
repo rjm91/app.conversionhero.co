@@ -16,6 +16,7 @@ import { useTerminalHistory, relTime } from '../../../../lib/terminal-history'
 import { supabase } from '../../../../lib/supabase'
 import { fetchAllRows } from '../../../../lib/fetch-all'
 import { deriveChannel } from '../../../../lib/channels'
+import MetaConnectionModal from '../../../../components/MetaConnectionModal'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
 let turnSeq = 0
@@ -1042,6 +1043,10 @@ function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
   const [webhook, setWebhook] = useState('')
   const [enabled, setEnabled] = useState(false)
   const [state, setState] = useState({ saving: false, testing: false, msg: null })
+  const [metaOpen, setMetaOpen] = useState(false)
+  // last 30 days — only used by the modal's optional "Sync now" step
+  const metaEnd = new Date().toISOString().slice(0, 10)
+  const metaStart = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
 
   useEffect(() => {
     let alive = true
@@ -1147,6 +1152,15 @@ function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
   return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
+
+      <div className="set-card">
+        <div className="set-h">Meta Ads connection</div>
+        <p className="v-note" style={{ marginTop: 0 }}>Connect this client’s Meta (Facebook) ad account to pull spend and campaigns into the P&amp;L. Needs the ad account ID and a long-lived System User token (ads_read).</p>
+        <div className="set-actions">
+          <button className="set-btn primary" onClick={() => setMetaOpen(true)}>Connect / manage Meta account</button>
+        </div>
+      </div>
+      {metaOpen && <MetaConnectionModal clientId={clientId} clientName={clientName} start={metaStart} end={metaEnd} onClose={() => setMetaOpen(false)} onSaved={() => {}} />}
 
       <div className="set-card">
         <div className="set-h">Client-visible tabs</div>
