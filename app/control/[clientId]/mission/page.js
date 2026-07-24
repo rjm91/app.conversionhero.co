@@ -38,6 +38,7 @@ const PALETTE_CMDS = [
 const TREE = [
   { section: 'WORKSPACE', items: [
     { id: 'overview', icon: '📊', label: 'PnL' },
+    { id: 'leads', icon: '🧲', label: 'Leads', leadGenOnly: true },
     { id: 'schema', icon: '🗄', label: 'Schema' },
   ]},
   { section: 'CAMPAIGNS', items: [
@@ -57,7 +58,7 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'PnL', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'PnL', leads: 'Leads', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 // Tabs the client can never lose (structural). Everything else is toggleable in
 // Settings; DEFAULT_CLIENT_HIDDEN applies until an agency admin sets an explicit list.
 const CORE_TABS = new Set(['overview', 'schema', 'settings'])
@@ -239,11 +240,15 @@ export default function BusinessIDE() {
     return () => { window.removeEventListener('ca:viewas', read); window.removeEventListener('storage', read) }
   }, [])
   const isClientView = !isAgencyRole || viewAs
+  const isLeadGen = data ? !data.isEcom : false  // home_service (leads) vs ecom (orders)
   const hiddenTabs = data?.settings?.mission_hidden_tabs || DEFAULT_CLIENT_HIDDEN
   const visibleTree = useMemo(() => TREE.map(sec => ({
     ...sec,
-    items: sec.items.filter(it => !isClientView || CORE_TABS.has(it.id) || !hiddenTabs.includes(it.id)),
-  })).filter(sec => sec.items.length), [isClientView, hiddenTabs])
+    items: sec.items.filter(it =>
+      (!it.leadGenOnly || isLeadGen) &&                                       // Leads tab: lead-gen clients only
+      (!isClientView || CORE_TABS.has(it.id) || !hiddenTabs.includes(it.id)),
+    ),
+  })).filter(sec => sec.items.length), [isClientView, hiddenTabs, isLeadGen])
   const saveMissionTabs = useCallback(async (hidden) => {
     setData(d => d ? { ...d, settings: { ...(d.settings || {}), mission_hidden_tabs: hidden } } : d)
     try {
@@ -1426,6 +1431,7 @@ function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies,
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
+  if (id === 'leads') return <ClientLeadsView clientId={clientId} />
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
@@ -2383,6 +2389,110 @@ function SourceDrill({ days, drill, m, onClose }) {
 // read with the signed-in user's own supabase session, so RLS tenant policies
 // enforce the boundary; a client login can never see another tenant's rows.
 // Deep-linked from the Overview drills (?focus=<table>&day=YYYY-MM-DD).
+// Client leads (client_lead) — IG-DM positive replies + landing-page form/survey
+// fills. Read live through the user's own session (RLS-scoped). Create / delete
+// / bulk-delete, mirroring the agency Leads view.
+const CLIENT_LEAD_STATUSES = ['New / Not Yet Contacted', 'Contacted / Working', 'Appt Set', 'Sold', 'Lost', 'Disqualified', 'Out of Area']
+const CLIENT_LEAD_EMPTY = { first_name: '', last_name: '', email: '', phone: '', zip_code: '' }
+function ClientLeadsView({ clientId }) {
+  const [rows, setRows] = useState(null)
+  const [sel, setSel] = useState(() => new Set())
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState(CLIENT_LEAD_EMPTY)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(() => {
+    supabase.from('client_lead')
+      .select('lead_id, first_name, last_name, email, phone, zip_code, utm_source, lp_url, lead_status, appt_status, sale_status, sale_amount, created_at')
+      .eq('client_id', clientId).order('created_at', { ascending: false }).limit(500)
+      .then(({ data }) => setRows(data || [])).catch(() => setRows([]))
+  }, [clientId])
+  useEffect(() => { load() }, [load])
+
+  const toggle = (id) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = rows && rows.length > 0 && sel.size === rows.length
+  const toggleAll = () => setSel(allSel ? new Set() : new Set((rows || []).map(r => r.lead_id)))
+  const src = (r) => r.utm_source ? r.utm_source : (r.lp_url ? 'Landing page' : 'Direct')
+
+  const createLead = async () => {
+    if (!form.first_name.trim() && !form.email.trim() && !form.phone.trim()) return
+    setBusy(true)
+    try {
+      await supabase.from('client_lead').insert({
+        lead_id: `manual_${Date.now()}`, client_id: clientId, ...form,
+        lead_status: 'New / Not Yet Contacted', created_at: new Date().toISOString(),
+      })
+      setForm(CLIENT_LEAD_EMPTY); setCreating(false); load()
+    } catch { /* keep form open */ }
+    setBusy(false)
+  }
+  const del = async (id) => {
+    if (!confirm('Delete this lead? This cannot be undone.')) return
+    await supabase.from('client_lead').delete().eq('client_id', clientId).eq('lead_id', id)
+    setSel(s => { const n = new Set(s); n.delete(id); return n }); load()
+  }
+  const delSelected = async () => {
+    if (!sel.size || !confirm(`Delete ${sel.size} lead${sel.size === 1 ? '' : 's'}? This cannot be undone.`)) return
+    setBusy(true)
+    await supabase.from('client_lead').delete().eq('client_id', clientId).in('lead_id', [...sel])
+    setSel(new Set()); load(); setBusy(false)
+  }
+
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  if (!rows) return <p className="loading v-pad">loading leads…</p>
+  return (
+    <div className="v-pad">
+      <div className="v-h-row">
+        <h4 className="v-h" style={{ margin: 0 }}>Leads</h4>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {sel.size > 0 && <button className="set-btn" disabled={busy} onClick={delSelected}>🗑 Delete {sel.size} selected</button>}
+          <button className="set-btn primary" onClick={() => setCreating(c => !c)}>{creating ? '✕ Cancel' : '+ New lead'}</button>
+        </div>
+      </div>
+      <p className="v-note" style={{ margin: '4px 0 0' }}>Leads from Instagram DM replies and landing-page form/survey fills (client_lead). {rows.length} total · read live through your login.</p>
+
+      {creating && (
+        <div className="lead-new" onKeyDown={e => { if (e.key === 'Enter') createLead(); if (e.key === 'Escape') { setCreating(false); setForm(CLIENT_LEAD_EMPTY) } }}>
+          <input autoFocus placeholder="First name" value={form.first_name} onChange={e => upd('first_name', e.target.value)} />
+          <input placeholder="Last name" value={form.last_name} onChange={e => upd('last_name', e.target.value)} />
+          <input placeholder="Email" value={form.email} onChange={e => upd('email', e.target.value)} />
+          <input placeholder="Phone" value={form.phone} onChange={e => upd('phone', e.target.value)} />
+          <input placeholder="Zip" value={form.zip_code} onChange={e => upd('zip_code', e.target.value)} />
+          <button className="set-btn primary" disabled={busy} onClick={createLead}>{busy ? 'Adding…' : 'Add lead'}</button>
+        </div>
+      )}
+
+      {!rows.length ? <p className="a-dim" style={{ marginTop: 12 }}>No leads yet — add one with “+ New lead”, or they’ll arrive from IG DMs and funnel fills.</p> : (
+        <div className="dpnl dp2 cl-leads" style={{ maxHeight: 'calc(100vh - 260px)', marginTop: 10 }}>
+          <table>
+            <thead><tr>
+              <th style={{ width: 28 }}><input type="checkbox" checked={allSel} onChange={toggleAll} title="select all" /></th>
+              <th style={{ textAlign: 'left' }}>Name</th><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Phone</th>
+              <th style={{ textAlign: 'left' }}>Zip</th><th style={{ textAlign: 'left' }}>Source</th><th style={{ textAlign: 'left' }}>Status</th>
+              <th style={{ textAlign: 'left' }}>Added</th><th style={{ width: 32 }}></th>
+            </tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.lead_id} className={sel.has(r.lead_id) ? 'on' : ''}>
+                  <td><input type="checkbox" checked={sel.has(r.lead_id)} onChange={() => toggle(r.lead_id)} /></td>
+                  <td style={{ textAlign: 'left' }}>{[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}</td>
+                  <td style={{ textAlign: 'left' }}>{r.email || '—'}</td>
+                  <td style={{ textAlign: 'left' }}>{r.phone || '—'}</td>
+                  <td style={{ textAlign: 'left' }}>{r.zip_code || '—'}</td>
+                  <td style={{ textAlign: 'left' }}>{src(r)}</td>
+                  <td style={{ textAlign: 'left' }}>{r.sale_status || r.appt_status || r.lead_status || 'New'}</td>
+                  <td style={{ textAlign: 'left' }}>{r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                  <td><button className="lead-del" title="delete lead" onClick={() => del(r.lead_id)}>🗑</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ClientSchemaView({ tz, showClientId }) {
   const { clientId } = useParams()
   const [model, setModel] = useState(null)
@@ -4204,6 +4314,16 @@ const CSS = `
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
 .ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
+/* client Leads view */
+.ide .v-h-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.ide .lead-new{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);}
+.ide .lead-new input{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12.5px;padding:6px 10px;}
+.ide .lead-new input:focus{outline:none;border-color:rgb(var(--blue-500,110 168 254));}
+.ide .cl-leads input[type=checkbox]{accent-color:rgb(var(--blue-500,110 168 254));cursor:pointer;}
+.ide .cl-leads tr.on td{background:rgb(var(--blue-500,110 168 254) / .10);}
+.ide .cl-leads .lead-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:12px;opacity:0;padding:2px;}
+.ide .cl-leads tr:hover .lead-del{opacity:1;}
+.ide .cl-leads .lead-del:hover{color:var(--red);}
 .ide .set-msg{font-size:11.5px;} .ide .set-msg.good{color:var(--green);} .ide .set-msg.bad{color:var(--red);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
 @keyframes idepu{50%{opacity:.3;}}
