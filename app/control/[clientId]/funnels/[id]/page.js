@@ -174,6 +174,7 @@ function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onE
     check()
     const interval = setInterval(check, 10000)
     return () => { cancelled = true; clearInterval(interval) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending?.id, componentName])
 
   const prompt = pending ? buildPrompt({
@@ -357,8 +358,8 @@ function ABStepRow({ stepOrder, variants, funnel, onToggle, onAddChallenger, onE
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Next steps:</p>
             <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc ml-4 mb-3 space-y-0.5">
               <li>Preview the challenger at the variant URL above</li>
-              <li>Iterate on changes in your terminal until you're happy with it</li>
-              <li>Click <strong>Go Live</strong> when you're ready to start the split test</li>
+              <li>Iterate on changes in your terminal until you&apos;re happy with it</li>
+              <li>Click <strong>Go Live</strong> when you&apos;re ready to start the split test</li>
             </ul>
             <button
               onClick={() => onToggle(pending, true)}
@@ -453,7 +454,7 @@ function AddChallengerModal({ funnel, onConfirm, onClose }) {
               placeholder={`e.g. ${defaultName}`}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
-            <p className="text-[11px] text-gray-400 mt-1">Must match the React component filename you'll build in Cursor.</p>
+            <p className="text-[11px] text-gray-400 mt-1">Must match the React component filename you&apos;ll build in Cursor.</p>
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">What are you testing next?</label>
@@ -528,7 +529,9 @@ export default function FunnelDetailPage() {
     setDomains(data.domains || [])
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (id) load() }, [id])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (clientId) loadDomains() }, [clientId])
 
   // Group steps by step_order
@@ -787,7 +790,7 @@ export default function FunnelDetailPage() {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Custom Domain</h3>
               <button onClick={() => setAddingDomain(v => !v)} className="text-xs text-blue-500 hover:text-blue-600 transition">+ Register domain</button>
             </div>
-            <p className="text-xs text-gray-400 mb-3">Select the client's domain to point to this funnel.</p>
+            <p className="text-xs text-gray-400 mb-3">Select the client&apos;s domain to point to this funnel.</p>
             {addingDomain && (
               <div className="flex gap-2 mb-3">
                 <input type="text" value={newDomain} onChange={e => setNewDomain(e.target.value.toLowerCase().trim())} placeholder="synergyhome.co"

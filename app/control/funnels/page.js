@@ -135,7 +135,7 @@ export default function AgencyFunnelsPage() {
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 This clears tracking data and counters for
-                <span className="font-semibold text-gray-900 dark:text-white"> "{confirmFunnel.name}"</span>.
+                <span className="font-semibold text-gray-900 dark:text-white"> &quot;{confirmFunnel.name}&quot;</span>.
               </p>
             </div>
             <div className="px-6 py-4 bg-gray-50 dark:bg-white/[0.02] flex justify-end gap-2">

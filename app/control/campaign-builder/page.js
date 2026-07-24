@@ -50,7 +50,7 @@ export default function AgencyCampaignBuilderPage() {
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Google Ads Campaign Builder</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Build Search campaigns and export them for Google Ads Editor. Pick the client you're building for.</p>
+          <p className="text-sm text-gray-400 mt-0.5">Build Search campaigns and export them for Google Ads Editor. Pick the client you&apos;re building for.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export default function AgencyCampaignBuilderPage() {
         <div className="bg-white dark:bg-[#171B33] border border-gray-100 dark:border-white/5 rounded-2xl p-5">
           <div className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-lg">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            Saving to {selectedClient?.client_name || clientId}'s campaign draft
+            Saving to {selectedClient?.client_name || clientId}&apos;s campaign draft
           </div>
           {/* key forces a fresh builder when the client changes */}
           <CampaignBuilder key={clientId} clientId={clientId} clientName={selectedClient?.client_name} />

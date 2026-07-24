@@ -105,6 +105,7 @@ export default function AssetsPage() {
   const [previewAsset, setPreviewAsset] = useState(null)
   const fileInputRef = useRef(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [clientId])
 
   async function load() {
@@ -419,7 +420,7 @@ export default function AssetsPage() {
               )}
               {previewAsset.mime_type?.startsWith('video/') && (
                 <div style={{ display: 'none' }} className="text-center text-white/70 p-12 text-sm">
-                  Browser can't play this format (likely HEVC .MOV).{' '}
+                  Browser can&apos;t play this format (likely HEVC .MOV).{' '}
                   <a href={publicUrl(previewAsset.storage_path)} download className="underline text-blue-400">Download</a> to view.
                 </div>
               )}

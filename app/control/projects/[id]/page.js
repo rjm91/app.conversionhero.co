@@ -48,6 +48,7 @@ export default function ProjectDetailPage() {
   const [editingTask, setEditingTask] = useState(null)
   const [taskSaveMsg, setTaskSaveMsg] = useState(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (id) load() }, [id])
 
   async function load() {
@@ -250,7 +251,7 @@ export default function ProjectDetailPage() {
         )}
 
         {tasks.length === 0 && !addingTask ? (
-          <p className="px-5 py-8 text-xs text-center text-gray-400">No tasks yet — click "Add Task" to get started.</p>
+          <p className="px-5 py-8 text-xs text-center text-gray-400">No tasks yet — click &quot;Add Task&quot; to get started.</p>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-white/[0.03]">
             {tasks.map(task => {

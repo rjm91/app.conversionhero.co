@@ -14,6 +14,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.vercel
 
 # Vercel
 .vercel
@@ -39,5 +40,9 @@ docs/clients/*
 # Session screenshots — local scratch only (repo is PUBLIC; don't publish dashboards)
 public/screenshots/
 
+# Raw & edited videos — local scratch only (repo is PUBLIC; large files + personal footage)
+public/videos/
+
 # Internal ops/architecture docs — repo is PUBLIC, never commit backend/access notes
 docs/internal/
+.env*

@@ -189,7 +189,7 @@ export default function AutomationsPage() {
             ) : notifications.length === 0 ? (
               <div className="p-10 text-center">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">No notification rules yet.</p>
-                <p className="text-gray-400 text-xs mt-1">Click "New notification" to create one.</p>
+                <p className="text-gray-400 text-xs mt-1">Click &quot;New notification&quot; to create one.</p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-100 dark:divide-white/5">

@@ -43,6 +43,7 @@ export default function ScriptsPage() {
   const [saved,    setSaved]    = useState(false)
   const [isNew,    setIsNew]    = useState(false)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchScripts() }, [clientId])
 
   async function fetchScripts() {

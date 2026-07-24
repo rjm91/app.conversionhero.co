@@ -116,7 +116,7 @@ function Testimonial() {
              alt="Chris Giebler" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
       <div>
-        <blockquote>"Their customer service is second to none! I will use no other company than Synergy Home from here on out. Highly recommended! Five stars all around!"</blockquote>
+        <blockquote>&quot;Their customer service is second to none! I will use no other company than Synergy Home from here on out. Highly recommended! Five stars all around!&quot;</blockquote>
         <figcaption>
           <strong>Chris Giebler</strong>
           <span>Lexington, KY</span>
@@ -192,7 +192,7 @@ function ContactStep({ data, setData }) {
       </div>
       <label className="check-row">
         <input type="checkbox" defaultChecked />
-        <span>I'd like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
+        <span>I&apos;d like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
       </label>
     </div>
   )
@@ -260,6 +260,7 @@ export default function SynergyHVAC({
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, funnelId, clientId, disableTracking])
 
   async function saveField(field, value) {

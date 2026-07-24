@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createClient } from '../../../lib/supabase-browser'
 
 function fmt(n) {
@@ -97,7 +97,7 @@ function AddPaymentModal({ clients, supabase, initial, onClose, onSuccess }) {
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z" /><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V21a1 1 0 102 0v-3.08A7 7 0 0019 11z" /></svg>
             {listening ? 'Listening… tap to stop' : parsing ? 'Reading…' : 'Record by voice'}
           </button>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 text-center">Try: <i>"Five hundred dollars from Synergy Home via Zelle yesterday for the May retainer."</i></p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 text-center">Try: <i>&quot;Five hundred dollars from Synergy Home via Zelle yesterday for the May retainer.&quot;</i></p>
           {transcript && <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 italic">“{transcript}”</p>}
         </div>
 
@@ -153,6 +153,7 @@ export default function PaymentsPage() {
     const sp = new URLSearchParams(window.location.search)
     if (sp.get('qb') === 'error') setQbBanner({ type: 'error', text: sp.get('msg') || 'QuickBooks connection failed.' })
     else if (sp.get('qb') === 'connected') { setQbBanner({ type: 'ok', text: 'QuickBooks connected.' }); setQbConnected(true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
 
@@ -210,7 +211,7 @@ export default function PaymentsPage() {
     return { startDate: '', endDate: '' }
   }, [dateRange])
 
-  const clientName = id => clients.find(c => c.client_id === id)?.client_name || id
+  const clientName = useCallback(id => clients.find(c => c.client_id === id)?.client_name || id, [clients])
 
   const filtered = useMemo(() => {
     let rows = payments
@@ -255,7 +256,7 @@ export default function PaymentsPage() {
       return sortDir === 'desc' ? -cmp : cmp
     })
     return sorted
-  }, [payments, clients, clientFilter, merchantFilter, search, sortCol, sortDir, startDate, endDate, dateRange])
+  }, [payments, clientName, clientFilter, merchantFilter, search, sortCol, sortDir, startDate, endDate])
 
   const total = useMemo(() => filtered.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0), [filtered])
 

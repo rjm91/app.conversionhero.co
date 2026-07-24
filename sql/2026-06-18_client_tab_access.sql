@@ -1,9 +1,1 @@
--- Per-client tab visibility for client (non-agency) users.
--- Agency admins always see every tab; client users only see a tab when its key
--- is true here. Missing key = hidden (agency-only by default). This is the
--- "ship a finished tab to a client" switch. Global defaults can layer on later.
---
--- Example: { "manufacturing": true, "paid-ads": true }
-
-alter table client
-  add column if not exists tab_access jsonb not null default '{}'::jsonb;
+look at the latest screenshot now I'm looking at the company page should this be available to the clients because the client visible tabs option is visible regardless of whether I'm viewing it as a client or not so I just want to get your thoughts on that

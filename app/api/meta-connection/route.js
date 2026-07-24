@@ -20,7 +20,7 @@ async function requireAgencyAdmin(request) {
   if (error || !user) return { error: 'Unauthorized', status: 401 }
   const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).single()
   if (!isAgencyAdmin(profile?.role)) return { error: 'Forbidden', status: 403 }
-  return { db }
+  return { db, user }
 }
 
 const digits = (id) => String(id || '').replace(/\D/g, '')
@@ -83,6 +83,18 @@ export async function POST(request) {
     ad_account_id: digits(adAccountId),
     access_token: accessToken,
     app_secret: appSecret,
+    connection_method: 'manual',
+    account_name: test.name || null,
+    meta_user_id: null,
+    meta_user_name: null,
+    token_expires_at: null,
+    scopes: ['ads_read'],
+    connected_by: auth.user.id,
+    status: 'connected',
+    last_verified_at: new Date().toISOString(),
+    last_error_code: null,
+    last_error_at: null,
+    updated_at: new Date().toISOString(),
   }, { onConflict: 'client_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, ...test })

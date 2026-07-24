@@ -77,7 +77,7 @@ export default function ClientTabAccess({ clientId }) {
         </span>
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Client-visible tabs</h2>
-          <p className="text-xs text-gray-400">Agency-only. Toggle a tab on to ship it to this client's users; off to pull it back.</p>
+          <p className="text-xs text-gray-400">Agency-only. Toggle a tab on to ship it to this client&apos;s users; off to pull it back.</p>
         </div>
         <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-purple-600 bg-purple-100 dark:bg-purple-500/15 dark:text-purple-400 px-2 py-0.5 rounded">Agency only</span>
       </div>

@@ -229,7 +229,7 @@ function ContactStep({ data, setData }) {
       </div>
       <label className="check-row">
         <input type="checkbox" defaultChecked />
-        <span>I'd like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
+        <span>I&apos;d like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
       </label>
     </div>
   )
@@ -295,6 +295,7 @@ export default function SynergySprayFoam({
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, funnelId, clientId, disableTracking])
 
   async function saveField(field, value) {
@@ -427,7 +428,7 @@ export default function SynergySprayFoam({
               <div>
                 <span className="eyebrow">★ Lexington &amp; Bluegrass Area Homeowners</span>
                 <h1>Stop losing money to a drafty, poorly insulated home — get a <span className="hl">free spray foam inspection</span>.</h1>
-                <p className="sub">Attic, crawlspace, or whole-home. Synergy Home's spray foam sealing keeps your home comfortable year-round and cuts your energy bills — from the team your neighbors already trust.</p>
+                <p className="sub">Attic, crawlspace, or whole-home. Synergy Home&apos;s spray foam sealing keeps your home comfortable year-round and cuts your energy bills — from the team your neighbors already trust.</p>
 
                 <div className="promo-tag">
                   <span className="big">20% OFF</span>
@@ -462,7 +463,7 @@ export default function SynergySprayFoam({
                   {step === 1 && (
                     <>
                       <div className="q-eyebrow">02 · Your goal</div>
-                      <div className="q-title">What's the main thing you want to fix?</div>
+                      <div className="q-title">What&apos;s the main thing you want to fix?</div>
                       <div className="opts">
                         {GOAL.map(o => <OptionTile key={o.id} option={o} selected={goal === o.id} onClick={() => chooseGoal(o.id)} />)}
                       </div>

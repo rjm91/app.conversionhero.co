@@ -77,7 +77,7 @@ function Testimonial() {
              alt="Kem S." style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
       <div>
-        <blockquote>"Synergy service team members Dylan, Luke, and Austin. All of these individuals were top notch. Excellent job guys, thanks!"</blockquote>
+        <blockquote>&quot;Synergy service team members Dylan, Luke, and Austin. All of these individuals were top notch. Excellent job guys, thanks!&quot;</blockquote>
         <figcaption>
           <strong>Kem S.</strong>
           <span>Lexington, KY</span>
@@ -142,6 +142,7 @@ export default function SynergyGeneratorV3({
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, funnelId, clientId, disableTracking])
 
   async function saveField(field, value) {
@@ -495,7 +496,7 @@ export default function SynergyGeneratorV3({
                 <form onSubmit={handleSubmit}>
                   <div className="v3-form-head">
                     <h2>Get your free quote</h2>
-                    <p>No multi-step survey. We'll call to schedule your site visit.</p>
+                    <p>No multi-step survey. We&apos;ll call to schedule your site visit.</p>
                   </div>
 
                   <div className="v3-form-body">
@@ -554,7 +555,7 @@ export default function SynergyGeneratorV3({
                       </div>
                       <label className="check-row">
                         <input type="checkbox" defaultChecked />
-                        <span>I'd like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
+                        <span>I&apos;d like a follow-up text from a Synergy advisor (no spam, no robocalls).</span>
                       </label>
                     </div>
                   </div>

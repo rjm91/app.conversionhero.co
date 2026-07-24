@@ -55,6 +55,7 @@ export default function TeamRolesPage() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => setMeId(user?.id || null))
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function load() {
@@ -212,7 +213,7 @@ export default function TeamRolesPage() {
           </table>
         </div>
         <p className="text-xs text-gray-400 mt-2">
-          Read-only. The <span className="font-medium">Security</span> role mirrors Agency Admin and adds security governance (the Agent Access registry). Per-permission overrides aren't enabled yet — add them only when a real need appears, so every checkbox maps to a live enforcement point.
+          Read-only. The <span className="font-medium">Security</span> role mirrors Agency Admin and adds security governance (the Agent Access registry). Per-permission overrides aren&apos;t enabled yet — add them only when a real need appears, so every checkbox maps to a live enforcement point.
         </p>
       </section>
     )
@@ -264,7 +265,7 @@ export default function TeamRolesPage() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team &amp; Roles</h1>
-        <p className="text-sm text-gray-400 mt-1">Everyone with access to ConversionHero, their access level, and where they're scoped.</p>
+        <p className="text-sm text-gray-400 mt-1">Everyone with access to ConversionHero, their access level, and where they&apos;re scoped.</p>
       </div>
 
       {error && <div className="mb-4 text-sm text-red-500 bg-red-50 dark:bg-red-500/10 rounded-lg px-4 py-3">{error}</div>}
@@ -276,7 +277,7 @@ export default function TeamRolesPage() {
           <Table title="Agency team" subtitle="full access across all clients" rows={agencyTeam} />
           <Table title="Client users" subtitle="scoped to a single client" rows={clientUsers} />
           <p className="text-xs text-gray-400 mb-8">
-            Switching a user to an agency role removes their client scope. To assign a client user to a specific client, use that client's <span className="font-medium">Company</span> page.
+            Switching a user to an agency role removes their client scope. To assign a client user to a specific client, use that client&apos;s <span className="font-medium">Company</span> page.
           </p>
           <CapabilityMatrix />
           <AuditLog />

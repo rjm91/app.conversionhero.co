@@ -98,7 +98,7 @@ export default function PlansPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plans</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Your forward plan — where you'll be and what it costs, day by day.</p>
+          <p className="text-sm text-gray-400 mt-0.5">Your forward plan — where you&apos;ll be and what it costs, day by day.</p>
         </div>
         <button onClick={openNew}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">

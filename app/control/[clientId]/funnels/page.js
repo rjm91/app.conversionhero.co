@@ -182,7 +182,7 @@ export default function FunnelsPage() {
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 This clears tracking data and counters for
-                <span className="font-semibold text-gray-900 dark:text-white"> "{confirmFunnel.name}"</span>.
+                <span className="font-semibold text-gray-900 dark:text-white"> &quot;{confirmFunnel.name}&quot;</span>.
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 leading-relaxed">
                 Actual leads in the Contacts tab are <span className="font-semibold">not</span> deleted.

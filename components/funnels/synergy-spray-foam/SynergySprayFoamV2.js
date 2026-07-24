@@ -138,6 +138,7 @@ export default function SynergySprayFoamV2({
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, funnelId, clientId, disableTracking])
 
   async function saveField(field, value) {
@@ -227,7 +228,7 @@ export default function SynergySprayFoamV2({
           <div className="wrap">
             <span className="eyebrow">★ Lexington &amp; Bluegrass Area Homeowners</span>
             <h1>Cut your energy bills with a <span className="hl">free spray foam inspection</span>.</h1>
-            <p className="sub">Attic, crawlspace, or whole-home sealing from the team your neighbors trust. Tell us where to reach you — we'll handle the rest.</p>
+            <p className="sub">Attic, crawlspace, or whole-home sealing from the team your neighbors trust. Tell us where to reach you — we&apos;ll handle the rest.</p>
             <div className="trust-row">
               <span className="trust-item"><span className="gdot" /> <span className="stars">★★★★★</span> 4.9 · 1,125+ Google reviews</span>
               <span className="trust-item">⚡ 24/7 Emergency Service</span>

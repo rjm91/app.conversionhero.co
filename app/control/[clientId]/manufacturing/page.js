@@ -22,7 +22,7 @@ export default function ManufacturingPage() {
     return (
       <div className="p-8">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Manufacturing</h1>
-        <p className="text-sm text-gray-500 mt-2">This account isn't set up for manufacturing. It's available for physical-product (ecom) accounts.</p>
+        <p className="text-sm text-gray-500 mt-2">This account isn&apos;t set up for manufacturing. It&apos;s available for physical-product (ecom) accounts.</p>
       </div>
     )
   }

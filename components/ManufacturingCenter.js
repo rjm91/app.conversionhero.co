@@ -280,7 +280,7 @@ export default function ManufacturingCenter({ clientName }) {
         icon={<span className="w-7 h-7 rounded-lg grid place-items-center bg-[#34CC93]/15 text-[#34CC93]"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></span>}
         name="Factory floor → checkout" count="margin → ad headroom → profit" open={open.explainer} onToggle={() => toggleSec('explainer')}>
         <div className="p-5 space-y-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">Each cover's <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The gap between them is your <b className="text-gray-800 dark:text-white">profit per order</b> — and your room to scale ad spend.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">Each cover&apos;s <b className="text-gray-800 dark:text-white">contribution margin</b> is the ceiling on what we can spend to acquire a customer (<b className="text-[#34CC93]">Max CAC</b>). <b className="text-gray-800 dark:text-white">Actual CAC</b> comes from the live Meta + Google ad data in this dashboard. The gap between them is your <b className="text-gray-800 dark:text-white">profit per order</b> — and your room to scale ad spend.</p>
 
           {/* blended unit economics */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

@@ -73,7 +73,8 @@ export default function CalendarView({ clientId = null, title = 'Content Calenda
     }
   }
 
-  useEffect(() => { loadEvents() /* eslint-disable-next-line */ }, [cursor, clientId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadEvents() }, [cursor, clientId])
 
   useEffect(() => {
     if (!clientId) {

@@ -146,6 +146,7 @@ export default function AvatarPage() {
     stillProcessing.forEach(v => resumePoll(v.id, v.heygen_video_id))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadHistory() }, [clientId])
 
   function pickScript(id) {
@@ -263,7 +264,7 @@ export default function AvatarPage() {
 
       {listError && (
         <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm text-red-700 dark:text-red-400">
-          Couldn't load HeyGen data: {listError}. Make sure <code>HEYGEN_API_KEY</code> is set in <code>.env.local</code>.
+          Couldn&apos;t load HeyGen data: {listError}. Make sure <code>HEYGEN_API_KEY</code> is set in <code>.env.local</code>.
         </div>
       )}
 
@@ -538,7 +539,7 @@ export default function AvatarPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <input type="checkbox" checked={testMode} onChange={e => setTestMode(e.target.checked)} />
-                Test mode (watermarked, doesn't consume paid credits)
+                Test mode (watermarked, doesn&apos;t consume paid credits)
               </label>
               <button
                 onClick={handleGenerate}

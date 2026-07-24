@@ -55,6 +55,7 @@ export default function ClientProjectsTasks({ clientId }) {
   const [editingTask, setEditingTask] = useState(null)
   const [taskSaveMsg, setTaskSaveMsg] = useState(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadList() }, [clientId])
 
   async function loadList() {

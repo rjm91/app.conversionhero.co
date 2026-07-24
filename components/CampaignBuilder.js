@@ -231,7 +231,7 @@ export default function CampaignBuilder({ clientId, clientName }) {
         <div className="border border-dashed border-gray-200 dark:border-white/10 rounded-xl p-10 text-center bg-white dark:bg-[#171B33]">
           <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{typeMeta.label} builder — coming soon</div>
           <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">{typeMeta.note} This type is structured differently from Search, so it needs its own sheet layout and import format.</p>
-          <p className="text-[11px] text-gray-400">To wire it up: export a {typeMeta.label} campaign template from Google Ads Editor and drop it into the project's <code className="text-gray-500 dark:text-gray-300">data/</code> folder.</p>
+          <p className="text-[11px] text-gray-400">To wire it up: export a {typeMeta.label} campaign template from Google Ads Editor and drop it into the project&apos;s <code className="text-gray-500 dark:text-gray-300">data/</code> folder.</p>
         </div>
       ) : (
         /* sheet */

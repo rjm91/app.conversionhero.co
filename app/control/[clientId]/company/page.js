@@ -468,6 +468,7 @@ export default function CompanyPage() {
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData() }, [clientId])
 
   const canDelete = isAgencyAdmin(currentRole) || currentRole === 'client_admin'

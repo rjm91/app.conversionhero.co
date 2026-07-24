@@ -211,6 +211,7 @@ export default function HeritageShutters({
       }).catch(() => {})
       try { sessionStorage.setItem(viewKey, '1') } catch {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, funnelId, clientId, disableTracking])
 
   async function saveField(field, value) {
