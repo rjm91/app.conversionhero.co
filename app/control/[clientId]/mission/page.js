@@ -17,6 +17,7 @@ import { supabase } from '../../../../lib/supabase'
 import { fetchAllRows } from '../../../../lib/fetch-all'
 import { deriveChannel } from '../../../../lib/channels'
 import MetaConnectionModal from '../../../../components/MetaConnectionModal'
+import InstagramConversations from '../../../../components/InstagramConversations'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
 let turnSeq = 0
@@ -40,6 +41,7 @@ const TREE = [
     { id: 'overview', icon: '📊', label: 'PnL' },
     { id: 'leads', icon: '🧲', label: 'Leads', leadGenOnly: true },
     { id: 'schema', icon: '🗄', label: 'Schema' },
+    { id: 'conversations', label: 'Conversations', conversationsOnly: true },
   ]},
   { section: 'CAMPAIGNS', items: [
     { id: 'google', icon: '🔍', label: 'Google Ads' },
@@ -58,10 +60,10 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'PnL', leads: 'Leads', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'PnL', leads: 'Leads', schema: 'Schema', conversations: 'Conversations', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 // Tabs the client can never lose (structural). Everything else is toggleable in
 // Settings; DEFAULT_CLIENT_HIDDEN applies until an agency admin sets an explicit list.
-const CORE_TABS = new Set(['overview', 'schema', 'settings'])
+const CORE_TABS = new Set(['overview', 'schema', 'conversations', 'settings'])
 const TOGGLEABLE_TABS = [
   { id: 'google', label: 'Google Ads' }, { id: 'meta', label: 'Meta Ads' },
   { id: 'campaign', label: 'Campaign Builder' }, { id: 'manual', label: 'Manual' },
@@ -75,6 +77,7 @@ const NAV_ICONS = {
   overview: <><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="4" width="3" height="14" /></>,
   leads: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
   schema: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" /></>,
+  conversations: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /><path d="M8 9h8M8 13h5" /></>,
   google: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
   meta: <><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
   campaign: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
@@ -104,12 +107,13 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
+  const conversationsEnabled = data?.settings?.instagram_conversations_enabled === true
   // Deep links from agency Mission can open a client data surface directly.
   useEffect(() => {
     try {
       const sp = new URLSearchParams(window.location.search)
       const requested = sp.get('focus') ? 'schema' : sp.get('tab')
-      if (requested && VIEW_TITLES[requested]) {
+      if (requested && VIEW_TITLES[requested] && requested !== 'conversations') {
         setTabs(t => t.includes(requested) ? t : [...t, requested])
         setActiveTab(requested)
       }
@@ -264,13 +268,23 @@ export default function BusinessIDE() {
   const isClientView = !isAgencyRole || viewAs
   const isLeadGen = data ? !data.isEcom : false  // home_service (leads) vs ecom (orders)
   const hiddenTabs = data?.settings?.mission_hidden_tabs || DEFAULT_CLIENT_HIDDEN
+  useEffect(() => {
+    if (!conversationsEnabled) return
+    try {
+      const requested = new URLSearchParams(window.location.search).get('tab')
+      if (requested !== 'conversations') return
+      setTabs(current => current.includes('conversations') ? current : [...current, 'conversations'])
+      setActiveTab('conversations')
+    } catch { /* ignore */ }
+  }, [conversationsEnabled])
   const visibleTree = useMemo(() => TREE.map(sec => ({
     ...sec,
     items: sec.items.filter(it =>
       (!it.leadGenOnly || isLeadGen) &&                                       // Leads tab: lead-gen clients only
+      (!it.conversationsOnly || conversationsEnabled) &&                       // explicitly enabled per client
       (!isClientView || CORE_TABS.has(it.id) || !hiddenTabs.includes(it.id)),
     ),
-  })).filter(sec => sec.items.length), [isClientView, hiddenTabs, isLeadGen])
+  })).filter(sec => sec.items.length), [isClientView, hiddenTabs, isLeadGen, conversationsEnabled])
   const saveMissionTabs = useCallback(async (hidden) => {
     setData(d => d ? { ...d, settings: { ...(d.settings || {}), mission_hidden_tabs: hidden } } : d)
     try {
@@ -347,9 +361,10 @@ export default function BusinessIDE() {
 
   /* ── tabs ── */
   const openTab = useCallback((id) => {
+    if (id === 'conversations' && !conversationsEnabled) return
     setTabs(t => t.includes(id) ? t : [...t, id])
     setActiveTab(id)
-  }, [])
+  }, [conversationsEnabled])
   const closeTab = useCallback((id) => {
     setTabs(t => {
       const next = t.filter(x => x !== id)
@@ -930,7 +945,9 @@ export default function BusinessIDE() {
       {/* ⌘P quick-open — fuzzy jump to any view, pin, or campaign */}
       {qpOpen && (() => {
         const items = [
-          ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
+          ...Object.entries(VIEW_TITLES)
+            .filter(([id]) => id !== 'conversations' || conversationsEnabled)
+            .map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
           ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
           ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
         ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
@@ -1454,6 +1471,7 @@ function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies,
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'leads') return <ClientLeadsView clientId={clientId} />
+  if (id === 'conversations' && data?.settings?.instagram_conversations_enabled) return <InstagramConversations clientId={clientId} />
   if (id === 'pnl_history') return <PnlHistoryView />
   if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
