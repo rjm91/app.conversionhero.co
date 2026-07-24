@@ -203,6 +203,35 @@ Steps for the user (mostly manual/Meta-side, not code):
   mission-default, so the decision (lead-gen mission variant vs. default non-ecom
   to classic vs. accept empty PnL) now has a concrete test case. NOT yet built.
 
+### Client mission — Leads tab (lead-gen clients) — SHIPPED
+
+- Contour's acquisition funnel: **IG cold outreach → DM → free trial → upsell**,
+  now ALSO **Meta + Google Ads → lead**. Leads (IG-DM positive replies + landing-
+  page form/survey fills) land in **`client_lead`**.
+- Added a **Leads tab** to the client mission (`[clientId]/mission/page.js`),
+  `ClientLeadsView`: reads `client_lead` for the client (name/email/phone/zip/
+  source/status/date), with **+ New lead**, per-row delete, and checkbox
+  bulk-delete. Uses supabase browser client directly (RLS is intentionally OFF on
+  `client_lead` — see MEMORY orders-leads-split — scoped by `.eq('client_id')`,
+  same pattern as `contacts/page.js`).
+- **Gated to lead-gen clients:** `lib/mission/data.js` now returns `isEcom`;
+  the tab has `leadGenOnly: true` and only shows when `!isEcom`. Ecom clients
+  (ShieldTech, orders-based) don't see it.
+- Source column = `utm_source` (e.g. "instagram") else "Landing page" (has
+  `lp_url`) else "Direct".
+
+### STILL TODO — lead-gen mission overview (the PnL replacement)
+
+- The mission PnL is still ecom-only. For lead-gen clients the right "home" is a
+  funnel overview: **Spend (Meta+Google) → Leads → Cost/Lead → Trials booked →
+  Cost/Trial → Customers won → CAC → Revenue → ROAS-on-revenue**. Data sources:
+  spend from `client_google_campaigns`/`client_meta_campaigns`; leads/appts/sales
+  from `client_lead` (`lead_status`, `appt_status`, `sale_status`, `appt_date`,
+  `sale_amount`). NOT built yet — next big piece for Contour to have a real PnL.
+- Trial/upsell outcomes: recorded in `client_lead` via `appt_status` /
+  `sale_status` / `sale_amount` (per the user, IG replies + form fills create the
+  lead; outcomes are updated on the row).
+
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
