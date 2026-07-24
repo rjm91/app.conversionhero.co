@@ -21,11 +21,11 @@ const TREE = [
     { id: 'meta', icon: '📘', label: 'Meta Ads' },
   ] },
   { section: 'SALES', items: [
-    { id: 'leads', icon: '🧲', label: 'Leads / Pipeline' },
+    { id: 'leads', icon: '🧲', label: 'Leads' },
     { id: 'agreements', icon: '📄', label: 'Agreements' },
   ] },
 ]
-const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', google: 'Google Ads', meta: 'Meta Ads', leads: 'Leads / Pipeline', agreements: 'Agreements' }
+const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', google: 'Google Ads', meta: 'Meta Ads', leads: 'Leads', agreements: 'Agreements' }
 const TREE_ICONS = Object.fromEntries(TREE.flatMap(g => g.items.map(i => [i.id, i.icon])))
 
 const PACKAGES = [
@@ -425,7 +425,7 @@ export default function AgencyMission() {
             {activeTab === 'fleet' && <FleetView fleet={fleet} />}
             {activeTab === 'google' && <AgencyPaidMediaView platform="google" />}
             {activeTab === 'meta' && <AgencyPaidMediaView platform="meta" />}
-            {activeTab === 'leads' && <LeadsView leads={leads} onOpen={openAgreementTab} />}
+            {activeTab === 'leads' && <LeadsView leads={leads} onOpen={openAgreementTab} onRefresh={loadLeads} />}
             {activeTab === 'agreements' && <AgreementsView rows={agreements} onOpen={openAgreementTab} onNew={() => ask('draft a new agreement')} />}
             {/* Agreement builders stay mounted (form state survives tab switches);
                 only the active one is shown. */}
@@ -740,25 +740,79 @@ function statusPill(s) {
   return 'new'
 }
 
-function LeadsView({ leads, onOpen }) {
-  if (!leads) return <p className="a-dim v-pad">loading the pipeline…</p>
-  if (!leads.length) return <p className="a-dim v-pad">No leads in the pipeline yet.</p>
+const LEAD_EMPTY = { company: '', first_name: '', last_name: '', email: '', phone: '' }
+function LeadsView({ leads, onOpen, onRefresh }) {
+  const [sel, setSel] = useState(() => new Set())   // selected lead ids (bulk)
+  const [creating, setCreating] = useState(false)   // new-lead form open
+  const [form, setForm] = useState(LEAD_EMPTY)
+  const [busy, setBusy] = useState(false)
+
+  const toggle = (id) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSelected = leads && leads.length > 0 && sel.size === leads.length
+  const toggleAll = () => setSel(allSelected ? new Set() : new Set((leads || []).map(l => l.id)))
+
+  const createLead = async () => {
+    if (!form.company.trim() && !form.email.trim() && !form.first_name.trim()) return
+    setBusy(true)
+    try {
+      await fetch('/api/agency-leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, notify: false }) })
+      setForm(LEAD_EMPTY); setCreating(false); onRefresh && onRefresh()
+    } catch { /* keep form open */ }
+    setBusy(false)
+  }
+  const deleteLead = async (id) => {
+    if (!confirm('Delete this lead? This cannot be undone.')) return
+    await fetch(`/api/agency-leads/${id}`, { method: 'DELETE' }).catch(() => {})
+    setSel(s => { const n = new Set(s); n.delete(id); return n }); onRefresh && onRefresh()
+  }
+  const deleteSelected = async () => {
+    if (!sel.size || !confirm(`Delete ${sel.size} lead${sel.size === 1 ? '' : 's'}? This cannot be undone.`)) return
+    setBusy(true)
+    await Promise.allSettled([...sel].map(id => fetch(`/api/agency-leads/${id}`, { method: 'DELETE' })))
+    setSel(new Set()); onRefresh && onRefresh(); setBusy(false)
+  }
+
+  if (!leads) return <p className="a-dim v-pad">loading leads…</p>
   return (
     <div className="v-pad">
-      <h4 className="v-h">Leads / Pipeline</h4>
-      <p className="v-note">Prospects from the agency funnels. Open one to build or continue their agreement.</p>
-      <div className="tbl">
-        <div className="tr th"><span>Company</span><span>Contact</span><span>Email</span><span>Status</span><span></span></div>
-        {leads.map(l => (
-          <div key={l.id} className="tr" onClick={() => onOpen(l.id)}>
-            <span className="strong">{l.company || '—'}</span>
-            <span>{[l.first_name, l.last_name].filter(Boolean).join(' ') || '—'}</span>
-            <span className="dim">{l.email || '—'}</span>
-            <span><span className={`pill ${statusPill(l.sale_status || l.lead_status)}`}>{l.sale_status || l.lead_status || 'New'}</span></span>
-            <span className="go">open →</span>
-          </div>
-        ))}
+      <div className="v-h-row">
+        <h4 className="v-h">Leads</h4>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {sel.size > 0 && <button className="a-btn" disabled={busy} onClick={deleteSelected}>🗑 Delete {sel.size} selected</button>}
+          <button className="a-btn primary" onClick={() => setCreating(c => !c)}>{creating ? '✕ Cancel' : '+ New lead'}</button>
+        </div>
       </div>
+      <p className="v-note">Prospects from the agency funnels and manually added leads. Open one to build or continue their agreement.</p>
+
+      {creating && (
+        <div className="lead-new" onKeyDown={e => { if (e.key === 'Enter') createLead(); if (e.key === 'Escape') { setCreating(false); setForm(LEAD_EMPTY) } }}>
+          <input autoFocus placeholder="Company" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+          <input placeholder="First name" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+          <input placeholder="Last name" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+          <input placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          <input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+          <button className="a-btn primary" disabled={busy} onClick={createLead}>{busy ? 'Adding…' : 'Add lead'}</button>
+        </div>
+      )}
+
+      {!leads.length ? <p className="a-dim" style={{ marginTop: 12 }}>No leads yet — add one with “+ New lead”.</p> : (
+        <div className="tbl leads">
+          <div className="tr th">
+            <span><input type="checkbox" checked={allSelected} onChange={toggleAll} title="select all" /></span>
+            <span>Company</span><span>Contact</span><span>Email</span><span>Status</span><span></span>
+          </div>
+          {leads.map(l => (
+            <div key={l.id} className={`tr ${sel.has(l.id) ? 'on' : ''}`}>
+              <span onClick={e => e.stopPropagation()}><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggle(l.id)} /></span>
+              <span className="strong" onClick={() => onOpen(l.id)}>{l.company || '—'}</span>
+              <span onClick={() => onOpen(l.id)}>{[l.first_name, l.last_name].filter(Boolean).join(' ') || '—'}</span>
+              <span className="dim" onClick={() => onOpen(l.id)}>{l.email || '—'}</span>
+              <span onClick={() => onOpen(l.id)}><span className={`pill ${statusPill(l.sale_status || l.lead_status)}`}>{l.sale_status || l.lead_status || 'New'}</span></span>
+              <span className="lead-actions"><button className="lead-del" title="delete lead" onClick={e => { e.stopPropagation(); deleteLead(l.id) }}>🗑</button></span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1504,6 +1558,18 @@ const CSS = `
 .aide .tr{display:grid;grid-template-columns:1.4fr 1.1fr 1.6fr .9fr .6fr;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer;}
 .aide .tbl .tr:first-child{border-top:none;}
 .aide .tbl.two .tr{grid-template-columns:1.6fr 1.2fr 1fr .6fr;}
+/* Leads table with a leading checkbox column + row delete */
+.aide .tbl.leads .tr{grid-template-columns:30px 1.4fr 1.1fr 1.6fr .9fr 36px;cursor:default;}
+.aide .tbl.leads .tr .strong,.aide .tbl.leads .tr span:not(.lead-actions):not(.th){cursor:pointer;}
+.aide .tbl.leads .tr.on{background:rgba(var(--blue-500,110 168 254) / .10);}
+.aide .tbl.leads input[type=checkbox]{accent-color:rgb(var(--blue-500,110 168 254));cursor:pointer;}
+.aide .lead-actions{text-align:right;}
+.aide .lead-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:12px;opacity:0;padding:2px;}
+.aide .tbl.leads .tr:hover .lead-del{opacity:1;}
+.aide .lead-del:hover{color:var(--red);}
+.aide .lead-new{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);}
+.aide .lead-new input{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12.5px;padding:6px 10px;}
+.aide .lead-new input:focus{outline:none;border-color:rgb(var(--blue-500,110 168 254));}
 .aide .tr.th{background:var(--panel2);color:var(--faint);font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:default;}
 .aide .tr:not(.th):hover{background:rgba(255,255,255,.02);}
 .aide .tr .go{color:var(--faint);font-size:11px;text-align:right;opacity:0;}
