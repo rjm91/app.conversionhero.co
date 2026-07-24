@@ -27,6 +27,19 @@ const TREE = [
 ]
 const VIEW_TITLES = { schema: 'Schema', fleet: 'Fleet', google: 'Google Ads', meta: 'Meta Ads', leads: 'Leads', agreements: 'Agreements' }
 const TREE_ICONS = Object.fromEntries(TREE.flatMap(g => g.items.map(i => [i.id, i.icon])))
+// Monochrome line icons (quiet — stay faint), matching the client mission.
+const AG_NAV_ICONS = {
+  schema: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" /></>,
+  fleet: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></>,
+  google: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
+  meta: <><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
+  leads: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+  agreements: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M16 13H8M16 17H8M10 9H8" /></>,
+  control: <><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="4" width="3" height="14" /></>,
+}
+function AgIcon({ id }) {
+  return <svg className="ex-ic" viewBox="0 0 24 24">{AG_NAV_ICONS[id] || null}</svg>
+}
 
 const PACKAGES = [
   { id: 'pilot', name: 'Pilot', price: 1000 }, { id: 'starter', name: 'Starter', price: 1550 },
@@ -378,7 +391,7 @@ export default function AgencyMission() {
               <div className="ex-h">{g.section}</div>
               {g.items.map(it => (
                 <button key={it.id} className={`ex-item ${activeTab === it.id ? 'on' : ''}`} onClick={() => openTab(it.id)}>
-                  <span className="ex-ic">{it.icon}</span>{it.label}
+                  <AgIcon id={it.id} />{it.label}
                   {it.id === 'agreements' && openAgreements > 0 && <span className="ex-count">{openAgreements}</span>}
                 </button>
               ))}
@@ -393,7 +406,7 @@ export default function AgencyMission() {
                 : VIEW_TITLES[r.id] || r.id
               return (
                 <button key={r.id} className="ex-item" onClick={() => openTab(r.id)}>
-                  <span className="ex-ic">{isAg ? '📄' : TREE_ICONS[r.id] || '▸'}</span>
+                  <AgIcon id={isAg ? 'agreements' : r.id} />
                   <span className="ex-ti">{label}</span>
                   <span className="ex-when">{relTime(r.at)}</span>
                 </button>
@@ -402,7 +415,7 @@ export default function AgencyMission() {
           </div>}
           <div className="ex-sec">
             <div className="ex-h">AGENCY</div>
-            <a className="ex-item" href="/control"><span className="ex-ic">📊</span>Control Center<span className="ex-out">↗</span></a>
+            <a className="ex-item" href="/control"><AgIcon id="control" />Control Center<span className="ex-out">↗</span></a>
           </div>
         </aside>}
         {sideOpen && <div className="resize-h" onMouseDown={startDrag('side')} title="drag to resize" />}
@@ -1518,7 +1531,7 @@ const CSS = `
 .aide .ex-item{width:100%;display:flex;align-items:center;gap:9px;padding:5px 14px;background:none;border:0;border-left:2px solid transparent;color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
 .aide .ex-item:hover{background:rgba(255,255,255,.03);color:var(--txt);}
 .aide .ex-item.on{background:rgba(110,168,254,.07);border-left-color:var(--blue);color:var(--txt);}
-.aide .ex-ic{width:16px;text-align:center;}
+.aide .ex-ic{width:15px;height:15px;flex-shrink:0;stroke:var(--faint);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .aide .ex-item{text-decoration:none;}
 .aide .ex-out{margin-left:auto;color:var(--faint);font-size:11px;}
 .aide .ex-ti{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

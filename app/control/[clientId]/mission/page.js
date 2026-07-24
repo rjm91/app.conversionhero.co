@@ -69,6 +69,28 @@ const TOGGLEABLE_TABS = [
 ]
 const DEFAULT_CLIENT_HIDDEN = ['manual', 'ledger', 'policies', 'memory']
 
+// Monochrome line icons (Lucide style) for the explorer — replace the emoji.
+// Kept faint (var(--faint)) even on hover for a restrained, professional feel.
+const NAV_ICONS = {
+  overview: <><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="4" width="3" height="14" /></>,
+  leads: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+  schema: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" /></>,
+  google: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
+  meta: <><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
+  campaign: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
+  manual: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
+  ledger: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 13h8M8 17h8M8 9h2" /></>,
+  policies: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+  memory: <><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" /></>,
+  settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6 6l1.5 1.5M18 18l-1.5-1.5M6 18l1.5-1.5M18 6l-1.5 1.5" /></>,
+  pin: <><path d="M12 17v5" /><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" /></>,
+  problems: <><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></>,
+  terminal: <><path d="m4 17 6-6-6-6" /><path d="M12 19h8" /></>,
+}
+function NavIcon({ id }) {
+  return <svg className="exp-ic" viewBox="0 0 24 24">{NAV_ICONS[id] || null}</svg>
+}
+
 export default function BusinessIDE() {
   const { clientId } = useParams()
   const router = useRouter()
@@ -736,7 +758,7 @@ export default function BusinessIDE() {
                 <div className="exp-sec">{sec.section}</div>
                 {sec.items.map(it => (
                   <div key={it.id} className={`exp-item ${activeTab === it.id ? 'on' : ''}`} onClick={() => openTab(it.id)}>
-                    <span className="exp-ic">{it.icon}</span>{it.label}
+                    <NavIcon id={it.id} />{it.label}
                     {it.id === 'ledger' && ledger.length > 0 && <span className="exp-n">{ledger.length}</span>}
                     {it.id === 'policies' && policies.length > 0 && <span className="exp-n">{policies.length}</span>}
                   </div>
@@ -747,17 +769,17 @@ export default function BusinessIDE() {
               <div className="exp-sec">PINNED</div>
               {pins.map(p => (
                 <div key={p.id} className={`exp-item ${activeTab === 'pin:' + p.id ? 'on' : ''}`} onClick={() => openTab('pin:' + p.id)}>
-                  <span className="exp-ic">📌</span><span className="exp-trunc">{p.title}</span>
+                  <NavIcon id="pin" /><span className="exp-trunc">{p.title}</span>
                 </div>
               ))}
             </>}
             <div className="exp-sec">PANEL</div>
             <div className={`exp-item ${panelOpen && panelTab === 'problems' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('problems') }}>
-              <span className="exp-ic">⚠️</span>Problems
+              <NavIcon id="problems" />Problems
               {problems.length > 0 && <span className="exp-n warn">{problems.length}</span>}
             </div>
             <div className={`exp-item ${panelOpen && panelTab === 'terminal' ? 'on' : ''}`} onClick={() => { setPanelOpen(true); setPanelTab('terminal'); inputRef.current?.focus() }}>
-              <span className="exp-ic">▸</span>Terminal
+              <NavIcon id="terminal" />Terminal
             </div>
           </div>
         )}
@@ -3793,7 +3815,8 @@ const CSS = `
 .ide .exp-item{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:12.5px;color:var(--dim);cursor:pointer;border-left:2px solid transparent;}
 .ide .exp-item:hover{color:var(--txt);background:rgba(255,255,255,.02);}
 .ide .exp-item.on{color:var(--txt);background:rgba(110,168,254,.07);border-left-color:var(--blue);}
-.ide .exp-ic{width:16px;text-align:center;font-size:11px;}
+/* quiet monochrome line icons — stay faint even on hover/active (Option C) */
+.ide .exp-ic{width:15px;height:15px;flex-shrink:0;stroke:var(--faint);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .ide .exp-n{margin-left:auto;font-size:10px;color:var(--faint);background:var(--panel2);border-radius:99px;padding:0 6px;}
 .ide .exp-n.warn{color:var(--amber);background:rgba(232,180,90,.12);font-weight:800;}
 .ide .exp-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
