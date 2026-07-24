@@ -248,3 +248,12 @@ Steps for the user (mostly manual/Meta-side, not code):
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
+
+### Sidebar icons — emoji → line icons (Option C)
+
+- Replaced the childish emoji tab icons in BOTH mission sidebars with quiet
+  monochrome Lucide-style line icons that stay faint (`var(--faint)`) even on
+  hover/active. Client mission: `NAV_ICONS` map + `<NavIcon id>` (CSS `.ide
+  .exp-ic` now an SVG). Agency mission: `AG_NAV_ICONS` + `<AgIcon id>` (CSS
+  `.aide .ex-ic`). Chosen from a 4-option mockup (emoji / line / quiet line /
+  none) — user picked C (quiet line).
