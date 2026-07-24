@@ -3965,7 +3965,7 @@ const CSS = `
 .ide .burger{background:none;border:none;color:var(--faint);font:inherit;padding:0 12px;cursor:pointer;border-right:1px solid var(--line);}
 .ide .burger:hover{color:var(--txt);}
 .ide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
-.ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
+.ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 rgb(var(--blue-500,110 168 254));}
 .ide .tab-x{color:var(--faint);font-size:13px;} .ide .tab-x:hover{color:var(--txt);}
 .ide .view-row{flex:1;display:flex;min-height:0;position:relative;z-index:1;}
 .ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;min-width:0;}
@@ -4459,7 +4459,7 @@ const CSS = `
 .ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
 .ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;white-space:nowrap;}
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
-.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
+.ide .set-btn.primary{background:rgb(var(--blue-500,110 168 254));border-color:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
 /* client Leads view */
 .ide .v-h-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}

@@ -414,7 +414,10 @@ export default function ClientLayout({ children }) {
   // destinations live inside the IDE's explorer (APPS section) and ⌘P.
   if (activeKey === 'mission') {
     return (
-      <div className="mission-shell flex flex-col h-screen" style={{ '--mt-top': '36px' }}>
+      <div
+        className="mission-shell flex flex-col h-screen"
+        style={{ '--mt-top': '36px', ...(brandColor ? { '--mission-client-accent': brandColor } : {}) }}
+      >
         <header className="mission-titlebar h-9 flex items-center gap-1 pl-2 pr-2.5 flex-shrink-0 relative z-50">
           {/* Client switcher — same dropdown as the classic nav, IDE-skinned.
               Only agency admins get the dropdown, so only they get the button. */}

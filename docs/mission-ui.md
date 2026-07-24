@@ -78,7 +78,10 @@ labels may step down to 9–12 px. Numeric values use tabular figures.
   active-tab lines. The shell remains ConversionHero-owned.
 - **Client Mission:** the shell stays graphite. Client primary color may replace
   the default blue for primary actions, selected ranges, badges, and identity
-  marks through the existing `--blue-*` brand scale.
+  marks through the existing `--blue-*` brand scale. The client layout exposes
+  that primary as `--mission-client-accent`; the Mission view aliases its
+  interaction `--blue` token to that color, with `--mission-blue` as the
+  unbranded fallback.
 - **Semantic values:** never recolor profit/loss or health signals to match a
   client's brand. Green, amber, and red keep the same meaning in both scopes.
 - Accent tints use low-opacity fills (roughly 6–16%). Solid accent fills are
