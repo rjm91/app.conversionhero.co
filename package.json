@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "db:schema": "node scripts/dump-schema.mjs",
-    "test:instagram": "node --test tests/instagram-messaging.test.mjs"
+    "test:instagram": "node --test tests/instagram-messaging.test.mjs tests/instagram-oauth.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

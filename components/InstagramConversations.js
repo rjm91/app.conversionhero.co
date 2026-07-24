@@ -52,6 +52,21 @@ function sourceLabel(conversation) {
   )
 }
 
+const CONNECT_NOTICES = {
+  cancelled: 'Instagram sign-in was cancelled. Nothing was connected.',
+  configuration_required: 'Instagram Login still needs its Meta app configuration on this deployment. Add the app ID, app secret, redirect URI, and webhook verification token, then try again.',
+  invalid_state: 'That Instagram connection link expired or was invalid. Start again from this page.',
+  missing_code: 'Instagram did not return an authorization code. Start the connection again.',
+  unauthorized: 'Your current session is not allowed to connect Instagram for this client.',
+  token_exchange_failed: 'Instagram could not approve this connection. Confirm this is a professional account and try again.',
+  long_lived_token_failed: 'Instagram approved the account, but the secure token setup did not finish. Try again.',
+  account_lookup_failed: 'Instagram did not return a professional account for this login.',
+  account_in_use: 'This Instagram account is already linked to another client workspace.',
+  webhook_subscription_failed: 'Instagram approved the account, but Meta could not subscribe it to message updates. Finish the Instagram webhook setup, then reconnect.',
+  connection_save_failed: 'Instagram was approved, but the secure connection could not be saved. Try again.',
+  connection_failed: 'The Instagram connection did not finish. Try again.',
+}
+
 function Avatar({ conversation, large = false }) {
   return conversation?.profile_picture_url
     ? <img className={`ig-avatar ${large ? 'large' : ''}`} src={conversation.profile_picture_url} alt="" referrerPolicy="no-referrer" />
@@ -109,10 +124,22 @@ export default function InstagramConversations({ clientId }) {
   const [sendError, setSendError] = useState('')
   const [sendWarning, setSendWarning] = useState('')
   const [mobileThread, setMobileThread] = useState(false)
+  const [connectNotice, setConnectNotice] = useState('')
   const threadEndRef = useRef(null)
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])
+
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href)
+      const outcome = url.searchParams.get('instagram_connect')
+      if (!outcome) return
+      setConnectNotice(CONNECT_NOTICES[outcome] || '')
+      url.searchParams.delete('instagram_connect')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    } catch {}
+  }, [])
 
   const loadList = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -252,10 +279,20 @@ export default function InstagramConversations({ clientId }) {
   }
 
   if (!connection?.connected) {
+    const reconnecting = connection?.status === 'error'
     return (
       <div className="ig-workspace single">
-        <InboxState icon="◎" title="Connect Instagram Messaging">
-          This inbox is ready for real Direct messages, but Contour’s Instagram professional account is not connected yet. Add the account token and subscribe the Meta webhook; no demo conversations are shown here.
+        <InboxState
+          icon="◎"
+          title={reconnecting ? 'Reconnect Instagram Messaging' : 'Connect Instagram Messaging'}
+          action={(
+            <a className="ig-state-button" href={`/api/instagram/oauth/start?client_id=${encodeURIComponent(clientId)}`}>
+              {reconnecting ? 'Reconnect Instagram' : 'Connect Instagram'}
+            </a>
+          )}
+        >
+          This inbox is ready for real Direct messages. Sign in through Meta to connect an Instagram professional account; its access token stays on the server and is never shown here.
+          {connectNotice && <span className="ig-connect-notice">{connectNotice}</span>}
         </InboxState>
         <style jsx global>{styles}</style>
       </div>
@@ -484,7 +521,8 @@ const styles = `
   .ig-state-icon{width:42px;height:42px;border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));background:color-mix(in srgb,var(--blue) 8%,transparent);color:var(--blue);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:14px}
   .ig-state h3{margin:0 0 7px;font-size:13px}
   .ig-state p{margin:0;color:var(--dim);font-size:11px;line-height:1.6}
-  .ig-state-button{margin-top:14px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:10.5px;padding:6px 12px;cursor:pointer}
+  .ig-connect-notice{display:block;margin-top:12px;border:1px solid color-mix(in srgb,var(--amber) 28%,var(--line));border-radius:6px;background:color-mix(in srgb,var(--amber) 8%,transparent);color:var(--amber);padding:8px 10px;text-align:left}
+  .ig-state-button{display:inline-flex;align-items:center;justify-content:center;margin-top:14px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:10.5px;padding:6px 12px;cursor:pointer;text-decoration:none}
   .ig-state-button:hover{border-color:var(--blue)}
   .ig-panel-skeleton{height:100%;display:flex;align-items:center;justify-content:center;gap:9px;color:var(--faint);font-size:11px}
   .ig-list-skeleton{border-right:1px solid var(--line);padding:9px;background:var(--panel)}
