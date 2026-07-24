@@ -16,7 +16,9 @@ import { useTerminalHistory, relTime } from '../../../../lib/terminal-history'
 import { supabase } from '../../../../lib/supabase'
 import { fetchAllRows } from '../../../../lib/fetch-all'
 import { deriveChannel } from '../../../../lib/channels'
+import { isSecurityAdmin } from '../../../../lib/roles'
 import MetaConnectionModal from '../../../../components/MetaConnectionModal'
+import InstagramConversations from '../../../../components/InstagramConversations'
 
 const money = (n) => '$' + Math.round(n || 0).toLocaleString()
 let turnSeq = 0
@@ -40,6 +42,7 @@ const TREE = [
     { id: 'overview', icon: '📊', label: 'PnL' },
     { id: 'leads', icon: '🧲', label: 'Leads', leadGenOnly: true },
     { id: 'schema', icon: '🗄', label: 'Schema' },
+    { id: 'conversations', label: 'Conversations', conversationsOnly: true },
   ]},
   { section: 'CAMPAIGNS', items: [
     { id: 'google', icon: '🔍', label: 'Google Ads' },
@@ -58,10 +61,10 @@ const TREE = [
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ]},
 ]
-const VIEW_TITLES = { overview: 'PnL', leads: 'Leads', schema: 'Schema', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
+const VIEW_TITLES = { overview: 'PnL', leads: 'Leads', schema: 'Schema', conversations: 'Conversations', google: 'Google Ads', meta: 'Meta Ads', orders: 'Orders', klaviyo: 'Klaviyo', campaign: 'Campaign Builder', pnl_history: 'Daily P&L History', manual: 'Manual', ledger: 'Ledger', policies: 'Policies', memory: 'Memory', settings: 'Settings' }
 // Tabs the client can never lose (structural). Everything else is toggleable in
 // Settings; DEFAULT_CLIENT_HIDDEN applies until an agency admin sets an explicit list.
-const CORE_TABS = new Set(['overview', 'schema', 'settings'])
+const CORE_TABS = new Set(['overview', 'schema', 'conversations', 'settings'])
 const TOGGLEABLE_TABS = [
   { id: 'google', label: 'Google Ads' }, { id: 'meta', label: 'Meta Ads' },
   { id: 'campaign', label: 'Campaign Builder' }, { id: 'manual', label: 'Manual' },
@@ -75,6 +78,7 @@ const NAV_ICONS = {
   overview: <><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="4" width="3" height="14" /></>,
   leads: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
   schema: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" /></>,
+  conversations: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /><path d="M8 9h8M8 13h5" /></>,
   google: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
   meta: <><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
   campaign: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
@@ -104,12 +108,13 @@ export default function BusinessIDE() {
   const [palQ, setPalQ] = useState('')
   const [tabs, setTabs] = useState(['overview'])
   const [activeTab, setActiveTab] = useState('overview')
+  const conversationsEnabled = data?.settings?.instagram_conversations_enabled === true
   // Deep links from agency Mission can open a client data surface directly.
   useEffect(() => {
     try {
       const sp = new URLSearchParams(window.location.search)
       const requested = sp.get('focus') ? 'schema' : sp.get('tab')
-      if (requested && VIEW_TITLES[requested]) {
+      if (requested && VIEW_TITLES[requested] && requested !== 'conversations') {
         setTabs(t => t.includes(requested) ? t : [...t, requested])
         setActiveTab(requested)
       }
@@ -253,6 +258,7 @@ export default function BusinessIDE() {
   }, [data, labelOverride, roasOverride, cacOverride, aovOverride])
   const isAgencyRole = viewer?.role?.startsWith('agency')
   const canEditRoas = isAgencyRole || viewer?.role === 'client_admin'
+  const canConnectMeta = isAgencyRole || viewer?.role === 'client_admin'
   // Client-visible tab control: agency sees everything; a client (real client
   // role OR the agency "view-as" preview) only sees tabs not hidden in settings.
   const [viewAs, setViewAs] = useState(false)
@@ -262,15 +268,26 @@ export default function BusinessIDE() {
     return () => { window.removeEventListener('ca:viewas', read); window.removeEventListener('storage', read) }
   }, [])
   const isClientView = !isAgencyRole || viewAs
+  const showInternalMetaNote = isSecurityAdmin(viewer?.role) && !viewAs
   const isLeadGen = data ? !data.isEcom : false  // home_service (leads) vs ecom (orders)
   const hiddenTabs = data?.settings?.mission_hidden_tabs || DEFAULT_CLIENT_HIDDEN
+  useEffect(() => {
+    if (!conversationsEnabled) return
+    try {
+      const requested = new URLSearchParams(window.location.search).get('tab')
+      if (requested !== 'conversations') return
+      setTabs(current => current.includes('conversations') ? current : [...current, 'conversations'])
+      setActiveTab('conversations')
+    } catch { /* ignore */ }
+  }, [conversationsEnabled])
   const visibleTree = useMemo(() => TREE.map(sec => ({
     ...sec,
     items: sec.items.filter(it =>
       (!it.leadGenOnly || isLeadGen) &&                                       // Leads tab: lead-gen clients only
+      (!it.conversationsOnly || conversationsEnabled) &&                       // explicitly enabled per client
       (!isClientView || CORE_TABS.has(it.id) || !hiddenTabs.includes(it.id)),
     ),
-  })).filter(sec => sec.items.length), [isClientView, hiddenTabs, isLeadGen])
+  })).filter(sec => sec.items.length), [isClientView, hiddenTabs, isLeadGen, conversationsEnabled])
   const saveMissionTabs = useCallback(async (hidden) => {
     setData(d => d ? { ...d, settings: { ...(d.settings || {}), mission_hidden_tabs: hidden } } : d)
     try {
@@ -347,9 +364,10 @@ export default function BusinessIDE() {
 
   /* ── tabs ── */
   const openTab = useCallback((id) => {
+    if (id === 'conversations' && !conversationsEnabled) return
     setTabs(t => t.includes(id) ? t : [...t, id])
     setActiveTab(id)
-  }, [])
+  }, [conversationsEnabled])
   const closeTab = useCallback((id) => {
     setTabs(t => {
       const next = t.filter(x => x !== id)
@@ -805,8 +823,8 @@ export default function BusinessIDE() {
             <div className="view" style={splitTab ? { width: `${100 - splitPct}%` } : undefined}>
               <ViewBody id={activeTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                 ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} />
+                campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs} canConnectMeta={canConnectMeta} allowManualMeta={isAgencyRole}
+                onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} showInternalMetaNote={showInternalMetaNote} />
             </div>
             {splitTab && <>
               <div className="resize-h" onMouseDown={startDrag('vsplit')} title="drag to resize" />
@@ -819,8 +837,8 @@ export default function BusinessIDE() {
                 </div>
                 <ViewBody id={splitTab} clientId={clientId} m={m} data={data} rangeN={rangeN} rangeLabel={rangeLabel} ledger={ledger} policies={policies} pins={pins}
                   ordersQ={ordersQ} setOrdersQ={setOrdersQ} onDrill={drill}
-                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs}
-                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} />
+                  campaignDoc={campaignDoc} onSaveCampaigns={saveCampaignDoc} metaDoc={metaDoc} onSaveMeta={saveMetaDoc} clientName={data?.clientName || clientId} memories={memories} canEditLabel={isAgencyRole} onSaveLabel={saveCostPerLabel} canEditRoas={canEditRoas} onSaveRoas={saveRoasThresholds} onSaveCac={saveCacThresholds} rangeStart={range.start} onEnsureRange={ensureRangeCovers} onSaveAov={saveAovThresholds} aovDefaults={aovHist} loadedAt={loadedAt} onRefresh={refreshData} refreshing={refreshing} hiddenTabs={hiddenTabs} onSaveMissionTabs={saveMissionTabs} canConnectMeta={canConnectMeta} allowManualMeta={isAgencyRole}
+                  onUndo={undoDecision} onUnpin={unpin} onReask={(q) => { setPanelOpen(true); setPanelTab('terminal'); ask(q) }} showClientId={viewer?.role === 'agency_admin_security' && !viewAs} showInternalMetaNote={showInternalMetaNote} />
               </div>
             </>}
           </div>
@@ -930,7 +948,9 @@ export default function BusinessIDE() {
       {/* ⌘P quick-open — fuzzy jump to any view, pin, or campaign */}
       {qpOpen && (() => {
         const items = [
-          ...Object.entries(VIEW_TITLES).map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
+          ...Object.entries(VIEW_TITLES)
+            .filter(([id]) => id !== 'conversations' || conversationsEnabled)
+            .map(([id, t]) => ({ key: 'v' + id, label: t, sub: 'view', run: () => openTab(id) })),
           ...pins.map(p => ({ key: 'p' + p.id, label: '📌 ' + p.title, sub: 'pinned', run: () => openTab('pin:' + p.id) })),
           ...(m ? m.campaigns.map(c => ({ key: 'c' + c.platform + c.campaign_id, label: c.campaign_name, sub: `${c.platform} · ${c.trueRoas != null ? c.trueRoas.toFixed(2) + 'x' : '—'}`, run: () => openTab(c.platform === 'Google' ? 'google' : 'meta') })) : []),
         ].filter(it => (it.label + ' ' + it.sub).toLowerCase().includes(qpQ.toLowerCase())).slice(0, 12)
@@ -1064,7 +1084,7 @@ function PnlHistoryView() {
 }
 
 /* ══════════ Settings — per-client ops config (Slack digest, cost/label) ══════════ */
-function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
+function SettingsView({ canEdit, canConnectMeta, allowManualMeta, clientName, hiddenTabs, onSaveMissionTabs }) {
   const { clientId } = useParams()
   const [settings, setSettings] = useState(null)
   const [webhook, setWebhook] = useState('')
@@ -1164,10 +1184,29 @@ function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
   }
 
   if (settings === null) return <p className="loading v-pad">loading settings…</p>
-  if (!canEdit) return (
+  const metaCard = canConnectMeta ? (
+    <>
+      <div className="set-card">
+        <div className="set-h">Meta Ads connection</div>
+        <p className="v-note" style={{ marginTop: 0 }}>Connect with Facebook, choose this client&apos;s exact ad account, and pull read-only campaign performance into Mission and P&amp;L.</p>
+        <div className="set-actions">
+          <button className="set-btn primary" onClick={() => setMetaOpen(true)}>Connect / manage Meta account</button>
+        </div>
+      </div>
+      {metaOpen && <MetaConnectionModal clientId={clientId} clientName={clientName} start={metaStart} end={metaEnd} allowManual={allowManualMeta} onClose={() => setMetaOpen(false)} onSaved={() => {}} />}
+    </>
+  ) : null
+  if (!canEdit && !canConnectMeta) return (
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
       <p className="v-note">Settings are managed by agency admins.</p>
+    </div>
+  )
+  if (!canEdit) return (
+    <div className="v-pad">
+      <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
+      {metaCard}
+      <p className="v-note">Other settings are managed by agency admins.</p>
     </div>
   )
   const canTest = !!settings.slack_pnl_webhook || /^https:\/\/hooks\.slack\.com\//.test(webhook.trim())
@@ -1180,14 +1219,7 @@ function SettingsView({ canEdit, clientName, hiddenTabs, onSaveMissionTabs }) {
     <div className="v-pad">
       <h4 className="v-h" style={{ marginTop: 0 }}>Settings</h4>
 
-      <div className="set-card">
-        <div className="set-h">Meta Ads connection</div>
-        <p className="v-note" style={{ marginTop: 0 }}>Connect this client’s Meta (Facebook) ad account to pull spend and campaigns into the P&amp;L. Needs the ad account ID and a long-lived System User token (ads_read).</p>
-        <div className="set-actions">
-          <button className="set-btn primary" onClick={() => setMetaOpen(true)}>Connect / manage Meta account</button>
-        </div>
-      </div>
-      {metaOpen && <MetaConnectionModal clientId={clientId} clientName={clientName} start={metaStart} end={metaEnd} onClose={() => setMetaOpen(false)} onSaved={() => {}} />}
+      {metaCard}
 
       <div className="set-card">
         <div className="set-h">Client-visible tabs</div>
@@ -1448,19 +1480,20 @@ function MetaCampaigns({ campaigns, onSave }) {
   )
 }
 
-function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, onUndo, onUnpin, onReask, showClientId }) {
+function ViewBody({ id, clientId, m, data, rangeN, rangeLabel, ledger, policies, pins, ordersQ, setOrdersQ, onDrill, campaignDoc, onSaveCampaigns, metaDoc, onSaveMeta, clientName, memories, canEditLabel, onSaveLabel, canEditRoas, onSaveRoas, onSaveCac, onSaveAov, aovDefaults, rangeStart, onEnsureRange, loadedAt, onRefresh, refreshing, hiddenTabs, onSaveMissionTabs, canConnectMeta, allowManualMeta, onUndo, onUnpin, onReask, showClientId, showInternalMetaNote }) {
   // Campaign Builder + Memory are independent of the mission metrics — render
   // before the !m gate so they work even while data is still loading.
   if (id === 'campaign') return <CampaignSheetView doc={campaignDoc} onSave={onSaveCampaigns} metaDoc={metaDoc} onSaveMeta={onSaveMeta} clientName={clientName} onReask={onReask} />
   if (id === 'memory') return <MemoryView memories={memories} clientName={clientName} onReask={onReask} />
   if (id === 'leads') return <ClientLeadsView clientId={clientId} />
+  if (id === 'conversations' && data?.settings?.instagram_conversations_enabled) return <InstagramConversations clientId={clientId} />
   if (id === 'pnl_history') return <PnlHistoryView />
-  if (id === 'settings') return <SettingsView canEdit={canEditLabel} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
+  if (id === 'settings') return <SettingsView canEdit={canEditLabel} canConnectMeta={canConnectMeta} allowManualMeta={allowManualMeta} clientName={clientName} hiddenTabs={hiddenTabs} onSaveMissionTabs={onSaveMissionTabs} />
   if (!m) return <p className="loading">reading {rangeN} days of orders, campaigns, and BOM costs…</p>
   if (id === 'overview') return <OverviewView m={m} rangeLabel={rangeLabel} canEditLabel={canEditLabel} onSaveLabel={onSaveLabel} canEditRoas={canEditRoas} onSaveRoas={onSaveRoas} onSaveCac={onSaveCac} rangeStart={rangeStart} onEnsureRange={onEnsureRange} onSaveAov={onSaveAov} aovDefaults={aovDefaults} loadedAt={loadedAt} onRefresh={onRefresh} refreshing={refreshing} />
   if (id === 'schema') return <ClientSchemaView tz={m.sources?.tz} showClientId={showClientId} />
   if (id === 'google') return <CampaignView m={m} platform="Google" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
-  if (id === 'meta') return <CampaignView m={m} platform="Meta" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} />
+  if (id === 'meta') return <CampaignView m={m} platform="Meta" clientId={clientId} start={data.start} end={data.end} rangeLabel={rangeLabel} showInternalMetaNote={showInternalMetaNote} />
   if (id === 'orders') return <OrdersView data={data} filter={ordersQ} setFilter={setOrdersQ} />
   if (id === 'klaviyo') return <KlaviyoView m={m} />
   if (id === 'manual') return <div className="man-body wide"><Markdown text={MANUAL} /></div>
@@ -3325,7 +3358,7 @@ function GoogleCampaignHierarchy({ m, clientId, start, end, rangeLabel }) {
   )
 }
 
-function MetaCampaignFramework({ m, rangeLabel }) {
+function MetaCampaignFramework({ m, rangeLabel, showInternalMetaNote }) {
   const rows = m.campaigns.filter(c => c.platform === 'Meta')
   return (
     <div className="v-pad">
@@ -3334,22 +3367,26 @@ function MetaCampaignFramework({ m, rangeLabel }) {
           <h3 className="v-h" style={{ margin: 0 }}>Meta Ads</h3>
           <p className="v-note">Campaign performance for {rangeLabel}. The hierarchy is ready for ad-set and ad data once those entities are synced.</p>
         </div>
-        <div className="campaign-drill-path" aria-label="Meta Ads target hierarchy">
-          <span className="on">Campaigns</span><b>›</b><span>Ad sets</span><b>›</b><span>Ads</span>
+        <div className="campaign-drill-tools">
+          {showInternalMetaNote && (
+            <details className="meta-internal-note">
+              <summary aria-label="Open internal Meta Ads implementation note" title="Internal implementation note">i</summary>
+              <div className="meta-internal-note-popover" role="note">
+                <p className="meta-internal-note-title">Campaign level is live · ad-set and ad drill-down is pending</p>
+                <p className="meta-internal-note-copy">Meta currently syncs only <code>client_meta_campaigns</code>, so this tab can safely show campaign totals but cannot yet invent ad-set or ad rows.</p>
+                <ol className="meta-internal-note-list">
+                  <li>Create RLS-protected daily <code>client_meta_ad_sets</code> and <code>client_meta_ads</code> tables keyed to their parent campaign/ad-set IDs.</li>
+                  <li>Extend the Meta Graph sync to fetch <code>level=adset</code> and <code>level=ad</code> insights, plus current delivery, budget, targeting/placement, and creative metadata where the connection permits it.</li>
+                  <li>Backfill the selected history, add the tables to the Schema/MCP allowlists, then enable this same campaign → ad set → ad drill-down.</li>
+                </ol>
+              </div>
+            </details>
+          )}
+          <div className="campaign-drill-path" aria-label="Meta Ads target hierarchy">
+            <span className="on">Campaigns</span><b>›</b><span>Ad sets</span><b>›</b><span>Ads</span>
+          </div>
         </div>
       </div>
-
-      <section className="meta-framework" aria-labelledby="meta-framework-heading">
-        <div>
-          <p id="meta-framework-heading" className="meta-framework-title">Campaign level is live · ad-set and ad drill-down is pending</p>
-          <p className="meta-framework-copy">Meta currently syncs only <code>client_meta_campaigns</code>, so this tab can safely show campaign totals but cannot yet invent ad-set or ad rows.</p>
-        </div>
-        <ol className="meta-framework-list">
-          <li>Create RLS-protected daily <code>client_meta_ad_sets</code> and <code>client_meta_ads</code> tables keyed to their parent campaign/ad-set IDs.</li>
-          <li>Extend the Meta Graph sync to fetch <code>level=adset</code> and <code>level=ad</code> insights, plus current delivery, budget, targeting/placement, and creative metadata where the connection permits it.</li>
-          <li>Backfill the selected history, add the tables to the Schema/MCP allowlists, then enable this same campaign → ad set → ad drill-down.</li>
-        </ol>
-      </section>
 
       {rows.length
         ? <ResizableTable
@@ -3371,8 +3408,8 @@ function MetaCampaignFramework({ m, rangeLabel }) {
   )
 }
 
-function CampaignView({ m, platform, clientId, start, end, rangeLabel }) {
-  if (platform === 'Meta') return <MetaCampaignFramework m={m} rangeLabel={rangeLabel} />
+function CampaignView({ m, platform, clientId, start, end, rangeLabel, showInternalMetaNote = false }) {
+  if (platform === 'Meta') return <MetaCampaignFramework m={m} rangeLabel={rangeLabel} showInternalMetaNote={showInternalMetaNote} />
   return <GoogleCampaignHierarchy m={m} clientId={clientId} start={start} end={end} rangeLabel={rangeLabel} />
 }
 
@@ -3841,7 +3878,7 @@ const CSS = `
 .ide .burger{background:none;border:none;color:var(--faint);font:inherit;padding:0 12px;cursor:pointer;border-right:1px solid var(--line);}
 .ide .burger:hover{color:var(--txt);}
 .ide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
-.ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
+.ide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 rgb(var(--blue-500,110 168 254));}
 .ide .tab-x{color:var(--faint);font-size:13px;} .ide .tab-x:hover{color:var(--txt);}
 .ide .view-row{flex:1;display:flex;min-height:0;position:relative;z-index:1;}
 .ide .view{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;min-width:0;}
@@ -3864,7 +3901,17 @@ const CSS = `
 .ide .campaign-drill-path b{font-size:14px;font-weight:400;color:var(--line);line-height:10px;}.ide .campaign-drill-path .on{color:var(--blue);}
 .ide .campaign-breadcrumb{display:flex;align-items:center;gap:7px;margin:0 0 12px;font-size:11.5px;min-width:0;}.ide .campaign-breadcrumb button{border:0;background:none;padding:0;color:var(--blue);font:inherit;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px;}.ide .campaign-breadcrumb button:hover{text-decoration:underline;}.ide .campaign-breadcrumb span{color:var(--faint);}.ide .campaign-breadcrumb strong{color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ide .campaign-drill-error{margin:0 0 12px;border:1px solid rgba(244,116,127,.3);border-radius:6px;background:rgba(244,116,127,.08);color:var(--red);font-size:11.5px;padding:8px 10px;}
-.ide .meta-framework{border:1px solid rgba(110,168,254,.26);border-radius:8px;background:rgba(110,168,254,.055);padding:12px 14px;margin:0 0 15px;max-width:880px;}.ide .meta-framework-title{font-size:12px;font-weight:800;color:var(--txt);margin:0 0 4px;}.ide .meta-framework-copy{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0;}.ide .meta-framework code{font-size:10.5px;color:var(--blue);background:rgba(110,168,254,.1);border-radius:3px;padding:1px 4px;}.ide .meta-framework-list{margin:10px 0 0;padding:9px 0 0 18px;border-top:1px solid rgba(110,168,254,.16);color:var(--dim);font-size:11px;line-height:1.55;}.ide .meta-framework-list li+li{margin-top:4px;}
+.ide .campaign-drill-tools{display:flex;align-items:center;gap:7px;}
+.ide .meta-internal-note{position:relative;z-index:8;}
+.ide .meta-internal-note summary{display:grid;place-items:center;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;background:var(--panel);color:var(--faint);font-size:11px;font-weight:800;font-style:normal;cursor:pointer;list-style:none;user-select:none;}
+.ide .meta-internal-note summary::-webkit-details-marker{display:none;}
+.ide .meta-internal-note summary:hover,.ide .meta-internal-note[open] summary{border-color:rgba(110,168,254,.5);color:var(--blue);background:rgba(110,168,254,.08);}
+.ide .meta-internal-note-popover{position:absolute;right:0;top:calc(100% + 7px);width:min(520px,calc(100vw - 48px));border:1px solid rgba(110,168,254,.3);border-radius:8px;background:var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.38);padding:12px 14px;text-align:left;}
+.ide .meta-internal-note-title{font-size:12px;font-weight:800;color:var(--txt);margin:0 0 4px;}
+.ide .meta-internal-note-copy{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0;}
+.ide .meta-internal-note code{font-size:10.5px;color:var(--blue);background:rgba(110,168,254,.1);border-radius:3px;padding:1px 4px;}
+.ide .meta-internal-note-list{margin:10px 0 0;padding:9px 0 0 18px;border-top:1px solid rgba(110,168,254,.16);color:var(--dim);font-size:11px;line-height:1.55;}
+.ide .meta-internal-note-list li+li{margin-top:4px;}
 
 /* campaign builder sheet */
 .ide .cb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
@@ -4335,7 +4382,7 @@ const CSS = `
 .ide .set-actions{display:flex;align-items:center;gap:10px;margin-top:14px;}
 .ide .set-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:11.5px;padding:5px 14px;cursor:pointer;white-space:nowrap;}
 .ide .set-btn:hover:not(:disabled){border-color:var(--dim);}
-.ide .set-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
+.ide .set-btn.primary{background:rgb(var(--blue-500,110 168 254));border-color:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;}
 .ide .set-btn:disabled{opacity:.5;cursor:default;}
 /* client Leads view */
 .ide .v-h-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}

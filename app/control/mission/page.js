@@ -1545,7 +1545,7 @@ const CSS = `
 .aide .burger{background:none;border:none;color:var(--faint);font:inherit;padding:0 12px;cursor:pointer;border-right:1px solid var(--line);}
 .aide .burger:hover{color:var(--txt);}
 .aide .tab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12px;color:var(--dim);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;}
-.aide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 var(--blue);}
+.aide .tab.on{color:var(--txt);background:var(--bg);box-shadow:inset 0 2px 0 rgb(var(--blue-500,110 168 254));}
 .aide .tab-x{color:var(--faint);font-size:13px;}.aide .tab-x:hover{color:var(--txt);}
 .aide .tab-spacer{flex:1;}
 .aide .view{flex:1;overflow-y:auto;min-height:0;position:relative;}
@@ -1593,7 +1593,7 @@ const CSS = `
 .aide .pill.sent{background:rgba(242,180,92,.16);color:var(--amber);}
 .aide .pill.won{background:rgba(63,214,143,.14);color:var(--green);}
 .aide .a-btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;}
-.aide .a-btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);font-weight:700;}
+.aide .a-btn.primary{background:rgb(var(--blue-500,110 168 254));border-color:rgb(var(--blue-500,110 168 254));color:#fff;font-weight:700;}
 .aide .a-btn:hover{border-color:var(--dim);}
 .aide .panel{min-height:120px;display:flex;flex-direction:column;border-top:1px solid var(--line);background:var(--bg);flex-shrink:0;position:relative;}
 .aide .panel-tabs{display:flex;gap:2px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px;height:30px;font-size:10.5px;font-weight:800;letter-spacing:.06em;flex-shrink:0;}
