@@ -173,6 +173,17 @@ Steps for the user (mostly manual/Meta-side, not code):
 - Agency-level mission view = `app/control/mission/page.js` (login already sends
   agency admins there).
 
+### Agency mission — Leads view (renamed + CRUD)
+
+- `app/control/mission/page.js` is the **agency-level** mission (separate file
+  from the client mission `[clientId]/mission/page.js`). CSS prefix is `.aide`.
+- Renamed tab/view **"Leads / Pipeline" → "Leads"**. `LeadsView` now has:
+  a "+ New lead" inline form (company/name/email/phone → POST `/api/agency-leads`
+  with `notify:false`), per-row delete (DELETE `/api/agency-leads/<id>`), and a
+  leading **checkbox column** with "Delete N selected" bulk action. `loadLeads`
+  (parent) passed as `onRefresh`. Row cells still open the agreement; checkbox/
+  delete `stopPropagation`.
+
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
