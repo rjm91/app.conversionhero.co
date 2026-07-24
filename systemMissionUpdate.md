@@ -184,6 +184,25 @@ Steps for the user (mostly manual/Meta-side, not code):
   (parent) passed as `onRefresh`. Row cells still open the agreement; checkbox/
   delete `stopPropagation`.
 
+### Contour Scottsdale created (client ch1001)
+
+- Created via direct `psql` INSERT into `client`: `client_id='ch1001'`,
+  `client_name='Contour Scottsdale'`, `industry='Esthetician / Med Spa'`,
+  `city='Scottsdale'`, `state='AZ'`, `account_type='home_service'`,
+  `is_ecom=false`, `agency_id=11111111-…` (ConversionHero),
+  `settings={"vertical":"esthetician","service_mode":"in_person_or_virtual"}`.
+- **Account types in the system are only `ecom` and `home_service`** — there is
+  no distinct esthetician/local-service type; `home_service` IS the local-service
+  / appointment / lead-gen bucket (all 70 non-ShieldTech clients).
+- Client-id numbering is quirky (highest is `ch1000` by string sort → the
+  clients API generates `ch1001` next). We used ch1001.
+- **RE-SURFACES the ecom-vs-lead-gen decision:** Contour is `home_service`, so
+  its mission **PnL will render empty** ("no orders or spend in this range") —
+  the PnL reads `client_orders`, which a lead-gen client doesn't have. Meta
+  connect + Paid Ads still work. This is the first REAL non-ecom client under the
+  mission-default, so the decision (lead-gen mission variant vs. default non-ecom
+  to classic vs. accept empty PnL) now has a concrete test case. NOT yet built.
+
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
