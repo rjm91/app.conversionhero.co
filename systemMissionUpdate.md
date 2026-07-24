@@ -232,6 +232,19 @@ Steps for the user (mostly manual/Meta-side, not code):
   `sale_status` / `sale_amount` (per the user, IG replies + form fills create the
   lead; outcomes are updated on the row).
 
+### Contour brand board (set)
+
+- `client.branding` for ch1001 set to the luxury-minimal aesthetic:
+  brandName "Contour Scottsdale", tagline "Luxury minimal · black-and-white
+  imagery", font "Light serif", colors [Antique Gold #A18B69 (accent, first →
+  becomes the app accent scale), Charcoal #252525 (text), Off-white #FCFCFC
+  (background), Warm cream #F6F5F2 (sections)], plus imagery/aesthetic keys.
+- Branding schema = `{ brandName, tagline, font, colors:[{hex,role}], logoUrl,
+  … }`. The app **brand accent** (`--blue-*` scale in layout.js) uses the color
+  whose role is "primary", else `colors[0]` — so gold #A18B69 drives Contour's
+  mission accent (zoom buttons, calendar highlights). Editable in the client
+  Company tab (BrandBoardCard / EditBrandModal).
+
 ### Other noted gaps (out of scope for Contour)
 
 - TikTok "Connect TikTok →" button on paid-ads is also dead (no handler).
