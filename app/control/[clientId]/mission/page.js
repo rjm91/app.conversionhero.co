@@ -2422,6 +2422,12 @@ function ClientLeadsView({ clientId }) {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(CLIENT_LEAD_EMPTY)
   const [busy, setBusy] = useState(false)
+  const [activeLeadId, setActiveLeadId] = useState(null)
+  const [activity, setActivity] = useState(null)
+  const [activityType, setActivityType] = useState('note')
+  const [activityBody, setActivityBody] = useState('')
+  const [activityBusy, setActivityBusy] = useState(false)
+  const [activityError, setActivityError] = useState('')
 
   const load = useCallback(() => {
     supabase.from('client_lead')
@@ -2430,6 +2436,29 @@ function ClientLeadsView({ clientId }) {
       .then(({ data }) => setRows(data || [])).catch(() => setRows([]))
   }, [clientId])
   useEffect(() => { load() }, [load])
+
+  const loadActivity = useCallback(async (leadId) => {
+    if (!leadId) return
+    setActivity(null)
+    setActivityError('')
+    const { data, error } = await supabase.from('client_lead_notes')
+      .select('id, entry_type, body, created_by_name, created_at')
+      .eq('client_id', clientId).eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+    if (error) {
+      setActivity([])
+      setActivityError('Could not load this lead\'s activity yet.')
+      return
+    }
+    setActivity(data || [])
+  }, [clientId])
+  useEffect(() => {
+    if (!activeLeadId) { setActivity(null); setActivityError(''); return }
+    loadActivity(activeLeadId)
+  }, [activeLeadId, loadActivity])
+  useEffect(() => {
+    if (activeLeadId && rows && !rows.some(r => r.lead_id === activeLeadId)) setActiveLeadId(null)
+  }, [activeLeadId, rows])
 
   const toggle = (id) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSel = rows && rows.length > 0 && sel.size === rows.length
@@ -2451,19 +2480,52 @@ function ClientLeadsView({ clientId }) {
   const del = async (id) => {
     if (!confirm('Delete this lead? This cannot be undone.')) return
     await supabase.from('client_lead').delete().eq('client_id', clientId).eq('lead_id', id)
-    setSel(s => { const n = new Set(s); n.delete(id); return n }); load()
+    setSel(s => { const n = new Set(s); n.delete(id); return n })
+    if (activeLeadId === id) setActiveLeadId(null)
+    load()
   }
   const delSelected = async () => {
     if (!sel.size || !confirm(`Delete ${sel.size} lead${sel.size === 1 ? '' : 's'}? This cannot be undone.`)) return
     setBusy(true)
     await supabase.from('client_lead').delete().eq('client_id', clientId).in('lead_id', [...sel])
+    if (sel.has(activeLeadId)) setActiveLeadId(null)
     setSel(new Set()); load(); setBusy(false)
   }
 
+  const addActivity = async () => {
+    const body = activityBody.trim()
+    if (!activeLeadId || !body || activityBusy) return
+    setActivityBusy(true)
+    setActivityError('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sign in to add lead activity.')
+      const { data: profile } = await supabase.from('profiles').select('id, full_name').eq('id', user.id).maybeSingle()
+      const author = profile?.full_name?.trim() || user.user_metadata?.full_name || user.email || 'Team member'
+      const { data, error } = await supabase.from('client_lead_notes').insert({
+        client_id: clientId,
+        lead_id: activeLeadId,
+        entry_type: activityType,
+        body,
+        created_by: profile?.id ? user.id : null,
+        created_by_name: author,
+      }).select('id, entry_type, body, created_by_name, created_at').single()
+      if (error) throw error
+      setActivity(items => [data, ...(items || [])])
+      setActivityBody('')
+    } catch (error) {
+      setActivityError(error?.message || 'Could not save this activity.')
+    }
+    setActivityBusy(false)
+  }
+
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const activeLead = rows?.find(r => r.lead_id === activeLeadId) || null
+  const leadName = (r) => [r?.first_name, r?.last_name].filter(Boolean).join(' ') || 'Unnamed lead'
+  const activityTime = (value) => new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   if (!rows) return <p className="loading v-pad">loading leads…</p>
   return (
-    <div className="v-pad">
+    <div className="v-pad leads-pad">
       <div className="v-h-row">
         <h4 className="v-h" style={{ margin: 0 }}>Leads</h4>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2485,31 +2547,75 @@ function ClientLeadsView({ clientId }) {
       )}
 
       {!rows.length ? <p className="a-dim" style={{ marginTop: 12 }}>No leads yet — add one with “+ New lead”, or they’ll arrive from IG DMs and funnel fills.</p> : (
-        <div className="dpnl dp2 cl-leads" style={{ maxHeight: 'calc(100vh - 260px)', marginTop: 10 }}>
-          <table>
-            <thead><tr>
-              <th style={{ width: 28 }}><input type="checkbox" checked={allSel} onChange={toggleAll} title="select all" /></th>
-              <th style={{ textAlign: 'left' }}>Name</th><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Phone</th>
-              <th style={{ textAlign: 'left' }}>Zip</th><th style={{ textAlign: 'left' }}>Source</th><th style={{ textAlign: 'left' }}>Status</th>
-              <th style={{ textAlign: 'left' }}>Added</th><th style={{ width: 32 }}></th>
-            </tr></thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.lead_id} className={sel.has(r.lead_id) ? 'on' : ''}>
-                  <td><input type="checkbox" checked={sel.has(r.lead_id)} onChange={() => toggle(r.lead_id)} /></td>
-                  <td style={{ textAlign: 'left' }}>{[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}</td>
-                  <td style={{ textAlign: 'left' }}>{r.email || '—'}</td>
-                  <td style={{ textAlign: 'left' }}>{r.phone || '—'}</td>
-                  <td style={{ textAlign: 'left' }}>{r.zip_code || '—'}</td>
-                  <td style={{ textAlign: 'left' }}>{src(r)}</td>
-                  <td style={{ textAlign: 'left' }}>{r.sale_status || r.appt_status || r.lead_status || 'New'}</td>
-                  <td style={{ textAlign: 'left' }}>{r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
-                  <td><button className="lead-del" title="delete lead" onClick={() => del(r.lead_id)}>🗑</button></td>
-                </tr>
+        <>
+          <div className="dpnl dp2 cl-leads" style={{ maxHeight: 'calc(100vh - 260px)', marginTop: 10 }}>
+            <table>
+              <thead><tr>
+                <th style={{ width: 28 }}><input type="checkbox" checked={allSel} onChange={toggleAll} title="select all" /></th>
+                <th style={{ textAlign: 'left' }}>Name</th><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Phone</th>
+                <th style={{ textAlign: 'left' }}>Zip</th><th style={{ textAlign: 'left' }}>Source</th><th style={{ textAlign: 'left' }}>Status</th>
+                <th style={{ textAlign: 'left' }}>Added</th><th style={{ width: 32 }}></th>
+              </tr></thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.lead_id} className={`${sel.has(r.lead_id) ? 'on ' : ''}${activeLeadId === r.lead_id ? 'active' : ''}`} onClick={() => setActiveLeadId(r.lead_id)}>
+                    <td><input type="checkbox" checked={sel.has(r.lead_id)} onClick={e => e.stopPropagation()} onChange={() => toggle(r.lead_id)} /></td>
+                    <td style={{ textAlign: 'left' }}>{leadName(r)}</td>
+                    <td style={{ textAlign: 'left' }}>{r.email || '—'}</td>
+                    <td style={{ textAlign: 'left' }}>{r.phone || '—'}</td>
+                    <td style={{ textAlign: 'left' }}>{r.zip_code || '—'}</td>
+                    <td style={{ textAlign: 'left' }}>{src(r)}</td>
+                    <td style={{ textAlign: 'left' }}>{r.sale_status || r.appt_status || r.lead_status || 'New'}</td>
+                    <td style={{ textAlign: 'left' }}>{r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                    <td><button className="lead-del" title="delete lead" onClick={e => { e.stopPropagation(); del(r.lead_id) }}>🗑</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {activeLead && <section className="lead-activity" aria-label={`${leadName(activeLead)} activity`}>
+            <div className="lead-activity-head">
+              <div>
+                <div className="lead-activity-eyebrow">Lead activity</div>
+                <div className="lead-activity-name">{leadName(activeLead)}</div>
+                <div className="lead-activity-meta">{[activeLead.email, activeLead.phone, src(activeLead), activeLead.sale_status || activeLead.appt_status || activeLead.lead_status || 'New'].filter(Boolean).join(' · ')}</div>
+              </div>
+              <button className="lead-close" type="button" onClick={() => setActiveLeadId(null)} aria-label="Close lead activity">×</button>
+            </div>
+
+            <div className="lead-composer">
+              <div className="lead-composer-top">
+                <div>
+                  <div className="lead-composer-title">Add to history</div>
+                  <div className="lead-composer-note">Every entry records who added it and when.</div>
+                </div>
+                <div className="lead-entry-types" aria-label="Activity type">
+                  <button type="button" className={activityType === 'note' ? 'on' : ''} onClick={() => setActivityType('note')}>Note</button>
+                  <button type="button" className={activityType === 'message' ? 'on' : ''} onClick={() => setActivityType('message')}>Message</button>
+                </div>
+              </div>
+              <textarea value={activityBody} onChange={e => setActivityBody(e.target.value)} placeholder={activityType === 'message' ? 'Log the message or conversation details…' : 'Write a note about this lead…'} />
+              <div className="lead-composer-actions">
+                {activityError && <span className="set-msg bad">{activityError}</span>}
+                <button type="button" className="set-btn primary" disabled={activityBusy || !activityBody.trim()} onClick={addActivity}>{activityBusy ? 'Saving…' : activityType === 'message' ? 'Log message' : 'Add note'}</button>
+              </div>
+            </div>
+
+            <div className="lead-timeline">
+              <div className="lead-timeline-title">History</div>
+              {activity === null ? <p className="a-dim">loading activity…</p> : !activity.length ? <p className="a-dim">No notes or messages yet. Add the first entry above.</p> : activity.map(item => (
+                <article className={`lead-entry ${item.entry_type}`} key={item.id}>
+                  <div className="lead-entry-head">
+                    <span className="lead-entry-type">{item.entry_type === 'message' ? 'Message' : 'Note'}</span>
+                    <span className="lead-entry-by">{item.created_by_name || 'Team member'} · {activityTime(item.created_at)}</span>
+                  </div>
+                  <div className="lead-entry-body">{item.body}</div>
+                </article>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </section>}
+        </>
       )}
     </div>
   )
@@ -4342,11 +4448,44 @@ const CSS = `
 .ide .lead-new{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);}
 .ide .lead-new input{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12.5px;padding:6px 10px;}
 .ide .lead-new input:focus{outline:none;border-color:rgb(var(--blue-500,110 168 254));}
+.ide .leads-pad{max-width:none;width:100%;}
+.ide .cl-leads{width:100%;max-width:none;}
+.ide .cl-leads table{width:100%;min-width:920px;}
 .ide .cl-leads input[type=checkbox]{accent-color:rgb(var(--blue-500,110 168 254));cursor:pointer;}
 .ide .cl-leads tr.on td{background:rgb(var(--blue-500,110 168 254) / .10);}
+.ide .cl-leads tbody tr{cursor:pointer;}
+.ide .cl-leads tr.active td{background:rgb(var(--blue-500,110 168 254) / .13);}
+.ide .cl-leads tr.active td:first-child{background:rgb(var(--blue-500,110 168 254) / .13);}
 .ide .cl-leads .lead-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:12px;opacity:0;padding:2px;}
 .ide .cl-leads tr:hover .lead-del{opacity:1;}
 .ide .cl-leads .lead-del:hover{color:var(--red);}
+.ide .lead-activity{width:100%;margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden;}
+.ide .lead-activity-head{display:flex;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel2);}
+.ide .lead-activity-eyebrow,.ide .lead-timeline-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);}
+.ide .lead-activity-name{margin-top:3px;font-size:15px;font-weight:750;color:var(--txt);}
+.ide .lead-activity-meta{margin-top:4px;font-size:11.5px;color:var(--dim);overflow-wrap:anywhere;}
+.ide .lead-close{width:25px;height:25px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--dim);font:inherit;font-size:19px;line-height:1;cursor:pointer;}
+.ide .lead-close:hover{color:var(--txt);border-color:var(--dim);}
+.ide .lead-composer{margin:14px 16px;padding:13px;border:1px solid var(--line);border-radius:8px;background:var(--bg);}
+.ide .lead-composer-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.ide .lead-composer-title{font-size:12px;font-weight:750;color:var(--txt);}
+.ide .lead-composer-note{margin-top:2px;font-size:10.5px;color:var(--faint);}
+.ide .lead-entry-types{display:flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);}
+.ide .lead-entry-types button{border:0;border-radius:4px;background:transparent;color:var(--dim);font:inherit;font-size:10.5px;font-weight:700;padding:4px 9px;cursor:pointer;}
+.ide .lead-entry-types button.on{background:var(--blue);color:var(--bg);}
+.ide .lead-composer textarea{display:block;box-sizing:border-box;width:100%;min-height:76px;resize:vertical;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:12px;line-height:1.45;padding:8px 10px;}
+.ide .lead-composer textarea:focus{outline:none;border-color:var(--blue);}
+.ide .lead-composer-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;}
+.ide .lead-timeline{padding:0 16px 16px;}
+.ide .lead-timeline .a-dim{margin:9px 0 0;font-size:11.5px;}
+.ide .lead-entry{margin-top:8px;padding:10px 11px;border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:7px;background:var(--bg);}
+.ide .lead-entry.message{border-left-color:var(--green);}
+.ide .lead-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.ide .lead-entry-type{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);}
+.ide .lead-entry.message .lead-entry-type{color:var(--green);}
+.ide .lead-entry-by{font-size:10.5px;color:var(--faint);}
+.ide .lead-entry-body{margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--txt);font-size:12px;line-height:1.45;}
+@media(max-width:700px){.ide .cl-leads table{min-width:760px;}.ide .lead-composer-top{align-items:stretch;flex-direction:column;}.ide .lead-entry-types{align-self:flex-start;}}
 .ide .set-msg{font-size:11.5px;} .ide .set-msg.good{color:var(--green);} .ide .set-msg.bad{color:var(--red);}
 .ide .pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:idepu 2s infinite;}
 @keyframes idepu{50%{opacity:.3;}}
